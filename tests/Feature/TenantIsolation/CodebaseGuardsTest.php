@@ -2,9 +2,11 @@
 
 use App\Jobs\TenantJob;
 use App\Models\Concerns\BelongsToTenant;
+use App\Tenancy\TenantBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use Tests\Fixtures\TenantRecord;
 
 // Guards that make new code fail CI when it skips tenant isolation (docs/spec.md 5.3, T06).
 
@@ -74,6 +76,25 @@ test('every model with a tenant_id column uses BelongsToTenant', function () {
     }
 
     expect($offenders)->toBe([], 'Models with tenant_id without BelongsToTenant: '.implode(', ', $offenders));
+});
+
+test('every model with BelongsToTenant queries through TenantBuilder', function () {
+    $offenders = [];
+
+    // The write guards live in TenantBuilder (newEloquentBuilder in the trait). A model that
+    // overrides newEloquentBuilder() or uses #[UseEloquentBuilder] would lose them silently.
+    foreach ([...classesIn('app/Models', 'App\\Models'), TenantRecord::class] as $class) {
+        $reflection = new ReflectionClass($class);
+        if ($reflection->isAbstract() || ! in_array(BelongsToTenant::class, class_uses_recursive($class), true)) {
+            continue;
+        }
+
+        if (! $class::query() instanceof TenantBuilder) {
+            $offenders[] = $class;
+        }
+    }
+
+    expect($offenders)->toBe([], 'Tenant models without TenantBuilder: '.implode(', ', $offenders));
 });
 
 test('every MCP tool is in the MCP tool register, and the register has no stale entries', function () {
