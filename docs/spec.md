@@ -973,14 +973,41 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
 Alle tre agentene kobles til Board-MCP (`https://board.maksimer.com/mcp`) og til GitHub.
 
 | Agent | Board-MCP | Instruksjoner | Modell |
-|
+|---|---|---|---|
+| Claude Code | `claude mcp add --transport http board https://board.maksimer.com/mcp` | `CLAUDE.md` (importerer `AGENTS.md`) | velges per økt: Opus 5.5 eller Sonnet 5.5 etter oppgaven |
+| Codex | Board legges inn som MCP-server i `~/.codex/config.toml` | `AGENTS.md` | GPT-6.1 Sol eller Terra etter oppgaven |
+| Cursor | `.cursor/mcp.json` i repoet med Board som server | `.cursor/rules/ekko.mdc`, som peker til `AGENTS.md` og `docs/spec.md` | Grok 4.7 valgt i modellvelgeren |
+
+
+`AGENTS.md` inneholder arbeidsflyten i 19.3 med agentens merkelapp. Hver agent får i tillegg beskjed i sin egen instruksjonsfil om hvilken merkelapp den skal ta.
 
 ### 19.5 Kryssreview av pull requests
 
 Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot-brukere på PR-en, slik at det er tydelig hvem som har reviewet, også når alle agentene ellers bruker samme GitHub-konto.
 
 | PR fra | Reviewer | Integrasjon |
-|### 19.6 Lokalt oppsett
+|---|---|---|
+| `[Codex]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
+| `[Cursor]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
+| `[Claude Code]` | Codex med GPT-6.1 Sol | ChatGPT Codex-tilkoblingen med kodereview slått på |
+
+**Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex GPT-6.1 Sol, uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
+
+**Workflow** (`.github/workflows/agent-review.yml`), som kjører når en PR åpnes eller oppdateres:
+1. Leser merkelappen i PR-tittelen og de endrede filene.
+2. For `[Codex]`- og `[Cursor]`-PR-er kjøres `claude-code-action` med Opus 5.5 og en review-instruks som viser til `AGENTS.md`, `docs/spec.md` og akseptkriteriene i Board-oppgaven.
+3. For `[Claude Code]`-PR-er og følsomme endringer postes kommentaren `@codex review` på PR-en.
+4. Hver reviewer avslutter med en tydelig konklusjon: «GODKJENT» eller «ENDRINGER KREVES», med konkrete punkter.
+
+**Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre runder uten godkjenning postes en `blocker` på Board, og eieren avgjør.
+
+**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI og grønn `agent-review` før eieren kan merge.
+
+**Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
+
+**Før workflowen er på plass** (frem til T42 er merget) utløses review manuelt ved å kommentere `@claude review` eller `@codex review` på PR-en.
+
+### 19.6 Lokalt oppsett
 
 Agentene jobber aldri i samme mappe. Hver agentøkt som kjører lokalt, har sin egen arbeidskopi i form av en `git worktree` fra én felles klone:
 
@@ -1007,34 +1034,6 @@ Opprettes med `git worktree add ../ekko-claude origin/main` (tilsvarende for de 
 - `vendor/` og `node_modules/` installeres i hver worktree.
 
 **Skybaserte økter:** Codex i skyen og Cursors bakgrunnsagenter kjører i egne containere koblet til GitHub og trenger ingen lokal mappe. De bruker oppsettskriptet `scripts/agent-setup.sh`, som installerer avhengigheter, starter Postgres og kjører migreringer med testdata. Skriptet lages i T01.
-
----|---|---|
-| `[Codex]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
-| `[Cursor]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
-| `[Claude Code]` | Codex med GPT-6.1 Sol | ChatGPT Codex-tilkoblingen med kodereview slått på |
-
-**Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex GPT-6.1 Sol, uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
-
-**Workflow** (`.github/workflows/agent-review.yml`), som kjører når en PR åpnes eller oppdateres:
-1. Leser merkelappen i PR-tittelen og de endrede filene.
-2. For `[Codex]`- og `[Cursor]`-PR-er kjøres `claude-code-action` med Opus 5.5 og en review-instruks som viser til `AGENTS.md`, `docs/spec.md` og akseptkriteriene i Board-oppgaven.
-3. For `[Claude Code]`-PR-er og følsomme endringer postes kommentaren `@codex review` på PR-en.
-4. Hver reviewer avslutter med en tydelig konklusjon: «GODKJENT» eller «ENDRINGER KREVES», med konkrete punkter.
-
-**Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre runder uten godkjenning postes en `blocker` på Board, og eieren avgjør.
-
-**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI og grønn `agent-review` før eieren kan merge.
-
-**Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
-
-**Før workflowen er på plass** (frem til T42 er merget) utløses review manuelt ved å kommentere `@claude review` eller `@codex review` på PR-en.
-
----|---|---|---|
-| Claude Code | `claude mcp add --transport http board https://board.maksimer.com/mcp` | `CLAUDE.md` (importerer `AGENTS.md`) | velges per økt: Opus 5.5 eller Sonnet 5.5 etter oppgaven |
-| Codex | Board legges inn som MCP-server i `~/.codex/config.toml` | `AGENTS.md` | GPT-6.1 Sol eller Terra etter oppgaven |
-| Cursor | `.cursor/mcp.json` i repoet med Board som server | `.cursor/rules/ekko.mdc`, som peker til `AGENTS.md` og `docs/spec.md` | Grok 4.7 valgt i modellvelgeren |
-
-`AGENTS.md` inneholder arbeidsflyten i 19.3 med agentens merkelapp. Hver agent får i tillegg beskjed i sin egen instruksjonsfil om hvilken merkelapp den skal ta.
 
 ---
 
