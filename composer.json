@@ -80,6 +80,10 @@
         ],
         "format": [
             "vendor/bin/pint"
+        ],
+        "test:isolation": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test tests/Feature/TenantIsolation tests/Feature/Tenancy tests/Feature/Access"
         ]
     },
     "extra": {
