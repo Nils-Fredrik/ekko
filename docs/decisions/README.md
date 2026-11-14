@@ -12,4 +12,5 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0002](0002-tenant-kontekst.md) | Tenant-kontekst og regler for tenant-eide modeller | Akseptert |
 | [0003](0003-rls-rolle-og-transaksjon.md) | Rolle, transaksjon og migreringshjelper for row-level security | Akseptert |
 | [0004](0004-roller-og-tenanttilgang.md) | Roller, partner-tilgang og «opptre som tenant» | Akseptert |
-| [0005](0005-tenant-eide-tabellrelasjoner.md) | Fremmednøkler for tenant-eide data | Akseptert |
+| [0005](0005-isolasjonstestsuite.md) | Isolasjonstestsuite med ruteregister | Akseptert |
+| [0006](0006-tenant-eide-tabellrelasjoner.md) | Fremmednøkler for tenant-eide data | Akseptert |

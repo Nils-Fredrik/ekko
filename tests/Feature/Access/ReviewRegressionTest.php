@@ -170,3 +170,24 @@ test('the switcher uses a fixed number of queries, however many client tenants t
 
     expect($queriesFor(10))->toBe($queriesFor(1));
 });
+
+test('a tenant reached only by acting as it is not in the switcher and is never stored as current tenant', function () {
+    $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
+    $own = $admin->personalTeam();
+    $admin->switchTeam($own);
+    $target = Team::factory()->tenant()->create(['name' => 'Customer AS']);
+
+    $this->actingAs($admin)->withSession(['auth.password_confirmed_at' => time()])
+        ->post("/admin/acting-as/{$target->id}", ['reason' => 'Support case 4711']);
+
+    expect($admin->fresh()->allTeams()->pluck('id')->all())->not->toContain($target->id);
+
+    $this->put('/current-team', ['team_id' => $target->id])->assertForbidden();
+    expect($admin->fresh()->current_team_id)->toBe($own->id);
+
+    // Acting-as still works for the request: context and navigation show the target.
+    $this->get('/dashboard')->assertInertia(fn ($page) => $page->where('auth.user.current_team.id', $target->id));
+
+    $this->delete('/admin/acting-as');
+    $this->get('/dashboard')->assertInertia(fn ($page) => $page->where('auth.user.current_team.id', $own->id));
+});

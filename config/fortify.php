@@ -172,9 +172,11 @@ return [
             'confirmPassword' => true,
             // 'window' => 0,
         ]),
-        Features::passkeys([
-            'confirmPassword' => true,
-        ]),
+        // Passkeys are not part of the login methods in docs/spec.md 5.4, and the User model does
+        // not implement the PasskeyUser contract (every passkey route answered 500).
+        // Features::passkeys([
+        //     'confirmPassword' => true,
+        // ]),
     ],
 
 ];

@@ -33,7 +33,9 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // Off: Ekko stores files in Cloud Storage, and Laravel would otherwise register
+            // unauthenticated storage/{path} routes (GET and PUT) for this disk.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],
