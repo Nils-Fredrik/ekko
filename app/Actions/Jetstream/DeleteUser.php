@@ -24,9 +24,10 @@ class DeleteUser implements DeletesUsers
         // Only the platform admin deletes tenants (docs/spec.md 5.2). Deleting the account would
         // delete every tenant the user owns, so it is refused while the user owns a tenant.
         if ($user->ownedTeams()->where('personal_team', false)->exists()) {
+            // Default error bag: DeleteUserForm.vue reads form.errors.password.
             throw ValidationException::withMessages([
                 'password' => __('app.account.owns_tenants'),
-            ])->errorBag('deleteUser');
+            ]);
         }
 
         DB::transaction(function () use ($user) {

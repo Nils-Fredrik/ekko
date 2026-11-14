@@ -114,7 +114,7 @@ test('a tenant owner cannot delete the tenant by deleting their account', functi
 
     $this->actingAs($owner)
         ->delete('/user', ['password' => 'password'])
-        ->assertSessionHasErrorsIn('deleteUser', 'password');
+        ->assertSessionHasErrors(['password' => __('app.account.owns_tenants')]);
 
     expect($owner->fresh())->not->toBeNull()
         ->and($tenant->fresh())->not->toBeNull();

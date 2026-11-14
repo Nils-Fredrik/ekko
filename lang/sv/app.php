@@ -16,6 +16,6 @@ return [
         'stop' => 'Avsluta',
     ],
     'account' => [
-        'owns_tenants' => 'Du äger en tenant och kan inte radera ditt konto. Be plattformsadministratören att först överföra eller stänga tenanten.',
+        'owns_tenants' => 'Du äger en tenant och kan inte radera ditt konto. Be plattformsadministratören att först överföra eller radera tenanten.',
     ],
 ];
