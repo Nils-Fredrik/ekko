@@ -31,7 +31,7 @@ Du tar bare oppgaver med din egen merkelapp.
    ```
 6. Gjør oppgaven etter beskrivelsen og akseptkriteriene på Board og i `docs/spec.md`.
 7. Post på Board underveis, ett poeng per post: `decision`, `blocker`, `finding` eller `question`. Maks 500 tegn, ingen hemmeligheter eller kundedata.
-8. Kjør tester og kodekontroller lokalt (`composer test`, `composer lint`, `npm run lint`) før du åpner PR.
+8. Kjør tester og kodekontroller lokalt (`composer test`, `composer lint`, `npm run lint`) før du åpner PR. CI (`.github/workflows/ci.yml`) kjører det samme mot PostgreSQL 16 på hver PR og må være grønn før merge.
 9. Åpne PR med tittel «[Agent] T<nr> – <tittel>» (samme som Board-oppgaven) og en beskrivelse med:
    - Board-oppgave (`task:<n>`) og T-nummer
    - hva som er gjort
