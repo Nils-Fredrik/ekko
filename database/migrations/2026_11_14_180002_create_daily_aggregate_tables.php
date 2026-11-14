@@ -32,6 +32,8 @@ return new class extends Migration
             $table->foreign(['tenant_id', 'prompt_id'])->references(['tenant_id', 'id'])->on('prompts')->cascadeOnDelete();
             $table->unique(['tenant_id', 'brand_id', 'market_id', 'engine_key', 'prompt_id', 'date'], 'agg_daily_dimensions_unique');
             $table->index(['tenant_id', 'brand_id', 'date']);
+            $table->index(['tenant_id', 'market_id']);
+            $table->index(['tenant_id', 'prompt_id']);
         });
         TenantSchema::enableRowLevelSecurity('agg_daily');
 
@@ -51,6 +53,7 @@ return new class extends Migration
             $table->foreign('engine_key')->references('key')->on('engines');
             $table->unique(['tenant_id', 'brand_id', 'market_id', 'engine_key', 'domain', 'date'], 'agg_source_daily_dimensions_unique');
             $table->index(['tenant_id', 'brand_id', 'date']);
+            $table->index(['tenant_id', 'market_id']);
         });
         TenantSchema::enableRowLevelSecurity('agg_source_daily');
 
