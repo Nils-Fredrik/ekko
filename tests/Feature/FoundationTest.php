@@ -27,3 +27,7 @@ test('the default locale is Norwegian Bokmål and is shared with the frontend', 
         ->get('/dashboard')
         ->assertInertia(fn ($page) => $page->where('locale', 'nb'));
 });
+
+test('the database session runs in UTC, whatever the server time zone', function () {
+    expect(DB::selectOne('SHOW TIMEZONE')->TimeZone)->toBe('UTC');
+});
