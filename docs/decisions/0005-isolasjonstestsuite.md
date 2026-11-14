@@ -28,7 +28,8 @@ En policy kan ikke leses ut av ruten selv: autorisasjon skjer i kontrollere, pol
    - Ingen innlogget GET-side svarer med 5xx eller inneholder markøren fra B, sett som eier, partner-rådgiver og leser.
    - URL-ene bygges strengt. En parameter ruten ikke har, eller en manglende parameter på en rute som krever innlogging, gir feil i stedet for en 404 som ser grønn ut. Ruter merket `signed()` får en gyldig signatur, så testen når autorisasjonen bak signaturen.
 4. **Vern for kodebasen** (`CodebaseGuardsTest`):
-   - Alle køede klasser i `app/` (jobber, lyttere, varsler, mail) må arve `TenantJob`, som legger på `SetTenantContext` og `ApplyTenantRls`. `TenantAware` alene er ikke nok. Unntak må føres opp i `platform-jobs.php` med begrunnelse.
+   - Alle køede klasser i `app/` må arve `TenantJob`, som legger på `SetTenantContext` og `ApplyTenantRls`. `TenantAware` alene er ikke nok. Unntak må føres opp i `platform-jobs.php` med begrunnelse.
+   - Køet mail og køede varsler kan ikke arve `TenantJob`, fordi de allerede arver `Mailable` og `Notification`. Den første oppgaven som innfører slike (T24 eller T32), lager en trait som setter `tenantId()` og de samme to middleware-ene, og utvider vernet til å godta den. De skal ikke føres opp i `platform-jobs.php`.
    - Modeller med en `tenant_id`-kolonne må bruke `BelongsToTenant`.
    - MCP-tools i `app/Mcp/Tools` må stå i `mcp-tools.php` (T34 fyller det ut og utvider de genererte testene).
    - Testfilene i isolasjonssuiten og `tests/Pest.php` kan ikke inneholde `skip()`, `skipOn…()`, `todo()`, `only()` eller PHPUnit-markører for å hoppe over. `phpunit.xml` kan ikke ekskludere grupper eller mapper.

@@ -139,6 +139,9 @@ test('no signed-in page shows anything from another tenant', function () {
 
             $request = ($access->own ?? fn () => [])($this->s);
             $this->actingAs($this->s->userWithRole($role))->withSession(['auth.password_confirmed_at' => time()]);
+            // Signed routes are not scanned: today the only one (team-invitations.accept) changes data
+            // and is covered by the foreign check with a valid signature. A signed GET page that only
+            // shows data needs its own scan with a signed URL.
             $response = $this->get(RouteRegister::url($route, $request['params'] ?? [], $access->signed ? null : $access));
             $content = (string) $response->getContent();
 
