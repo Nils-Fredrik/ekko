@@ -19,6 +19,8 @@ final class ApplyTenantRls
             throw new LogicException($job::class.' must implement '.TenantAware::class.' to use '.self::class.'.');
         }
 
+        // Job middleware is created with new in TenantJob::middleware(), so it resolves its
+        // dependencies from the container instead of taking them in the constructor.
         return app(TenantRls::class)->run([$job->tenantId()], fn () => $next($job));
     }
 }

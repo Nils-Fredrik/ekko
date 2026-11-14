@@ -53,6 +53,40 @@ test('the audit reports a policy with another condition', function () {
     expect(RlsAudit::tablesMissingRls())->toHaveKey('test_wrong_policy');
 });
 
+test('the audit reports an extra permissive policy, which would widen access', function () {
+    Schema::create('test_extra_policy', function (Blueprint $table) {
+        $table->id();
+        TenantSchema::tenantColumn($table);
+    });
+    TenantSchema::enableRowLevelSecurity('test_extra_policy');
+    DB::statement('CREATE POLICY reporting ON test_extra_policy FOR SELECT USING (true)');
+
+    expect(RlsAudit::tablesMissingRls())->toBe(['test_extra_policy' => 'extra permissive policy reporting']);
+});
+
+test('the audit allows an extra restrictive policy, which only narrows access', function () {
+    Schema::create('test_restrictive_policy', function (Blueprint $table) {
+        $table->id();
+        TenantSchema::tenantColumn($table);
+    });
+    TenantSchema::enableRowLevelSecurity('test_restrictive_policy');
+    DB::statement('CREATE POLICY only_low_ids ON test_restrictive_policy AS RESTRICTIVE USING (id < 1000)');
+
+    expect(RlsAudit::tablesMissingRls())->not->toHaveKey('test_restrictive_policy');
+});
+
+test('the audit reports a tenant_isolation policy limited to one role', function () {
+    Schema::create('test_role_policy', function (Blueprint $table) {
+        $table->id();
+        TenantSchema::tenantColumn($table);
+    });
+    DB::statement('ALTER TABLE test_role_policy ENABLE ROW LEVEL SECURITY');
+    DB::statement('ALTER TABLE test_role_policy FORCE ROW LEVEL SECURITY');
+    DB::statement('CREATE POLICY tenant_isolation ON test_role_policy TO ekko_app USING ('.TenantSchema::POLICY_CONDITION.') WITH CHECK ('.TenantSchema::POLICY_CONDITION.')');
+
+    expect(RlsAudit::tablesMissingRls())->toBe(['test_role_policy' => 'policy does not apply to PUBLIC']);
+});
+
 test('the helper gives a table complete row-level security and can remove it again', function () {
     Schema::create('test_protected', function (Blueprint $table) {
         $table->id();

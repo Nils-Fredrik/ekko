@@ -130,8 +130,10 @@ return [
             'database' => env('APP_ENV') === 'testing'
                 ? env('DB_TEST_DATABASE', 'ekko_testing')
                 : env('DB_DATABASE', 'ekko'),
-            'username' => env('DB_ADMIN_USERNAME', env('DB_USERNAME', 'postgres')),
-            'password' => env('DB_ADMIN_PASSWORD', env('DB_PASSWORD', '')),
+            // An empty DB_ADMIN_* (as in .env.example) falls back to the normal login: env() only
+            // falls back on null, so ?: is needed.
+            'username' => env('DB_ADMIN_USERNAME') ?: env('DB_USERNAME', 'postgres'),
+            'password' => env('DB_ADMIN_PASSWORD') ?: env('DB_PASSWORD', ''),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
