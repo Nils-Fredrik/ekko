@@ -1,4 +1,4 @@
-# 0005 – Terraform, databasebrukere og deployansvar
+# 0006 – Terraform, databasebrukere og deployansvar
 
 - **Status:** Akseptert for implementering; produksjonsoppsett må verifiseres før lansering
 - **Dato:** 2026-11-14
