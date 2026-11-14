@@ -56,10 +56,15 @@ are T36. No Terraform resource should ever contain a secret value.
 
 The default bucket names are global. If they are already owned elsewhere,
 choose unique names using `raw_bucket_name` and `reports_bucket_name`; do not
-import or delete an existing bucket without verifying ownership. Raw response
-versions transition to Nearline after 90 days and become eligible for deletion
-at 400 days. Cloud Storage lifecycle processing is asynchronous and soft-delete
-retention can extend the period before permanent deletion.
+import or delete an existing bucket without verifying ownership. Standard raw
+response versions transition to Nearline at 90 days. Both live and noncurrent
+versions qualify for deletion 400 days after their creation. Cloud Storage
+first archives live versions and then permanently deletes them under the
+noncurrent rule. Lifecycle processing is asynchronous. Soft delete is disabled
+for the raw bucket so it adds no retention period.
+
+Secret payloads use a user-managed replica in `europe-west1`. Google Cloud fixes
+the replica location at secret creation.
 
 `terraform fmt -check -recursive`, `terraform validate`, and a reviewed live
 `terraform plan` are required checks. After an approved apply, run plan again to

@@ -61,6 +61,7 @@ resource "google_sql_database_instance" "postgres" {
   deletion_protection = true
 
   settings {
+    edition           = "ENTERPRISE"
     tier              = "db-g1-small"
     disk_type         = "PD_SSD"
     disk_size         = 20
@@ -89,16 +90,32 @@ resource "google_storage_bucket" "raw" {
   uniform_bucket_level_access = true
   public_access_prevention    = "enforced"
   versioning { enabled = true }
+  soft_delete_policy {
+    retention_duration_seconds = 0
+  }
   lifecycle_rule {
     action {
       type          = "SetStorageClass"
       storage_class = "NEARLINE"
     }
-    condition { age = 90 }
+    condition {
+      age                   = 90
+      matches_storage_class = ["STANDARD"]
+    }
   }
   lifecycle_rule {
     action { type = "Delete" }
-    condition { age = 400 }
+    condition {
+      age        = 400
+      with_state = "LIVE"
+    }
+  }
+  lifecycle_rule {
+    action { type = "Delete" }
+    condition {
+      age        = 400
+      with_state = "ARCHIVED"
+    }
   }
   lifecycle { prevent_destroy = true }
 }
@@ -115,7 +132,9 @@ resource "google_secret_manager_secret" "application" {
   for_each  = local.secrets
   secret_id = "ekko-${each.key}"
   replication {
-    auto {}
+    user_managed {
+      replicas { location = var.region }
+    }
   }
   depends_on = [google_project_service.api]
 }
@@ -153,6 +172,12 @@ resource "google_storage_bucket_iam_member" "raw_worker" {
   bucket = google_storage_bucket.raw.name
   role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.component["worker"].email}"
+}
+
+resource "google_storage_bucket_iam_member" "raw_web" {
+  bucket = google_storage_bucket.raw.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.component["web"].email}"
 }
 
 resource "google_storage_bucket_iam_member" "reports_worker" {

@@ -8,6 +8,11 @@ variable "region" {
   description = "Region for all regional resources."
   type        = string
   default     = "europe-west1"
+
+  validation {
+    condition     = var.region == "europe-west1"
+    error_message = "Ekko data must be stored in europe-west1."
+  }
 }
 
 variable "raw_bucket_name" {
