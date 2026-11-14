@@ -3,12 +3,14 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Tenancy\TenantAccess;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Jetstream\HasTeams;
@@ -61,6 +63,34 @@ class User extends Authenticatable
     public function isPlatformAdmin(): bool
     {
         return $this->is_platform_admin === true;
+    }
+
+    /**
+     * Switch the current tenant (the tenant switcher, docs/spec.md 5.4). Unlike Jetstream, a user
+     * may also switch to tenants reached through a partner, or to the tenant a platform admin acts as.
+     *
+     * @param  Team  $team
+     */
+    public function switchTeam($team): bool
+    {
+        if (! app(TenantAccess::class)->canAccess($this, $team)) {
+            return false;
+        }
+
+        $this->forceFill(['current_team_id' => $team->id])->save();
+        $this->setRelation('currentTeam', $team);
+
+        return true;
+    }
+
+    /**
+     * The tenants in the switcher: memberships and partner clients (TenantAccess).
+     *
+     * @return Collection<int, Team>
+     */
+    public function allTeams(): Collection
+    {
+        return app(TenantAccess::class)->accessibleTenants($this);
     }
 
     /**

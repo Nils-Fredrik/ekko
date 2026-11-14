@@ -10,4 +10,9 @@ return [
         'sv' => 'Svenska',
         'en' => 'English',
     ],
+    'acting_as' => [
+        'banner' => 'Du opptrer som :tenant.',
+        'reason' => 'Årsak: :reason',
+        'stop' => 'Avslutt',
+    ],
 ];

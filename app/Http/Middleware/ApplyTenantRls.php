@@ -2,7 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Team;
+use App\Models\User;
 use App\Tenancy\Rls\TenantRls;
+use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
@@ -15,19 +18,21 @@ use Symfony\Component\HttpFoundation\Response;
  * The transaction is rolled back when the response is a server error, so a failed request does
  * not leave half-finished writes.
  *
- * The tenants are the current tenant. TenantAccess (T05) adds partner client tenants.
+ * The tenants come from TenantAccess::rlsTenantIds(): the current tenant, plus its client tenants
+ * when the user is a partner advisor in it.
  */
 final class ApplyTenantRls
 {
     public function __construct(
         private readonly TenantRls $rls,
         private readonly TenantContext $context,
+        private readonly TenantAccess $access,
     ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
         return $this->rls->run(
-            $this->allowedTenantIds(),
+            $this->allowedTenantIds($request),
             fn (): Response => $next($request),
             fn (Response $response): bool => $response->getStatusCode() < 500,
         );
@@ -36,10 +41,17 @@ final class ApplyTenantRls
     /**
      * @return list<int>
      */
-    private function allowedTenantIds(): array
+    private function allowedTenantIds(Request $request): array
     {
         $tenantId = $this->context->id();
+        $user = $request->user();
 
-        return $tenantId === null ? [] : [$tenantId];
+        if ($tenantId === null || ! $user instanceof User) {
+            return [];
+        }
+
+        $tenant = Team::query()->find($tenantId);
+
+        return $tenant === null ? [] : $this->access->rlsTenantIds($user, $tenant);
     }
 }

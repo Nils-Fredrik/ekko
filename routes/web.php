@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ActingAsController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -14,4 +15,11 @@ Route::middleware([
     Route::get('/dashboard', function () {
         return Inertia::render('Dashboard');
     })->name('dashboard');
+
+    // Platform admin: act as a tenant (docs/spec.md 5.2). Starting needs a confirmed password.
+    Route::post('/admin/acting-as/{team}', [ActingAsController::class, 'store'])
+        ->middleware('password.confirm')
+        ->name('admin.acting-as.start');
+    Route::delete('/admin/acting-as', [ActingAsController::class, 'destroy'])
+        ->name('admin.acting-as.stop');
 });

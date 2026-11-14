@@ -21,6 +21,7 @@ use Laravel\Jetstream\Team as JetstreamTeam;
  * deliberately not mass assignable.
  *
  * @property int $id
+ * @property int $user_id
  * @property int|null $partner_team_id
  * @property int|null $plan_id
  * @property TenantStatus $status

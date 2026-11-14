@@ -25,6 +25,11 @@ class AddTeamMember implements AddsTeamMembers
 
         $this->validate($team, $email, $role);
 
+        // The partner advisor role reaches client tenants, so not every admin may give it.
+        if ($role !== null) {
+            Gate::forUser($user)->authorize('assignRole', [$team, $role]);
+        }
+
         $newTeamMember = Jetstream::findUserByEmailOrFail($email);
 
         AddingTeamMember::dispatch($team, $newTeamMember);
