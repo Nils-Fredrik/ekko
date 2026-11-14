@@ -52,6 +52,7 @@ Reglene under er de felles reglene i `docs/spec.md` 19.2.
 - **Tilgang:** agentenes GitHub-integrasjoner har skrivetilgang til `ekko` og lesetilgang til `varde`.
 - **Kryssreview** etter `docs/spec.md` 19.5. Ingen merge uten godkjent review fra en annen agent og grønn CI.
 - **Tester:** ikke deaktiver, hopp over eller svekk tester for å få grønt bygg. Isolasjonstestene for tenants er alltid blokkerende.
+- **Nye ruter og MCP-tools** føres inn i registeret i `tests/Feature/TenantIsolation/routes.php` (eller `mcp-tools.php`) med tilgangsklasse, og en rute med parameter må si hvordan en annen tenants ressurs testes. Uten oppføring feiler `composer test`. Tenant-eide modeller bruker `BelongsToTenant`, og køjobber arver `App\Jobs\TenantJob` (`docs/decisions/0005-isolasjonstestsuite.md`).
 - **Varde** (`Nils-Fredrik/varde`) er kun referanse. Les og kopier mønstre derfra (`docs/spec.md` 4.1), men gjør aldri endringer, commits, grener eller PR-er i Varde. Kopier aldri miljøfiler eller hemmeligheter.
 - **Ingen hemmeligheter, kundedata eller råsvar** i commits, PR-er eller Board-poster.
 - **Språk:** kode, navn i kode og commit-meldinger på engelsk. PR-beskrivelser og Board-poster på norsk. Alle brukertekster i språkfiler (`nb`, `sv`, `en`), aldri hardkodet.
@@ -87,6 +88,7 @@ Skybaserte økter (Codex i skyen, Cursors bakgrunnsagenter) kjører `scripts/age
 ```
 composer dev        # app, kø, logg og Vite (porter fra APP_PORT og VITE_PORT i .env)
 composer test       # Pest mot <database>_testing
+composer test:isolation  # bare isolasjonstestene (tenant, tilgang, ruter)
 composer lint       # Pint (--test) og Larastan nivå 6
 composer format     # Pint
 npm run lint        # ESLint og Prettier (--check)

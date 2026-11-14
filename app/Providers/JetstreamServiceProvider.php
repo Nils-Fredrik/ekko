@@ -12,8 +12,12 @@ use App\Actions\Jetstream\UpdateTeamMemberRole;
 use App\Actions\Jetstream\UpdateTeamName;
 use App\Enums\TenantPermission;
 use App\Enums\TenantRole;
+use App\Http\Controllers\Jetstream\ApiTokenController;
+use App\Http\Controllers\Jetstream\TeamInvitationController;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Jetstream\Actions\UpdateTeamMemberRole as JetstreamUpdateTeamMemberRole;
+use Laravel\Jetstream\Http\Controllers\Inertia\ApiTokenController as JetstreamApiTokenController;
+use Laravel\Jetstream\Http\Controllers\TeamInvitationController as JetstreamTeamInvitationController;
 use Laravel\Jetstream\Jetstream;
 
 class JetstreamServiceProvider extends ServiceProvider
@@ -43,6 +47,12 @@ class JetstreamServiceProvider extends ServiceProvider
 
         // Role changes go through TeamPolicy::assignRole (partner advisor is restricted).
         $this->app->bind(JetstreamUpdateTeamMemberRole::class, UpdateTeamMemberRole::class);
+
+        // A foreign token id gives 404 instead of a 500 (tests/Feature/TenantIsolation).
+        $this->app->bind(JetstreamApiTokenController::class, ApiTokenController::class);
+
+        // Only the invited user can accept an invitation (tests/Feature/TenantIsolation).
+        $this->app->bind(JetstreamTeamInvitationController::class, TeamInvitationController::class);
     }
 
     /**
