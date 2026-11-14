@@ -19,6 +19,7 @@ case "$agent" in
     *) echo "Usage: $0 claude|cursor|codex|cloud" >&2; exit 1 ;;
 esac
 test_db="${db}_testing"
+session_cookie="${db}_session"
 
 export PGHOST="${PGHOST:-127.0.0.1}"
 export PGPORT="${PGPORT:-5432}"
@@ -64,6 +65,7 @@ if [ ! -f .env ]; then
         -e "s#^VITE_PORT=.*#VITE_PORT=$vite_port#" \
         -e "s#^DB_DATABASE=.*#DB_DATABASE=$db#" \
         -e "s#^DB_TEST_DATABASE=.*#DB_TEST_DATABASE=$test_db#" \
+        -e "s#^SESSION_COOKIE=.*#SESSION_COOKIE=$session_cookie#" \
         -e "s#^DB_HOST=.*#DB_HOST=$PGHOST#" \
         -e "s#^DB_PORT=.*#DB_PORT=$PGPORT#" \
         -e "s#^DB_USERNAME=.*#DB_USERNAME=$PGUSER#" \
@@ -71,7 +73,12 @@ if [ ! -f .env ]; then
         .env
     rm -f .env.bak
 else
-    log ".env exists, leaving it unchanged"
+    log ".env exists, leaving existing values unchanged"
+    # Older .env files lack SESSION_COOKIE; without it, worktrees on localhost overwrite each other's session.
+    if ! grep -q '^SESSION_COOKIE=' .env; then
+        log "Adding SESSION_COOKIE=$session_cookie to .env"
+        printf '\nSESSION_COOKIE=%s\n' "$session_cookie" >> .env
+    fi
 fi
 
 # Dependencies ---------------------------------------------------------------
