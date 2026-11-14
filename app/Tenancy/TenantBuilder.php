@@ -16,7 +16,8 @@ use LogicException;
  * - every write requires a tenant in the context
  * - tenant_id can never be changed
  * - inserted rows get tenant_id from the context, and rows for another tenant are refused
- * - writes the tenant scope cannot cover (updateFrom, insertUsing) are refused
+ * - writes the tenant scope cannot cover (updateFrom, insertUsing, truncate) are refused
+ * - forceDelete, which Eloquent runs without scopes, always applies the tenant
  *
  * Methods Eloquent forwards to the base query builder without scopes (updateOrInsert, incrementEach,
  * decrementEach) are routed through toBase(), which applies the tenant scope.
@@ -115,6 +116,38 @@ class TenantBuilder extends Builder
         $this->ensureTenantUnchanged([...$columns, ...$extra]);
 
         return $this->toBase()->decrementEach($columns, $this->addUpdatedAtColumn($extra));
+    }
+
+    /**
+     * Eloquent's forceDelete() deletes through the base query without any scope. Here it keeps every
+     * other scope off (so soft-deleted rows can be removed for good), but always applies the tenant.
+     */
+    public function forceDelete(): int
+    {
+        $query = $this->getQuery()->clone();
+        $query->where($this->model->qualifyColumn('tenant_id'), current_tenant_id());
+
+        return $query->delete();
+    }
+
+    /**
+     * Truncating would empty the table for every tenant.
+     */
+    public function truncate(): never
+    {
+        throw new LogicException('truncate is not supported for tenant-owned models.');
+    }
+
+    /**
+     * @param  array<int, string>|string|null  $column
+     */
+    public function touch($column = null): int|false
+    {
+        if ($column !== null) {
+            $this->ensureTenantUnchanged(array_flip((array) $column));
+        }
+
+        return parent::touch($column);
     }
 
     /**

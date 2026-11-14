@@ -269,6 +269,63 @@ test('builder writes the tenant scope cannot cover are refused', function (strin
     expect(DB::table('test_tenant_records')->count())->toBe(0);
 })->with(['updateFrom', 'insertUsing', 'insertOrIgnoreUsing', 'updateOrInsert callback']);
 
+test('forceDelete only deletes in the tenant in the context', function () {
+    $ownId = insertRecord($this->tenantA, 'own');
+    $otherId = insertRecord($this->tenantB, 'other');
+
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    expect(TenantRecord::query()->whereKey($otherId)->forceDelete())->toBe(0);
+    expect(TenantRecord::query()->forceDelete())->toBe(1);
+
+    expect(DB::table('test_tenant_records')->pluck('id')->all())->toBe([$otherId])
+        ->and(DB::table('test_tenant_records')->where('id', $ownId)->exists())->toBeFalse();
+});
+
+test('forceDelete requires a tenant in the context', function () {
+    $otherId = insertRecord($this->tenantB, 'other');
+
+    expect(fn () => TenantRecord::query()->whereKey($otherId)->forceDelete())
+        ->toThrow(MissingTenantContextException::class);
+    expect(DB::table('test_tenant_records')->where('id', $otherId)->exists())->toBeTrue();
+});
+
+test('truncate is refused for tenant-owned models', function () {
+    insertRecord($this->tenantA, 'a');
+    insertRecord($this->tenantB, 'b');
+
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    expect(fn () => TenantRecord::query()->truncate())->toThrow(LogicException::class);
+    expect(fn () => TenantRecord::truncate())->toThrow(LogicException::class);
+    expect(DB::table('test_tenant_records')->count())->toBe(2);
+});
+
+test('touch only touches the tenant in the context and cannot touch tenant_id', function () {
+    insertRecord($this->tenantA, 'own');
+    $otherId = insertRecord($this->tenantB, 'other');
+    DB::table('test_tenant_records')->update(['updated_at' => '2000-01-01 00:00:00']);
+
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    expect(fn () => TenantRecord::query()->touch('tenant_id'))->toThrow(TenantMismatchException::class);
+    expect(TenantRecord::query()->touch())->toBe(1);
+
+    expect((string) DB::table('test_tenant_records')->where('id', $otherId)->value('updated_at'))->toStartWith('2000-01-01');
+});
+
+test('fillAndInsert writes to the tenant in the context and refuses another tenant', function () {
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    TenantRecord::query()->fillAndInsert([['name' => 'a']]);
+    TenantRecord::query()->fillAndInsertGetId(['name' => 'b']);
+
+    expect(fn () => TenantRecord::query()->fillAndInsert([['name' => 'c', 'tenant_id' => $this->tenantB->id]]))
+        ->toThrow(TenantMismatchException::class);
+    expect(DB::table('test_tenant_records')->distinct()->pluck('tenant_id')->all())->toBe([$this->tenantA->id])
+        ->and(DB::table('test_tenant_records')->count())->toBe(2);
+});
+
 test('a tenant-owned row is deleted with its tenant', function () {
     insertRecord($this->tenantA, 'a');
 
