@@ -69,11 +69,12 @@ class User extends Authenticatable
      * Switch the current tenant (the tenant switcher, docs/spec.md 5.4). Unlike Jetstream, a user
      * may also switch to tenants reached through a partner, or to the tenant a platform admin acts as.
      *
-     * @param  Team  $team
+     * @param  Team|null  $team
      */
     public function switchTeam($team): bool
     {
-        if (! app(TenantAccess::class)->canAccess($this, $team)) {
+        // Jetstream calls this with personalTeam(), which is null for invited users without one.
+        if (! $team instanceof Team || ! app(TenantAccess::class)->canAccess($this, $team)) {
             return false;
         }
 

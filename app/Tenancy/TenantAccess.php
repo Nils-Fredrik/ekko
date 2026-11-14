@@ -13,10 +13,11 @@ use Illuminate\Support\Collection;
  * The single answer to "what may this user do in this tenant" (docs/spec.md 5.2). Policies use it,
  * and so do the tenant context (SetCurrentTenant), the tenant switcher and row-level security.
  *
- * A user's role in a tenant is, in order:
- * 1. Admin, while a platform admin acts as this tenant (logged, shown as a banner)
- * 2. the membership role (the owner counts as Admin)
- * 3. PartnerAdvisor, when the tenant is a client of a partner tenant where the user is a partner advisor
+ * A user's role in a tenant is:
+ * 1. Admin, while a platform admin acts as this tenant (logged, shown as a banner), otherwise
+ * 2. the stronger of the membership role (the owner counts as Admin) and PartnerAdvisor, when the
+ *    tenant is a client of a partner tenant where the user is a partner advisor. A partner advisor
+ *    is "as tenant admin" in every client (5.2), so a lower membership there cannot limit that.
  *
  * Closed tenants are only reachable for a platform admin acting as them.
  */
@@ -37,8 +38,13 @@ final class TenantAccess
             return null;
         }
 
-        return $this->roles["{$user->id}:{$tenant->id}"] ??= $this->membershipRole($user, $tenant)
-            ?? $this->partnerRole($user, $tenant);
+        $key = "{$user->id}:{$tenant->id}";
+
+        if (! array_key_exists($key, $this->roles)) {
+            $this->roles[$key] = $this->strongest($this->membershipRole($user, $tenant), $this->partnerRole($user, $tenant));
+        }
+
+        return $this->roles[$key];
     }
 
     public function canAccess(User $user, Team $tenant): bool
@@ -66,6 +72,11 @@ final class TenantAccess
             return true;
         }
 
+        // A client tenant cannot be a partner itself (one level, 5.1), so the role would mean nothing there.
+        if ($tenant->partner_team_id !== null) {
+            return false;
+        }
+
         return $this->actingAs->tenantIdFor($user) === $tenant->id
             || $this->membershipRole($user, $tenant) === TenantRole::PartnerAdvisor;
     }
@@ -91,10 +102,12 @@ final class TenantAccess
         $actingAsId = $this->actingAs->tenantIdFor($user);
         $actingAs = $actingAsId === null ? collect() : Team::query()->whereKey($actingAsId)->get();
 
+        // The switcher and the access check must never disagree: list only what the user can open
+        // (this also hides closed tenants and clients of a closed partner).
         return $memberships->merge($clients)
-            ->filter(fn (Team $team) => $team->status !== TenantStatus::Closed)
             ->merge($actingAs)
             ->unique('id')
+            ->filter(fn (Team $team) => $this->canAccess($user, $team))
             ->sortBy('name')
             ->values();
     }
@@ -149,6 +162,15 @@ final class TenantAccess
             ?->getAttribute('role');
 
         return is_string($role) ? TenantRole::tryFrom($role) : null;
+    }
+
+    private function strongest(?TenantRole $membership, ?TenantRole $partner): ?TenantRole
+    {
+        if ($partner === null || $membership === TenantRole::Admin || $membership === TenantRole::PartnerAdvisor) {
+            return $membership ?? $partner;
+        }
+
+        return $partner;
     }
 
     private function partnerRole(User $user, Team $tenant): ?TenantRole

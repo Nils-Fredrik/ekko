@@ -25,8 +25,10 @@ class AddTeamMember implements AddsTeamMembers
 
         $this->validate($team, $email, $role);
 
-        // The partner advisor role reaches client tenants, so not every admin may give it.
-        if ($role !== null) {
+        // The partner advisor role reaches client tenants, so not every admin may give it. An
+        // accepted invitation was already checked when it was sent (InviteTeamMember), and Jetstream
+        // accepts it on behalf of the owner, so it is not checked again here.
+        if ($role !== null && ! $this->isInvited($team, $email, $role)) {
             Gate::forUser($user)->authorize('assignRole', [$team, $role]);
         }
 
@@ -39,6 +41,11 @@ class AddTeamMember implements AddsTeamMembers
         );
 
         TeamMemberAdded::dispatch($team, $newTeamMember);
+    }
+
+    private function isInvited(Team $team, string $email, string $role): bool
+    {
+        return $team->teamInvitations()->where('email', $email)->where('role', $role)->exists();
     }
 
     /**

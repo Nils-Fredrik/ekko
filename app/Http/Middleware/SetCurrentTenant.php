@@ -39,6 +39,12 @@ final class SetCurrentTenant
 
             if ($tenant !== null && $this->access->canAccess($user, $tenant)) {
                 $this->context->set($tenant->id);
+
+                // While acting as a tenant, the navigation (Jetstream's auth.user.current_team, the
+                // team settings link) must show that tenant, not the stored current_team_id.
+                if ($this->actingAs->tenantIdFor($user) === $tenant->id) {
+                    $user->setRelation('currentTeam', $tenant);
+                }
             }
         }
 
