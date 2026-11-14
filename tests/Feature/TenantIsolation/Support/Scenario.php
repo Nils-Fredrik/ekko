@@ -106,6 +106,26 @@ final class Scenario
     }
 
     /**
+     * An API token of the signed-in owner of A, for the positive control of token routes.
+     */
+    public function tokenOfAdminA(): PersonalAccessToken
+    {
+        return $this->adminA->tokens()->create([
+            'name' => 'Own token',
+            'token' => hash('sha256', Str::random(40)),
+            'abilities' => ['read'],
+        ]);
+    }
+
+    /**
+     * An invitation for the owner of A to A's client tenant, for the positive control of accepting.
+     */
+    public function invitationForAdminA(): TeamInvitation
+    {
+        return $this->clientOfA->teamInvitations()->firstOrCreate(['email' => $this->adminA->email], ['role' => 'reader']);
+    }
+
+    /**
      * An invitation in tenant A, for routes that act on an invitation in the user's own tenant.
      */
     public function invitationInA(): TeamInvitation

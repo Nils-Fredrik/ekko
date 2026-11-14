@@ -22,17 +22,19 @@ En policy kan ikke leses ut av ruten selv: autorisasjon skjer i kontrollere, pol
 3. **Genererte tester** (`RouteIsolationTest`) bruker et scenario med tenant A og tenant B. Alt i B har en unik markør. Testene er:
    - Gjester får 401 eller 403 på alle ruter som krever innlogging.
    - Alle roller i tenant A (eier, admin, partner-rådgiver, redaktør og leser) får 403 eller 404 mot B sine ressurser, med alle HTTP-metoder, og et øyeblikksbilde av B er uendret etterpå. A er partner med en egen kunde-tenant, så partner-rådgiveren har lovlig tilgang på tvers av tenants, men ikke til B.
-   - **Positiv kontroll:** Den lovlige forespørselen (`own`) lykkes for en rolle som har lov, eller for plattformadmin. Dermed betyr 403 eller 404 i fremmed-testen noe. `own` er påkrevd for tenant-ruter med parameter.
+   - **Positiv kontroll:** Den lovlige forespørselen (`own`) svarer med en status under 400 for en rolle som har lov, eller for plattformadmin. Dermed betyr 403 eller 404 i fremmed-testen noe. 422 og 409 godtas ikke, fordi de kan komme fra validering før autorisering. `own` er påkrevd for tenant- og brukerruter med parameter. Plattformadmin-ruter kontrolleres også positivt.
    - Roller i `deniedRoles` får 403 i egen tenant.
    - Plattformadmin-ruter avviser alle fem tenant-rollene.
    - Ingen innlogget GET-side svarer med 5xx eller inneholder markøren fra B, sett som eier, partner-rådgiver og leser.
    - URL-ene bygges strengt. En parameter ruten ikke har, eller en manglende parameter på en rute som krever innlogging, gir feil i stedet for en 404 som ser grønn ut. Ruter merket `signed()` får en gyldig signatur, så testen når autorisasjonen bak signaturen.
 4. **Vern for kodebasen** (`CodebaseGuardsTest`):
-   - Alle køede klasser i `app/` må arve `TenantJob`, som legger på `SetTenantContext` og `ApplyTenantRls`. `TenantAware` alene er ikke nok. Unntak må føres opp i `platform-jobs.php` med begrunnelse.
+   - Køede jobber og lyttere i `app/` må arve `TenantJob`, som legger på `SetTenantContext` og `ApplyTenantRls` (for mail og varsler, se neste punkt). `TenantAware` alene er ikke nok. Unntak må føres opp i `platform-jobs.php` med begrunnelse.
    - Køet mail og køede varsler kan ikke arve `TenantJob`, fordi de allerede arver `Mailable` og `Notification`. Den første oppgaven som innfører slike (T24 eller T32), lager en trait som setter `tenantId()` og de samme to middleware-ene, og utvider vernet til å godta den. De skal ikke føres opp i `platform-jobs.php`.
    - Modeller med en `tenant_id`-kolonne må bruke `BelongsToTenant`.
    - MCP-tools i `app/Mcp/Tools` må stå i `mcp-tools.php` (T34 fyller det ut og utvider de genererte testene).
-   - Testfilene i isolasjonssuiten og `tests/Pest.php` kan ikke inneholde `skip()`, `skipOn…()`, `todo()`, `only()` eller PHPUnit-markører for å hoppe over. `phpunit.xml` kan ikke ekskludere grupper eller mapper.
+   - Testfilene i isolasjonssuiten og `tests/Pest.php` kan ikke inneholde `skip()`, `skipOn…()`, `todo()`, `only()` eller PHPUnit-markører for å hoppe over.
+   - `phpunit.xml` kan ikke ha `<groups>` eller `<exclude>` under `<testsuites>`. `<source><exclude>` gjelder bare dekning og er tillatt.
+   - Test-skriptene i `composer.json` kan ikke filtrere kjøringen med `--filter`, `--group`, `--exclude-group` eller `--testsuite`.
 5. **Avgrensning:** Testene for mekanismene ligger i `tests/Feature/Tenancy` (lag 1 og 2) og `tests/Feature/Access` (roller). `composer test:isolation` kjører alle tre mappene. `composer test` kjører dem også.
 6. **Funn under arbeidet:**
    - Lagringsrutene for lokal disk (`storage/{path}`, GET og PUT) er slått av (`serve => false`). Ekko lagrer filer i GCS.

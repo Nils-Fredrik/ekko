@@ -60,8 +60,14 @@ return [
     'two-factor.regenerate-recovery-codes' => RouteAccess::user(),
     'api-tokens.index' => RouteAccess::user(),
     'api-tokens.store' => RouteAccess::user(),
-    'api-tokens.update' => RouteAccess::user(fn (Scenario $s) => ['params' => ['token' => $s->tokenB->id], 'data' => ['name' => 'x', 'permissions' => ['write']]]),
-    'api-tokens.destroy' => RouteAccess::user(fn (Scenario $s) => ['params' => ['token' => $s->tokenB->id]]),
+    'api-tokens.update' => RouteAccess::user(
+        foreign: fn (Scenario $s) => ['params' => ['token' => $s->tokenB->id], 'data' => ['name' => 'x', 'permissions' => ['write']]],
+        own: fn (Scenario $s) => ['params' => ['token' => $s->tokenOfAdminA()->id], 'data' => ['name' => 'x', 'permissions' => ['write']]],
+    ),
+    'api-tokens.destroy' => RouteAccess::user(
+        foreign: fn (Scenario $s) => ['params' => ['token' => $s->tokenB->id]],
+        own: fn (Scenario $s) => ['params' => ['token' => $s->tokenOfAdminA()->id]],
+    ),
     // Ends the admin's own acting-as session state only; no tenant data.
     'admin.acting-as.stop' => RouteAccess::user(),
 
@@ -98,7 +104,10 @@ return [
         deniedRoles: ['editor', 'reader'],
     ),
     // The link is signed and sent to the invitee; without the signature it is refused.
-    'team-invitations.accept' => RouteAccess::user(fn (Scenario $s) => ['params' => ['invitation' => $s->invitationB->id]])->signed(),
+    'team-invitations.accept' => RouteAccess::user(
+        foreign: fn (Scenario $s) => ['params' => ['invitation' => $s->invitationB->id]],
+        own: fn (Scenario $s) => ['params' => ['invitation' => $s->invitationForAdminA()->id]],
+    )->signed(),
 
     // Platform admin only.
     'teams.create' => RouteAccess::platformAdmin(),

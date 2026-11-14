@@ -50,9 +50,11 @@ test('every tenant route can be tested against another tenant', function () {
     }
 });
 
-test('every tenant route with a parameter has an allowed request in the own tenant', function () {
+test('every tenant or user route with a parameter has an allowed request (positive control)', function () {
     foreach (RouteRegister::entries() as $key => $access) {
-        if ($access->kind === RouteAccess::TENANT && RouteRegister::route($key)->parameterNames() !== []) {
+        if (in_array($access->kind, [RouteAccess::TENANT, RouteAccess::USER], true)
+            && RouteRegister::route($key)->parameterNames() !== []
+            && $access->noForeignCheck === null) {
             expect($access->own)->not->toBeNull("{$key} needs an own request (positive control)");
         }
     }

@@ -57,9 +57,9 @@ final class RouteAccess
         return new self(self::GUEST);
     }
 
-    public static function user(?Closure $foreign = null): self
+    public static function user(?Closure $foreign = null, ?Closure $own = null): self
     {
-        return new self(self::USER, foreign: $foreign);
+        return new self(self::USER, foreign: $foreign, own: $own);
     }
 
     /**

@@ -105,10 +105,22 @@ test('the isolation tests cannot be skipped or excluded', function () {
         $offenders[] = 'tests/Pest.php';
     }
 
-    // No excluded groups and no excluded directories in phpunit.xml.
-    $phpunit = (string) file_get_contents(base_path('phpunit.xml'));
-    if (preg_match('/<groups>|<exclude>/', $phpunit) === 1) {
+    // phpunit.xml: no excluded groups, and nothing excluded from the test suites. <source><exclude>
+    // only concerns coverage and is allowed.
+    $phpunit = simplexml_load_file(base_path('phpunit.xml'));
+    if ($phpunit === false || isset($phpunit->groups) || count($phpunit->xpath('//testsuites//exclude') ?: []) > 0) {
         $offenders[] = 'phpunit.xml';
+    }
+
+    // composer.json: the test scripts cannot filter the run.
+    $composer = json_decode((string) file_get_contents(base_path('composer.json')), true);
+    foreach ($composer['scripts'] ?? [] as $name => $commands) {
+        foreach ((array) $commands as $command) {
+            if (is_string($command) && preg_match('/(artisan test|pest|phpunit)/', $command) === 1
+                && preg_match('/--(exclude-group|exclude-filter|filter|group|testsuite|exclude-testsuite)\b/', $command) === 1) {
+                $offenders[] = "composer.json script {$name}";
+            }
+        }
     }
 
     expect($offenders)->toBe([], 'Skipped or excluded isolation tests: '.implode(', ', $offenders));
