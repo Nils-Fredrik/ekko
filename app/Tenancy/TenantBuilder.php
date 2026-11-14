@@ -40,6 +40,10 @@ class TenantBuilder extends Builder
     }
 
     /**
+     * The conflict target must include tenant_id. Every inserted row gets the context tenant, so a
+     * conflict can then only hit a row in the same tenant. Without it, ON CONFLICT … DO UPDATE could
+     * update another tenant's row, because the tenant scope does not apply to the conflict branch.
+     *
      * @param  array<array-key, mixed>  $values
      * @param  array<int, string>|string  $uniqueBy
      * @param  array<array-key, mixed>|null  $update
@@ -50,8 +54,18 @@ class TenantBuilder extends Builder
             return 0;
         }
 
+        $uniqueBy = (array) $uniqueBy;
+        if (! array_filter($uniqueBy, fn ($column) => is_string($column) && $this->isTenantColumn($column))) {
+            throw new LogicException('upsert on a tenant-owned model must include tenant_id in the conflict target ($uniqueBy).');
+        }
+
         $rows = $this->withContextTenant($values);
-        $update ??= array_keys($rows[0]);
+
+        // The default update list is the given columns, never the tenant_id this builder adds.
+        $update ??= array_values(array_filter(
+            array_keys($rows[0]),
+            fn ($column) => ! (is_string($column) && $this->isTenantColumn($column)),
+        ));
         $this->ensureTenantUnchanged(array_is_list($update) ? array_flip(array_filter($update, 'is_string')) : $update);
 
         return parent::upsert($rows, $uniqueBy, $update);

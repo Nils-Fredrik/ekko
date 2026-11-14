@@ -33,6 +33,7 @@ class TenantRecord extends Model
             TenantSchema::tenantColumn($table);
             $table->string('name');
             $table->timestamps();
+            $table->unique(['tenant_id', 'name']);
         });
     }
 }

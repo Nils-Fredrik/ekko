@@ -142,7 +142,7 @@ test('builder writes cannot change tenant_id', function (string $write) {
         'decrementEach extra' => fn () => TenantRecord::query()->decrementEach(['id' => 0], ['tenant_id' => $b]),
         'updateOrInsert values' => fn () => TenantRecord::query()->updateOrInsert(['id' => $ownId], ['tenant_id' => $b]),
         'upsert update columns' => fn () => TenantRecord::query()->upsert(
-            [['id' => $ownId, 'name' => 'x']], ['id'], ['name', 'tenant_id'],
+            [['name' => 'own']], ['tenant_id', 'name'], ['name', 'tenant_id'],
         ),
     };
 
@@ -167,7 +167,7 @@ test('builder inserts get tenant_id from the context and refuse another tenant',
         'insertGetId' => fn () => TenantRecord::query()->insertGetId(['name' => 'x', 'tenant_id' => $this->tenantB->id]),
         'insert qualified' => fn () => TenantRecord::query()->insert(['name' => 'x', 'test_tenant_records.tenant_id' => $this->tenantB->id]),
         'upsert' => fn () => TenantRecord::query()->upsert(
-            [['name' => 'x', 'tenant_id' => $this->tenantB->id, 'created_at' => $now, 'updated_at' => $now]], ['id'], ['name'],
+            [['name' => 'x', 'tenant_id' => $this->tenantB->id, 'created_at' => $now, 'updated_at' => $now]], ['tenant_id', 'name'], ['name'],
         ),
         'updateOrInsert' => fn () => TenantRecord::query()->updateOrInsert(['name' => 'x', 'tenant_id' => $this->tenantB->id], []),
     };
@@ -198,6 +198,35 @@ test('updateOrInsert only finds and updates rows in the tenant in the context', 
         ->and(DB::table('test_tenant_records')->where('tenant_id', $this->tenantA->id)->pluck('name')->all())->toBe(['changed']);
 });
 
+test('upsert must include tenant_id in the conflict target, so it cannot update another tenant', function () {
+    $otherId = insertRecord($this->tenantB, 'other');
+
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    // ON CONFLICT (id) DO UPDATE would hit tenant B's row: the tenant scope does not cover the conflict branch.
+    expect(fn () => TenantRecord::query()->upsert([['id' => $otherId, 'name' => 'changed']], ['id'], ['name']))
+        ->toThrow(LogicException::class, 'tenant_id in the conflict target');
+    expect(fn () => TenantRecord::query()->upsert([['id' => $otherId, 'name' => 'changed']], 'id'))
+        ->toThrow(LogicException::class, 'tenant_id in the conflict target');
+
+    expect(DB::table('test_tenant_records')->where('id', $otherId)->value('name'))->toBe('other')
+        ->and(DB::table('test_tenant_records')->count())->toBe(1);
+});
+
+test('upsert without an update list inserts and updates in the tenant in the context only', function () {
+    insertRecord($this->tenantB, 'shared name');
+
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    expect(TenantRecord::query()->upsert([['name' => 'shared name'], ['name' => 'new']], ['tenant_id', 'name']))->toBe(2);
+    // Same rows again: conflicts on (tenant_id, name) in tenant A only, so nothing new is inserted.
+    TenantRecord::query()->upsert([['name' => 'shared name'], ['name' => 'new']], ['tenant_id', 'name']);
+
+    expect(DB::table('test_tenant_records')->where('tenant_id', $this->tenantA->id)->orderBy('name')->pluck('name')->all())
+        ->toBe(['new', 'shared name'])
+        ->and(DB::table('test_tenant_records')->where('tenant_id', $this->tenantB->id)->count())->toBe(1);
+});
+
 test('incrementEach and decrementEach only touch the tenant in the context', function () {
     DB::statement('ALTER TABLE test_tenant_records ADD COLUMN hits integer NOT NULL DEFAULT 0');
     insertRecord($this->tenantA, 'own');
@@ -216,7 +245,7 @@ test('builder writes require a tenant in the context', function (string $write) 
     $query = match ($write) {
         'update' => fn () => TenantRecord::query()->update(['name' => 'x']),
         'insert' => fn () => TenantRecord::query()->insert(['name' => 'x']),
-        'upsert' => fn () => TenantRecord::query()->upsert([['name' => 'x']], ['id'], ['name']),
+        'upsert' => fn () => TenantRecord::query()->upsert([['name' => 'x']], ['tenant_id', 'name'], ['name']),
         'updateOrInsert' => fn () => TenantRecord::query()->updateOrInsert(['name' => 'a'], ['name' => 'x']),
         'incrementEach' => fn () => TenantRecord::query()->incrementEach(['id' => 0]),
         'delete' => fn () => TenantRecord::query()->delete(),
