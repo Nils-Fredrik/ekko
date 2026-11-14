@@ -206,7 +206,7 @@ Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
 
 - **E-post og passord** via Jetstream. 2FA er påkrevd for plattformadmin og partner-rådgivere og valgfritt for andre.
 - **Google og Microsoft** via Socialite. En Google- eller Microsoft-konto kobles til en eksisterende invitert bruker basert på e-postadresse. Det finnes ingen åpen registrering.
-- **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager.
+- **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager, kontrollert på serveren. Den kan bare godtas av en innlogget bruker med samme, bekreftede e-postadresse. Å endre e-postadressen krever ny bekreftelse. En Google- eller Microsoft-konto med en gyldig invitasjon får opprettet brukeren (ellers ingen bruker). Detaljer i `docs/decisions/0006-innlogging-og-invitasjoner.md`.
 - **Tenant-velger:** brukere med flere tenants bytter mellom dem i toppmenyen, som Jetstreams team-switcher. Valgt tenant lagres på brukeren.
 - **Sesjon:** samme oppsett som Varde, med `__Host-`-prefiks på sesjonscookien, `secure` og `samesite=lax`.
 

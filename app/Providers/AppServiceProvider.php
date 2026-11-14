@@ -5,7 +5,10 @@ namespace App\Providers;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
+use SocialiteProviders\Manager\SocialiteWasCalled;
+use SocialiteProviders\Microsoft\MicrosoftExtendSocialite;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,6 +28,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Microsoft is a Socialite Providers package; Google is built in.
+        Event::listen(SocialiteWasCalled::class, MicrosoftExtendSocialite::class);
     }
 }

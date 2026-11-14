@@ -377,5 +377,8 @@
     "You may delete any of your existing tokens if they are no longer needed.": "Du kan slette noen av dine eksisterende tokens hvis de ikke lenger er nødvendige.",
     "You may not delete your personal team.": "Du kan ikke slette ditt personlige team.",
     "You may not leave a team that you created.": "Du kan ikke forlate et team du opprettet.",
-    "Your email address is unverified.": "E-postadressen din er ubekreftet."
+    "Your email address is unverified.": "E-postadressen din er ubekreftet.",
+    "Log in with :provider": "Logg inn med :provider",
+    "or with email and password": "eller med e-post og passord",
+    "Email Verification": "E-postbekreftelse"
 }

@@ -25,6 +25,9 @@ class InviteTeamMember implements InvitesTeamMembers
     {
         Gate::forUser($user)->authorize('addTeamMember', $team);
 
+        // An expired invitation must not block inviting the same person again (unique rule).
+        $team->teamInvitations()->where('email', $email)->where('created_at', '<=', now()->subDays((int) config('ekko.invitation_ttl_days')))->delete();
+
         $this->validate($team, $email, $role);
 
         // The partner advisor role reaches client tenants, so not every admin may give it.

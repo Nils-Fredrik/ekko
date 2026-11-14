@@ -13,6 +13,8 @@ defineProps({
     status: String,
 });
 
+const providerNames = { google: 'Google', microsoft: 'Microsoft' };
+
 const form = useForm({
     email: '',
     password: '',
@@ -39,6 +41,22 @@ const submit = () => {
 
         <div v-if="status" class="mb-4 font-medium text-sm text-green-600">
             {{ status }}
+        </div>
+
+        <div v-if="$page.props.errors.sso" class="mb-4 font-medium text-sm text-red-600">
+            {{ $page.props.errors.sso }}
+        </div>
+
+        <div v-if="$page.props.ssoProviders.length" class="mb-4 space-y-2">
+            <a
+                v-for="provider in $page.props.ssoProviders"
+                :key="provider"
+                :href="route('social.redirect', { provider })"
+                class="flex w-full items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50"
+            >
+                {{ $t('Log in with :provider', { provider: providerNames[provider] }) }}
+            </a>
+            <div class="text-center text-xs text-gray-500">{{ $t('or with email and password') }}</div>
         </div>
 
         <form @submit.prevent="submit">

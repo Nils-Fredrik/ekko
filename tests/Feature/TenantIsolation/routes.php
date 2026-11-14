@@ -37,6 +37,10 @@ return [
     'password.update' => RouteAccess::guest(),
     'two-factor.login' => RouteAccess::guest(),
     'two-factor.login.store' => RouteAccess::guest(),
+    // Login with Google or Microsoft: the provider is a fixed name, not a tenant resource, and the
+    // callback creates a user only for an unexpired invitation (SocialLoginTest).
+    'social.redirect' => RouteAccess::guest(),
+    'social.callback' => RouteAccess::guest(),
 
     // The signed-in user's own account.
     'logout' => RouteAccess::user(),
@@ -51,6 +55,14 @@ return [
     'password.confirm' => RouteAccess::user(),
     'password.confirm.store' => RouteAccess::user(),
     'password.confirmation' => RouteAccess::user(),
+    // E-mail verification of the signed-in user's own address (ADR 0006). The link carries the
+    // user's id, so another user's link must be refused.
+    'verification.notice' => RouteAccess::user(),
+    'verification.send' => RouteAccess::user(),
+    'verification.verify' => RouteAccess::user(
+        foreign: fn (Scenario $s) => ['params' => ['id' => $s->ownerB->id, 'hash' => sha1($s->ownerB->email)]],
+        own: fn (Scenario $s) => ['params' => ['id' => $s->adminA->id, 'hash' => sha1($s->adminA->email)]],
+    )->signed(),
     'two-factor.enable' => RouteAccess::user(),
     'two-factor.disable' => RouteAccess::user(),
     'two-factor.confirm' => RouteAccess::user(),

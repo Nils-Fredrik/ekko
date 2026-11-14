@@ -51,6 +51,18 @@ class UserFactory extends Factory
     }
 
     /**
+     * Indicate that the user has confirmed two-factor authentication.
+     */
+    public function withTwoFactor(bool $enabled = true): static
+    {
+        return $this->state(fn (array $attributes) => $enabled ? [
+            'two_factor_secret' => encrypt('TESTSECRETTESTSECRET'),
+            'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-1'])),
+            'two_factor_confirmed_at' => now(),
+        ] : []);
+    }
+
+    /**
      * Indicate that the user should have a personal team.
      */
     public function withPersonalTeam(?callable $callback = null): static
@@ -71,8 +83,12 @@ class UserFactory extends Factory
         );
     }
 
-    public function platformAdmin(): static
+    /**
+     * A platform admin, with confirmed two-factor authentication because it is required (T07).
+     * Pass false to test the missing case.
+     */
+    public function platformAdmin(bool $twoFactor = true): static
     {
-        return $this->state(['is_platform_admin' => true]);
+        return $this->withTwoFactor($twoFactor)->state(['is_platform_admin' => true]);
     }
 }
