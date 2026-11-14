@@ -1,4 +1,4 @@
-# 0003 – Fremmednøkler for tenant-eide data
+# 0005 – Fremmednøkler for tenant-eide data
 
 - **Status:** Akseptert
 - **Dato:** 2026-11-14

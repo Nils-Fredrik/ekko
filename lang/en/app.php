@@ -10,4 +10,12 @@ return [
         'sv' => 'Svenska',
         'en' => 'English',
     ],
+    'acting_as' => [
+        'banner' => 'You are acting as :tenant.',
+        'reason' => 'Reason: :reason',
+        'stop' => 'Stop',
+    ],
+    'account' => [
+        'owns_tenants' => 'You own a tenant and cannot delete your account. Ask the platform admin to transfer or delete the tenant first.',
+    ],
 ];

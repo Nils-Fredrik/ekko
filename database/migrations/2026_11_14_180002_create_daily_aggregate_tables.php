@@ -33,6 +33,7 @@ return new class extends Migration
             $table->unique(['tenant_id', 'brand_id', 'market_id', 'engine_key', 'prompt_id', 'date'], 'agg_daily_dimensions_unique');
             $table->index(['tenant_id', 'brand_id', 'date']);
         });
+        TenantSchema::enableRowLevelSecurity('agg_daily');
 
         Schema::create('agg_source_daily', function (Blueprint $table): void {
             $table->id();
@@ -51,6 +52,7 @@ return new class extends Migration
             $table->unique(['tenant_id', 'brand_id', 'market_id', 'engine_key', 'domain', 'date'], 'agg_source_daily_dimensions_unique');
             $table->index(['tenant_id', 'brand_id', 'date']);
         });
+        TenantSchema::enableRowLevelSecurity('agg_source_daily');
 
         Schema::create('bot_hits_daily', function (Blueprint $table): void {
             $table->id();
@@ -67,6 +69,7 @@ return new class extends Migration
             $table->unique(['tenant_id', 'brand_id', 'domain', 'bot', 'date'], 'bot_hits_daily_dimensions_unique');
             $table->index(['tenant_id', 'brand_id', 'date']);
         });
+        TenantSchema::enableRowLevelSecurity('bot_hits_daily');
 
         Schema::create('ai_referrals_daily', function (Blueprint $table): void {
             $table->id();
@@ -82,13 +85,18 @@ return new class extends Migration
             $table->unique(['tenant_id', 'brand_id', 'source', 'date']);
             $table->index(['tenant_id', 'brand_id', 'date']);
         });
+        TenantSchema::enableRowLevelSecurity('ai_referrals_daily');
     }
 
     public function down(): void
     {
+        TenantSchema::disableRowLevelSecurity('ai_referrals_daily');
         Schema::dropIfExists('ai_referrals_daily');
+        TenantSchema::disableRowLevelSecurity('bot_hits_daily');
         Schema::dropIfExists('bot_hits_daily');
+        TenantSchema::disableRowLevelSecurity('agg_source_daily');
         Schema::dropIfExists('agg_source_daily');
+        TenantSchema::disableRowLevelSecurity('agg_daily');
         Schema::dropIfExists('agg_daily');
     }
 };

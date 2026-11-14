@@ -214,7 +214,7 @@ Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
 
 ## 6. Datamodell
 
-Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til `teams.id`, indeks og RLS. Tidsstempler lagres i UTC. Relasjoner mellom tenant-eide tabeller med vanlig fremmednøkkel sjekker også at radene tilhører samme tenant (se [ADR 0003](decisions/0003-tenant-eide-tabellrelasjoner.md)).
+Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til `teams.id`, indeks og RLS. Tidsstempler lagres i UTC. Relasjoner mellom tenant-eide tabeller med vanlig fremmednøkkel sjekker også at radene tilhører samme tenant (se [ADR 0005](decisions/0005-tenant-eide-tabellrelasjoner.md)).
 
 ### 6.1 Tenant og tilgang
 

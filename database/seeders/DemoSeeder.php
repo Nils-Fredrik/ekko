@@ -34,6 +34,7 @@ use App\Models\Topic;
 use App\Models\UsageEvent;
 use App\Models\UsageMonthly;
 use App\Models\User;
+use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -53,9 +54,9 @@ class DemoSeeder extends Seeder
         'gemini_api' => ['gemini', 'api', 'google', null, 'off', 'all'],
     ];
 
-    public function run(): void
+    public function run(TenantContext $context, TenantRls $rls): void
     {
-        DB::transaction(function (): void {
+        DB::transaction(function () use ($context, $rls): void {
             $this->seedEngines();
             $plan = Plan::query()->firstOrCreate(['name' => 'Demo'], [
                 'max_brands' => 3,
@@ -72,10 +73,14 @@ class DemoSeeder extends Seeder
             $norway = $this->seedTeam('Demo Norge', 'norway@example.test', $plan, $partner);
             $sweden = $this->seedTeam('Demo Sverige', 'sweden@example.test', $plan, $partner);
 
-            $context = app(TenantContext::class);
-            $context->run($partner->id, fn () => $this->seedTenant('Nordlys Studio', 'NO', 'nb', 'Oslo'));
-            $context->run($norway->id, fn () => $this->seedTenant('Fjord Studio', 'NO', 'nb', 'Bergen'));
-            $context->run($sweden->id, fn () => $this->seedTenant('Skärgård Studio', 'SE', 'sv', 'Göteborg'));
+            foreach ([
+                [$partner->id, 'Nordlys Studio', 'NO', 'nb', 'Oslo'],
+                [$norway->id, 'Fjord Studio', 'NO', 'nb', 'Bergen'],
+                [$sweden->id, 'Skärgård Studio', 'SE', 'sv', 'Göteborg'],
+            ] as [$tenantId, $name, $country, $language, $location]) {
+                $context->run($tenantId, fn () => $rls->run([$tenantId],
+                    fn () => $this->seedTenant($name, $country, $language, $location)));
+            }
         });
     }
 

@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
+import ActingAsBanner from '@/Components/ActingAsBanner.vue';
 import Banner from '@/Components/Banner.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
@@ -34,6 +35,8 @@ const logout = () => {
 <template>
     <div>
         <Head :title="title" />
+
+        <ActingAsBanner />
 
         <Banner />
 

@@ -28,6 +28,7 @@ return new class extends Migration
             $table->index('run_id');
             $table->index(['tenant_id', 'occurred_at']);
         });
+        TenantSchema::enableRowLevelSecurity('usage_events');
 
         DB::statement('ALTER TABLE usage_events ADD FOREIGN KEY (tenant_id, run_id) REFERENCES runs (tenant_id, id) ON DELETE SET NULL (run_id)');
 
@@ -43,6 +44,7 @@ return new class extends Migration
             $table->timestampsTz();
             $table->unique(['tenant_id', 'month']);
         });
+        TenantSchema::enableRowLevelSecurity('usage_monthly');
 
         Schema::create('alert_rules', function (Blueprint $table): void {
             $table->id();
@@ -57,6 +59,7 @@ return new class extends Migration
             $table->unique(['tenant_id', 'id']);
             $table->index('brand_id');
         });
+        TenantSchema::enableRowLevelSecurity('alert_rules');
 
         Schema::create('alerts', function (Blueprint $table): void {
             $table->id();
@@ -71,6 +74,7 @@ return new class extends Migration
             $table->index('alert_rule_id');
             $table->index(['tenant_id', 'triggered_at']);
         });
+        TenantSchema::enableRowLevelSecurity('alerts');
 
         Schema::create('report_schedules', function (Blueprint $table): void {
             $table->id();
@@ -85,6 +89,7 @@ return new class extends Migration
             $table->unique(['tenant_id', 'id']);
             $table->index('brand_id');
         });
+        TenantSchema::enableRowLevelSecurity('report_schedules');
 
         Schema::create('reports', function (Blueprint $table): void {
             $table->id();
@@ -98,6 +103,7 @@ return new class extends Migration
             $table->foreign(['tenant_id', 'report_schedule_id'])->references(['tenant_id', 'id'])->on('report_schedules')->cascadeOnDelete();
             $table->unique(['tenant_id', 'report_schedule_id', 'period_start', 'period_end'], 'reports_schedule_period_unique');
         });
+        TenantSchema::enableRowLevelSecurity('reports');
 
         Schema::create('integrations', function (Blueprint $table): void {
             $table->id();
@@ -111,6 +117,7 @@ return new class extends Migration
             $table->foreign(['tenant_id', 'brand_id'])->references(['tenant_id', 'id'])->on('brands')->cascadeOnDelete();
             $table->unique(['tenant_id', 'brand_id', 'type']);
         });
+        TenantSchema::enableRowLevelSecurity('integrations');
 
         Schema::create('activity_log', function (Blueprint $table): void {
             $table->id();
@@ -125,17 +132,26 @@ return new class extends Migration
             $table->timestampsTz();
             $table->index(['tenant_id', 'created_at']);
         });
+        TenantSchema::enableRowLevelSecurity('activity_log');
     }
 
     public function down(): void
     {
+        TenantSchema::disableRowLevelSecurity('activity_log');
         Schema::dropIfExists('activity_log');
+        TenantSchema::disableRowLevelSecurity('integrations');
         Schema::dropIfExists('integrations');
+        TenantSchema::disableRowLevelSecurity('reports');
         Schema::dropIfExists('reports');
+        TenantSchema::disableRowLevelSecurity('report_schedules');
         Schema::dropIfExists('report_schedules');
+        TenantSchema::disableRowLevelSecurity('alerts');
         Schema::dropIfExists('alerts');
+        TenantSchema::disableRowLevelSecurity('alert_rules');
         Schema::dropIfExists('alert_rules');
+        TenantSchema::disableRowLevelSecurity('usage_monthly');
         Schema::dropIfExists('usage_monthly');
+        TenantSchema::disableRowLevelSecurity('usage_events');
         Schema::dropIfExists('usage_events');
     }
 };

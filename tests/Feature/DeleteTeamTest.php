@@ -3,16 +3,13 @@
 use App\Models\Team;
 use App\Models\User;
 
-test('teams can be deleted', function () {
-    $this->actingAs($user = User::factory()->withPersonalTeam()->create());
+// Only the platform admin closes and deletes tenants (docs/spec.md 5.2).
 
-    $user->ownedTeams()->save($team = Team::factory()->make([
-        'personal_team' => false,
-    ]));
+test('a platform admin can delete tenants', function () {
+    $this->actingAs(User::factory()->platformAdmin()->withPersonalTeam()->create());
 
-    $team->users()->attach(
-        $otherUser = User::factory()->create(), ['role' => 'test-role']
-    );
+    $team = Team::factory()->tenant()->create();
+    $team->users()->attach($otherUser = User::factory()->create(), ['role' => 'editor']);
 
     $this->delete('/teams/'.$team->id);
 
@@ -20,8 +17,18 @@ test('teams can be deleted', function () {
     expect($otherUser->fresh()->teams)->toHaveCount(0);
 });
 
-test('personal teams cant be deleted', function () {
+test('a tenant owner cannot delete the tenant', function () {
     $this->actingAs($user = User::factory()->withPersonalTeam()->create());
+
+    $user->ownedTeams()->save($team = Team::factory()->make(['personal_team' => false]));
+
+    $this->delete('/teams/'.$team->id)->assertForbidden();
+
+    expect($team->fresh())->not->toBeNull();
+});
+
+test('personal teams cant be deleted', function () {
+    $this->actingAs($user = User::factory()->platformAdmin()->withPersonalTeam()->create());
 
     $this->delete('/teams/'.$user->currentTeam->id);
 

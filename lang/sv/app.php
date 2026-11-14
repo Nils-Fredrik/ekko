@@ -10,4 +10,12 @@ return [
         'sv' => 'Svenska',
         'en' => 'English',
     ],
+    'acting_as' => [
+        'banner' => 'Du agerar som :tenant.',
+        'reason' => 'Orsak: :reason',
+        'stop' => 'Avsluta',
+    ],
+    'account' => [
+        'owns_tenants' => 'Du äger en tenant och kan inte radera ditt konto. Be plattformsadministratören att först överföra eller radera tenanten.',
+    ],
 ];

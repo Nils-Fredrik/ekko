@@ -24,6 +24,7 @@ return new class extends Migration
             $table->unique(['tenant_id', 'id']);
             $table->index(['market_id', 'scheduled_for']);
         });
+        TenantSchema::enableRowLevelSecurity('run_batches');
 
         Schema::create('runs', function (Blueprint $table): void {
             $table->id();
@@ -45,6 +46,7 @@ return new class extends Migration
             $table->unique(['tenant_id', 'run_batch_id', 'prompt_id', 'engine_key', 'repetition'], 'runs_schedule_unique');
             $table->index(['prompt_id', 'engine_key', 'status']);
         });
+        TenantSchema::enableRowLevelSecurity('runs');
         DB::statement('ALTER TABLE runs ADD CONSTRAINT runs_repetition_range CHECK (repetition BETWEEN 1 AND 3)');
 
         Schema::create('responses', function (Blueprint $table): void {
@@ -68,6 +70,7 @@ return new class extends Migration
             $table->unique(['tenant_id', 'run_id']);
             $table->index(['tenant_id', 'collected_at']);
         });
+        TenantSchema::enableRowLevelSecurity('responses');
 
         Schema::create('mentions', function (Blueprint $table): void {
             $table->id();
@@ -86,6 +89,7 @@ return new class extends Migration
             $table->index('response_id');
             $table->index(['tenant_id', 'entity_type', 'entity_id']);
         });
+        TenantSchema::enableRowLevelSecurity('mentions');
         DB::statement("ALTER TABLE mentions ADD CONSTRAINT mentions_entity_presence CHECK ((entity_type = 'unknown') = (entity_id IS NULL))");
         DB::statement('ALTER TABLE mentions ADD CONSTRAINT mentions_sentiment_range CHECK (sentiment BETWEEN -1 AND 1)');
 
@@ -107,6 +111,7 @@ return new class extends Migration
             $table->index('competitor_id');
             $table->index(['tenant_id', 'domain']);
         });
+        TenantSchema::enableRowLevelSecurity('citations');
 
         DB::statement('ALTER TABLE citations ADD FOREIGN KEY (tenant_id, competitor_id) REFERENCES competitors (tenant_id, id) ON DELETE SET NULL (competitor_id)');
 
@@ -122,15 +127,22 @@ return new class extends Migration
             $table->unique(['tenant_id', 'provider_batch_id']);
             $table->index(['tenant_id', 'status']);
         });
+        TenantSchema::enableRowLevelSecurity('extraction_jobs');
     }
 
     public function down(): void
     {
+        TenantSchema::disableRowLevelSecurity('extraction_jobs');
         Schema::dropIfExists('extraction_jobs');
+        TenantSchema::disableRowLevelSecurity('citations');
         Schema::dropIfExists('citations');
+        TenantSchema::disableRowLevelSecurity('mentions');
         Schema::dropIfExists('mentions');
+        TenantSchema::disableRowLevelSecurity('responses');
         Schema::dropIfExists('responses');
+        TenantSchema::disableRowLevelSecurity('runs');
         Schema::dropIfExists('runs');
+        TenantSchema::disableRowLevelSecurity('run_batches');
         Schema::dropIfExists('run_batches');
     }
 };
