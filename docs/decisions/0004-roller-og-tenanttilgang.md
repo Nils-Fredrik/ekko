@@ -31,7 +31,7 @@
 8. **Stengte tenants** (`status = closed`) er ikke tilgjengelige for medlemmer eller partner, og vises ikke i tenant-velgeren. Plattformadmin kan opptre som dem, for eksempel for eksport før sletting (16). Pausede tenants er fortsatt tilgjengelige.
 9. **RLS for partner:** Når en partner-rådgiver jobber i partnerens tenant, inneholder `app.tenant_ids` partnerens tenant og alle kunde-tenants som ikke er stengt. Det trengs for partneroversikten (T35). I en kunde-tenant inneholder den bare kunde-tenanten. Lag 1 (Eloquent-scopet) gjelder fortsatt bare den valgte tenanten.
 10. **Tenant-velgeren** er Jetstreams team-velger. `User::allTeams()` og `User::switchTeam()` bruker `TenantAccess`, så kunde-tenants vises og kan velges. Valget lagres i `current_team_id` (5.4).
-    - Velgeren viser bare tenants brukeren faktisk kan åpne. Den filtrerer på `canAccess()`, så den og tilgangssjekken kan aldri skille lag.
+    - Velgeren viser bare tenants brukeren kan velge. Både velgeren og `switchTeam()` filtrerer på `canSelect()`, så de kan aldri skille lag.
     - Brukere uten personlig team (inviterte brukere) støttes.
     - Mens plattformadmin opptrer som en tenant, viser navigasjonen og lenken til teaminnstillinger den tenanten, uten at `current_team_id` endres.
     - Tenanten plattformadmin opptrer som, vises ikke i velgeren og kan ikke lagres som `current_team_id` (`TenantAccess::canSelect()`), fordi «opptre som» bare skal ligge i sesjonen.
