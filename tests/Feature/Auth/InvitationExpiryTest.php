@@ -5,6 +5,8 @@ use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Auth\Middleware\EnsureEmailIsVerified;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
@@ -180,4 +182,43 @@ test('accepting switches to the team only when the user has no current team', fu
     $this->actingAs($user)->get(acceptUrl($invitation));
 
     expect($user->fresh()->current_team_id)->toBe($own);
+});
+
+test('an e-mail address is stored lower case', function () {
+    $user = User::factory()->create(['email' => '  Mixed@Example.TEST ']);
+
+    expect($user->fresh()->email)->toBe('mixed@example.test');
+});
+
+test('changing the profile e-mail to a different-case variant of another address is refused', function () {
+    User::factory()->create(['email' => 'victim@example.test']);
+    $attacker = User::factory()->create(['email' => 'attacker@example.test']);
+
+    $this->actingAs($attacker)->put('/user/profile-information', ['name' => $attacker->name, 'email' => 'Victim@Example.test'])
+        ->assertSessionHasErrorsIn('updateProfileInformation', 'email');
+
+    expect($attacker->fresh()->email)->toBe('attacker@example.test')
+        ->and(User::whereRaw('lower(email) = ?', ['victim@example.test'])->count())->toBe(1);
+});
+
+test('the database refuses two addresses that differ only in case', function () {
+    User::factory()->create(['email' => 'one@example.test']);
+
+    expect(fn () => DB::table('users')->insert([
+        'name' => 'Dup', 'email' => 'One@Example.test', 'password' => 'x',
+    ]))->toThrow(QueryException::class);
+});
+
+test('the invitation for a mixed-case address cannot land on a look-alike user', function () {
+    $victim = User::factory()->create(['email' => 'victim@example.test']);
+    $attacker = User::factory()->create(['email' => 'attacker@example.test']);
+    $this->actingAs($attacker)->put('/user/profile-information', ['name' => 'x', 'email' => 'Victim@example.test']);
+
+    $team = Team::factory()->tenant()->create();
+    $invitation = $team->teamInvitations()->create(['email' => 'Victim@example.test', 'role' => 'admin']);
+
+    $this->actingAs($victim)->get(acceptUrl($invitation));
+
+    expect($team->fresh()->hasUser($victim))->toBeTrue()
+        ->and($team->fresh()->hasUser($attacker->fresh()))->toBeFalse();
 });

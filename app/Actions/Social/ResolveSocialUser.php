@@ -28,7 +28,7 @@ use Laravel\Socialite\Contracts\User as SocialiteUser;
  */
 final class ResolveSocialUser
 {
-    public function resolve(string $provider, SocialiteUser $social, bool $emailVerified): ?User
+    public function resolve(string $provider, SocialiteUser $social, ?string $verifiedEmail): ?User
     {
         $providerUserId = (string) $social->getId();
 
@@ -45,13 +45,19 @@ final class ResolveSocialUser
             return $linked->user;
         }
 
-        $email = Str::lower(trim((string) $social->getEmail()));
+        // Only the address the provider verified counts, never another field of the profile.
+        $email = Str::lower(trim((string) $verifiedEmail));
 
-        if ($email === '' || ! $emailVerified) {
+        if ($email === '') {
             return null;
         }
 
-        return DB::transaction(fn (): ?User => $this->linkOrCreate($provider, $providerUserId, $email, $social));
+        try {
+            return DB::transaction(fn (): ?User => $this->linkOrCreate($provider, $providerUserId, $email, $social));
+        } catch (NoInvitationAccepted) {
+            // Rolled back: no user, no link.
+            return null;
+        }
     }
 
     private function linkOrCreate(string $provider, string $providerUserId, string $email, SocialiteUser $social): ?User
@@ -87,7 +93,10 @@ final class ResolveSocialUser
 
         $user->socialAccounts()->create(['provider' => $provider, 'provider_user_id' => $providerUserId]);
 
-        $this->acceptInvitations($user, $invitations);
+        // A user who joins no tenant would be left in none: then there is no user at all.
+        if ($this->acceptInvitations($user, $invitations) === 0) {
+            throw new NoInvitationAccepted;
+        }
 
         return $user;
     }
@@ -98,9 +107,12 @@ final class ResolveSocialUser
      * new user would sit in no tenant.
      *
      * @param  iterable<TeamInvitation>  $invitations
+     * @return int The number of invitations accepted.
      */
-    private function acceptInvitations(User $user, iterable $invitations): void
+    private function acceptInvitations(User $user, iterable $invitations): int
     {
+        $accepted = 0;
+
         foreach ($invitations as $invitation) {
             try {
                 app(AddsTeamMembers::class)->add($invitation->team->owner, $invitation->team, $invitation->email, $invitation->role);
@@ -110,10 +122,13 @@ final class ResolveSocialUser
             }
 
             $invitation->delete();
+            $accepted++;
 
             if ($user->current_team_id === null) {
                 $user->switchTeam($invitation->team);
             }
         }
+
+        return $accepted;
     }
 }

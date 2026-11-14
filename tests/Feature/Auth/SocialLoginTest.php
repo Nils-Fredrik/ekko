@@ -19,7 +19,7 @@ beforeEach(function () {
     ]);
 });
 
-function fakeProviderUser(string $provider, string $email, string $id = 'provider-1', bool $verified = true): void
+function fakeProviderUser(string $provider, string $email, string $id = 'provider-1', bool $verified = true, ?string $claimEmail = null): void
 {
     $user = (new SocialiteUser)->map(['id' => $id, 'name' => 'Provider Person', 'email' => $email]);
     $user->user = ['email_verified' => $verified];
@@ -28,7 +28,7 @@ function fakeProviderUser(string $provider, string $email, string $id = 'provide
         // Microsoft proves the address only with the xms_edov claim of the validated ID token.
         $driver = Mockery::mock(MicrosoftProvider::class);
         $driver->shouldReceive('user')->andReturn($user);
-        $driver->shouldReceive('getClaims')->andReturn((object) ($verified ? ['xms_edov' => true] : []));
+        $driver->shouldReceive('getClaims')->andReturn((object) ($verified ? ['xms_edov' => true, 'email' => $claimEmail ?? $email] : ['email' => $claimEmail ?? $email]));
         Socialite::shouldReceive('driver')->with('microsoft')->andReturn($driver);
 
         return;
@@ -305,4 +305,66 @@ test('the single sign-on endpoints are rate limited per IP', function () {
     }
 
     $this->get('/auth/google/redirect')->assertStatus(429);
+});
+
+test('Microsoft links and creates with the verified email claim, never with the UPN', function () {
+    // The UPN (getEmail) belongs to a victim, the verified claim to the invited person.
+    $victim = User::factory()->create(['email' => 'victim@example.test']);
+    invite('invited@example.test');
+    fakeProviderUser('microsoft', 'victim@example.test', claimEmail: 'invited@example.test');
+
+    $this->get('/auth/microsoft/callback');
+
+    $this->assertAuthenticated();
+    expect(auth()->user()->email)->toBe('invited@example.test')
+        ->and(auth()->user()->isNot($victim))->toBeTrue()
+        ->and($victim->socialAccounts()->count())->toBe(0);
+});
+
+test('Microsoft whose UPN matches a victim but whose claim matches nobody gets nothing', function () {
+    $victim = User::factory()->create(['email' => 'victim@example.test']);
+    fakeProviderUser('microsoft', 'victim@example.test', claimEmail: 'attacker@evil.test');
+
+    $this->get('/auth/microsoft/callback');
+
+    $this->assertGuest();
+    expect(SocialAccount::count())->toBe(0)
+        ->and($victim->socialAccounts()->count())->toBe(0);
+});
+
+test('an invitation that cannot be accepted gives no user: closed tenant', function () {
+    $closed = Team::factory()->tenant()->create(['status' => 'closed']);
+    $closed->teamInvitations()->create(['email' => 'invited@example.test', 'role' => 'reader']);
+    fakeProviderUser('google', 'invited@example.test');
+    $users = User::count();
+
+    $this->get('/auth/google/callback')->assertRedirect(route('login'));
+
+    $this->assertGuest();
+    expect(User::count())->toBe($users)
+        ->and(SocialAccount::count())->toBe(0)
+        ->and($closed->teamInvitations()->count())->toBe(1);
+});
+
+test('an invitation that cannot be accepted gives no user: partner role in a client tenant', function () {
+    $partner = Team::factory()->tenant()->create();
+    $client = Team::factory()->clientOf($partner)->create();
+    $client->teamInvitations()->create(['email' => 'invited@example.test', 'role' => 'partner_advisor']);
+    fakeProviderUser('google', 'invited@example.test');
+    $users = User::count();
+
+    $this->get('/auth/google/callback')->assertRedirect(route('login'));
+
+    $this->assertGuest();
+    expect(User::count())->toBe($users)
+        ->and(SocialAccount::count())->toBe(0);
+});
+
+test('the invitation link is not the intended URL after SSO accepted the invitation', function () {
+    $team = Team::factory()->tenant()->create();
+    $invitation = $team->teamInvitations()->create(['email' => 'invited@example.test', 'role' => 'reader']);
+    fakeProviderUser('google', 'invited@example.test');
+
+    $this->withSession(['url.intended' => "http://localhost/team-invitations/{$invitation->id}"])
+        ->get('/auth/google/callback')->assertRedirect(route('dashboard', absolute: false));
 });

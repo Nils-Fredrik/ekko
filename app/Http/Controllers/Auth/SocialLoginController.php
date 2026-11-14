@@ -36,7 +36,7 @@ class SocialLoginController extends Controller
         try {
             $driver = Socialite::driver($provider);
             $social = $driver->user();
-            $user = $resolver->resolve($provider, $social, $this->emailIsVerified($provider, $driver, $social));
+            $user = $resolver->resolve($provider, $social, $this->verifiedEmail($provider, $driver, $social));
         } catch (Throwable $e) {
             // Includes a wrong state, a cancelled consent screen and provider errors. No details to the user.
             Log::warning('sso.failed', ['provider' => $provider, 'exception' => $e::class]);
@@ -61,25 +61,40 @@ class SocialLoginController extends Controller
         Auth::guard(config('fortify.guard'))->login($user);
         $request->session()->regenerate();
 
+        // An invitation link opened while signed out is the intended URL, but SSO has just accepted
+        // (and deleted) that invitation, so going back there would be a 404.
+        $intended = (string) $request->session()->get('url.intended', '');
+        if ($user->wasRecentlyCreated && str_contains($intended, '/team-invitations/')) {
+            $request->session()->forget('url.intended');
+        }
+
         return redirect()->intended(config('fortify.home'));
     }
 
     /**
-     * Whether the provider has verified the e-mail address, decided per provider and nowhere else.
-     * Google says so in the profile. Microsoft lets a directory admin set "mail" freely, so only
-     * the optional ID token claim "xms_edov" proves it (the app registration must emit it, ADR 0006).
+     * The e-mail address the provider has verified, or null. Decided per provider and nowhere else.
+     * Google: the profile address when "email_verified" is true. Microsoft lets a directory admin set
+     * "mail" and the UPN freely, so only the ID token's own "email" claim, and only with the optional
+     * claim "xms_edov" true, counts (never the UPN or Graph "mail", which getEmail() returns). The
+     * app registration must emit it (ADR 0006).
      */
-    private function emailIsVerified(string $provider, mixed $driver, SocialiteUser $social): bool
+    private function verifiedEmail(string $provider, mixed $driver, SocialiteUser $social): ?string
     {
         if ($provider === 'google') {
             $raw = $social instanceof SocialiteTwoUser ? $social->user : [];
 
-            return filter_var($raw['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+            return filter_var($raw['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN) ? $social->getEmail() : null;
         }
 
         $claims = $driver instanceof MicrosoftProvider ? $driver->getClaims() : null;
 
-        return filter_var($claims->xms_edov ?? false, FILTER_VALIDATE_BOOLEAN);
+        if (! filter_var($claims->xms_edov ?? false, FILTER_VALIDATE_BOOLEAN)) {
+            return null;
+        }
+
+        $email = $claims->email ?? null;
+
+        return is_string($email) && $email !== '' ? $email : null;
     }
 
     private function deny(string $message): RedirectResponse
