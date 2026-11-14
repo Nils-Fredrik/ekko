@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\Middleware\ApplyTenantRls;
 use App\Jobs\Middleware\SetTenantContext;
 use App\Models\Team;
 use App\Tenancy\TenantContext;
@@ -44,8 +45,9 @@ test('the tenant is a constructor parameter and is kept when the job is serializ
     $job = unserialize(serialize(new CreateTenantRecordJob($this->tenantA->id, 'x')));
 
     expect($job->tenantId())->toBe($this->tenantA->id)
-        ->and($job->middleware())->toHaveCount(1)
-        ->and($job->middleware()[0])->toBeInstanceOf(SetTenantContext::class);
+        ->and($job->middleware())->toHaveCount(2)
+        ->and($job->middleware()[0])->toBeInstanceOf(SetTenantContext::class)
+        ->and($job->middleware()[1])->toBeInstanceOf(ApplyTenantRls::class);
 });
 
 test('the job middleware refuses a job without a tenant', function () {

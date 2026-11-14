@@ -30,6 +30,22 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Row-level security (docs/spec.md 5.3, layer 2)
+    |--------------------------------------------------------------------------
+    |
+    | Requests and jobs run in a transaction with SET LOCAL ROLE <role> and
+    | app.tenant_ids (App\Tenancy\Rls\TenantRls). The role must not be a
+    | superuser and must not have BYPASSRLS. In production the app logs in as
+    | this role; locally the superuser switches to it inside the transaction.
+    |
+    */
+
+    'rls' => [
+        'role' => env('DB_RLS_ROLE', 'ekko_app'),
+    ],
+
     'connections' => [
 
         'sqlite' => [
@@ -96,6 +112,26 @@ return [
                 : env('DB_DATABASE', 'ekko'),
             'username' => env('DB_USERNAME', 'postgres'),
             'password' => env('DB_PASSWORD', ''),
+            'charset' => env('DB_CHARSET', 'utf8'),
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('DB_SSLMODE', 'prefer'),
+        ],
+
+        // Platform admin actions only (docs/spec.md 5.3): a role with BYPASSRLS. Every use is logged (T05).
+        'pgsql_admin' => [
+            'driver' => 'pgsql',
+            'url' => env('DB_ADMIN_URL'),
+            'host' => env('DB_HOST', '127.0.0.1'),
+            'port' => env('DB_PORT', '5432'),
+            // Tests never touch the development database: each worktree sets DB_TEST_DATABASE
+            // (e.g. ekko_claude_testing), and CI uses ekko_testing.
+            'database' => env('APP_ENV') === 'testing'
+                ? env('DB_TEST_DATABASE', 'ekko_testing')
+                : env('DB_DATABASE', 'ekko'),
+            'username' => env('DB_ADMIN_USERNAME', env('DB_USERNAME', 'postgres')),
+            'password' => env('DB_ADMIN_PASSWORD', env('DB_PASSWORD', '')),
             'charset' => env('DB_CHARSET', 'utf8'),
             'prefix' => '',
             'prefix_indexes' => true,
