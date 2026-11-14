@@ -34,6 +34,7 @@
     - Velgeren viser bare tenants brukeren faktisk kan åpne. Den filtrerer på `canAccess()`, så den og tilgangssjekken kan aldri skille lag.
     - Brukere uten personlig team (inviterte brukere) støttes.
     - Mens plattformadmin opptrer som en tenant, viser navigasjonen og lenken til teaminnstillinger den tenanten, uten at `current_team_id` endres.
+    - Tenanten plattformadmin opptrer som, vises ikke i velgeren og kan ikke lagres som `current_team_id` (`TenantAccess::canSelect()`), fordi «opptre som» bare skal ligge i sesjonen.
 11. **`SetCurrentTenant`** tømmer konteksten og rollebufferen i starten av hver forespørsel, så en tenant aldri overføres der containeren gjenbrukes.
 12. **Policy for tenant-eide ressurser:** `App\Policies\TenantResourcePolicy` er basisklassen. En underklasse angir rettigheten for endring (`$manage`), og lesing krever `ViewData`. Policyene for T08-modellene kommer i `task:44`.
 
