@@ -16,7 +16,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
 use Throwable;
 
 /**
- * Login with Google (docs/spec.md 5.4, ADR 0006). Only for users who exist or have an
+ * Login with Google (docs/spec.md 5.4, ADR 0008). Only for users who exist or have an
  * unexpired invitation; an uninvited account gets no access and no user.
  */
 class SocialLoginController extends Controller
@@ -72,7 +72,7 @@ class SocialLoginController extends Controller
     /**
      * The e-mail address the provider has verified, or null. Decided per provider and nowhere else.
      * Google: the profile address when "email_verified" is true. Any other provider gives null until
-     * it has its own rule here (ADR 0006 says what Microsoft would need).
+     * it has its own rule here (ADR 0008 says what Microsoft would need).
      */
     private function verifiedEmail(string $provider, SocialiteUser $social): ?string
     {

@@ -65,7 +65,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * E-mail addresses are stored trimmed and lower case, so lookups and uniqueness do not depend
-     * on case (ADR 0006).
+     * on case (ADR 0008).
      *
      * @return Attribute<string, string>
      */

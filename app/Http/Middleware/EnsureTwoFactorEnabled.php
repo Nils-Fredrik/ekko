@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Two-factor authentication is required for the platform admin and partner advisors (docs/spec.md
- * 5.4, ADR 0006). Until it is confirmed they can only reach the pages that set it up.
+ * 5.4, ADR 0008). Until it is confirmed they can only reach the pages that set it up.
  */
 final class EnsureTwoFactorEnabled
 {

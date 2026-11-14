@@ -6,7 +6,7 @@ use App\Models\User;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
 
-// docs/spec.md 5.4 and T07: Google login for invited users only (Microsoft is left out, ADR 0006).
+// docs/spec.md 5.4 and T07: Google login for invited users only (Microsoft is left out, ADR 0008).
 // Socialite is faked, so no test reaches a provider.
 
 beforeEach(function () {

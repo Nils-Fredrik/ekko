@@ -1,4 +1,4 @@
-# 0006 – Innlogging med Google, invitasjoner og tofaktor
+# 0008 – Innlogging med Google, invitasjoner og tofaktor
 
 - **Status:** Akseptert
 - **Dato:** 2026-11-14

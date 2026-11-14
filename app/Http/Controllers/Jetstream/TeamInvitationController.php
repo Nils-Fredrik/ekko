@@ -26,7 +26,7 @@ class TeamInvitationController extends JetstreamTeamInvitationController
         abort_unless(strcasecmp((string) $user?->email, $invitation->email) === 0, 403);
 
         // The invitation proves the e-mail address only if the user has proven it too (finding #140,
-        // ADR 0006): changing the e-mail address on a profile clears the verification.
+        // ADR 0008): changing the e-mail address on a profile clears the verification.
         abort_unless($user instanceof MustVerifyEmail && $user->hasVerifiedEmail(), 403, __('auth.invitation.unverified'));
 
         // The server is the judge: an old signed link stops working after 7 days (docs/spec.md 5.4).

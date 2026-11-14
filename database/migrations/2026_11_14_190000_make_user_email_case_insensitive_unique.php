@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration
 {
     /**
-     * E-mail addresses are stored lower case and unique regardless of case (ADR 0006). Duplicates
+     * E-mail addresses are stored lower case and unique regardless of case (ADR 0008). Duplicates
      * that differ only in case are never merged automatically: the migration stops and names the
      * user ids. The addresses themselves are left out, so no personal data ends up in deploy logs.
      */

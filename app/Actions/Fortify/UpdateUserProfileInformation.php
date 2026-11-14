@@ -27,7 +27,7 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
             $user->updateProfilePhoto($input['photo']);
         }
 
-        // User is MustVerifyEmail: a changed address must be verified again (ADR 0006, finding #140).
+        // User is MustVerifyEmail: a changed address must be verified again (ADR 0008, finding #140).
         if (Str::lower(trim($input['email'])) !== $user->email) {
             $this->updateVerifiedUser($user, $input);
         } else {

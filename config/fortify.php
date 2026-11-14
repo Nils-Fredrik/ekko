@@ -164,7 +164,7 @@ return [
     'features' => [
         // No open registration: users are invited (docs/spec.md 5.4).
         Features::resetPasswords(),
-        // Email verification gates invitations and changed e-mail addresses (ADR 0006).
+        // Email verification gates invitations and changed e-mail addresses (ADR 0008).
         Features::emailVerification(),
         Features::updateProfileInformation(),
         Features::updatePasswords(),

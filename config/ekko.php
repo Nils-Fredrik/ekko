@@ -10,7 +10,7 @@ return [
 
     /*
     | Single sign-on providers (docs/spec.md 5.4). A provider is offered on the login page only
-    | when its client id and secret are set. Microsoft is left out for now (ADR 0006).
+    | when its client id and secret are set. Microsoft is left out for now (ADR 0008).
     */
     'sso_providers' => ['google'],
 

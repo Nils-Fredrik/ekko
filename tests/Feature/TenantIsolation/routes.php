@@ -55,7 +55,7 @@ return [
     'password.confirm' => RouteAccess::user(),
     'password.confirm.store' => RouteAccess::user(),
     'password.confirmation' => RouteAccess::user(),
-    // E-mail verification of the signed-in user's own address (ADR 0006). The link carries the
+    // E-mail verification of the signed-in user's own address (ADR 0008). The link carries the
     // user's id, so another user's link must be refused.
     'verification.notice' => RouteAccess::user(),
     'verification.send' => RouteAccess::user(),

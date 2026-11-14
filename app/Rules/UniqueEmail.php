@@ -8,7 +8,7 @@ use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Support\Str;
 
 /**
- * An e-mail address is unique regardless of case (ADR 0006): "Ann@x.no" and "ann@x.no" are the same
+ * An e-mail address is unique regardless of case (ADR 0008): "Ann@x.no" and "ann@x.no" are the same
  * address. The database has a unique index on lower(email) as well.
  */
 final class UniqueEmail implements ValidationRule

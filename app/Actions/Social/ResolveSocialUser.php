@@ -13,7 +13,7 @@ use Laravel\Jetstream\Contracts\AddsTeamMembers;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 
 /**
- * Finds the user a single sign-on account (Google for now) may log in as (docs/spec.md 5.4, ADR 0006).
+ * Finds the user a single sign-on account (Google for now) may log in as (docs/spec.md 5.4, ADR 0008).
  *
  * There is no open registration, so an account only gets access when
  * 1. it is already linked to a user, or

@@ -205,8 +205,8 @@ Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
 ### 5.4 Innlogging
 
 - **E-post og passord** via Jetstream. 2FA er påkrevd for plattformadmin og partner-rådgivere og valgfritt for andre.
-- **Google** via Socialite. En Google-konto kobles til en eksisterende invitert bruker basert på verifisert e-postadresse. Det finnes ingen åpen registrering. Microsoft er utsatt (eierens beslutning 2026-11-14); hva som kreves når den kommer, står i `docs/decisions/0006-innlogging-og-invitasjoner.md`.
-- **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager, kontrollert på serveren. Den kan bare godtas av en innlogget bruker med samme, bekreftede e-postadresse. Å endre e-postadressen krever ny bekreftelse. En Google- eller Microsoft-konto med en gyldig invitasjon får opprettet brukeren og godtar invitasjonene (ellers ingen bruker). Kontoer kobles til eksisterende brukere bare når leverandøren har verifisert e-posten (Microsoft: claimet `xms_edov`) og brukerens egen adresse er bekreftet. Detaljer i `docs/decisions/0006-innlogging-og-invitasjoner.md`.
+- **Google** via Socialite. En Google-konto kobles til en eksisterende invitert bruker basert på verifisert e-postadresse. Det finnes ingen åpen registrering. Microsoft er utsatt (eierens beslutning 2026-11-14); hva som kreves når den kommer, står i `docs/decisions/0008-innlogging-og-invitasjoner.md`.
+- **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager, kontrollert på serveren. Den kan bare godtas av en innlogget bruker med samme, bekreftede e-postadresse. Å endre e-postadressen krever ny bekreftelse. En Google- eller Microsoft-konto med en gyldig invitasjon får opprettet brukeren og godtar invitasjonene (ellers ingen bruker). Kontoer kobles til eksisterende brukere bare når leverandøren har verifisert e-posten (Microsoft: claimet `xms_edov`) og brukerens egen adresse er bekreftet. Detaljer i `docs/decisions/0008-innlogging-og-invitasjoner.md`.
 - **Tenant-velger:** brukere med flere tenants bytter mellom dem i toppmenyen, som Jetstreams team-switcher. Valgt tenant lagres på brukeren.
 - **Sesjon:** samme oppsett som Varde, med `__Host-`-prefiks på sesjonscookien, `secure` og `samesite=lax`.
 
@@ -214,7 +214,7 @@ Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
 
 ## 6. Datamodell
 
-Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til `teams.id`, indeks og RLS. Tidsstempler lagres i UTC.
+Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til `teams.id`, indeks og RLS. Tidsstempler lagres i UTC. Relasjoner mellom tenant-eide tabeller med vanlig fremmednøkkel sjekker også at radene tilhører samme tenant (se [ADR 0006](decisions/0006-tenant-eide-tabellrelasjoner.md)).
 
 ### 6.1 Tenant og tilgang
 
@@ -1113,12 +1113,12 @@ Rammeverk som automatisk itererer over alle registrerte ruter, API-endepunkter o
 - En ny rute uten policy får CI til å feile.
 
 ### T07 – Innlogging og invitasjoner
-Socialite for Google med kobling mot inviterte brukere (Microsoft utsatt, ADR 0006), påkrevd 2FA for admin og partner, og innloggingsbegrensning.
+Socialite for Google med kobling mot inviterte brukere (Microsoft utsatt, ADR 0008), påkrevd 2FA for admin og partner, og innloggingsbegrensning.
 - En uinvitert Google-konto får ikke tilgang.
 - Invitasjoner utløper etter 7 dager.
 
 ### T08 – Datamodell
-Migreringer, modeller, fabrikker og seedere for 6.2–6.5. Seedere lager demodata for to tenants og én partner.
+Migreringer, modeller, fabrikker og seedere for 6.2–6.5. Seedere lager demodata for to tenants og én partner. I lokalt miljø kan du logge inn som `norway@example.test`, `sweden@example.test` eller `partner@example.test` med standardpassordet fra `UserFactory`.
 - `php artisan migrate:fresh --seed` gir et brukbart demomiljø.
 
 ### T09 – Terraform
@@ -1269,6 +1269,6 @@ Workflowen `agent-review.yml`, `.github/review-paths.yml`, status-sjekken `agent
 | A2 | Repo | https://github.com/Nils-Fredrik/ekko. Varde (https://github.com/Nils-Fredrik/varde) brukes som referanse med lesetilgang for agentene (4.1). |
 | A3 | Google Cloud | Prosjekt `ekko-514612` er opprettet. |
 | A4 | Leverandørkontoer og API-nøkler: Anthropic (organisasjonen med Team-abonnementet), Perplexity og DataForSEO. OpenAI og Google (Gemini API) kun for valgfrie API-motorer. | Avklares underveis. Forutsetning for T12–T16. |
-| A5 | App-registrering for Google-innlogging | Avklares underveis. Forutsetning for å ta T07 i bruk. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0006). |
+| A5 | App-registrering for Google-innlogging | Avklares underveis. Forutsetning for å ta T07 i bruk. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0008). |
 | A6 | E-posttjeneste og avsenderadresse for varsler og rapporter | Avklares underveis. Forutsetning for T24 og T32. |
 | A7 | Startpriser og påslag per pakke | Avklares underveis. Forutsetning for T19 og T31. |
