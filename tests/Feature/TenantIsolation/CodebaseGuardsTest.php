@@ -152,7 +152,6 @@ test('the isolation tests cannot be skipped or excluded', function () {
             if (preg_match('/(--(filter|group|exclude-group|testsuite|exclude-testsuite|configuration|dirty|bootstrap)\b|\s-c\s|\s-d\s)/', $command) === 1) {
                 $offenders[] = "composer.json script {$name}";
             }
-
         }
     }
 
