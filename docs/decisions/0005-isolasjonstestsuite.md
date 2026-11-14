@@ -33,8 +33,9 @@ En policy kan ikke leses ut av ruten selv: autorisasjon skjer i kontrollere, pol
    - Modeller med en `tenant_id`-kolonne må bruke `BelongsToTenant`.
    - MCP-tools i `app/Mcp/Tools` må stå i `mcp-tools.php` (T34 fyller det ut og utvider de genererte testene).
    - Testfilene i isolasjonssuiten og `tests/Pest.php` kan ikke inneholde `skip()`, `skipOn…()`, `todo()`, `only()` eller PHPUnit-markører for å hoppe over.
-   - `phpunit.xml` kan ikke ha `<groups>` eller `<exclude>` under `<testsuites>`. `<source><exclude>` gjelder bare dekning og er tillatt.
-   - Test-skriptene i `composer.json` kan ikke filtrere kjøringen med `--filter`, `--group`, `--exclude-group` eller `--testsuite`.
+   - `phpunit.xml` kan ikke ha `<groups>`, `<exclude>` under `<testsuites>` eller `defaultTestSuite`, og `tests/Feature` må være en testsuite-mappe. `<source><exclude>` gjelder bare dekning og er tillatt.
+   - Test-skriptene i `composer.json` kan ikke filtrere kjøringen eller bytte konfigurasjon (`--filter`, `--group`, `--exclude-group`, `--testsuite`, `--configuration`/`-c`, `--dirty`, `--bootstrap`, `-d`). `composer test` kan ikke ta stier, så den kjører alle testene.
+   - `withoutForeignCheck()` fritar bare brukerruter fra den positive kontrollen. Tenant- og plattformadmin-ruter med parameter må alltid ha `own`.
 5. **Avgrensning:** Testene for mekanismene ligger i `tests/Feature/Tenancy` (lag 1 og 2) og `tests/Feature/Access` (roller). `composer test:isolation` kjører alle tre mappene. `composer test` kjører dem også.
 6. **Funn under arbeidet:**
    - Lagringsrutene for lokal disk (`storage/{path}`, GET og PUT) er slått av (`serve => false`). Ekko lagrer filer i GCS.
