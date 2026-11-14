@@ -26,3 +26,12 @@ Thumbs.db
 # laravel-vue-i18n generates these from lang/*/*.php
 /lang/php_*.json
 .env.testing
+
+# Terraform state and local provider data may contain sensitive information.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+crash.log

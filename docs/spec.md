@@ -1122,7 +1122,7 @@ Migreringer, modeller, fabrikker og seedere for 6.2–6.5. Seedere lager demodat
 - `php artisan migrate:fresh --seed` gir et brukbart demomiljø.
 
 ### T09 – Terraform
-Ressursene i 3.1 i prosjektet `ekko-514612`, med egne tjenestekontoer per komponent (web, jobber, Scheduler, CI) og IAM med minste privilegium.
+Ressursene i 3.1 i prosjektet `ekko-514612`, med egne tjenestekontoer per komponent (web, jobber, Scheduler, CI) og IAM med minste privilegium. SQL-innlogginger og hemmelighetsversjoner opprettes utenfor Terraform, mens instans, database og hemmelighetsbeholdere forvaltes i Terraform (ADR 0005). SQL-rollen `ekko_app` og administrativ `BYPASSRLS` må verifiseres før produksjon.
 - `terraform plan` er rent etter `apply`.
 - Ingen nøkler i state utover referanser til Secret Manager.
 
