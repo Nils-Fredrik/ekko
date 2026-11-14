@@ -31,7 +31,7 @@ Du tar bare oppgaver med din egen merkelapp.
    ```
 6. Gjør oppgaven etter beskrivelsen og akseptkriteriene på Board og i `docs/spec.md`.
 7. Post på Board underveis, ett poeng per post: `decision`, `blocker`, `finding` eller `question`. Maks 500 tegn, ingen hemmeligheter eller kundedata.
-8. Kjør tester og kodekontroller lokalt (`composer test`, `npm run lint`) før du åpner PR.
+8. Kjør tester og kodekontroller lokalt (`composer test`, `composer lint`, `npm run lint`) før du åpner PR.
 9. Åpne PR med tittel «[Agent] T<nr> – <tittel>» (samme som Board-oppgaven) og en beskrivelse med:
    - Board-oppgave (`task:<n>`) og T-nummer
    - hva som er gjort
@@ -43,7 +43,13 @@ Du tar bare oppgaver med din egen merkelapp.
 
 ## Regler
 
-- **Én oppgave = én gren = én PR.**
+Reglene under er de felles reglene i `docs/spec.md` 19.2.
+
+- **Kilde for krav:** `docs/spec.md`. `CLAUDE.md` importerer denne filen, Codex leser den direkte, og Cursor har en regel i `.cursor/rules/ekko.mdc` som peker hit og til spesifikasjonen.
+- **Én oppgave = én gren = én PR.** Grennavn `t<nr>-<kort-beskrivelse>`, f.eks. `t12-chatgpt-api-adapter`. PR-tittelen starter med merkelappen og T-nummeret, f.eks. «[Codex] T12 – Adapter chatgpt_api». Review-workflowen bruker merkelappen til å velge reviewer.
+- **Åpne review-kommentarer først:** har en reviewer bedt om endringer i en av dine PR-er, retter du dem før du tar en ny oppgave.
+- **Merge** gjøres av Nils-Fredrik (eieren), aldri av en agent.
+- **Tilgang:** agentenes GitHub-integrasjoner har skrivetilgang til `ekko` og lesetilgang til `varde`.
 - **Kryssreview** etter `docs/spec.md` 19.5. Ingen merge uten godkjent review fra en annen agent og grønn CI.
 - **Tester:** ikke deaktiver, hopp over eller svekk tester for å få grønt bygg. Isolasjonstestene for tenants er alltid blokkerende.
 - **Varde** (`Nils-Fredrik/varde`) er kun referanse. Les og kopier mønstre derfra (`docs/spec.md` 4.1), men gjør aldri endringer, commits, grener eller PR-er i Varde. Kopier aldri miljøfiler eller hemmeligheter.
@@ -62,6 +68,26 @@ Hver agent jobber i sin egen `git worktree`, aldri i samme mappe som en annen ag
 | Cursor | `~/kode/ekko-cursor` | `ekko_cursor` | 8002 | 5175 |
 | Codex | `~/kode/ekko-codex` | `ekko_codex` | 8003 | 5176 |
 
-Kopier `.env.example` til `.env` i din mappe og sett `DB_DATABASE`, `APP_PORT`/`APP_URL` og `VITE_PORT` etter tabellen. `.env` committes aldri.
+Testene bruker en egen database per worktree, `<database>_testing` (f.eks. `ekko_claude_testing`), satt med `DB_TEST_DATABASE`. Testene treffer aldri utviklingsdatabasen (`docs/decisions/0001-app-i-rotmappen-og-testdatabase.md`).
 
-Skybaserte økter (Codex i skyen, Cursors bakgrunnsagenter) bruker `scripts/agent-setup.sh` (lages i T01).
+Oppsett med ett skript, som lager databasene, skriver `.env` (bare hvis den mangler), installerer avhengigheter, migrerer og bygger frontend:
+
+```
+scripts/agent-setup.sh claude   # eller cursor, codex
+```
+
+Krever PostgreSQL 16 lokalt. Har databasen en annen bruker enn `postgres`, sett `PGUSER` (og eventuelt `PGHOST`) før skriptet kjøres. Vil du sette opp manuelt: kopier `.env.example` til `.env` og sett `DB_DATABASE`, `DB_TEST_DATABASE`, `DB_USERNAME`, `APP_PORT`/`APP_URL` og `VITE_PORT` etter tabellen. `.env` committes aldri.
+
+Skybaserte økter (Codex i skyen, Cursors bakgrunnsagenter) kjører `scripts/agent-setup.sh cloud`, som også installerer og starter Postgres.
+
+### Kommandoer
+
+```
+composer dev        # app, kø, logg og Vite (porter fra APP_PORT og VITE_PORT i .env)
+composer test       # Pest mot <database>_testing
+composer lint       # Pint (--test) og Larastan nivå 6
+composer format     # Pint
+npm run lint        # ESLint og Prettier (--check)
+npm run format      # Prettier og ESLint --fix
+npm run build
+```

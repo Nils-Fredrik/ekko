@@ -1,0 +1,14 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/forms';
+@plugin '@tailwindcss/typography';
+
+@source '../js/**/*.vue';
+@source '../views/**/*.blade.php';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../vendor/laravel/jetstream/**/*.blade.php';
+
+/* Design tokens, Suisse Intl and the dark/light shell are ported from Varde in T02 (docs/spec.md 14.1). */
+
+[x-cloak] {
+    display: none;
+}
