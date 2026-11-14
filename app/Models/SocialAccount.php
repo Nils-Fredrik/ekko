@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * A Google or Microsoft account linked to a user (docs/spec.md 5.4).
+ * A single sign-on account (Google for now) linked to a user (docs/spec.md 5.4).
  */
 class SocialAccount extends Model
 {

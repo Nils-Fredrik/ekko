@@ -12,12 +12,11 @@ use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteTwoUser;
-use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
 use Throwable;
 
 /**
- * Login with Google or Microsoft (docs/spec.md 5.4, ADR 0006). Only for users who exist or have an
+ * Login with Google (docs/spec.md 5.4, ADR 0006). Only for users who exist or have an
  * unexpired invitation; an uninvited account gets no access and no user.
  */
 class SocialLoginController extends Controller
@@ -34,9 +33,8 @@ class SocialLoginController extends Controller
         $this->ensureConfigured($provider);
 
         try {
-            $driver = Socialite::driver($provider);
-            $social = $driver->user();
-            $user = $resolver->resolve($provider, $social, $this->verifiedEmail($provider, $driver, $social));
+            $social = Socialite::driver($provider)->user();
+            $user = $resolver->resolve($provider, $social, $this->verifiedEmail($provider, $social));
         } catch (Throwable $e) {
             // Includes a wrong state, a cancelled consent screen and provider errors. No details to the user.
             Log::warning('sso.failed', ['provider' => $provider, 'exception' => $e::class]);
@@ -73,12 +71,10 @@ class SocialLoginController extends Controller
 
     /**
      * The e-mail address the provider has verified, or null. Decided per provider and nowhere else.
-     * Google: the profile address when "email_verified" is true. Microsoft lets a directory admin set
-     * "mail" and the UPN freely, so only the ID token's own "email" claim, and only with the optional
-     * claim "xms_edov" true, counts (never the UPN or Graph "mail", which getEmail() returns). The
-     * app registration must emit it (ADR 0006).
+     * Google: the profile address when "email_verified" is true. Any other provider gives null until
+     * it has its own rule here (ADR 0006 says what Microsoft would need).
      */
-    private function verifiedEmail(string $provider, mixed $driver, SocialiteUser $social): ?string
+    private function verifiedEmail(string $provider, SocialiteUser $social): ?string
     {
         if ($provider === 'google') {
             $raw = $social instanceof SocialiteTwoUser ? $social->user : [];
@@ -86,15 +82,7 @@ class SocialLoginController extends Controller
             return filter_var($raw['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN) ? $social->getEmail() : null;
         }
 
-        $claims = $driver instanceof MicrosoftProvider ? $driver->getClaims() : null;
-
-        if (! filter_var($claims->xms_edov ?? false, FILTER_VALIDATE_BOOLEAN)) {
-            return null;
-        }
-
-        $email = $claims->email ?? null;
-
-        return is_string($email) && $email !== '' ? $email : null;
+        return null;
     }
 
     private function deny(string $message): RedirectResponse

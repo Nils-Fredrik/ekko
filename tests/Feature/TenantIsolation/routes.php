@@ -37,7 +37,7 @@ return [
     'password.update' => RouteAccess::guest(),
     'two-factor.login' => RouteAccess::guest(),
     'two-factor.login.store' => RouteAccess::guest(),
-    // Login with Google or Microsoft: the provider is a fixed name, not a tenant resource, and the
+    // Login with Google: the provider is a fixed name, not a tenant resource, and the
     // callback creates a user only for an unexpired invitation (SocialLoginTest).
     'social.redirect' => RouteAccess::guest(),
     'social.callback' => RouteAccess::guest(),

@@ -1,4 +1,4 @@
-# 0006 – Innlogging med Google og Microsoft, invitasjoner og tofaktor
+# 0006 – Innlogging med Google, invitasjoner og tofaktor
 
 - **Status:** Akseptert
 - **Dato:** 2026-11-14
@@ -8,17 +8,19 @@
 
 `docs/spec.md` 5.4 sier at Google- og Microsoft-kontoer kobles til eksisterende inviterte brukere, at invitasjoner utløper etter 7 dager, og at plattformadmin og partner-rådgivere må bruke 2FA. Registrering er avslått, så det finnes ingen vei inn for en ny bruker uten en invitasjon. Claude-reviewen av T05 (finding #140) pekte også på at `User` ikke var `MustVerifyEmail`: en bruker kunne endre sin egen e-postadresse til en invitert adresse og godta en lekket invitasjonslenke.
 
+Eieren besluttet 2026-11-14 at Microsoft-innlogging ikke trengs i denne runden.
+
 ## Beslutning
 
-1. **Socialite** (Google innebygd, Microsoft via `socialiteproviders/microsoft`) på `/auth/{provider}/redirect` og `/callback` (`social.redirect`, `social.callback`), bare for gjester og med begrensningen `sso` (10 per minutt per IP). Nøkler kommer fra miljøet (`GOOGLE_*`, `MICROSOFT_*`). En leverandør uten nøkler gir 404 og vises ikke på innloggingssiden.
+0. **Bare Google nå.** Microsoft er tatt ut (pakke, konfigurasjon, knapp og ruter). `/auth/microsoft/*` gir 404. Se «Microsoft senere» nederst for hva som må på plass før den kommer tilbake.
+1. **Socialite** (Google, innebygd) på `/auth/{provider}/redirect` og `/callback` (`social.redirect`, `social.callback`), der `{provider}` er begrenset til `config('ekko.sso_providers')`. Bare for gjester og med begrensningen `sso` (10 per minutt per IP). Nøkler kommer fra miljøet (`GOOGLE_*`). En leverandør uten nøkler gir 404 og vises ikke på innloggingssiden.
 2. **Hvem slipper inn** (`App\Actions\Social\ResolveSocialUser`), i denne rekkefølgen:
    1. kontoen er allerede koblet (`social_accounts`, unik på leverandør og leverandør-ID), ellers
    2. leverandøren har verifisert e-postadressen **og** den tilhører en eksisterende bruker som selv har en bekreftet adresse: kontoen kobles. En bruker med ubekreftet adresse avvises uten kobling og uten at noe endres (finding #140: adressen kan være skrevet inn av en annen), ellers
    3. leverandøren har verifisert adressen og den har en **ikke-utløpt** invitasjon: brukeren opprettes (uten passord) og kobles, og invitasjonene godtas (punkt 3a).
    4. ellers: ingen tilgang, ingen bruker, ingen kobling.
    - Avslag skjer før noe skrives: «allerede koblet hos denne leverandøren» sjekkes før brukeren endres.
-   - Hvilken adresse leverandøren har verifisert avgjøres ett sted (`SocialLoginController::verifiedEmail`, som returnerer adressen eller null): Google `email_verified`, Microsoft claimet `xms_edov` i det validerte ID-tokenet (`getClaims()`).
-   - **Microsoft (nOAuth):** `mail` og UPN kan en katalogadministrator sette fritt, og med `MICROSOFT_TENANT_ID=common` kan hvem som helst logge inn fra sin egen katalog. E-posten brukes derfor bare til kobling eller opprettelse når `xms_edov` er sant. Uten det virker Microsoft bare for kontoer som allerede er koblet. **App-registreringen (A5) må sende det valgfrie claimet `xms_edov` i ID-tokenet.** `xms_edov` gjelder claimet `email` i ID-tokenet, ikke UPN eller Graph `mail` (som `getEmail()` returnerer). Derfor gis resolveren selve den verifiserte adressen (`?string $verifiedEmail`, null = ikke verifisert): Google `getEmail()` når `email_verified` er sann, Microsoft claimet `email` når `xms_edov` er sann. Bare den adressen brukes til kobling og opprettelse. Å binde til én katalog med `MICROSOFT_TENANT_ID` er en ekstra sperre, ikke en erstatning.
+   - Hvilken adresse leverandøren har verifisert avgjøres ett sted (`SocialLoginController::verifiedEmail`, som returnerer adressen eller null): Google `getEmail()` når `email_verified` er sann. En annen leverandør gir null til den har sin egen regel der, og virker da bare for kontoer som allerede er koblet.
    - Maks én konto per leverandør per bruker.
 3. **Innlogging via SSO og 2FA:** har brukeren bekreftet 2FA, sendes hen til samme utfordring som ved passordinnlogging (`login.id` i sesjonen). SSO omgår aldri 2FA.
 3a. **Invitasjoner godtas ved opprettelse via SSO.** Innloggingen har bevist at brukeren eier adressen, så alle aktive (ikke-utløpte) invitasjoner til den godtas i samme transaksjon gjennom `AddsTeamMembers` (samme handling som Jetstream bruker, med eierens rettigheter), og slettes. Blir ingen godtatt (stengt tenant, partner-rolle i en kunde-tenant), rulles alt tilbake: ingen bruker, ingen kobling. Den første tenanten blir `current_team_id`. En invitasjon som ikke lenger er gyldig (for eksempel partner-rolle i en tenant som er blitt kunde-tenant) hoppes over og blir liggende. `TeamInvitationController::accept` bytter også til tenanten når brukeren ikke har en aktiv tenant.
@@ -39,3 +41,14 @@
 - **Kjent begrensning:** en bruker opprettet via SSO har et tilfeldig passord, men 2FA-oppsett krever passordbekreftelse (`confirmPassword`). Brukeren må først sette et passord via «glemt passord». Det gjelder særlig partner-rådgivere, som må ha 2FA. Ingen egen flyt bygges nå.
 - Utløpte invitasjoner slettes før valideringen i `InviteTeamMember`, også når valideringen siden feiler. Det er ufarlig.
 - Ikke gjort her: planlagt opprydding av utløpte invitasjoner (de er ufarlige og slettes når de brukes eller erstattes) og e-postvarsel ved utløp.
+
+## Microsoft senere
+
+Reviewen av PR #15 fant at Microsoft-innlogging med `common` åpner for kontoovertakelse («nOAuth»): `mail` og UPN kan en katalogadministrator sette fritt, så hvem som helst kan logge inn fra sin egen katalog med en annens adresse. Kommer Microsoft tilbake, gjelder dette:
+
+- App-registreringen (A5) må sende det valgfrie claimet `xms_edov` i ID-tokenet.
+- `verifiedEmail` gir bare claimet `email` fra det validerte ID-tokenet, og bare når `xms_edov` er sant. Aldri UPN eller Graph `mail` (som `getEmail()` i `socialiteproviders/microsoft` returnerer).
+- Testene må dekke: uten `xms_edov` ingen kobling eller opprettelse, UPN lik et offer men annet claim gir ingenting, og en allerede koblet konto virker.
+- Å binde til én katalog med `MICROSOFT_TENANT_ID` er en ekstra sperre, ikke en erstatning.
+
+Koden for dette finnes i historikken til PR #15 (commit `1c365d6`).

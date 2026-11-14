@@ -42,12 +42,4 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
     ],
 
-    'microsoft' => [
-        'client_id' => env('MICROSOFT_CLIENT_ID'),
-        'client_secret' => env('MICROSOFT_CLIENT_SECRET'),
-        'redirect' => env('MICROSOFT_REDIRECT_URI', '/auth/microsoft/callback'),
-        // "common" accepts work, school and personal accounts. Set a directory (tenant) id to restrict it.
-        'tenant' => env('MICROSOFT_TENANT_ID', 'common'),
-    ],
-
 ];

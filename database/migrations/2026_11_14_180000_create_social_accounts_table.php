@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration
 {
     /**
-     * Links a user to a Google or Microsoft account (docs/spec.md 5.4). User-owned, not tenant-owned.
+     * Links a user to a single sign-on account (Google for now) (docs/spec.md 5.4). User-owned, not tenant-owned.
      */
     public function up(): void
     {

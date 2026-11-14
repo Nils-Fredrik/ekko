@@ -13,4 +13,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0003](0003-rls-rolle-og-transaksjon.md) | Rolle, transaksjon og migreringshjelper for row-level security | Akseptert |
 | [0004](0004-roller-og-tenanttilgang.md) | Roller, partner-tilgang og «opptre som tenant» | Akseptert |
 | [0005](0005-isolasjonstestsuite.md) | Isolasjonstestsuite med ruteregister | Akseptert |
-| [0006](0006-innlogging-og-invitasjoner.md) | Innlogging med Google og Microsoft, invitasjoner og tofaktor | Akseptert |
+| [0006](0006-innlogging-og-invitasjoner.md) | Innlogging med Google, invitasjoner og tofaktor | Akseptert |

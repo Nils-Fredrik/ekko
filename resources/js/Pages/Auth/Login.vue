@@ -13,7 +13,7 @@ defineProps({
     status: String,
 });
 
-const providerNames = { google: 'Google', microsoft: 'Microsoft' };
+const providerNames = { google: 'Google' };
 
 const form = useForm({
     email: '',

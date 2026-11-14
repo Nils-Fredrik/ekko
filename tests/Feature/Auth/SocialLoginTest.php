@@ -5,34 +5,21 @@ use App\Models\Team;
 use App\Models\User;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
-use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
 
-// docs/spec.md 5.4 and T07: Google and Microsoft login for invited users only. Socialite is faked,
-// so no test reaches a provider.
+// docs/spec.md 5.4 and T07: Google login for invited users only (Microsoft is left out, ADR 0006).
+// Socialite is faked, so no test reaches a provider.
 
 beforeEach(function () {
     config([
         'services.google.client_id' => 'test-id',
         'services.google.client_secret' => 'test-secret',
-        'services.microsoft.client_id' => 'test-id',
-        'services.microsoft.client_secret' => 'test-secret',
     ]);
 });
 
-function fakeProviderUser(string $provider, string $email, string $id = 'provider-1', bool $verified = true, ?string $claimEmail = null): void
+function fakeProviderUser(string $provider, string $email, string $id = 'provider-1', bool $verified = true): void
 {
     $user = (new SocialiteUser)->map(['id' => $id, 'name' => 'Provider Person', 'email' => $email]);
     $user->user = ['email_verified' => $verified];
-
-    if ($provider === 'microsoft') {
-        // Microsoft proves the address only with the xms_edov claim of the validated ID token.
-        $driver = Mockery::mock(MicrosoftProvider::class);
-        $driver->shouldReceive('user')->andReturn($user);
-        $driver->shouldReceive('getClaims')->andReturn((object) ($verified ? ['xms_edov' => true, 'email' => $claimEmail ?? $email] : ['email' => $claimEmail ?? $email]));
-        Socialite::shouldReceive('driver')->with('microsoft')->andReturn($driver);
-
-        return;
-    }
 
     Socialite::fake($provider, $user);
 }
@@ -60,16 +47,6 @@ test('an uninvited Google account gets no access and no user is created', functi
         ->and(SocialAccount::count())->toBe(0);
 });
 
-test('an uninvited Microsoft account gets no access and no user is created', function () {
-    fakeProviderUser('microsoft', 'stranger@example.test');
-    $users = User::count();
-
-    $this->get('/auth/microsoft/callback')->assertRedirect(route('login'));
-
-    $this->assertGuest();
-    expect(User::count())->toBe($users);
-});
-
 test('an invited Google account creates the user, verified, and logs in', function () {
     invite('Invited@Example.test');
     fakeProviderUser('google', 'invited@example.test');
@@ -80,15 +57,6 @@ test('an invited Google account creates the user, verified, and logs in', functi
     $user = User::where('email', 'invited@example.test')->firstOrFail();
     expect($user->hasVerifiedEmail())->toBeTrue()
         ->and($user->socialAccounts()->where('provider', 'google')->exists())->toBeTrue();
-});
-
-test('an invited Microsoft account logs in', function () {
-    invite('invited@example.test');
-    fakeProviderUser('microsoft', 'invited@example.test');
-
-    $this->get('/auth/microsoft/callback');
-
-    $this->assertAuthenticated();
 });
 
 test('an expired invitation gives no access', function () {
@@ -158,45 +126,6 @@ test('a refused second account at the same provider changes nothing on the user'
     $this->assertGuest();
     expect($user->fresh()->updated_at->equalTo($before))->toBeTrue()
         ->and($user->socialAccounts()->count())->toBe(1);
-});
-
-test('Microsoft without xms_edov gets no link to an existing user', function () {
-    $user = User::factory()->create(['email' => 'known@example.test']);
-    fakeProviderUser('microsoft', 'known@example.test', verified: false);
-
-    $this->get('/auth/microsoft/callback')->assertRedirect(route('login'));
-
-    $this->assertGuest();
-    expect(SocialAccount::count())->toBe(0);
-});
-
-test('Microsoft without xms_edov gets no user from an invitation', function () {
-    invite('invited@example.test');
-    fakeProviderUser('microsoft', 'invited@example.test', verified: false);
-
-    $this->get('/auth/microsoft/callback');
-
-    $this->assertGuest();
-    expect(User::where('email', 'invited@example.test')->exists())->toBeFalse();
-});
-
-test('Microsoft with xms_edov links to an existing user', function () {
-    $user = User::factory()->create(['email' => 'known@example.test']);
-    fakeProviderUser('microsoft', 'known@example.test');
-
-    $this->get('/auth/microsoft/callback');
-
-    $this->assertAuthenticatedAs($user);
-});
-
-test('an already linked Microsoft account logs in without xms_edov', function () {
-    $user = User::factory()->create();
-    $user->socialAccounts()->create(['provider' => 'microsoft', 'provider_user_id' => 'provider-1']);
-    fakeProviderUser('microsoft', 'anything@example.test', 'provider-1', verified: false);
-
-    $this->get('/auth/microsoft/callback');
-
-    $this->assertAuthenticatedAs($user);
 });
 
 test('an invited user created by SSO joins the invited team and can use the app', function () {
@@ -286,13 +215,20 @@ test('an unknown provider is not available', function () {
 
 test('the redirect sends the browser to the provider', function () {
     $this->get('/auth/google/redirect')->assertRedirectContains('accounts.google.com');
-    $this->get('/auth/microsoft/redirect')->assertRedirectContains('login.microsoftonline.com');
 });
 
 test('the login page offers only configured providers', function () {
-    config(['services.microsoft.client_id' => null]);
-
     $this->get('/login')->assertInertia(fn ($page) => $page->where('ssoProviders', ['google']));
+
+    config(['services.google.client_id' => null]);
+    $this->get('/login')->assertInertia(fn ($page) => $page->where('ssoProviders', []));
+});
+
+test('Microsoft login is not offered, even with credentials set', function () {
+    config(['services.microsoft.client_id' => 'test-id', 'services.microsoft.client_secret' => 'test-secret']);
+
+    $this->get('/auth/microsoft/redirect')->assertNotFound();
+    $this->get('/auth/microsoft/callback')->assertNotFound();
 });
 
 test('a signed-in user is sent away from the callback', function () {
@@ -305,31 +241,6 @@ test('the single sign-on endpoints are rate limited per IP', function () {
     }
 
     $this->get('/auth/google/redirect')->assertStatus(429);
-});
-
-test('Microsoft links and creates with the verified email claim, never with the UPN', function () {
-    // The UPN (getEmail) belongs to a victim, the verified claim to the invited person.
-    $victim = User::factory()->create(['email' => 'victim@example.test']);
-    invite('invited@example.test');
-    fakeProviderUser('microsoft', 'victim@example.test', claimEmail: 'invited@example.test');
-
-    $this->get('/auth/microsoft/callback');
-
-    $this->assertAuthenticated();
-    expect(auth()->user()->email)->toBe('invited@example.test')
-        ->and(auth()->user()->isNot($victim))->toBeTrue()
-        ->and($victim->socialAccounts()->count())->toBe(0);
-});
-
-test('Microsoft whose UPN matches a victim but whose claim matches nobody gets nothing', function () {
-    $victim = User::factory()->create(['email' => 'victim@example.test']);
-    fakeProviderUser('microsoft', 'victim@example.test', claimEmail: 'attacker@evil.test');
-
-    $this->get('/auth/microsoft/callback');
-
-    $this->assertGuest();
-    expect(SocialAccount::count())->toBe(0)
-        ->and($victim->socialAccounts()->count())->toBe(0);
 });
 
 test('an invitation that cannot be accepted gives no user: closed tenant', function () {
