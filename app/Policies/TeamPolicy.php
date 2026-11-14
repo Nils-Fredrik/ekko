@@ -2,75 +2,88 @@
 
 namespace App\Policies;
 
+use App\Enums\TenantPermission;
+use App\Enums\TenantRole;
 use App\Models\Team;
 use App\Models\User;
-use Illuminate\Auth\Access\HandlesAuthorization;
+use App\Tenancy\TenantAccess;
 
+/**
+ * Tenants (docs/spec.md 5.2). Creating, deleting, changing the plan and acting as a tenant is for
+ * the platform admin only. Everything inside a tenant goes through TenantAccess.
+ */
 class TeamPolicy
 {
-    use HandlesAuthorization;
+    public function __construct(private readonly TenantAccess $access) {}
 
-    /**
-     * Determine whether the user can view any models.
-     */
     public function viewAny(User $user): bool
     {
         return true;
     }
 
-    /**
-     * Determine whether the user can view the model.
-     */
     public function view(User $user, Team $team): bool
     {
-        return $user->belongsToTeam($team);
+        return $this->access->canAccess($user, $team);
     }
 
     /**
-     * Determine whether the user can create models.
+     * Tenants are created by the platform admin; there is no self-service (docs/spec.md 1).
      */
     public function create(User $user): bool
     {
-        return true;
+        return $user->isPlatformAdmin();
     }
 
-    /**
-     * Determine whether the user can update the model.
-     */
     public function update(User $user, Team $team): bool
     {
-        return $user->ownsTeam($team);
+        return $this->access->can($user, $team, TenantPermission::UpdateTenant);
     }
 
-    /**
-     * Determine whether the user can add team members.
-     */
     public function addTeamMember(User $user, Team $team): bool
     {
-        return $user->ownsTeam($team);
+        return $this->access->can($user, $team, TenantPermission::ManageMembers);
     }
 
-    /**
-     * Determine whether the user can update team member permissions.
-     */
     public function updateTeamMember(User $user, Team $team): bool
     {
-        return $user->ownsTeam($team);
+        return $this->access->can($user, $team, TenantPermission::ManageMembers);
     }
 
-    /**
-     * Determine whether the user can remove team members.
-     */
     public function removeTeamMember(User $user, Team $team): bool
     {
-        return $user->ownsTeam($team);
+        return $this->access->can($user, $team, TenantPermission::ManageMembers);
+    }
+
+    public function assignRole(User $user, Team $team, string $role): bool
+    {
+        $tenantRole = TenantRole::tryFrom($role);
+
+        return $tenantRole !== null && $this->access->canAssignRole($user, $team, $tenantRole);
     }
 
     /**
-     * Determine whether the user can delete the model.
+     * Only the platform admin closes and deletes tenants, also partner clients (docs/spec.md 5.2).
      */
     public function delete(User $user, Team $team): bool
     {
-        return $user->ownsTeam($team);
+        return $user->isPlatformAdmin() && ! $team->personal_team;
+    }
+
+    /**
+     * Plan, quotas and engines (docs/spec.md 5.2).
+     */
+    public function changePlan(User $user, Team $team): bool
+    {
+        return $user->isPlatformAdmin();
+    }
+
+    public function actAs(User $user, Team $team): bool
+    {
+        return $user->isPlatformAdmin();
+    }
+
+    public function viewUsage(User $user, Team $team): bool
+    {
+        return $this->access->can($user, $team, TenantPermission::ViewUsage);
     }
 }

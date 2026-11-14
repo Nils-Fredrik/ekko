@@ -27,6 +27,11 @@ class InviteTeamMember implements InvitesTeamMembers
 
         $this->validate($team, $email, $role);
 
+        // The partner advisor role reaches client tenants, so not every admin may give it.
+        if ($role !== null) {
+            Gate::forUser($user)->authorize('assignRole', [$team, $role]);
+        }
+
         InvitingTeamMember::dispatch($team, $email, $role);
 
         $invitation = $team->teamInvitations()->create([

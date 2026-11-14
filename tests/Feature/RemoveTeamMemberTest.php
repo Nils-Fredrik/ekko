@@ -2,6 +2,8 @@
 
 use App\Models\User;
 
+// Tenant admins invite and remove users (docs/spec.md 5.2).
+
 test('team members can be removed from teams', function () {
     $this->actingAs($user = User::factory()->withPersonalTeam()->create());
 
@@ -14,16 +16,33 @@ test('team members can be removed from teams', function () {
     expect($user->currentTeam->fresh()->users)->toHaveCount(0);
 });
 
-test('only team owner can remove team members', function () {
-    $user = User::factory()->withPersonalTeam()->create();
+test('a tenant admin can remove other members', function () {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $owner->currentTeam->users()->attach($admin = User::factory()->create(), ['role' => 'admin']);
+    $owner->currentTeam->users()->attach($reader = User::factory()->create(), ['role' => 'reader']);
 
-    $user->currentTeam->users()->attach(
-        $otherUser = User::factory()->create(), ['role' => 'admin']
-    );
+    $this->actingAs($admin)->delete('/teams/'.$owner->currentTeam->id.'/members/'.$reader->id);
 
-    $this->actingAs($otherUser);
+    expect($owner->currentTeam->fresh()->users->pluck('id')->all())->toBe([$admin->id]);
+});
 
-    $response = $this->delete('/teams/'.$user->currentTeam->id.'/members/'.$user->id);
+test('editors and readers cannot remove members', function (string $role) {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $owner->currentTeam->users()->attach($member = User::factory()->create(), ['role' => $role]);
+    $owner->currentTeam->users()->attach($other = User::factory()->create(), ['role' => 'reader']);
 
-    $response->assertStatus(403);
+    $this->actingAs($member)
+        ->delete('/teams/'.$owner->currentTeam->id.'/members/'.$other->id)
+        ->assertForbidden();
+
+    expect($owner->currentTeam->fresh()->users)->toHaveCount(2);
+})->with(['editor', 'reader']);
+
+test('the owner cannot be removed', function () {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $owner->currentTeam->users()->attach($admin = User::factory()->create(), ['role' => 'admin']);
+
+    $this->actingAs($admin)->delete('/teams/'.$owner->currentTeam->id.'/members/'.$owner->id);
+
+    expect($owner->currentTeam->fresh()->owner->is($owner))->toBeTrue();
 });

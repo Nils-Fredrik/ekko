@@ -2,9 +2,11 @@
 
 namespace App\Actions\Jetstream;
 
+use App\Enums\TenantRole;
 use App\Models\Team;
 use App\Models\User;
 use Closure;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
@@ -25,6 +27,19 @@ class AddTeamMember implements AddsTeamMembers
 
         $this->validate($team, $email, $role);
 
+        // The partner advisor role reaches client tenants, so not every admin may give it. An
+        // accepted invitation was already checked when it was sent (InviteTeamMember), and Jetstream
+        // accepts it on behalf of the owner, so it is not checked again here.
+        if ($role !== null && ! $this->isInvited($team, $email, $role)) {
+            Gate::forUser($user)->authorize('assignRole', [$team, $role]);
+        }
+
+        // Also for an accepted invitation: the tenant may have become a client tenant since it was
+        // sent, and a client tenant cannot be a partner (one level, docs/spec.md 5.1).
+        if ($role === TenantRole::PartnerAdvisor->value && $team->partner_team_id !== null) {
+            throw new AuthorizationException;
+        }
+
         $newTeamMember = Jetstream::findUserByEmailOrFail($email);
 
         AddingTeamMember::dispatch($team, $newTeamMember);
@@ -34,6 +49,11 @@ class AddTeamMember implements AddsTeamMembers
         );
 
         TeamMemberAdded::dispatch($team, $newTeamMember);
+    }
+
+    private function isInvited(Team $team, string $email, string $role): bool
+    {
+        return $team->teamInvitations()->where('email', $email)->where('role', $role)->exists();
     }
 
     /**

@@ -29,3 +29,15 @@ test('a user who no longer belongs to the current tenant gets no tenant', functi
 
     $this->actingAs($user)->get('/_test/tenant')->assertExactJson(['tenant' => null]);
 });
+
+test('the tenant of one request never carries over to the next', function () {
+    $user = User::factory()->withPersonalTeam()->create();
+    $tenant = Team::factory()->tenant()->create();
+    $tenant->users()->attach($user, ['role' => 'editor']);
+    $user->switchTeam($tenant);
+
+    $this->actingAs($user)->get('/_test/tenant')->assertExactJson(['tenant' => $tenant->id]);
+
+    auth()->logout();
+    $this->get('/_test/tenant')->assertExactJson(['tenant' => null]);
+});

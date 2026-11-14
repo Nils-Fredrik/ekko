@@ -2,6 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Team;
+use App\Models\User;
+use App\Tenancy\ActingAs;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -38,6 +41,35 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'locale' => app()->getLocale(),
+            'actingAs' => fn () => $this->actingAs($request),
+        ];
+    }
+
+    /**
+     * Shown as a banner while a platform admin acts as a tenant (docs/spec.md 16).
+     *
+     * @return array{tenant: string, reason: string, started_at: string}|null
+     */
+    private function actingAs(Request $request): ?array
+    {
+        $user = $request->user();
+        if (! $user instanceof User) {
+            return null;
+        }
+
+        $actingAs = app(ActingAs::class);
+        $tenantId = $actingAs->tenantIdFor($user);
+        $state = $actingAs->state();
+        $tenant = $tenantId === null ? null : Team::query()->find($tenantId);
+
+        if ($tenant === null || $state === null) {
+            return null;
+        }
+
+        return [
+            'tenant' => $tenant->name,
+            'reason' => $state['reason'],
+            'started_at' => $state['started_at'],
         ];
     }
 }
