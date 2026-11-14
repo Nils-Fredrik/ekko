@@ -27,7 +27,7 @@ class User extends Authenticatable
     use TwoFactorAuthenticatable;
 
     /**
-     * The attributes that are mass assignable.
+     * The attributes that are mass assignable. is_platform_admin is deliberately not mass assignable.
      *
      * @var list<string>
      */
@@ -57,6 +57,11 @@ class User extends Authenticatable
     protected $appends = [
         'profile_photo_url',
     ];
+
+    public function isPlatformAdmin(): bool
+    {
+        return $this->is_platform_admin === true;
+    }
 
     /**
      * Get all of the teams the user owns.
@@ -92,6 +97,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_platform_admin' => 'boolean',
         ];
     }
 }

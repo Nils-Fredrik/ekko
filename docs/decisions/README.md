@@ -9,3 +9,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | Nr | Tittel | Status |
 |---|---|---|
 | [0001](0001-app-i-rotmappen-og-testdatabase.md) | Laravel-appen i rotmappen og egen testdatabase per worktree | Akseptert |
+| [0002](0002-tenant-kontekst.md) | Tenant-kontekst og regler for tenant-eide modeller | Akseptert |
