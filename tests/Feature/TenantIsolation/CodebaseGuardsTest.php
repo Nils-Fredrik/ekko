@@ -2,9 +2,11 @@
 
 use App\Jobs\TenantJob;
 use App\Models\Concerns\BelongsToTenant;
+use App\Tenancy\TenantBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use Tests\Fixtures\TenantRecord;
 
 // Guards that make new code fail CI when it skips tenant isolation (docs/spec.md 5.3, T06).
 
@@ -76,6 +78,25 @@ test('every model with a tenant_id column uses BelongsToTenant', function () {
     expect($offenders)->toBe([], 'Models with tenant_id without BelongsToTenant: '.implode(', ', $offenders));
 });
 
+test('every model with BelongsToTenant queries through TenantBuilder', function () {
+    $offenders = [];
+
+    // The write guards live in TenantBuilder (newEloquentBuilder in the trait). A model that
+    // overrides newEloquentBuilder() or uses #[UseEloquentBuilder] would lose them silently.
+    foreach ([...classesIn('app/Models', 'App\\Models'), TenantRecord::class] as $class) {
+        $reflection = new ReflectionClass($class);
+        if ($reflection->isAbstract() || ! in_array(BelongsToTenant::class, class_uses_recursive($class), true)) {
+            continue;
+        }
+
+        if (! $class::query() instanceof TenantBuilder) {
+            $offenders[] = $class;
+        }
+    }
+
+    expect($offenders)->toBe([], 'Tenant models without TenantBuilder: '.implode(', ', $offenders));
+});
+
 test('every MCP tool is in the MCP tool register, and the register has no stale entries', function () {
     $register = require __DIR__.'/mcp-tools.php';
     $tools = classesIn('app/Mcp/Tools', 'App\\Mcp\\Tools');
@@ -105,10 +126,38 @@ test('the isolation tests cannot be skipped or excluded', function () {
         $offenders[] = 'tests/Pest.php';
     }
 
-    // No excluded groups and no excluded directories in phpunit.xml.
-    $phpunit = (string) file_get_contents(base_path('phpunit.xml'));
-    if (preg_match('/<groups>|<exclude>/', $phpunit) === 1) {
+    // phpunit.xml: no excluded groups, nothing excluded from the test suites, no default suite that
+    // leaves Feature out, and tests/Feature must be a test suite directory. <source><exclude> only
+    // concerns coverage and is allowed.
+    $phpunit = simplexml_load_file(base_path('phpunit.xml'));
+    $directories = $phpunit === false ? [] : array_map('strval', $phpunit->xpath('//testsuites/testsuite/directory') ?: []);
+    if ($phpunit === false
+        // A default namespace would make the XPath queries below silently find nothing.
+        || array_key_exists('', $phpunit->getDocNamespaces())
+        || isset($phpunit->groups)
+        || isset($phpunit['defaultTestSuite'])
+        || count($phpunit->xpath('//testsuites//exclude') ?: []) > 0
+        || ! in_array('tests/Feature', $directories, true)) {
         $offenders[] = 'phpunit.xml';
+    }
+
+    // composer.json: test scripts cannot filter the run, use another configuration or run only
+    // changed files, and `composer test` itself runs everything (no paths).
+    $composer = json_decode((string) file_get_contents(base_path('composer.json')), true);
+    foreach ($composer['scripts'] ?? [] as $name => $commands) {
+        foreach ((array) $commands as $command) {
+            if (! is_string($command) || preg_match('/(artisan test|pest|phpunit)/', $command) !== 1) {
+                continue;
+            }
+            if (preg_match('/(--(filter|group|exclude-group|testsuite|exclude-testsuite|configuration|dirty|bootstrap)\b|\s-c\s|\s-d\s)/', $command) === 1) {
+                $offenders[] = "composer.json script {$name}";
+            }
+        }
+    }
+
+    // `composer test` (what CI runs) must be exactly this, so it always runs every test.
+    if (($composer['scripts']['test'] ?? null) !== ['@php artisan config:clear --ansi', '@php artisan test']) {
+        $offenders[] = 'composer.json script test (must be exactly config:clear and artisan test)';
     }
 
     expect($offenders)->toBe([], 'Skipped or excluded isolation tests: '.implode(', ', $offenders));

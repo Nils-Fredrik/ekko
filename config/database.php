@@ -116,6 +116,8 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
+            // Timestamps are stored in UTC (docs/spec.md 6), whatever the server's time zone.
+            'timezone' => 'UTC',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
@@ -138,6 +140,8 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
+            // Timestamps are stored in UTC (docs/spec.md 6), whatever the server's time zone.
+            'timezone' => 'UTC',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
