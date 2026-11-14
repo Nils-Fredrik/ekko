@@ -1,6 +1,8 @@
 <?php
 
+use App\Models\Team;
 use App\Tenancy\Rls\RlsAudit;
+use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantSchema;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -85,6 +87,45 @@ test('the audit reports a tenant_isolation policy limited to one role', function
     DB::statement('CREATE POLICY tenant_isolation ON test_role_policy TO ekko_app USING ('.TenantSchema::POLICY_CONDITION.') WITH CHECK ('.TenantSchema::POLICY_CONDITION.')');
 
     expect(RlsAudit::tablesMissingRls())->toBe(['test_role_policy' => 'policy does not apply to PUBLIC']);
+});
+
+test('the audit reports views that would bypass row-level security', function () {
+    Schema::create('test_view_base', function (Blueprint $table) {
+        $table->id();
+        TenantSchema::tenantColumn($table);
+    });
+    TenantSchema::enableRowLevelSecurity('test_view_base');
+
+    DB::statement('CREATE VIEW test_owner_view AS SELECT id, tenant_id FROM test_view_base');
+    DB::statement('CREATE VIEW test_invoker_view WITH (security_invoker = true) AS SELECT id, tenant_id FROM test_view_base');
+    DB::statement('CREATE MATERIALIZED VIEW test_materialized AS SELECT id, tenant_id FROM test_view_base');
+
+    expect(RlsAudit::tablesMissingRls())->toBe([
+        'test_materialized' => 'materialized view with tenant_id (no RLS)',
+        'test_owner_view' => 'view with tenant_id without security_invoker',
+    ]);
+});
+
+test('an owner view really bypasses RLS and a security_invoker view does not', function () {
+    Schema::create('test_view_proof', function (Blueprint $table) {
+        $table->id();
+        TenantSchema::tenantColumn($table);
+    });
+    TenantSchema::enableRowLevelSecurity('test_view_proof');
+    $a = Team::factory()->tenant()->create();
+    $b = Team::factory()->tenant()->create();
+    DB::table('test_view_proof')->insert([['tenant_id' => $a->id], ['tenant_id' => $b->id]]);
+
+    DB::statement('CREATE VIEW test_proof_owner AS SELECT tenant_id FROM test_view_proof');
+    DB::statement('CREATE VIEW test_proof_invoker WITH (security_invoker = true) AS SELECT tenant_id FROM test_view_proof');
+    DB::statement('GRANT SELECT ON test_proof_owner, test_proof_invoker TO ekko_app');
+
+    $counts = app(TenantRls::class)->run([$a->id], fn () => [
+        'owner' => DB::table('test_proof_owner')->count(),
+        'invoker' => DB::table('test_proof_invoker')->count(),
+    ]);
+
+    expect($counts)->toBe(['owner' => 2, 'invoker' => 1]);
 });
 
 test('the helper gives a table complete row-level security and can remove it again', function () {

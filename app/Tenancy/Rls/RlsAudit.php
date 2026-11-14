@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\DB;
  * row-level security: RLS enabled and forced, the permissive tenant_isolation policy for PUBLIC
  * with the expected condition for both USING and WITH CHECK, and no other permissive policy
  * (permissive policies are OR-ed, so an extra one would widen access). Restrictive policies
- * only narrow access and are allowed.
+ * only narrow access and are allowed. Views with tenant_id must use security_invoker, and
+ * materialized views with tenant_id are not allowed.
  */
 final class RlsAudit
 {
@@ -79,6 +80,43 @@ final class RlsAudit
 
             if ($problems !== []) {
                 $missing[$table->table_name] = implode(', ', $problems);
+            }
+        }
+
+        return $missing + self::viewsBypassingRls();
+    }
+
+    /**
+     * Views and materialized views with a tenant_id column. A plain view runs with its owner's
+     * rights, so a view owned by the migrating (super)user bypasses RLS unless it is created
+     * WITH (security_invoker = true). A materialized view has no RLS at all.
+     *
+     * @return array<string, string>
+     */
+    private static function viewsBypassingRls(): array
+    {
+        $views = DB::select(<<<'SQL'
+            SELECT c.relname AS name, c.relkind AS kind, coalesce(c.reloptions, '{}') AS options
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+            JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'tenant_id' AND NOT a.attisdropped
+            WHERE c.relkind IN ('v', 'm')
+            ORDER BY c.relname
+            SQL);
+
+        $missing = [];
+        foreach ($views as $view) {
+            if ($view->kind === 'm') {
+                $missing[$view->name] = 'materialized view with tenant_id (no RLS)';
+
+                continue;
+            }
+
+            $options = array_map('strtolower', str_getcsv(trim((string) $view->options, '{}'), ',', '"', '\\'));
+            $invoker = array_intersect($options, ['security_invoker=true', 'security_invoker=on', 'security_invoker=1', 'security_invoker=yes']);
+
+            if ($invoker === []) {
+                $missing[$view->name] = 'view with tenant_id without security_invoker';
             }
         }
 

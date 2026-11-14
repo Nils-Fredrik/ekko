@@ -5,9 +5,16 @@
 function adminConnectionWith(array $env): array
 {
     $keys = ['DB_ADMIN_USERNAME', 'DB_ADMIN_PASSWORD', 'DB_USERNAME', 'DB_PASSWORD'];
+
+    // Save from every source: with variables_order=GPCS (CLI default) process variables, for
+    // example from CI, live only in getenv() and $_SERVER, not in $_ENV.
     $saved = [];
     foreach ($keys as $key) {
-        $saved[$key] = $_ENV[$key] ?? null;
+        $saved[$key] = [
+            'env' => array_key_exists($key, $_ENV) ? $_ENV[$key] : null,
+            'server' => array_key_exists($key, $_SERVER) ? $_SERVER[$key] : null,
+            'getenv' => getenv($key),
+        ];
         unset($_ENV[$key], $_SERVER[$key]);
         putenv($key);
     }
@@ -25,9 +32,15 @@ function adminConnectionWith(array $env): array
         foreach ($keys as $key) {
             unset($_ENV[$key], $_SERVER[$key]);
             putenv($key);
-            if ($saved[$key] !== null) {
-                $_ENV[$key] = $_SERVER[$key] = $saved[$key];
-                putenv("{$key}={$saved[$key]}");
+
+            if ($saved[$key]['env'] !== null) {
+                $_ENV[$key] = $saved[$key]['env'];
+            }
+            if ($saved[$key]['server'] !== null) {
+                $_SERVER[$key] = $saved[$key]['server'];
+            }
+            if ($saved[$key]['getenv'] !== false) {
+                putenv("{$key}={$saved[$key]['getenv']}");
             }
         }
     }
@@ -49,4 +62,34 @@ test('DB_ADMIN_USERNAME and DB_ADMIN_PASSWORD are used when set', function () {
 
     expect($admin['username'])->toBe('ekko_admin')
         ->and($admin['password'])->toBe('admin_secret');
+});
+
+test('the helper restores process variables that are not in $_ENV', function () {
+    $original = [
+        'getenv' => getenv('DB_USERNAME'),
+        'server' => $_SERVER['DB_USERNAME'] ?? null,
+        'env' => $_ENV['DB_USERNAME'] ?? null,
+    ];
+
+    putenv('DB_USERNAME=from_process');
+    $_SERVER['DB_USERNAME'] = 'from_process';
+    unset($_ENV['DB_USERNAME']);
+
+    try {
+        adminConnectionWith(['DB_USERNAME' => 'temporary']);
+
+        expect(getenv('DB_USERNAME'))->toBe('from_process')
+            ->and($_SERVER['DB_USERNAME'])->toBe('from_process')
+            ->and(array_key_exists('DB_USERNAME', $_ENV))->toBeFalse();
+    } finally {
+        $original['getenv'] === false ? putenv('DB_USERNAME') : putenv('DB_USERNAME='.$original['getenv']);
+        if ($original['server'] === null) {
+            unset($_SERVER['DB_USERNAME']);
+        } else {
+            $_SERVER['DB_USERNAME'] = $original['server'];
+        }
+        if ($original['env'] !== null) {
+            $_ENV['DB_USERNAME'] = $original['env'];
+        }
+    }
 });
