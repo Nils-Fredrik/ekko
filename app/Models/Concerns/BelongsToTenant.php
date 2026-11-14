@@ -3,6 +3,7 @@
 namespace App\Models\Concerns;
 
 use App\Models\Team;
+use App\Tenancy\TenantBuilder;
 use App\Tenancy\TenantContext;
 use App\Tenancy\TenantMismatchException;
 use App\Tenancy\TenantScope;
@@ -15,11 +16,19 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * - tenant_id is set from the context on create
  * - reading, creating, updating or deleting without a tenant in the context throws
  * - writing to another tenant than the one in the context throws, and tenant_id can never change
+ * - the same rules apply to builder writes (update, insert, upsert …) through TenantBuilder
  *
  * @mixin Model
  */
 trait BelongsToTenant
 {
+    /**
+     * The Eloquent builder for tenant-owned models (guards builder writes).
+     *
+     * @var class-string<TenantBuilder<Model>>
+     */
+    protected static string $builder = TenantBuilder::class;
+
     public static function bootBelongsToTenant(): void
     {
         static::addGlobalScope(new TenantScope);

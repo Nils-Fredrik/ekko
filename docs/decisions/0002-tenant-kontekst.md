@@ -16,6 +16,7 @@
    - `tenant_id` settes fra konteksten ved opprettelse. Er den satt til en annen tenant, kastes `TenantMismatchException`.
    - `tenant_id` kan aldri endres.
    - En modell som er lest i én tenant, kan ikke lagres eller slettes mens konteksten er en annen. Det hindrer at en jobb skriver til feil tenant.
+   - De samme reglene gjelder skriving via query-builderen (`update`, `insert`, `upsert`, `updateOrInsert`, `increment` med flere), som ikke utløser modell-hendelser. Tenant-modellene bruker `App\Tenancy\TenantBuilder`. Den krever tenant i konteksten, avviser endring av `tenant_id`, setter `tenant_id` fra konteksten på nye rader og avviser rader for en annen tenant. Metoder som Eloquent ellers sender videre uten scope (`updateOrInsert`, `incrementEach`, `decrementEach`), går gjennom tenant-scopet. Metoder scopet ikke kan dekke (`updateFrom`, `insertUsing`, `insertOrIgnoreUsing`), avvises.
 4. **Jobber** arver `App\Jobs\TenantJob`, som tar `tenantId` i konstruktøren og har `SetTenantContext` som middleware. Middleware kjører jobben i jobbens tenant og setter tilbake forrige kontekst etterpå, også ved feil. En jobb uten tenant avvises.
 5. **Web:** `SetCurrentTenant` setter brukerens nåværende team (Jetstream) i konteksten, men bare når brukeren er medlem. T05 utvider dette med partner-tilgang og «opptre som tenant».
 6. **Tabeller:** `App\Tenancy\TenantSchema::tenantColumn($table)` lager `tenant_id` med fremmednøkkel til `teams.id` (`ON DELETE CASCADE`) og indeks. Alle tenant-eide tabeller (T08 og senere) skal bruke den.
@@ -24,4 +25,4 @@
 ## Konsekvenser
 
 - Kode som leser tenant-eide data uten kontekst (kommandoer, seedere, admin), må bruke `TenantContext::run($tenantId, fn () => …)` eller eksplisitt `withoutGlobalScope(TenantScope::class)`. Det siste skal bare brukes av plattformadmin-kode og logges (T05).
-- `withoutGlobalScope` omgår lag 1. Lag 2 (RLS i T04) stopper fortsatt lesing på tvers.
+- `withoutGlobalScope`, `toBase()` og `DB::table()` omgår lag 1. Lag 2 (RLS i T04) stopper fortsatt lesing og skriving på tvers.

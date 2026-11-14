@@ -126,6 +126,120 @@ test('mass updates and deletes only touch the tenant in the context', function (
     expect(DB::table('test_tenant_records')->pluck('name')->all())->toBe(['other']);
 });
 
+test('builder writes cannot change tenant_id', function (string $write) {
+    $ownId = insertRecord($this->tenantA, 'own');
+    insertRecord($this->tenantB, 'other');
+    $b = $this->tenantB->id;
+
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    $query = match ($write) {
+        'update' => fn () => TenantRecord::query()->update(['tenant_id' => $b]),
+        'update qualified' => fn () => TenantRecord::query()->update(['test_tenant_records.tenant_id' => $b]),
+        'increment extra' => fn () => TenantRecord::query()->increment('id', 0, ['tenant_id' => $b]),
+        'decrement extra' => fn () => TenantRecord::query()->decrement('id', 0, ['tenant_id' => $b]),
+        'incrementEach extra' => fn () => TenantRecord::query()->incrementEach(['id' => 0], ['tenant_id' => $b]),
+        'decrementEach extra' => fn () => TenantRecord::query()->decrementEach(['id' => 0], ['tenant_id' => $b]),
+        'updateOrInsert values' => fn () => TenantRecord::query()->updateOrInsert(['id' => $ownId], ['tenant_id' => $b]),
+        'upsert update columns' => fn () => TenantRecord::query()->upsert(
+            [['id' => $ownId, 'name' => 'x']], ['id'], ['name', 'tenant_id'],
+        ),
+    };
+
+    expect($query)->toThrow(TenantMismatchException::class);
+    expect(DB::table('test_tenant_records')->where('tenant_id', $b)->count())->toBe(1);
+})->with([
+    'update', 'update qualified', 'increment extra', 'decrement extra', 'incrementEach extra',
+    'decrementEach extra', 'updateOrInsert values', 'upsert update columns',
+]);
+
+test('builder inserts get tenant_id from the context and refuse another tenant', function (string $write) {
+    app(TenantContext::class)->set($this->tenantA->id);
+    $now = now();
+
+    $query = match ($write) {
+        'insert' => fn () => TenantRecord::query()->insert(['name' => 'x', 'tenant_id' => $this->tenantB->id]),
+        'insert many' => fn () => TenantRecord::query()->insert([
+            ['name' => 'x', 'tenant_id' => $this->tenantA->id],
+            ['name' => 'y', 'tenant_id' => $this->tenantB->id],
+        ]),
+        'insertOrIgnore' => fn () => TenantRecord::query()->insertOrIgnore(['name' => 'x', 'tenant_id' => $this->tenantB->id]),
+        'insertGetId' => fn () => TenantRecord::query()->insertGetId(['name' => 'x', 'tenant_id' => $this->tenantB->id]),
+        'insert qualified' => fn () => TenantRecord::query()->insert(['name' => 'x', 'test_tenant_records.tenant_id' => $this->tenantB->id]),
+        'upsert' => fn () => TenantRecord::query()->upsert(
+            [['name' => 'x', 'tenant_id' => $this->tenantB->id, 'created_at' => $now, 'updated_at' => $now]], ['id'], ['name'],
+        ),
+        'updateOrInsert' => fn () => TenantRecord::query()->updateOrInsert(['name' => 'x', 'tenant_id' => $this->tenantB->id], []),
+    };
+
+    expect($query)->toThrow(TenantMismatchException::class);
+    expect(DB::table('test_tenant_records')->count())->toBe(0);
+})->with(['insert', 'insert many', 'insertOrIgnore', 'insertGetId', 'insert qualified', 'upsert', 'updateOrInsert']);
+
+test('builder inserts without tenant_id are written to the tenant in the context', function () {
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    TenantRecord::query()->insert([['name' => 'a'], ['name' => 'b']]);
+    TenantRecord::query()->insertOrIgnore(['name' => 'c']);
+    TenantRecord::query()->insertGetId(['name' => 'd']);
+    TenantRecord::query()->updateOrInsert(['name' => 'e'], []);
+
+    expect(DB::table('test_tenant_records')->distinct()->pluck('tenant_id')->all())->toBe([$this->tenantA->id])
+        ->and(DB::table('test_tenant_records')->count())->toBe(5);
+});
+
+test('updateOrInsert only finds and updates rows in the tenant in the context', function () {
+    $otherId = insertRecord($this->tenantB, 'other');
+
+    app(TenantContext::class)->set($this->tenantA->id);
+    TenantRecord::query()->updateOrInsert(['name' => 'other'], ['name' => 'changed']);
+
+    expect(DB::table('test_tenant_records')->where('id', $otherId)->value('name'))->toBe('other')
+        ->and(DB::table('test_tenant_records')->where('tenant_id', $this->tenantA->id)->pluck('name')->all())->toBe(['changed']);
+});
+
+test('incrementEach and decrementEach only touch the tenant in the context', function () {
+    DB::statement('ALTER TABLE test_tenant_records ADD COLUMN hits integer NOT NULL DEFAULT 0');
+    insertRecord($this->tenantA, 'own');
+    insertRecord($this->tenantB, 'other');
+
+    app(TenantContext::class)->set($this->tenantA->id);
+    TenantRecord::query()->incrementEach(['hits' => 5]);
+    TenantRecord::query()->decrementEach(['hits' => 2]);
+
+    expect(DB::table('test_tenant_records')->orderBy('id')->pluck('hits')->all())->toBe([3, 0]);
+});
+
+test('builder writes require a tenant in the context', function (string $write) {
+    insertRecord($this->tenantA, 'a');
+
+    $query = match ($write) {
+        'update' => fn () => TenantRecord::query()->update(['name' => 'x']),
+        'insert' => fn () => TenantRecord::query()->insert(['name' => 'x']),
+        'upsert' => fn () => TenantRecord::query()->upsert([['name' => 'x']], ['id'], ['name']),
+        'updateOrInsert' => fn () => TenantRecord::query()->updateOrInsert(['name' => 'a'], ['name' => 'x']),
+        'incrementEach' => fn () => TenantRecord::query()->incrementEach(['id' => 0]),
+        'delete' => fn () => TenantRecord::query()->delete(),
+    };
+
+    expect($query)->toThrow(MissingTenantContextException::class);
+    expect(DB::table('test_tenant_records')->pluck('name')->all())->toBe(['a']);
+})->with(['update', 'insert', 'upsert', 'updateOrInsert', 'incrementEach', 'delete']);
+
+test('builder writes the tenant scope cannot cover are refused', function (string $write) {
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    $query = match ($write) {
+        'updateFrom' => fn () => TenantRecord::query()->updateFrom(['name' => 'x']),
+        'insertUsing' => fn () => TenantRecord::query()->insertUsing(['name'], DB::table('teams')->select('name')),
+        'insertOrIgnoreUsing' => fn () => TenantRecord::query()->insertOrIgnoreUsing(['name'], DB::table('teams')->select('name')),
+        'updateOrInsert callback' => fn () => TenantRecord::query()->updateOrInsert(['name' => 'x'], fn () => ['name' => 'y']),
+    };
+
+    expect($query)->toThrow(LogicException::class);
+    expect(DB::table('test_tenant_records')->count())->toBe(0);
+})->with(['updateFrom', 'insertUsing', 'insertOrIgnoreUsing', 'updateOrInsert callback']);
+
 test('a tenant-owned row is deleted with its tenant', function () {
     insertRecord($this->tenantA, 'a');
 
