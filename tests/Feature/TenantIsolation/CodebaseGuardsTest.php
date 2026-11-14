@@ -131,10 +131,13 @@ test('the isolation tests cannot be skipped or excluded', function () {
             if (preg_match('/(--(filter|group|exclude-group|testsuite|exclude-testsuite|configuration|dirty|bootstrap)\b|\s-c\s|\s-d\s)/', $command) === 1) {
                 $offenders[] = "composer.json script {$name}";
             }
-            if ($name === 'test' && preg_match('/artisan test\s+\S/', $command) === 1) {
-                $offenders[] = 'composer.json script test (must run every test)';
-            }
+
         }
+    }
+
+    // `composer test` (what CI runs) must be exactly this, so it always runs every test.
+    if (($composer['scripts']['test'] ?? null) !== ['@php artisan config:clear --ansi', '@php artisan test']) {
+        $offenders[] = 'composer.json script test (must be exactly config:clear and artisan test)';
     }
 
     expect($offenders)->toBe([], 'Skipped or excluded isolation tests: '.implode(', ', $offenders));

@@ -27,6 +27,10 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: ekko_testing
+          # Not UTC on purpose: the app must store timestamps in UTC whatever the server's time
+          # zone (docs/spec.md 6), and FoundationTest checks that the session is UTC.
+          TZ: Europe/Oslo
+          PGTZ: Europe/Oslo
         ports:
           - 5432:5432
         options: >-
@@ -61,12 +65,16 @@ jobs:
           node-version: '24'
           cache: npm
 
+      - name: Find the Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
       - name: Cache Composer packages
         uses: actions/cache@v4
         with:
-          path: ~/.composer/cache/files
-          key: composer-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-php8.4-
 
       - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
