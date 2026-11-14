@@ -35,6 +35,10 @@ final class SetCurrentTenant
         $user = $request->user();
 
         if ($user instanceof User) {
+            // Drop a currentTeam relation set while acting as a tenant in an earlier request on the
+            // same user object, so the navigation follows the stored current_team_id again.
+            $user->unsetRelation('currentTeam');
+
             $tenant = $this->tenantFor($user);
 
             if ($tenant !== null && $this->access->canAccess($user, $tenant)) {

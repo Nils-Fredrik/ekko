@@ -34,6 +34,23 @@ final class TenantAccess
             return TenantRole::Admin;
         }
 
+        return $this->ownRoleIn($user, $tenant);
+    }
+
+    /**
+     * Whether the user may store this tenant as their current tenant (the switcher). Only real
+     * access counts: acting as a tenant is session-only and is never stored (ADR 0004).
+     */
+    public function canSelect(User $user, Team $tenant): bool
+    {
+        return $this->ownRoleIn($user, $tenant) !== null;
+    }
+
+    /**
+     * The role from membership or partner, without acting-as. Closed tenants give no role.
+     */
+    private function ownRoleIn(User $user, Team $tenant): ?TenantRole
+    {
         if ($tenant->status === TenantStatus::Closed) {
             return null;
         }
@@ -82,8 +99,9 @@ final class TenantAccess
     }
 
     /**
-     * The tenants in the switcher: memberships and partner clients, without closed tenants, plus
-     * the tenant a platform admin acts as.
+     * The tenants in the switcher: memberships and partner clients, without closed tenants. The
+     * tenant a platform admin acts as is not listed: acting-as is session-only, shown by the banner
+     * and the navigation, and is never stored as the current tenant.
      *
      * @return Collection<int, Team>
      */
@@ -106,14 +124,11 @@ final class TenantAccess
                 ->whereHas('partner', fn ($partner) => $partner->where('status', '!=', TenantStatus::Closed->value))
                 ->get();
 
-        $actingAsId = $this->actingAs->tenantIdFor($user);
-        $actingAs = $actingAsId === null ? collect() : Team::query()->whereKey($actingAsId)->get();
-
-        // The switcher and the access check must never disagree: memberships and the acted-as
-        // tenant go through canAccess() (this hides closed tenants).
-        return $memberships->merge($actingAs)
+        // The switcher and switchTeam() must never disagree: memberships go through canSelect()
+        // (this hides closed tenants).
+        return $memberships
             ->unique('id')
-            ->filter(fn (Team $team) => $this->canAccess($user, $team))
+            ->filter(fn (Team $team) => $this->canSelect($user, $team))
             ->merge($clients)
             ->unique('id')
             ->sortBy('name')
