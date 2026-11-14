@@ -35,5 +35,7 @@ class TenantRecord extends Model
             $table->timestamps();
             $table->unique(['tenant_id', 'name']);
         });
+
+        TenantSchema::enableRowLevelSecurity('test_tenant_records');
     }
 }
