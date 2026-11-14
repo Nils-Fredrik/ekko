@@ -55,7 +55,7 @@ class TenantBuilder extends Builder
         }
 
         $uniqueBy = (array) $uniqueBy;
-        if (! array_filter($uniqueBy, fn ($column) => is_string($column) && $this->isTenantColumn($column))) {
+        if (! array_filter($uniqueBy, fn (string $column) => $this->isTenantColumn($column))) {
             throw new LogicException('upsert on a tenant-owned model must include tenant_id in the conflict target ($uniqueBy).');
         }
 
@@ -64,7 +64,7 @@ class TenantBuilder extends Builder
         // The default update list is the given columns, never the tenant_id this builder adds.
         $update ??= array_values(array_filter(
             array_keys($rows[0]),
-            fn ($column) => ! (is_string($column) && $this->isTenantColumn($column)),
+            fn (string $column) => ! $this->isTenantColumn($column),
         ));
         $this->ensureTenantUnchanged(array_is_list($update) ? array_flip(array_filter($update, 'is_string')) : $update);
 
