@@ -21,6 +21,22 @@ export default [
         rules: {
             'vue/multi-word-component-names': 'off',
             'vue/require-default-prop': 'off',
+            // All user texts come from the language files (AGENTS.md): use $t('…') in templates.
+            'vue/no-bare-strings-in-template': [
+                'error',
+                {
+                    allowlist: ['-', '·', '•', '/', ',', '.', ':', '(', ')', '&times;', '&nbsp;', '&hellip;'],
+                    attributes: {
+                        '/.+/': ['title', 'aria-label', 'aria-placeholder', 'aria-roledescription', 'aria-valuetext'],
+                        input: ['placeholder'],
+                        img: ['alt'],
+                        InputLabel: ['value'],
+                        Head: ['title'],
+                        AppLayout: ['title'],
+                    },
+                    directives: ['v-text'],
+                },
+            ],
         },
     },
     prettier,

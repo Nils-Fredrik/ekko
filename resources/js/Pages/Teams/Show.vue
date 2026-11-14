@@ -13,9 +13,9 @@ defineProps({
 </script>
 
 <template>
-    <AppLayout title="Team Settings">
+    <AppLayout :title="$t('Team Settings')">
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Team Settings</h2>
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $t('Team Settings') }}</h2>
         </template>
 
         <div>

@@ -39,13 +39,15 @@ const updatePassword = () => {
 
 <template>
     <FormSection @submitted="updatePassword">
-        <template #title>Update Password</template>
+        <template #title>{{ $t('Update Password') }}</template>
 
-        <template #description>Ensure your account is using a long, random password to stay secure.</template>
+        <template #description>
+            {{ $t('Ensure your account is using a long, random password to stay secure.') }}
+        </template>
 
         <template #form>
             <div class="col-span-6 sm:col-span-4">
-                <InputLabel for="current_password" value="Current Password" />
+                <InputLabel for="current_password" :value="$t('Current Password')" />
                 <TextInput
                     id="current_password"
                     ref="currentPasswordInput"
@@ -58,7 +60,7 @@ const updatePassword = () => {
             </div>
 
             <div class="col-span-6 sm:col-span-4">
-                <InputLabel for="password" value="New Password" />
+                <InputLabel for="password" :value="$t('New Password')" />
                 <TextInput
                     id="password"
                     ref="passwordInput"
@@ -71,7 +73,7 @@ const updatePassword = () => {
             </div>
 
             <div class="col-span-6 sm:col-span-4">
-                <InputLabel for="password_confirmation" value="Confirm Password" />
+                <InputLabel for="password_confirmation" :value="$t('Confirm Password')" />
                 <TextInput
                     id="password_confirmation"
                     v-model="form.password_confirmation"
@@ -84,9 +86,11 @@ const updatePassword = () => {
         </template>
 
         <template #actions>
-            <ActionMessage :on="form.recentlySuccessful" class="me-3">Saved.</ActionMessage>
+            <ActionMessage :on="form.recentlySuccessful" class="me-3">{{ $t('Saved.') }}</ActionMessage>
 
-            <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">Save</PrimaryButton>
+            <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+                {{ $t('Save') }}
+            </PrimaryButton>
         </template>
     </FormSection>
 </template>

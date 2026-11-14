@@ -83,7 +83,7 @@ Skybaserte økter (Codex i skyen, Cursors bakgrunnsagenter) kjører `scripts/age
 ### Kommandoer
 
 ```
-composer dev        # app, kø, logg og Vite (porter fra .env)
+composer dev        # app, kø, logg og Vite (porter fra APP_PORT og VITE_PORT i .env)
 composer test       # Pest mot <database>_testing
 composer lint       # Pint (--test) og Larastan nivå 6
 composer format     # Pint

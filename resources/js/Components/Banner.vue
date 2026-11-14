@@ -70,7 +70,7 @@ watchEffect(async () => {
                                 'hover:bg-indigo-600 focus:bg-indigo-600': style == 'success',
                                 'hover:bg-red-600 focus:bg-red-600': style == 'danger',
                             }"
-                            aria-label="Dismiss"
+                            :aria-label="$t('jetstream.dismiss')"
                             @click.prevent="show = false"
                         >
                             <svg

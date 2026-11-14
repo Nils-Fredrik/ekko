@@ -38,7 +38,7 @@ const submit = () => {
 </script>
 
 <template>
-    <Head title="Two-factor Confirmation" />
+    <Head :title="$t('jetstream.two_factor_confirmation')" />
 
     <AuthenticationCard>
         <template #logo>
@@ -47,18 +47,21 @@ const submit = () => {
 
         <div class="mb-4 text-sm text-gray-600">
             <template v-if="!recovery">
-                Please confirm access to your account by entering the authentication code provided by your authenticator
-                application.
+                {{
+                    $t(
+                        'Please confirm access to your account by entering the authentication code provided by your authenticator application.',
+                    )
+                }}
             </template>
 
             <template v-else>
-                Please confirm access to your account by entering one of your emergency recovery codes.
+                {{ $t('Please confirm access to your account by entering one of your emergency recovery codes.') }}
             </template>
         </div>
 
         <form @submit.prevent="submit">
             <div v-if="!recovery">
-                <InputLabel for="code" value="Code" />
+                <InputLabel for="code" :value="$t('Code')" />
                 <TextInput
                     id="code"
                     ref="codeInput"
@@ -73,7 +76,7 @@ const submit = () => {
             </div>
 
             <div v-else>
-                <InputLabel for="recovery_code" value="Recovery Code" />
+                <InputLabel for="recovery_code" :value="$t('Recovery Code')" />
                 <TextInput
                     id="recovery_code"
                     ref="recoveryCodeInput"
@@ -91,13 +94,13 @@ const submit = () => {
                     class="text-sm text-gray-600 hover:text-gray-900 underline cursor-pointer"
                     @click.prevent="toggleRecovery"
                 >
-                    <template v-if="!recovery">Use a recovery code</template>
+                    <template v-if="!recovery">{{ $t('Use a recovery code') }}</template>
 
-                    <template v-else>Use an authentication code</template>
+                    <template v-else>{{ $t('Use an authentication code') }}</template>
                 </button>
 
                 <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
-                    Log in
+                    {{ $t('Log in') }}
                 </PrimaryButton>
             </div>
         </form>
