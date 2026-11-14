@@ -3,9 +3,9 @@
 use App\Models\SocialAccount;
 use App\Models\Team;
 use App\Models\User;
-use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\User as SocialiteUser;
+use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
 
 // docs/spec.md 5.4 and T07: Google and Microsoft login for invited users only. Socialite is faked,
 // so no test reaches a provider.
@@ -23,6 +23,16 @@ function fakeProviderUser(string $provider, string $email, string $id = 'provide
 {
     $user = (new SocialiteUser)->map(['id' => $id, 'name' => 'Provider Person', 'email' => $email]);
     $user->user = ['email_verified' => $verified];
+
+    if ($provider === 'microsoft') {
+        // Microsoft proves the address only with the xms_edov claim of the validated ID token.
+        $driver = Mockery::mock(MicrosoftProvider::class);
+        $driver->shouldReceive('user')->andReturn($user);
+        $driver->shouldReceive('getClaims')->andReturn((object) ($verified ? ['xms_edov' => true] : []));
+        Socialite::shouldReceive('driver')->with('microsoft')->andReturn($driver);
+
+        return;
+    }
 
     Socialite::fake($provider, $user);
 }
@@ -101,14 +111,136 @@ test('an unverified Google e-mail address is not trusted', function () {
     expect(User::where('email', 'invited@example.test')->exists())->toBeFalse();
 });
 
-test('an existing user is linked by e-mail and the address counts as verified', function () {
-    $user = User::factory()->unverified()->create(['email' => 'known@example.test']);
+test('an existing user with a verified address is linked by e-mail', function () {
+    $user = User::factory()->create(['email' => 'known@example.test']);
     fakeProviderUser('google', 'KNOWN@example.test');
 
     $this->get('/auth/google/callback');
 
     $this->assertAuthenticatedAs($user);
-    expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
+    expect($user->socialAccounts()->count())->toBe(1);
+});
+
+test('an existing user with an unverified address is refused, linked to nothing and not verified', function () {
+    $user = User::factory()->unverified()->create(['email' => 'known@example.test']);
+    fakeProviderUser('google', 'known@example.test');
+
+    $this->get('/auth/google/callback')->assertRedirect(route('login'));
+
+    $this->assertGuest();
+    expect($user->fresh()->hasVerifiedEmail())->toBeFalse()
+        ->and(SocialAccount::count())->toBe(0);
+});
+
+test('finding 140 variant: a user who changed e-mail to an invited address cannot take over the invitee login', function () {
+    invite('victim@example.test');
+    $attacker = User::factory()->create(['email' => 'attacker@example.test']);
+    $this->actingAs($attacker)->put('/user/profile-information', ['name' => $attacker->name, 'email' => 'victim@example.test']);
+    auth()->logout();
+    fakeProviderUser('google', 'victim@example.test');
+
+    $this->get('/auth/google/callback')->assertRedirect(route('login'));
+
+    $this->assertGuest();
+    expect($attacker->fresh()->hasVerifiedEmail())->toBeFalse()
+        ->and(SocialAccount::count())->toBe(0);
+});
+
+test('a refused second account at the same provider changes nothing on the user', function () {
+    $user = User::factory()->create(['email' => 'known@example.test', 'name' => 'Before']);
+    $user->socialAccounts()->create(['provider' => 'google', 'provider_user_id' => 'first']);
+    $before = $user->fresh()->updated_at;
+    fakeProviderUser('google', 'known@example.test', 'second');
+
+    $this->travel(5)->minutes();
+    $this->get('/auth/google/callback');
+
+    $this->assertGuest();
+    expect($user->fresh()->updated_at->equalTo($before))->toBeTrue()
+        ->and($user->socialAccounts()->count())->toBe(1);
+});
+
+test('Microsoft without xms_edov gets no link to an existing user', function () {
+    $user = User::factory()->create(['email' => 'known@example.test']);
+    fakeProviderUser('microsoft', 'known@example.test', verified: false);
+
+    $this->get('/auth/microsoft/callback')->assertRedirect(route('login'));
+
+    $this->assertGuest();
+    expect(SocialAccount::count())->toBe(0);
+});
+
+test('Microsoft without xms_edov gets no user from an invitation', function () {
+    invite('invited@example.test');
+    fakeProviderUser('microsoft', 'invited@example.test', verified: false);
+
+    $this->get('/auth/microsoft/callback');
+
+    $this->assertGuest();
+    expect(User::where('email', 'invited@example.test')->exists())->toBeFalse();
+});
+
+test('Microsoft with xms_edov links to an existing user', function () {
+    $user = User::factory()->create(['email' => 'known@example.test']);
+    fakeProviderUser('microsoft', 'known@example.test');
+
+    $this->get('/auth/microsoft/callback');
+
+    $this->assertAuthenticatedAs($user);
+});
+
+test('an already linked Microsoft account logs in without xms_edov', function () {
+    $user = User::factory()->create();
+    $user->socialAccounts()->create(['provider' => 'microsoft', 'provider_user_id' => 'provider-1']);
+    fakeProviderUser('microsoft', 'anything@example.test', 'provider-1', verified: false);
+
+    $this->get('/auth/microsoft/callback');
+
+    $this->assertAuthenticatedAs($user);
+});
+
+test('an invited user created by SSO joins the invited team and can use the app', function () {
+    $team = Team::factory()->tenant()->create(['name' => 'Invited Tenant']);
+    $team->teamInvitations()->create(['email' => 'invited@example.test', 'role' => 'editor']);
+    fakeProviderUser('google', 'invited@example.test');
+
+    $this->get('/auth/google/callback')->assertRedirect(route('dashboard', absolute: false));
+
+    $user = User::where('email', 'invited@example.test')->firstOrFail();
+    expect($user->current_team_id)->toBe($team->id)
+        ->and($team->fresh()->users()->whereKey($user->id)->first()->membership->role)->toBe('editor')
+        ->and($team->teamInvitations()->count())->toBe(0);
+
+    $this->get('/dashboard')->assertOk();
+});
+
+test('all active invitations for the address are accepted, expired ones are not', function () {
+    $a = Team::factory()->tenant()->create();
+    $b = Team::factory()->tenant()->create();
+    $old = Team::factory()->tenant()->create();
+    $a->teamInvitations()->create(['email' => 'invited@example.test', 'role' => 'reader']);
+    $b->teamInvitations()->create(['email' => 'invited@example.test', 'role' => 'editor']);
+    $old->teamInvitations()->create(['email' => 'invited@example.test', 'role' => 'reader'])->forceFill(['created_at' => now()->subDays(8)])->save();
+    fakeProviderUser('google', 'invited@example.test');
+
+    $this->get('/auth/google/callback');
+
+    $user = User::where('email', 'invited@example.test')->firstOrFail();
+    expect($user->current_team_id)->toBe($a->id)
+        ->and($user->teams()->pluck('teams.id')->sort()->values()->all())->toBe(collect([$a->id, $b->id])->sort()->values()->all());
+});
+
+test('a mixed-case invitation is accepted after SSO', function () {
+    $team = Team::factory()->tenant()->create();
+    // Created directly with mixed case, as an older invitation might be.
+    $team->teamInvitations()->create(['email' => 'Mixed.Case@Example.test', 'role' => 'reader']);
+    fakeProviderUser('google', 'mixed.case@example.test');
+
+    $this->get('/auth/google/callback');
+
+    $user = User::where('email', 'mixed.case@example.test')->firstOrFail();
+    expect($team->fresh()->hasUserWithEmail('mixed.case@example.test'))->toBeTrue()
+        ->and($user->current_team_id)->toBe($team->id);
 });
 
 test('a linked account logs in even when the e-mail address changed at the provider', function () {
@@ -168,12 +300,6 @@ test('a signed-in user is sent away from the callback', function () {
 });
 
 test('the single sign-on endpoints are rate limited per IP', function () {
-    RateLimiter::clear('sso');
-
-    foreach (range(1, 10) as $_) {
-        $this->get('/auth/unknown/redirect');
-    }
-    // The unknown provider never reaches the limiter, so use real routes.
     foreach (range(1, 10) as $_) {
         $this->get('/auth/google/redirect')->assertRedirect();
     }

@@ -206,7 +206,7 @@ Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
 
 - **E-post og passord** via Jetstream. 2FA er påkrevd for plattformadmin og partner-rådgivere og valgfritt for andre.
 - **Google og Microsoft** via Socialite. En Google- eller Microsoft-konto kobles til en eksisterende invitert bruker basert på e-postadresse. Det finnes ingen åpen registrering.
-- **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager, kontrollert på serveren. Den kan bare godtas av en innlogget bruker med samme, bekreftede e-postadresse. Å endre e-postadressen krever ny bekreftelse. En Google- eller Microsoft-konto med en gyldig invitasjon får opprettet brukeren (ellers ingen bruker). Detaljer i `docs/decisions/0006-innlogging-og-invitasjoner.md`.
+- **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager, kontrollert på serveren. Den kan bare godtas av en innlogget bruker med samme, bekreftede e-postadresse. Å endre e-postadressen krever ny bekreftelse. En Google- eller Microsoft-konto med en gyldig invitasjon får opprettet brukeren og godtar invitasjonene (ellers ingen bruker). Kontoer kobles til eksisterende brukere bare når leverandøren har verifisert e-posten (Microsoft: claimet `xms_edov`) og brukerens egen adresse er bekreftet. Detaljer i `docs/decisions/0006-innlogging-og-invitasjoner.md`.
 - **Tenant-velger:** brukere med flere tenants bytter mellom dem i toppmenyen, som Jetstreams team-switcher. Valgt tenant lagres på brukeren.
 - **Sesjon:** samme oppsett som Varde, med `__Host-`-prefiks på sesjonscookien, `secure` og `samesite=lax`.
 
@@ -1269,6 +1269,6 @@ Workflowen `agent-review.yml`, `.github/review-paths.yml`, status-sjekken `agent
 | A2 | Repo | https://github.com/Nils-Fredrik/ekko. Varde (https://github.com/Nils-Fredrik/varde) brukes som referanse med lesetilgang for agentene (4.1). |
 | A3 | Google Cloud | Prosjekt `ekko-514612` er opprettet. |
 | A4 | Leverandørkontoer og API-nøkler: Anthropic (organisasjonen med Team-abonnementet), Perplexity og DataForSEO. OpenAI og Google (Gemini API) kun for valgfrie API-motorer. | Avklares underveis. Forutsetning for T12–T16. |
-| A5 | App-registrering for Google- og Microsoft-innlogging | Avklares underveis. Forutsetning for T07. |
+| A5 | App-registrering for Google- og Microsoft-innlogging | Avklares underveis. Forutsetning for T07. Microsoft-registreringen må sende det valgfrie ID-token-claimet `xms_edov` (docs/decisions/0006). |
 | A6 | E-posttjeneste og avsenderadresse for varsler og rapporter | Avklares underveis. Forutsetning for T24 og T32. |
 | A7 | Startpriser og påslag per pakke | Avklares underveis. Forutsetning for T19 og T31. |

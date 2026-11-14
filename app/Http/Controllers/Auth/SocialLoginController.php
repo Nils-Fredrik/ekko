@@ -9,7 +9,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Laravel\Socialite\Contracts\User as SocialiteUser;
 use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\User as SocialiteTwoUser;
+use SocialiteProviders\Microsoft\Provider as MicrosoftProvider;
 use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirect;
 use Throwable;
 
@@ -31,8 +34,9 @@ class SocialLoginController extends Controller
         $this->ensureConfigured($provider);
 
         try {
-            $social = Socialite::driver($provider)->user();
-            $user = $resolver->resolve($provider, $social);
+            $driver = Socialite::driver($provider);
+            $social = $driver->user();
+            $user = $resolver->resolve($provider, $social, $this->emailIsVerified($provider, $driver, $social));
         } catch (Throwable $e) {
             // Includes a wrong state, a cancelled consent screen and provider errors. No details to the user.
             Log::warning('sso.failed', ['provider' => $provider, 'exception' => $e::class]);
@@ -58,6 +62,24 @@ class SocialLoginController extends Controller
         $request->session()->regenerate();
 
         return redirect()->intended(config('fortify.home'));
+    }
+
+    /**
+     * Whether the provider has verified the e-mail address, decided per provider and nowhere else.
+     * Google says so in the profile. Microsoft lets a directory admin set "mail" freely, so only
+     * the optional ID token claim "xms_edov" proves it (the app registration must emit it, ADR 0006).
+     */
+    private function emailIsVerified(string $provider, mixed $driver, SocialiteUser $social): bool
+    {
+        if ($provider === 'google') {
+            $raw = $social instanceof SocialiteTwoUser ? $social->user : [];
+
+            return filter_var($raw['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $claims = $driver instanceof MicrosoftProvider ? $driver->getClaims() : null;
+
+        return filter_var($claims->xms_edov ?? false, FILTER_VALIDATE_BOOLEAN);
     }
 
     private function deny(string $message): RedirectResponse

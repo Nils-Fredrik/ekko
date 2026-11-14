@@ -139,3 +139,45 @@ test('the controller itself refuses an unverified user, whatever the route middl
 
     expect($invitation->team->fresh()->hasUser($user))->toBeFalse();
 });
+
+test('an invitation sent with mixed case is stored lower case and accepted by the user with the lower case address', function () {
+    Mail::fake();
+    $admin = User::factory()->withPersonalTeam()->create();
+    $team = Team::factory()->tenant()->create(['user_id' => $admin->id, 'name' => 'Case Tenant']);
+    $admin->switchTeam($team);
+    $invitee = User::factory()->create(['email' => 'ann@example.test']);
+
+    $this->actingAs($admin)->post("/teams/{$team->id}/members", ['email' => 'Ann@Example.TEST', 'role' => 'reader'])
+        ->assertSessionHasNoErrors();
+
+    $invitation = $team->teamInvitations()->firstOrFail();
+    expect($invitation->email)->toBe('ann@example.test');
+
+    // The invitee, signed in with the lower case address.
+    $this->actingAs($invitee)->get(acceptUrl($invitation))->assertRedirect(config('fortify.home'));
+
+    expect($team->fresh()->hasUser($invitee))->toBeTrue()
+        ->and($invitee->fresh()->current_team_id)->toBe($team->id);
+});
+
+test('an old invitation with mixed case is accepted by the user with the lower case address', function () {
+    $user = User::factory()->create(['email' => 'ann@example.test']);
+    $team = Team::factory()->tenant()->create();
+    $invitation = $team->teamInvitations()->create(['email' => 'Ann@Example.test', 'role' => 'reader']);
+
+    $this->actingAs($user)->get(acceptUrl($invitation))->assertRedirect(config('fortify.home'));
+
+    expect($team->fresh()->hasUser($user))->toBeTrue();
+});
+
+test('accepting switches to the team only when the user has no current team', function () {
+    $user = User::factory()->withPersonalTeam()->create();
+    $mine = Team::factory()->tenant()->create(['user_id' => $user->id]);
+    $user->switchTeam($mine);
+    $own = $mine->id;
+    $invitation = invitationFor($user);
+
+    $this->actingAs($user)->get(acceptUrl($invitation));
+
+    expect($user->fresh()->current_team_id)->toBe($own);
+});

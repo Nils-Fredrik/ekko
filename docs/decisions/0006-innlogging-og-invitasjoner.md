@@ -13,12 +13,16 @@
 1. **Socialite** (Google innebygd, Microsoft via `socialiteproviders/microsoft`) på `/auth/{provider}/redirect` og `/callback` (`social.redirect`, `social.callback`), bare for gjester og med begrensningen `sso` (10 per minutt per IP). Nøkler kommer fra miljøet (`GOOGLE_*`, `MICROSOFT_*`). En leverandør uten nøkler gir 404 og vises ikke på innloggingssiden.
 2. **Hvem slipper inn** (`App\Actions\Social\ResolveSocialUser`), i denne rekkefølgen:
    1. kontoen er allerede koblet (`social_accounts`, unik på leverandør og leverandør-ID), ellers
-   2. kontoens verifiserte e-postadresse tilhører en eksisterende bruker: kontoen kobles, ellers
-   3. adressen har en **ikke-utløpt** invitasjon: brukeren opprettes (uten passord, uten personlig tenant) og kobles. Invitasjonen godtas fortsatt med lenken i e-posten.
-   4. ellers: ingen tilgang, ingen bruker, ingen kobling. Svaret er det samme for alle uinviterte kontoer.
-   - Google må si `email_verified`. Microsoft returnerer postkassen (`mail`, ellers UPN) til en konto katalogen har verifisert. Sett `MICROSOFT_TENANT_ID` for å begrense til én katalog (standard er `common`).
+   2. leverandøren har verifisert e-postadressen **og** den tilhører en eksisterende bruker som selv har en bekreftet adresse: kontoen kobles. En bruker med ubekreftet adresse avvises uten kobling og uten at noe endres (finding #140: adressen kan være skrevet inn av en annen), ellers
+   3. leverandøren har verifisert adressen og den har en **ikke-utløpt** invitasjon: brukeren opprettes (uten passord) og kobles, og invitasjonene godtas (punkt 3a).
+   4. ellers: ingen tilgang, ingen bruker, ingen kobling.
+   - Avslag skjer før noe skrives: «allerede koblet hos denne leverandøren» sjekkes før brukeren endres.
+   - Om leverandøren har verifisert adressen avgjøres ett sted (`SocialLoginController::emailIsVerified`): Google `email_verified`, Microsoft claimet `xms_edov` i det validerte ID-tokenet (`getClaims()`).
+   - **Microsoft (nOAuth):** `mail` og UPN kan en katalogadministrator sette fritt, og med `MICROSOFT_TENANT_ID=common` kan hvem som helst logge inn fra sin egen katalog. E-posten brukes derfor bare til kobling eller opprettelse når `xms_edov` er sant. Uten det virker Microsoft bare for kontoer som allerede er koblet. **App-registreringen (A5) må sende det valgfrie claimet `xms_edov` i ID-tokenet.** Å binde til én katalog med `MICROSOFT_TENANT_ID` er en ekstra sperre, ikke en erstatning.
    - Maks én konto per leverandør per bruker.
 3. **Innlogging via SSO og 2FA:** har brukeren bekreftet 2FA, sendes hen til samme utfordring som ved passordinnlogging (`login.id` i sesjonen). SSO omgår aldri 2FA.
+3a. **Invitasjoner godtas ved opprettelse via SSO.** Innloggingen har bevist at brukeren eier adressen, så alle aktive (ikke-utløpte) invitasjoner til den godtas i samme transaksjon gjennom `AddsTeamMembers` (samme handling som Jetstream bruker, med eierens rettigheter), og slettes. Den første tenanten blir `current_team_id`. En invitasjon som ikke lenger er gyldig (for eksempel partner-rolle i en tenant som er blitt kunde-tenant) hoppes over og blir liggende. `TeamInvitationController::accept` bytter også til tenanten når brukeren ikke har en aktiv tenant.
+3b. **E-postadresser sammenlignes uten hensyn til store og små bokstaver.** Invitasjoner lagres med små bokstaver (`InviteTeamMember`), og `AddTeamMember`, `Team::hasUserWithEmail` og slettingen av utløpte invitasjoner sammenligner med `lower(email)`, så en invitasjon med blandet skrift godtas etter både SSO og passordinnlogging.
 4. **Invitasjoner utløper etter 7 dager** (`config('ekko.invitation_ttl_days')`), beregnet fra `created_at` på serveren. Utløpte invitasjoner kan ikke godtas (lenken sletter dem og viser en melding), gir ikke SSO-tilgang, og blokkerer ikke en ny invitasjon til samme adresse (`InviteTeamMember` sletter dem først, fordi Jetstream ellers avviser en duplikat).
 5. **Finding #140:** `User` implementerer `MustVerifyEmail` og `Features::emailVerification()` er på.
    - Å endre e-postadressen nullstiller verifiseringen og sender en ny bekreftelse til den nye adressen. Den som endrer til en annens adresse kan ikke bekrefte den.
@@ -32,4 +36,6 @@
 - `UserFactory::platformAdmin()` gir bekreftet 2FA som standard (`platformAdmin(false)` for det motsatte), og `withTwoFactor()` finnes for partner-rådgivere i tester.
 - Nye ruter må ha 2FA-sjekken: den ligger i `web`-gruppen, og API-ruter med brukerautentisering bruker aliaset `two-factor.required`.
 - En bruker opprettet via SSO har ingen passord før hen ber om tilbakestilling, og ingen personlig tenant før invitasjonen er godtatt (støttet av ADR 0004 punkt 10).
+- **Kjent begrensning:** en bruker opprettet via SSO har et tilfeldig passord, men 2FA-oppsett krever passordbekreftelse (`confirmPassword`). Brukeren må først sette et passord via «glemt passord». Det gjelder særlig partner-rådgivere, som må ha 2FA. Ingen egen flyt bygges nå.
+- Utløpte invitasjoner slettes før valideringen i `InviteTeamMember`, også når valideringen siden feiler. Det er ufarlig.
 - Ikke gjort her: planlagt opprydding av utløpte invitasjoner (de er ufarlige og slettes når de brukes eller erstattes) og e-postvarsel ved utløp.

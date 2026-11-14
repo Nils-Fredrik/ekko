@@ -36,6 +36,13 @@ class TeamInvitationController extends JetstreamTeamInvitationController
             return redirect(config('fortify.home'))->dangerBanner(__('auth.invitation.expired'));
         }
 
-        return parent::accept($request, $invitationId);
+        $response = parent::accept($request, $invitationId);
+
+        // An invited user without a current tenant lands in the tenant just joined, not nowhere.
+        if ($user->current_team_id === null) {
+            $user->switchTeam($invitation->team);
+        }
+
+        return $response;
     }
 }

@@ -9,6 +9,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Laravel\Jetstream\Contracts\InvitesTeamMembers;
 use Laravel\Jetstream\Events\InvitingTeamMember;
@@ -25,8 +26,11 @@ class InviteTeamMember implements InvitesTeamMembers
     {
         Gate::forUser($user)->authorize('addTeamMember', $team);
 
+        // E-mail addresses are compared case-insensitively everywhere; stored lower case.
+        $email = Str::lower($email);
+
         // An expired invitation must not block inviting the same person again (unique rule).
-        $team->teamInvitations()->where('email', $email)->where('created_at', '<=', now()->subDays((int) config('ekko.invitation_ttl_days')))->delete();
+        $team->teamInvitations()->whereRaw('lower(email) = ?', [$email])->where('created_at', '<=', now()->subDays((int) config('ekko.invitation_ttl_days')))->delete();
 
         $this->validate($team, $email, $role);
 
