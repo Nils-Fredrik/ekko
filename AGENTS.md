@@ -70,13 +70,15 @@ Hver agent jobber i sin egen `git worktree`, aldri i samme mappe som en annen ag
 
 Testene bruker en egen database per worktree, `<database>_testing` (f.eks. `ekko_claude_testing`), satt med `DB_TEST_DATABASE`. Testene treffer aldri utviklingsdatabasen (`docs/decisions/0001-app-i-rotmappen-og-testdatabase.md`).
 
+Hver worktree har også sin egen sesjonscookie, `<database>_session` (f.eks. `ekko_claude_session`), satt med `SESSION_COOKIE`. Nettleseren skiller ikke cookies på port, så uten dette logger én worktree ut de andre når de åpnes i samme nettleser.
+
 Oppsett med ett skript, som lager databasene, skriver `.env` (bare hvis den mangler), installerer avhengigheter, migrerer og bygger frontend:
 
 ```
 scripts/agent-setup.sh claude   # eller cursor, codex
 ```
 
-Krever PostgreSQL 16 lokalt. Har databasen en annen bruker enn `postgres`, sett `PGUSER` (og eventuelt `PGHOST`) før skriptet kjøres. Vil du sette opp manuelt: kopier `.env.example` til `.env` og sett `DB_DATABASE`, `DB_TEST_DATABASE`, `DB_USERNAME`, `APP_PORT`/`APP_URL` og `VITE_PORT` etter tabellen. `.env` committes aldri.
+Krever PostgreSQL 16 lokalt. Har databasen en annen bruker enn `postgres`, sett `PGUSER` (og eventuelt `PGHOST`) før skriptet kjøres. Vil du sette opp manuelt: kopier `.env.example` til `.env` og sett `DB_DATABASE`, `DB_TEST_DATABASE`, `DB_USERNAME`, `SESSION_COOKIE`, `APP_PORT`/`APP_URL` og `VITE_PORT` etter tabellen. Har du en `.env` fra før, legger skriptet til `SESSION_COOKIE` hvis den mangler, og endrer ikke noe annet. `.env` committes aldri.
 
 Skybaserte økter (Codex i skyen, Cursors bakgrunnsagenter) kjører `scripts/agent-setup.sh cloud`, som også installerer og starter Postgres.
 
