@@ -70,4 +70,9 @@ class UserFactory extends Factory
             'ownedTeams'
         );
     }
+
+    public function platformAdmin(): static
+    {
+        return $this->state(['is_platform_admin' => true]);
+    }
 }
