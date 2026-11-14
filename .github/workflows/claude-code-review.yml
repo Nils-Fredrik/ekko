@@ -1,0 +1,66 @@
+name: Claude Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+    # Optional: Only run on specific file changes
+    # paths:
+    #   - "src/**/*.ts"
+    #   - "src/**/*.tsx"
+    #   - "src/**/*.js"
+    #   - "src/**/*.jsx"
+
+jobs:
+  claude-review:
+    # Optional: Filter by PR author
+    # if: |
+    #   github.event.pull_request.user.login == 'external-contributor' ||
+    #   github.event.pull_request.user.login == 'new-developer' ||
+    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Claude Code Review
+        id: claude-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # A custom prompt instead of the code-review plugin: the plugin stops when Claude has
+          # already commented on the PR, so pushed fixes would never be reviewed again (19.5).
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            HEAD COMMIT: ${{ github.event.pull_request.head.sha }}
+
+            You are the Claude cross-reviewer described in docs/spec.md 19.5. This workflow runs on
+            every push, so review the pull request as it is at the head commit above, also if you
+            have commented on it before. Do not repeat earlier comments that are already fixed.
+
+            1. Read AGENTS.md and docs/spec.md, and the pull request description with its
+               acceptance criteria (gh pr view).
+            2. Review the full diff (gh pr diff). Focus on correctness bugs, tenant isolation and
+               row-level security (docs/spec.md 5.3), security, secrets or customer data in the
+               change, missing or weakened tests, and deviations from the spec. Ignore formatting
+               that Pint, ESLint and Prettier handle.
+            3. Post each concrete issue as an inline comment on the relevant line with
+               mcp__github_inline_comment__create_inline_comment.
+            4. Post one summary comment with gh pr comment. Name the head commit, and end with a
+               line that is exactly "GODKJENT" or "ENDRINGER KREVES", followed by the points that
+               must be fixed.
+
+            Write the comments in Norwegian (bokmål).
+          # docs/spec.md 19.5: Claude reviews run on Claude Opus 5.5.
+          claude_args: >-
+            --model claude-opus-5-5
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr view:*),Bash(gh pr diff:*),Bash(gh pr comment:*),Read,Grep,Glob"
