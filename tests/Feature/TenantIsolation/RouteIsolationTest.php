@@ -77,12 +77,13 @@ test('the allowed request succeeds, so a 403 or 404 elsewhere means something', 
         }
 
         $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
-        $status = callRoute($this, $method, $key, ($access->own)($this->s))->status();
+        $status = callRoute($this, $method, $key, ($access->own ?? fn () => [])($this->s))->status();
 
-        expect($status)->not->toBeIn([401, 403, 404], "{$method} {$key} as {$actor} answered {$status} to an allowed request")
-            ->and($status)->toBeLessThan(500, "{$method} {$key} as {$actor} answered {$status}");
+        // Below 400: a 422 or 409 could come from validation before authorization, or from
+        // outdated data in the register, and would say nothing about the policy.
+        expect($status)->toBeLessThan(400, "{$method} {$key} as {$actor} answered {$status} to an allowed request");
     }
-})->with(fn () => registerKeys(fn (RouteAccess $a) => $a->own !== null));
+})->with(fn () => registerKeys(fn (RouteAccess $a) => $a->own !== null || $a->kind === RouteAccess::PLATFORM_ADMIN));
 
 test('roles without the right in their own tenant get 403', function (string $key, string $role) {
     $access = RouteRegister::entries()[$key];
