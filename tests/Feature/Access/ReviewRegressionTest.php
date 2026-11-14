@@ -5,6 +5,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantAccess;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
@@ -105,4 +106,67 @@ test('the partner advisor role cannot be given in a client tenant, even when act
 
     expect(Gate::forUser($platformAdmin)->allows('assignRole', [$client, 'partner_advisor']))->toBeFalse()
         ->and(Gate::forUser($platformAdmin)->allows('assignRole', [$client, 'admin']))->toBeTrue();
+});
+
+test('a tenant owner cannot delete the tenant by deleting their account', function () {
+    $owner = User::factory()->withPersonalTeam()->create();
+    $owner->ownedTeams()->save($tenant = Team::factory()->make(['personal_team' => false]));
+
+    $this->actingAs($owner)
+        ->delete('/user', ['password' => 'password'])
+        ->assertSessionHasErrorsIn('deleteUser', 'password');
+
+    expect($owner->fresh())->not->toBeNull()
+        ->and($tenant->fresh())->not->toBeNull();
+});
+
+test('a user who owns only a personal team can still delete the account', function () {
+    $user = User::factory()->withPersonalTeam()->create();
+
+    $this->actingAs($user)->delete('/user', ['password' => 'password']);
+
+    expect($user->fresh())->toBeNull();
+});
+
+test('an old partner advisor invitation cannot be accepted after the tenant became a client', function () {
+    Mail::fake();
+    $tenant = Team::factory()->tenant()->create();
+    $advisor = User::factory()->create();
+    $tenant->users()->attach($advisor, ['role' => 'partner_advisor']);
+    $invitee = User::factory()->withPersonalTeam()->create();
+
+    $this->actingAs($advisor)->post("/teams/{$tenant->id}/members", ['email' => $invitee->email, 'role' => 'partner_advisor']);
+    $invitation = $tenant->teamInvitations()->sole();
+
+    $partner = Team::factory()->tenant()->create();
+    $tenant->forceFill(['partner_team_id' => $partner->id])->save();
+
+    $this->actingAs($invitee)
+        ->get(URL::signedRoute('team-invitations.accept', ['invitation' => $invitation->id]))
+        ->assertForbidden();
+
+    expect($tenant->hasUserWithEmail($invitee->email))->toBeFalse();
+});
+
+test('the switcher uses a fixed number of queries, however many client tenants there are', function () {
+    $queriesFor = function (int $clients): int {
+        $partner = Team::factory()->tenant()->create();
+        Team::factory()->count($clients)->clientOf($partner)->create();
+        $advisor = User::factory()->create();
+        $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
+        $advisor = $advisor->fresh();
+        app(TenantAccess::class)->flush();
+
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $teams = $advisor->allTeams();
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        expect($teams)->toHaveCount($clients + 1);
+
+        return $count;
+    };
+
+    expect($queriesFor(10))->toBe($queriesFor(1));
 });

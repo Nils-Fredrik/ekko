@@ -15,4 +15,7 @@ return [
         'reason' => 'Reason: :reason',
         'stop' => 'Stop',
     ],
+    'account' => [
+        'owns_tenants' => 'You own a tenant and cannot delete your account. Ask the platform admin to transfer or close the tenant first.',
+    ],
 ];

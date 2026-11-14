@@ -95,19 +95,27 @@ final class TenantAccess
             ->filter(fn (Team $team) => $team->getRelationValue('membership')?->getAttribute('role') === TenantRole::PartnerAdvisor->value)
             ->pluck('id');
 
+        // Clients of an open partner where the user is partner advisor are accessible by definition
+        // (the partner role is the strongest role), so they are taken straight from one query:
+        // open clients of open partners. This keeps the switcher at a fixed number of queries.
         $clients = $partnerIds->isEmpty()
             ? collect()
-            : Team::query()->whereIn('partner_team_id', $partnerIds)->get();
+            : Team::query()
+                ->whereIn('partner_team_id', $partnerIds)
+                ->where('status', '!=', TenantStatus::Closed->value)
+                ->whereHas('partner', fn ($partner) => $partner->where('status', '!=', TenantStatus::Closed->value))
+                ->get();
 
         $actingAsId = $this->actingAs->tenantIdFor($user);
         $actingAs = $actingAsId === null ? collect() : Team::query()->whereKey($actingAsId)->get();
 
-        // The switcher and the access check must never disagree: list only what the user can open
-        // (this also hides closed tenants and clients of a closed partner).
-        return $memberships->merge($clients)
-            ->merge($actingAs)
+        // The switcher and the access check must never disagree: memberships and the acted-as
+        // tenant go through canAccess() (this hides closed tenants).
+        return $memberships->merge($actingAs)
             ->unique('id')
             ->filter(fn (Team $team) => $this->canAccess($user, $team))
+            ->merge($clients)
+            ->unique('id')
             ->sortBy('name')
             ->values();
     }

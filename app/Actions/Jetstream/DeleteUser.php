@@ -5,6 +5,7 @@ namespace App\Actions\Jetstream;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Laravel\Jetstream\Contracts\DeletesTeams;
 use Laravel\Jetstream\Contracts\DeletesUsers;
 
@@ -20,6 +21,14 @@ class DeleteUser implements DeletesUsers
      */
     public function delete(User $user): void
     {
+        // Only the platform admin deletes tenants (docs/spec.md 5.2). Deleting the account would
+        // delete every tenant the user owns, so it is refused while the user owns a tenant.
+        if ($user->ownedTeams()->where('personal_team', false)->exists()) {
+            throw ValidationException::withMessages([
+                'password' => __('app.account.owns_tenants'),
+            ])->errorBag('deleteUser');
+        }
+
         DB::transaction(function () use ($user) {
             $this->deleteTeams($user);
             $user->deleteProfilePhoto();

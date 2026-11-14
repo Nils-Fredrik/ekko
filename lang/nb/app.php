@@ -15,4 +15,7 @@ return [
         'reason' => 'Årsak: :reason',
         'stop' => 'Avslutt',
     ],
+    'account' => [
+        'owns_tenants' => 'Du eier en tenant og kan ikke slette kontoen din. Be plattformadministratoren om å overføre eller stenge tenanten først.',
+    ],
 ];
