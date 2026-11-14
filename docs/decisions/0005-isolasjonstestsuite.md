@@ -31,10 +31,11 @@ En policy kan ikke leses ut av ruten selv: autorisasjon skjer i kontrollere, pol
    - Køede jobber og lyttere i `app/` må arve `TenantJob`, som legger på `SetTenantContext` og `ApplyTenantRls` (for mail og varsler, se neste punkt). `TenantAware` alene er ikke nok. Unntak må føres opp i `platform-jobs.php` med begrunnelse.
    - Køet mail og køede varsler kan ikke arve `TenantJob`, fordi de allerede arver `Mailable` og `Notification`. Den første oppgaven som innfører slike (T24 eller T32), lager en trait som setter `tenantId()` og de samme to middleware-ene, og utvider vernet til å godta den. De skal ikke føres opp i `platform-jobs.php`.
    - Modeller med en `tenant_id`-kolonne må bruke `BelongsToTenant`.
+   - Modeller med `BelongsToTenant` må gi en `TenantBuilder` fra `query()`. En modell som overstyrer `newEloquentBuilder()` eller bruker `#[UseEloquentBuilder]`, ville ellers miste skrivevernet uten at noe feilet.
    - MCP-tools i `app/Mcp/Tools` må stå i `mcp-tools.php` (T34 fyller det ut og utvider de genererte testene).
    - Testfilene i isolasjonssuiten og `tests/Pest.php` kan ikke inneholde `skip()`, `skipOn…()`, `todo()`, `only()` eller PHPUnit-markører for å hoppe over.
    - `phpunit.xml` kan ikke ha `<groups>`, `<exclude>` under `<testsuites>` eller `defaultTestSuite`, og `tests/Feature` må være en testsuite-mappe. `<source><exclude>` gjelder bare dekning og er tillatt.
-   - Test-skriptene i `composer.json` kan ikke filtrere kjøringen eller bytte konfigurasjon (`--filter`, `--group`, `--exclude-group`, `--testsuite`, `--configuration`/`-c`, `--dirty`, `--bootstrap`, `-d`). `composer test` kan ikke ta stier, så den kjører alle testene.
+   - Test-skriptene i `composer.json` kan ikke filtrere kjøringen eller bytte konfigurasjon (`--filter`, `--group`, `--exclude-group`, `--testsuite`, `--configuration`/`-c`, `--dirty`, `--bootstrap`, `-d`). `composer test` må være nøyaktig `@php artisan config:clear --ansi` og `@php artisan test`, så den alltid kjører alle testene. Det er den CI kjører.
    - `withoutForeignCheck()` fritar bare brukerruter fra den positive kontrollen. Tenant- og plattformadmin-ruter med parameter må alltid ha `own`.
 5. **Avgrensning:** Testene for mekanismene ligger i `tests/Feature/Tenancy` (lag 1 og 2) og `tests/Feature/Access` (roller). `composer test:isolation` kjører alle tre mappene. `composer test` kjører dem også.
 6. **Funn under arbeidet:**

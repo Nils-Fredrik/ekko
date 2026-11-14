@@ -2,9 +2,11 @@
 
 use App\Jobs\TenantJob;
 use App\Models\Concerns\BelongsToTenant;
+use App\Tenancy\TenantBuilder;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use Tests\Fixtures\TenantRecord;
 
 // Guards that make new code fail CI when it skips tenant isolation (docs/spec.md 5.3, T06).
 
@@ -76,6 +78,25 @@ test('every model with a tenant_id column uses BelongsToTenant', function () {
     expect($offenders)->toBe([], 'Models with tenant_id without BelongsToTenant: '.implode(', ', $offenders));
 });
 
+test('every model with BelongsToTenant queries through TenantBuilder', function () {
+    $offenders = [];
+
+    // The write guards live in TenantBuilder (newEloquentBuilder in the trait). A model that
+    // overrides newEloquentBuilder() or uses #[UseEloquentBuilder] would lose them silently.
+    foreach ([...classesIn('app/Models', 'App\\Models'), TenantRecord::class] as $class) {
+        $reflection = new ReflectionClass($class);
+        if ($reflection->isAbstract() || ! in_array(BelongsToTenant::class, class_uses_recursive($class), true)) {
+            continue;
+        }
+
+        if (! $class::query() instanceof TenantBuilder) {
+            $offenders[] = $class;
+        }
+    }
+
+    expect($offenders)->toBe([], 'Tenant models without TenantBuilder: '.implode(', ', $offenders));
+});
+
 test('every MCP tool is in the MCP tool register, and the register has no stale entries', function () {
     $register = require __DIR__.'/mcp-tools.php';
     $tools = classesIn('app/Mcp/Tools', 'App\\Mcp\\Tools');
@@ -131,10 +152,12 @@ test('the isolation tests cannot be skipped or excluded', function () {
             if (preg_match('/(--(filter|group|exclude-group|testsuite|exclude-testsuite|configuration|dirty|bootstrap)\b|\s-c\s|\s-d\s)/', $command) === 1) {
                 $offenders[] = "composer.json script {$name}";
             }
-            if ($name === 'test' && preg_match('/artisan test\s+\S/', $command) === 1) {
-                $offenders[] = 'composer.json script test (must run every test)';
-            }
         }
+    }
+
+    // `composer test` (what CI runs) must be exactly this, so it always runs every test.
+    if (($composer['scripts']['test'] ?? null) !== ['@php artisan config:clear --ansi', '@php artisan test']) {
+        $offenders[] = 'composer.json script test (must be exactly config:clear and artisan test)';
     }
 
     expect($offenders)->toBe([], 'Skipped or excluded isolation tests: '.implode(', ', $offenders));
