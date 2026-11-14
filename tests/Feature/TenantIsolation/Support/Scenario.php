@@ -23,6 +23,11 @@ final class Scenario
     /** @var array<string, User> role => user in tenant A */
     public array $membersA = [];
 
+    /** A client tenant of A: A is a partner, so the partner advisor in A has legitimate cross-tenant access. */
+    public Team $clientOfA;
+
+    public User $platformAdmin;
+
     public Team $tenantB;
 
     public User $ownerB;
@@ -42,6 +47,9 @@ final class Scenario
         $s->tenantA = Team::factory()->tenant()->create(['user_id' => $s->adminA->id, 'name' => 'Tenant A']);
         $s->adminA->switchTeam($s->tenantA);
 
+        $s->clientOfA = Team::factory()->clientOf($s->tenantA)->create(['name' => 'Client of A']);
+        $s->platformAdmin = User::factory()->platformAdmin()->withPersonalTeam()->create();
+
         foreach (['admin', 'partner_advisor', 'editor', 'reader'] as $role) {
             $member = User::factory()->withPersonalTeam()->create();
             $s->tenantA->users()->attach($member, ['role' => $role]);
@@ -59,8 +67,12 @@ final class Scenario
             'email' => strtolower($s->marker).'-member@example.test',
         ]);
         $s->tenantB->users()->attach($s->memberB, ['role' => 'editor']);
-        $s->invitationB = $s->tenantB->teamInvitations()->create([
+        // Invited to B and an existing user, so accepting the invitation would really change B.
+        $invited = User::factory()->withPersonalTeam()->create([
             'email' => strtolower($s->marker).'-invited@example.test',
+        ]);
+        $s->invitationB = $s->tenantB->teamInvitations()->create([
+            'email' => $invited->email,
             'role' => 'reader',
         ]);
         $s->tokenB = $s->ownerB->tokens()->create([
@@ -103,6 +115,10 @@ final class Scenario
 
     public function userWithRole(string $role): User
     {
-        return $role === 'owner' ? $this->adminA : $this->membersA[$role];
+        return match ($role) {
+            'owner' => $this->adminA,
+            'platform_admin' => $this->platformAdmin,
+            default => $this->membersA[$role],
+        };
     }
 }

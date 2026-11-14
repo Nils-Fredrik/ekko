@@ -1,5 +1,6 @@
 <?php
 
+use App\Tenancy\ActingAs;
 use Illuminate\Testing\TestResponse;
 use Tests\Feature\TenantIsolation\Support\RouteAccess;
 use Tests\Feature\TenantIsolation\Support\RouteRegister;
@@ -23,7 +24,8 @@ function registerKeys(callable $filter): array
 function callRoute(TestCase $test, string $method, string $key, array $request): TestResponse
 {
     $route = RouteRegister::route($key);
-    $url = RouteRegister::url($route, $request['params'] ?? []);
+    // With the entry: strict parameters, and a valid signature for signed routes.
+    $url = RouteRegister::url($route, $request['params'] ?? [], RouteRegister::entries()[$key]);
 
     return $test->json($method, $url, $request['data'] ?? []);
 }
@@ -43,18 +45,44 @@ test('guests are refused', function (string $key) {
     }
 })->with(fn () => registerKeys(fn (RouteAccess $a) => $a->requiresLogin()));
 
-test('a user of tenant A cannot reach tenant B or another user', function (string $key) {
+test('no user of tenant A can reach tenant B or another user, whatever the role', function (string $key) {
     $access = RouteRegister::entries()[$key];
     $before = $this->s->snapshotOfB();
 
-    foreach (RouteRegister::methods(RouteRegister::route($key)) as $method) {
-        $this->actingAs($this->s->adminA)->withSession(['auth.password_confirmed_at' => time()]);
-        $status = callRoute($this, $method, $key, ($access->foreign)($this->s))->status();
+    // Every role, including the partner advisor, who legitimately reaches A's client tenant but
+    // must never reach B.
+    foreach (RouteAccess::TENANT_ROLES as $role) {
+        foreach (RouteRegister::methods(RouteRegister::route($key)) as $method) {
+            $this->actingAs($this->s->userWithRole($role))->withSession(['auth.password_confirmed_at' => time()]);
+            $status = callRoute($this, $method, $key, ($access->foreign)($this->s))->status();
 
-        expect($status)->toBeIn([403, 404], "{$method} {$key} answered {$status} for another tenant's resource");
-        expect($this->s->snapshotOfB())->toBe($before, "{$method} {$key} changed tenant B");
+            expect($status)->toBeIn([403, 404], "{$method} {$key} as {$role} answered {$status} for another tenant's resource");
+            expect($this->s->snapshotOfB())->toBe($before, "{$method} {$key} as {$role} changed tenant B");
+        }
     }
 })->with(fn () => registerKeys(fn (RouteAccess $a) => $a->foreign !== null));
+
+test('the allowed request succeeds, so a 403 or 404 elsewhere means something', function (string $key) {
+    $access = RouteRegister::entries()[$key];
+
+    $actor = $access->kind === RouteAccess::PLATFORM_ADMIN
+        ? 'platform_admin'
+        : (array_values(array_diff(RouteAccess::TENANT_ROLES, $access->deniedRoles))[0] ?? 'platform_admin');
+
+    foreach (RouteRegister::methods(RouteRegister::route($key)) as $method) {
+        $this->s = Scenario::create();
+        $user = $this->s->userWithRole($actor);
+        if ($actor === 'platform_admin' && $access->kind === RouteAccess::TENANT) {
+            app(ActingAs::class)->start($user, $this->s->tenantA, 'Isolation positive control');
+        }
+
+        $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
+        $status = callRoute($this, $method, $key, ($access->own)($this->s))->status();
+
+        expect($status)->not->toBeIn([401, 403, 404], "{$method} {$key} as {$actor} answered {$status} to an allowed request")
+            ->and($status)->toBeLessThan(500, "{$method} {$key} as {$actor} answered {$status}");
+    }
+})->with(fn () => registerKeys(fn (RouteAccess $a) => $a->own !== null));
 
 test('roles without the right in their own tenant get 403', function (string $key, string $role) {
     $access = RouteRegister::entries()[$key];
@@ -90,7 +118,7 @@ test('platform admin routes refuse everyone else', function (string $key, string
     $cases = [];
     foreach (RouteRegister::entries() as $key => $access) {
         if ($access->kind === RouteAccess::PLATFORM_ADMIN) {
-            foreach (['owner', 'admin', 'partner_advisor', 'reader'] as $role) {
+            foreach (RouteAccess::TENANT_ROLES as $role) {
                 $cases["{$key} as {$role}"] = [$key, $role];
             }
         }
@@ -102,20 +130,22 @@ test('platform admin routes refuse everyone else', function (string $key, string
 test('no signed-in page shows anything from another tenant', function () {
     $checked = 0;
 
-    foreach (RouteRegister::entries() as $key => $access) {
-        $route = RouteRegister::route($key);
-        if (! $access->requiresLogin() || $access->kind === RouteAccess::PLATFORM_ADMIN || ! in_array('GET', $route->methods(), true)) {
-            continue;
+    foreach (['owner', 'partner_advisor', 'reader'] as $role) {
+        foreach (RouteRegister::entries() as $key => $access) {
+            $route = RouteRegister::route($key);
+            if (! $access->requiresLogin() || $access->kind === RouteAccess::PLATFORM_ADMIN || ! in_array('GET', $route->methods(), true)) {
+                continue;
+            }
+
+            $request = ($access->own ?? fn () => [])($this->s);
+            $this->actingAs($this->s->userWithRole($role))->withSession(['auth.password_confirmed_at' => time()]);
+            $response = $this->get(RouteRegister::url($route, $request['params'] ?? [], $access->signed ? null : $access));
+            $content = (string) $response->getContent();
+
+            expect($response->status())->toBeLessThan(500, "GET {$key} as {$role} answered {$response->status()}");
+            expect(stripos($content, $this->s->marker))->toBeFalse("GET {$key} as {$role} showed data from tenant B");
+            $checked++;
         }
-
-        $request = ($access->own ?? fn () => [])($this->s);
-        $this->actingAs($this->s->adminA)->withSession(['auth.password_confirmed_at' => time()]);
-        $response = $this->get(RouteRegister::url($route, $request['params'] ?? []));
-        $content = (string) $response->getContent();
-
-        expect($response->status())->toBeLessThan(500, "GET {$key} answered {$response->status()}");
-        expect(stripos($content, $this->s->marker))->toBeFalse("GET {$key} showed data from tenant B");
-        $checked++;
     }
 
     expect($checked)->toBeGreaterThan(0);

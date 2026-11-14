@@ -1,7 +1,7 @@
 <?php
 
+use App\Jobs\TenantJob;
 use App\Models\Concerns\BelongsToTenant;
-use App\Tenancy\TenantAware;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
@@ -35,21 +35,23 @@ function classesIn(string $directory, string $namespace): array
     return $classes;
 }
 
-test('every queued job works in a tenant, or is listed with a reason', function () {
+test('every queued class extends TenantJob, or is listed with a reason', function () {
     $allowed = require __DIR__.'/platform-jobs.php';
     $offenders = [];
 
-    foreach (classesIn('app/Jobs', 'App\\Jobs') as $class) {
+    // All of app/: jobs, but also queued listeners, notifications and mail. TenantJob installs
+    // SetTenantContext and ApplyTenantRls; implementing TenantAware alone does not.
+    foreach (classesIn('app', 'App') as $class) {
         $reflection = new ReflectionClass($class);
-        if ($reflection->isAbstract() || ! $reflection->implementsInterface(ShouldQueue::class)) {
+        if ($reflection->isAbstract() || $reflection->isInterface() || ! $reflection->implementsInterface(ShouldQueue::class)) {
             continue;
         }
-        if (! $reflection->implementsInterface(TenantAware::class) && ! array_key_exists($class, $allowed)) {
+        if (! $reflection->isSubclassOf(TenantJob::class) && ! array_key_exists($class, $allowed)) {
             $offenders[] = $class;
         }
     }
 
-    expect($offenders)->toBe([], 'Jobs without a tenant: '.implode(', ', $offenders));
+    expect($offenders)->toBe([], 'Queued classes without TenantJob: '.implode(', ', $offenders));
 });
 
 test('every model with a tenant_id column uses BelongsToTenant', function () {
@@ -82,22 +84,32 @@ test('every MCP tool is in the MCP tool register, and the register has no stale 
         ->and(array_values(array_diff(array_keys($register), $tools)))->toBe([]);
 });
 
-test('the isolation tests cannot be skipped', function () {
+test('the isolation tests cannot be skipped or excluded', function () {
     $offenders = [];
+    // Any skip, todo, only or PHPUnit skip marker, whatever its argument. A collection's skip()
+    // would also be flagged; that is the price of tests that cannot be skipped (5.3).
+    $pattern = '/->(skip|skipOn[A-Za-z]*|skipLocally|todo)\(|->only\(\)|markTestSkipped|markTestIncomplete/';
+
     foreach (['tests/Feature/TenantIsolation', 'tests/Feature/Tenancy', 'tests/Feature/Access'] as $directory) {
         foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path($directory))) as $file) {
             if (! $file->isFile() || $file->getExtension() !== 'php' || $file->getFilename() === basename(__FILE__)) {
                 continue;
             }
-            $content = (string) file_get_contents($file->getPathname());
-            // Pest's skip()/todo()/only() and PHPUnit's skip markers; not Eloquent's only([...])
-            // or a collection's skip(3).
-            $pattern = '/->(skip|skipOn[A-Za-z]*|skipLocally|skipOnCi)\(\s*(\)|[\'"]|fn\b|function\b|true|false|!|\$)|->todo\(|->only\(\)|markTestSkipped|markTestIncomplete/';
-            if (preg_match($pattern, $content) === 1) {
+            if (preg_match($pattern, (string) file_get_contents($file->getPathname())) === 1) {
                 $offenders[] = $directory.'/'.$file->getFilename();
             }
         }
     }
 
-    expect($offenders)->toBe([], 'Skipped isolation tests: '.implode(', ', $offenders));
+    if (preg_match($pattern, (string) file_get_contents(base_path('tests/Pest.php'))) === 1) {
+        $offenders[] = 'tests/Pest.php';
+    }
+
+    // No excluded groups and no excluded directories in phpunit.xml.
+    $phpunit = (string) file_get_contents(base_path('phpunit.xml'));
+    if (preg_match('/<groups>|<exclude>/', $phpunit) === 1) {
+        $offenders[] = 'phpunit.xml';
+    }
+
+    expect($offenders)->toBe([], 'Skipped or excluded isolation tests: '.implode(', ', $offenders));
 });

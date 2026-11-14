@@ -30,6 +30,9 @@ final class RouteAccess
 
     public const PLATFORM_ADMIN = 'platform_admin';
 
+    /** Every role in a tenant, with the owner. */
+    public const TENANT_ROLES = ['owner', 'admin', 'partner_advisor', 'editor', 'reader'];
+
     /**
      * @param  (Closure(Scenario): array{params?: array<string, mixed>, data?: array<string, mixed>})|null  $foreign
      * @param  (Closure(Scenario): array{params?: array<string, mixed>, data?: array<string, mixed>})|null  $own
