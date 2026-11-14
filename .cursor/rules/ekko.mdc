@@ -1,0 +1,12 @@
+---
+description: Ekko – regler for Cursor-agenten
+alwaysApply: true
+---
+
+Du er Cursor-agenten i Ekko. Din merkelapp på Board er `[Cursor]`. Ta bare oppgaver med denne merkelappen.
+
+Les og følg `AGENTS.md` (arbeidsflyt, regler og lokalt oppsett) og `docs/spec.md` (spesifikasjonen). Kapittel 14 beskriver look & feel, som skal være lik Varde.
+
+Modell: Grok 4.7.
+
+Din mappe er `~/kode/ekko-cursor`, database `ekko_cursor`, porter 8002 og 5175.

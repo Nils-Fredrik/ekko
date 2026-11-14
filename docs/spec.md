@@ -1,0 +1,1275 @@
+# Ekko – teknisk spesifikasjon
+
+**Produkt:** Ekko – overvåking av merkevarer, nøkkelord og kilder i AI-søk
+**Eier:** Nils-Fredrik
+**Dato:** 13. november 2026
+**Utviklingsstyring:** board.maksimer.es
+**Repo:** https://github.com/Nils-Fredrik/ekko
+**Referanserepo (kun lesing):** https://github.com/Nils-Fredrik/varde
+**Google Cloud-prosjekt:** `ekko-514612`
+**Referanseapplikasjoner for stil og teknologi:** varde.maksimer.com og borg.maksimer.es
+
+---
+
+## 1. Formål og omfang
+
+Ekko måler hvordan AI-motorer (ChatGPT, Gemini, Google AI Overviews, Perplexity og Claude) omtaler en merkevare. Verktøyet kjører et fast sett med spørsmål (prompts) mot motorene og registrerer for hvert svar:
+
+- om merkevaren nevnes
+- hvor i svaret den nevnes
+- om den anbefales
+- hvordan den omtales
+- hvilke konkurrenter som nevnes
+- hvilke kilder (URL-er) motoren bygger på
+
+Resultatene kobles med serverlogger (AI-roboter som henter sidene) og trafikkdata (besøk fra AI-tjenester). Til sammen viser dette hele kjeden fra «AI leser innholdet» via «AI siterer innholdet» til «AI sender trafikk».
+
+Løsningen er en flerkunde-plattform (multi-tenant). Hvert selskap, både i konsernet og blant eksterne kunder, er en egen tenant med egne data, brukere, kvoter og fakturagrunnlag.
+
+**I omfang:**
+- tenant-administrasjon
+- prompt-bibliotek per marked
+- innsamling fra fem motorfamilier
+- automatisk uttrekk av nevnelser og kilder
+- metrikker og dashboard
+- konkurrentsammenligning
+- varsler
+- PDF- og e-postrapporter
+- oppstartsveiviser
+- kvoter og forbruksmåling
+- REST-API og MCP-server
+- integrasjon mot ClickHouse-logger og GA4
+
+**Utenfor omfang:**
+- automatisk endring av kundenes nettsider
+- innholdsproduksjon
+- selvbetjent registrering og kortbetaling (tenants opprettes av plattformadmin)
+
+---
+
+## 2. Begreper
+
+| Begrep | Betydning |
+|---|---|
+| Tenant | Lukket kundeenhet med egne data. Teknisk implementert som Jetstream-team. |
+| Partner-tenant | Tenant som forvalter andre tenants, f.eks. et byrå med egne kunder. |
+| Merkevare (brand) | Det som overvåkes. Har navnevarianter, domener og konkurrenter. |
+| Marked | Land + språk, f.eks. `NO/nb` eller `SE/sv`. En merkevare kan ha flere. |
+| Prompt | Et spørsmål på markedets språk, merket med tema og intensjon. |
+| Motor | En AI-tjeneste med én bestemt innhentingsmetode, f.eks. `chatgpt_api` eller `chatgpt_ui`. |
+| Kjøring (run) | Én innhenting av ett svar: prompt × motor × gjentakelse. |
+| Nevnelse (mention) | En merkevare (egen eller konkurrent) som forekommer i et svar. |
+| Sitat (citation) | En URL motoren oppgir som kilde i et svar. |
+
+---
+
+## 3. Overordnet arkitektur
+
+```mermaid
+flowchart LR
+  SCH[Cloud Scheduler] --> DISP[Cloud Run Job<br/>dispatcher]
+  DISP --> Q[(Kø i Postgres)]
+  Q --> WRK[Cloud Run Job<br/>worker x N]
+  WRK --> ENG[AI-motorer<br/>API og skraping]
+  WRK --> GCS[(Cloud Storage<br/>råsvar og PDF)]
+  WRK --> DB[(Cloud SQL<br/>Postgres)]
+  WRK --> BATCH[Anthropic<br/>Message Batches]
+  CH[ClickHouse-logger] --> WRK
+  GA[GA4 Data API] --> WRK
+  WEB[Cloud Run service<br/>web, API, MCP] --> DB
+  WEB --> GCS
+  USR[Brukere] --> WEB
+  WRK --> SLK[Slack og e-post]
+```
+
+### 3.1 Google Cloud-komponenter (prosjekt `ekko-514612`, region `europe-west1`)
+
+Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lokalt mot fixtures, og nye versjoner verifiseres i produksjon før de får trafikk (17.2).
+
+**Adresse:** Ekko nås på Cloud Run-adressen til `ekko-web` (`*.run.app`). Den samme adressen brukes i OAuth-klientene (Google, Microsoft og MCP) og som `APP_URL`. Et eget domene kan kobles på senere ved å endre `APP_URL` og redirect-adressene i OAuth-klientene.
+
+
+| Komponent | Tjeneste | Konfigurasjon |
+|---|---|---|
+| Web, API og MCP | Cloud Run service `ekko-web` | min 0, maks 4 instanser, 1 vCPU / 1 GiB, Cloud SQL-tilkobling via Unix-socket |
+| Dispatcher | Cloud Run Job `ekko-dispatch` | `php artisan ekko:dispatch-due` |
+| Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid (av dispatcheren eller av `extraction-poll`). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300`-prosesser, fordi arbeidet i hovedsak er venting på eksterne API-er. `parallelism` settes ved oppstart til `ceil(jobber i kø / 2000)`, maks 8. |
+| Daglige oppgaver | Cloud Run Job `ekko-task` | samme image, kommando settes per Scheduler-trigger. Brukes kun for daglige og ukentlige oppgaver. |
+| Lette periodiske oppgaver | Interne endepunkter på `ekko-web` | Cloud Scheduler kaller `POST /internal/tick/{oppgave}` med OIDC-token fra en egen tjenestekonto. Endepunktene gjør kun korte kontroller og legger tyngre arbeid i køen. |
+| Migrering | Cloud Run Job `ekko-migrate` | `php artisan migrate --force`, kjøres i deploy-pipeline |
+| Database | Cloud SQL for PostgreSQL 16, `db-g1-small` | 20 GB SSD, automatisk backup 7 dager, PITR på |
+| Fillagring | Cloud Storage `ekko-raw` | livssyklus: Nearline etter 90 dager, sletting etter 400 dager |
+| Fillagring | Cloud Storage `ekko-reports` | genererte PDF-rapporter |
+| Hemmeligheter | Secret Manager | API-nøkler, `APP_KEY`, OAuth-klienter |
+| Tidsstyring | Cloud Scheduler | se 7.1 |
+| Bilder | Artifact Registry | ett image for web og jobber |
+| Overvåking | Cloud Logging, Error Reporting, Monitoring | varsler i 17.4 |
+
+Det brukes ingen Redis eller Memorystore. Kø, cache, låser og rate limiting går via Postgres med Laravels `database`-drivere, noe som holder kostnaden nede.
+
+---
+
+## 4. Teknologistakk
+
+Stakken følger Varde. Agentene har lesetilgang til Varde-repoet (https://github.com/Nils-Fredrik/varde) og skal bruke det som mal for mappestruktur, versjoner, Dockerfile, layout-komponenter, i18n-oppsett og MCP-oppsett, heller enn å finne opp egne (4.1).
+
+| Lag | Valg |
+|---|---|
+| Rammeverk | Laravel (samme hovedversjon som Varde) |
+| Startpakke | Laravel Jetstream med Inertia-stakken (team aktivert, API-tokens aktivert) |
+| Frontend | Vue 3 via Inertia, Vite, Tailwind CSS v4 |
+| Ruting i frontend | Ziggy |
+| Ikoner | Heroicons for Vue |
+| Oversettelser | `laravel-vue-i18n` med PHP-språkfiler (`nb`, `sv`, `en`) |
+| Grafer | `vue-chartjs` med Chart.js, fargesatt fra designtokens |
+| Database | PostgreSQL 16 |
+| Kø og cache | Laravel `database`-driver |
+| MCP | `laravel/mcp` med OAuth via Laravel Passport, samme mønster som Varde (`Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`) |
+| Innlogging | Jetstream (e-post og passord, 2FA) og Socialite (Google og Microsoft) |
+| PDF | `spatie/laravel-pdf` med Chromium i worker-imaget |
+| Revisjonslogg | `spatie/laravel-activitylog` |
+| Funksjonsflagg | Laravel Pennant, med flagg per tenant |
+| Filer | Flysystem-adapter for Google Cloud Storage |
+| HTTP mot motorer | Laravels `Http`-klient med egne adapterklasser (ingen tredjeparts LLM-rammeverk, fordi adapterne må bruke leverandørspesifikke funksjoner som kildeannotasjoner og lokasjon) |
+| Testing | Pest, inkludert nettlesertester |
+| Kodekvalitet | Laravel Pint, Larastan nivå 6, ESLint og Prettier for Vue |
+| Infrastruktur | Terraform |
+| CI/CD | GitHub Actions med Workload Identity Federation mot GCP |
+
+### 4.1 Hva agentene henter fra Varde
+
+Varde-repoet er kun referanse. Agentene leser og kopierer mønstre derfra inn i Ekko, men gjør aldri endringer, commits, grener eller PR-er i Varde. `main` i Varde har grenbeskyttelse som krever godkjent PR, slik at en agent ikke kan skrive dit ved en feil.
+
+| Hva | Hvorfor |
+|---|---|
+| `composer.json`, `composer.lock`, `package.json`, `package-lock.json` | Samme versjoner av Laravel, Jetstream, Inertia, Vue, Tailwind og øvrige pakker |
+| Tailwind-temafilen (`@theme` med fargetokens og mørkt/lyst tema) og fontfilene for Suisse Intl | Identisk look & feel (14.1) |
+| Layout og fellesskomponenter: `AppLayout`, toppmeny, team-velger, temabytte, språkvelger, `BottomSheet`, `DialogModal` | Samme oppbygging og oppførsel |
+| `Pages/Auth/Login.vue` | Samme innloggingsside |
+| Oppsett av Inertia, Ziggy og `laravel-vue-i18n` (app-inngangen og en språkfil) | Samme oppsett for ruting og oversettelser |
+| `Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`, MCP-serverklassen, ett eksempel på et MCP-tool og Passport-konfigurasjonen | Samme MCP- og OAuth-mønster (15.2) |
+| `Dockerfile` og eventuelle Cloud Run- og GitHub Actions-filer | Samme byggeløp og kjøremiljø på Cloud Run (T10) |
+
+Ingen miljøfiler, hemmeligheter eller kundedata kopieres fra Varde.
+
+---
+
+## 5. Tenant-modell og tilgang
+
+### 5.1 Struktur
+
+- **Tenant = Jetstream-team.** Tabellen `teams` utvides med kolonnene i 6.1.
+- **Partner-forhold:** `teams.partner_team_id` peker til forvaltende tenant. Det er maks ett nivå: en partner kan ikke selv ha en partner.
+- **Plattformadmin:** `users.is_platform_admin`. Gir tilgang til alle tenants og til admin-sidene.
+
+### 5.2 Roller
+
+| Rolle | Omfang | Rettigheter |
+|---|---|---|
+| Plattformadmin | Alle tenants | Opprette, endre og stenge tenants. Sette pakke, kvoter og motorer. Se forbruk og kostnad. Opptre som tenant (logges). |
+| Partner-rådgiver | Egen tenant og alle kunde-tenants med `partner_team_id` = egen tenant | Som tenant-admin i kunde-tenantene, men kan ikke slette dem eller endre pakke |
+| Tenant-admin | Egen tenant | Invitere og fjerne brukere, redigere merkevarer, markeder, prompts og konkurrenter, sette varsler og rapportmottakere, se forbruk |
+| Redaktør | Egen tenant | Redigere prompts og konkurrenter, kjøre manuelle kontroller innenfor kvote |
+| Leser | Egen tenant | Se dashboard, svar, kilder og rapporter |
+
+Rollene implementeres med Jetstream-roller per team, med Laravel Policies som eneste tilgangsmekanisme i kode. Partner-tilgang løses i en sentral `TenantAccess`-tjeneste som policyene bruker.
+
+### 5.3 Tenant-isolasjon, to lag
+
+**Lag 1, applikasjonen:** Alle tenant-eide modeller bruker trait `BelongsToTenant`. Traiten:
+- legger på et globalt scope `tenant_id = current_tenant_id()`
+- setter `tenant_id` automatisk ved opprettelse
+- kaster unntak hvis ingen tenant er satt i konteksten (gjelder også jobber)
+
+Jobber får alltid `tenant_id` som konstruktørparameter og setter konteksten i `handle()` via middleware `SetTenantContext`.
+
+**Lag 2, databasen:** Postgres Row-Level Security på alle tenant-eide tabeller.
+
+```sql
+ALTER TABLE brands ENABLE ROW LEVEL SECURITY;
+ALTER TABLE brands FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON brands
+  USING (tenant_id = ANY (string_to_array(current_setting('app.tenant_ids', true), ',')::bigint[]));
+```
+
+Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og hver jobb settes `app.tenant_ids` til tenantene brukeren eller jobben har lov til å se. For en partner er det egen tenant pluss kunde-tenantene, i en databasetransaksjon med `SET LOCAL`, gjennom middleware `ApplyTenantRls`.
+
+Plattformadmin-operasjoner og migreringer bruker en egen databaserolle med `BYPASSRLS`. Den brukes kun av jobben `ekko-migrate` og av eksplisitte admin-handlinger som logges.
+
+**Krav:** Testsuiten `tests/Feature/TenantIsolation` skal bevise at:
+- ingen rute, ingen API-endepunkt og ingen MCP-tool returnerer data fra en annen tenant
+- ingen jobb skriver data til feil tenant
+
+Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
+
+### 5.4 Innlogging
+
+- **E-post og passord** via Jetstream. 2FA er påkrevd for plattformadmin og partner-rådgivere og valgfritt for andre.
+- **Google og Microsoft** via Socialite. En Google- eller Microsoft-konto kobles til en eksisterende invitert bruker basert på e-postadresse. Det finnes ingen åpen registrering.
+- **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager.
+- **Tenant-velger:** brukere med flere tenants bytter mellom dem i toppmenyen, som Jetstreams team-switcher. Valgt tenant lagres på brukeren.
+- **Sesjon:** samme oppsett som Varde, med `__Host-`-prefiks på sesjonscookien, `secure` og `samesite=lax`.
+
+---
+
+## 6. Datamodell
+
+Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til `teams.id`, indeks og RLS. Tidsstempler lagres i UTC.
+
+### 6.1 Tenant og tilgang
+
+| Tabell | Viktige kolonner |
+|---|---|
+| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled` |
+| `users` (utvidet) | `is_platform_admin`, `locale`, `current_team_id` |
+| `plans` | `name`, `max_brands`, `max_markets_per_brand`, `max_prompts_per_market`, `allowed_engines` (jsonb), `max_frequency`, `max_repetitions`, `monthly_call_quota`, `monthly_budget_usd` |
+| `tenant_api_keys` | `tenant_id`, `provider`, `key` (kryptert), `last_verified_at` |
+
+### 6.2 Konfigurasjon
+
+| Tabell | Viktige kolonner |
+|---|---|
+| `brands` | `tenant_id`, `name`, `slug`, `primary_domain`, `status` |
+| `brand_aliases` | `brand_id`, `alias`, `match_mode` (exact_word, case_insensitive, regex) |
+| `brand_domains` | `brand_id`, `domain`, `include_subdomains` |
+| `competitors` | `tenant_id`, `brand_id`, `name`, `is_active` |
+| `competitor_aliases` | `competitor_id`, `alias`, `match_mode` |
+| `competitor_domains` | `competitor_id`, `domain` |
+| `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active` |
+| `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency` (daily, weekly, monthly, off), `prompt_scope` (all, core), `repetitions` (1–3, standard 1) |
+| `topics` | `tenant_id`, `brand_id`, `name`, `cross_market_key` (kobler samme tema på tvers av markeder) |
+| `prompts` | `tenant_id`, `market_id`, `topic_id`, `text`, `intent` (category, comparison, brand, problem, local), `funnel_stage` (awareness, consideration, decision), `priority` (core, standard), `is_active`, `text_hash` |
+| `engines` | `key`, `family` (chatgpt, gemini, google_aio, perplexity, claude), `method` (api, ui_scrape, serp), `provider`, `model_id`, `config` (jsonb), `is_enabled` |
+| `engine_prices` | `engine_key`, `valid_from`, `price_per_call_usd`, `price_per_1k_input_tokens_usd`, `price_per_1k_output_tokens_usd`, `price_per_search_usd` |
+
+### 6.3 Innsamling og resultater
+
+| Tabell | Viktige kolonner |
+|---|---|
+| `run_batches` | `tenant_id`, `market_id`, `scheduled_for`, `status`, `planned_runs`, `completed_runs`, `failed_runs` |
+| `runs` | `tenant_id`, `run_batch_id`, `prompt_id`, `engine_key`, `repetition`, `status` (queued, running, submitted, collected, extracted, failed, skipped_quota), `attempts`, `error_code`, `started_at`, `finished_at` |
+| `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at` |
+| `mentions` | `tenant_id`, `response_id`, `entity_type` (brand, competitor, unknown), `entity_id` (null for unknown), `surface_name`, `first_char_offset`, `list_position` (null hvis ikke liste), `is_recommended`, `sentiment` (-1.0–1.0), `detection` (deterministic, llm) |
+| `citations` | `tenant_id`, `response_id`, `url`, `url_normalized`, `domain`, `ownership` (own, competitor, third_party), `competitor_id`, `source_type` (news, review, forum, wiki, marketplace, social, gov, other), `rank_in_answer`, `from_annotation` (bool) |
+| `extraction_jobs` | `tenant_id`, `provider_batch_id`, `status`, `response_ids` (jsonb), `submitted_at`, `completed_at` |
+
+### 6.4 Aggregater
+
+| Tabell | Nøkkel | Innhold |
+|---|---|---|
+| `agg_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `prompt_id`, `date` | `responses`, `brand_mentioned`, `brand_recommended`, `sum_position`, `count_position`, `sum_sentiment`, `own_cited`, `competitor_mentions` (jsonb per competitor_id) |
+| `agg_source_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `domain`, `date` | `citations`, `responses_with_domain` |
+| `bot_hits_daily` | `tenant_id`, `brand_id`, `domain`, `bot`, `date` | `hits`, `unique_paths`, `top_paths` (jsonb) |
+| `ai_referrals_daily` | `tenant_id`, `brand_id`, `source`, `date` | `sessions`, `engaged_sessions`, `conversions` |
+
+Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke separat.
+
+### 6.5 Drift og økonomi
+
+| Tabell | Viktige kolonner |
+|---|---|
+| `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
+| `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `status` (ok, warning, capped) |
+| `alert_rules` | `tenant_id`, `brand_id`, `type`, `threshold`, `channels` (jsonb), `is_active` |
+| `alerts` | `tenant_id`, `alert_rule_id`, `triggered_at`, `payload` (jsonb), `delivered_at`, `acknowledged_by` |
+| `report_schedules` | `tenant_id`, `brand_id`, `cadence` (weekly, monthly), `recipients` (jsonb), `locale`, `branding` (tenant, partner) |
+| `reports` | `tenant_id`, `report_schedule_id`, `period_start`, `period_end`, `pdf_uri`, `sent_at` |
+| `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `status` |
+| `activity_log` | fra spatie/laravel-activitylog, med `tenant_id` |
+
+---
+
+## 7. Innsamling
+
+### 7.1 Planlegging
+
+| Scheduler-trigger | Tidspunkt (Europe/Oslo) | Kommando |
+|---|---|---|
+| `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker` |
+| `extraction-poll` | hvert 15. minutt, via internt endepunkt | Sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
+| `aggregate` | daglig 05:30 | `ekko:aggregate --date=yesterday`, deretter varselsevaluering |
+| `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
+| `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
+| `usage-rollup` | hver time, via internt endepunkt | `ekko:usage-rollup` og kvotekontroll |
+
+**Fordeling over uka:** Ved ukentlig frekvens kjøres et prompt på ukedagen `crc32(prompt_id) % 7`. Ved månedlig frekvens kjøres det på dag `crc32(prompt_id) % 28 + 1`. Prompts med `priority = core` kan ha høyere frekvens enn resten av markedet, begrenset av pakken. Dette gir jevn belastning og jevn kostnad.
+
+**Rettferdig kø:** Dispatcheren legger jobbene i køen flettet per tenant (rundgang), slik at én stor tenant ikke blokkerer andre.
+
+### 7.2 Kvotekontroll før kjøring
+
+Før en `run` legges i køen, sjekkes `usage_monthly` for tenanten:
+
+- Hvis planlagte kall pluss forbruk overstiger `monthly_call_quota` eller estimert kostnad overstiger `monthly_budget_usd`, legges bare `core`-prompts i køen. Resten markeres `skipped_quota`.
+- Hvis forbruket allerede har nådd taket, settes alle til `skipped_quota`.
+- Tenant-admin og plattformadmin varsles ved 80 % og 100 %.
+- Tenants med `byok_enabled` følger egne nøkler. Budsjettstoppen gjelder fortsatt, men som en innstilling tenant-admin selv kan endre.
+
+### 7.3 Motoradapter-kontrakt
+
+```php
+interface EngineAdapter
+{
+    public function key(): string;                       // f.eks. 'chatgpt_api'
+    public function supports(Market $market): bool;      // land og språk støttet
+    public function collect(EngineRequest $request): EngineResult;
+}
+
+final class EngineRequest
+{
+    public function __construct(
+        public string $promptText,
+        public string $country,        // 'NO'
+        public string $language,       // 'nb'
+        public ?string $city,          // 'Oslo'
+        public string $runId,
+        public ?string $apiKey = null, // BYOK
+    ) {}
+}
+
+final class EngineResult
+{
+    public function __construct(
+        public string $answerText,
+        public ?string $modelIdReported,
+        public array $citations,       // [['url' => ..., 'title' => ..., 'rank' => int]]
+        public int $inputTokens,
+        public int $outputTokens,
+        public int $searchCalls,
+        public array $raw,             // komplett leverandørsvar, lagres i GCS
+    ) {}
+}
+```
+
+Motorer som leveres via kø hos leverandøren (DataForSEO standardkø), implementerer i tillegg:
+
+```php
+interface QueuedEngineAdapter extends EngineAdapter
+{
+    public function submit(EngineRequest $request): string;      // leverandørens task-ID
+    public function fetch(string $providerTaskId): ?EngineResult; // null hvis ikke ferdig
+}
+```
+
+For slike motorer settes `runs.status` til `submitted` etter innsending. `extraction-poll` henter ferdige oppgaver via leverandørens «tasks ready»-endepunkt og fullfører kjøringene. Kjøringer som ikke er ferdige etter 6 timer, sendes på nytt én gang.
+
+**Krav til alle adaptere:**
+- **Ren sesjon:** ingen samtalehistorikk, ingen minne og ingen systemprompt utover det leverandøren krever.
+- **Lokasjon:** land, språk og by settes der leverandøren støtter det.
+- **Kilder:** hentes fra leverandørens egne annotasjoner der de finnes, og `from_annotation` settes til `true`.
+- **Timeout:** 120 sekunder per kall.
+- **Feilhåndtering:** inntil 3 forsøk med eksponentiell ventetid for 429 og 5xx. 4xx ellers markeres `failed` med `error_code`.
+- **Rate limiting:** hver motor har grense for samtidige kall og kall per minutt, implementert med Laravel `RateLimited`-jobbmiddleware (database-lås).
+- **Råsvar:** hele leverandørsvaret lagres i `gs://ekko-raw/{tenant_id}/{yyyy}/{mm}/{run_id}.json`.
+- **Tester:** hver adapter har kontraktstester mot innspilte svar (fixtures). CI gjør aldri levende kall.
+
+### 7.4 Motorer og standardoppsett
+
+Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest mulig kostnad:
+- **ChatGPT, Gemini og Google** hentes via DataForSEO (skraping og SERP). Det gir svarene slik de vises i tjenestene og koster en brøkdel av API-ene.
+- **Claude og Perplexity** har ingen skraping og hentes via API.
+- **Claude** kjøres daglig på Haiku 5.5, som er billig, og ukentlig på Sonnet 5.5 for kjerneprompts. Sonnet-kjøringen gir et kalibreringspunkt mot modellen de fleste Claude-brukere møter.
+- **Alle DataForSEO-motorer** bruker standardkøen, ikke sanntid. Daglige kjøringer tåler ventetiden, og prisen er en tredjedel.
+
+| `engine_key` | Familie | Metode | Implementasjon | Standardfrekvens | Prompts |
+|---|---|---|---|---|---|
+| `chatgpt_ui` | ChatGPT | Skraping, kø | DataForSEO ChatGPT LLM Scraper (standardkø), med lokasjon og språk | daglig | alle |
+| `gemini_ui` | Gemini | Skraping, kø | DataForSEO Gemini LLM Scraper (standardkø) | daglig | alle |
+| `google_aio` | Google | SERP, kø | DataForSEO SERP API (Google organisk, standardkø), henter `ai_overview`-elementet med kilder | daglig | alle |
+| `google_ai_mode` | Google | SERP, kø | DataForSEO AI Mode-endepunkt (standardkø), der det er tilgjengelig for markedet | daglig | alle |
+| `claude_haiku` | Claude | API | Anthropic Messages API med `claude-haiku-5-5`, grunnversjonen av web search-verktøyet (uten dynamisk filtrering, `max_uses: 2`) og `user_location`. Kilder fra `web_search_result_location`-sitater. | daglig | alle |
+| `claude_sonnet` | Claude | API | Som over, med `claude-sonnet-5-5` | ukentlig | kjerne |
+| `perplexity_api` | Perplexity | API | Perplexitys API med websøk. Kilder fra `citations`/`search_results`. | ukentlig | alle |
+| `chatgpt_api` | ChatGPT | API | OpenAI Responses API med `web_search` og `user_location` | av | – |
+| `gemini_api` | Gemini | API | Gemini API med Google Search-grounding. Kilder fra `groundingMetadata`. | av | – |
+
+`chatgpt_api` og `gemini_api` er av som standard. De kan slås på for tenants med egne API-nøkler (12.4), f.eks. for å sammenligne API-svar med det appene viser.
+
+**Konfigurasjon:**
+- Pakken avgjør hvilke motorer en tenant har tilgang til (`plans.allowed_engines`).
+- Hvert marked har én rad per motor i `market_engines` med frekvens, promptutvalg og gjentakelser. Når et marked opprettes, fylles radene med standardoppsettet over.
+- Tenant-admin kan endre frekvens og utvalg innenfor pakken. Veiviseren og innstillingssiden viser estimert månedskostnad for valget.
+
+**Kostnadsspaker som kan brukes uten kodeendring:**
+- `prompt_scope = core` for en motor: kjerneprompts daglig og resten av promptene sjeldnere via en ekstra rad med `weekly`.
+- Lavere frekvens på API-motorene.
+- Færre prompts per marked.
+
+**Oppsett av ny motor:** én adapterklasse, én rad i `engines`, priser i `engine_prices` og fixtures. Det skal ikke være nødvendig å endre noe annet.
+
+### 7.5 Gjentakelser og modellversjoner
+
+Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares.
+
+---
+
+## 8. Uttrekk og analyse
+
+### 8.1 Deterministisk gjenkjenning (første ledd)
+
+Kjøres synkront i workeren rett etter innsamling.
+
+- **Normalisering av tekst:** Unicode NFKC, små bokstaver for sammenligning og bevaring av æ/ø/å/ä/ö.
+- **Søk etter alias:** alle `brand_aliases` og `competitor_aliases` i tenanten matches etter `match_mode` med ordgrenser. `first_char_offset` lagres.
+- **Listeposisjon:** nummererte og punktvise lister tolkes. Posisjon er listeelementets nummer (1-basert) der merkevaren først forekommer.
+- **Sitater:** normaliseres ved å fjerne sporingsparametre (`utm_*`, `gclid`, `fbclid`, `srsltid`), skråstrek på slutten og `www.`. Eierskap avgjøres mot `brand_domains` og `competitor_domains`.
+
+### 8.2 Modellbasert uttrekk (andre ledd)
+
+Svar med status `collected` sendes i batch til Anthropic Message Batches med modellen **Claude Haiku 5.5** (`claude-haiku-5-5`), maks 100 svar per batch. Modellen får:
+- svaret
+- markedets språk
+- listen over kjente merkevarer og konkurrenter med alias
+- resultatet fra 8.1
+
+Modellen skal returnere JSON etter dette skjemaet (tvunget via verktøydefinisjon):
+
+```json
+{
+  "mentions": [
+    {
+      "surface_name": "string",
+      "entity": {"type": "brand|competitor|unknown", "id": "number|null"},
+      "list_position": "number|null",
+      "is_recommended": "boolean",
+      "sentiment": "number (-1.0 til 1.0)",
+      "evidence": "string (maks 200 tegn fra svaret)"
+    }
+  ],
+  "citations": [
+    {"url": "string", "source_type": "news|review|forum|wiki|marketplace|social|gov|other"}
+  ],
+  "answer_type": "list|single_recommendation|comparison|informational|refusal"
+}
+```
+
+**Regler for sammenstilling:**
+- **Deterministiske treff vinner** over modellen for om en kjent merkevare er nevnt.
+- **Modellen beriker** med `is_recommended`, `sentiment` og `answer_type`, og fanger opp ukjente merkevarer (`unknown`). Ukjente merkevarer som går igjen, foreslås som nye konkurrenter i grensesnittet.
+- **Sitater fra annotasjoner vinner** over sitater modellen finner i teksten. Modellen brukes kun til `source_type` og til motorer uten annotasjoner.
+- **Ugyldig JSON** gir ett nytt forsøk enkeltvis via vanlig Messages API. Feiler det igjen, beholdes de deterministiske resultatene og responsen markeres `extracted` med flagg `llm_failed`.
+
+Kostnad for uttrekk logges i `usage_events` med `kind = extraction`.
+
+---
+
+## 9. Metrikker
+
+Alle metrikker beregnes for valgfri kombinasjon av merkevare, marked, motor, tema, intensjon, prompt og periode. Antall svar (n) vises alltid ved siden av prosentene. Verdier med n < 10 vises nedtonet.
+
+| Metrikk | Definisjon |
+|---|---|
+| Synlighet | Andel svar der merkevaren nevnes |
+| Anbefalingsrate | Andel svar der merkevaren anbefales (`is_recommended`) |
+| Share of voice | Merkevarens nevnelser ÷ summen av nevnelser for merkevaren og alle aktive konkurrenter |
+| Gjennomsnittlig posisjon | Snitt av `list_position` der merkevaren står i en liste |
+| Førsteplass-rate | Andel listesvar der merkevaren står først |
+| Sitatrate | Andel svar der minst én URL på egne domener er sitert |
+| Sentiment | Gjennomsnitt av `sentiment` for merkevarens nevnelser |
+| Stabilitet | For hvert prompt og hver runde: andel gjentakelser der merkevaren nevnes. Vises som snitt og fordeling. |
+| Kildeandel | For hvert domene: andel svar som siterer domenet |
+| Kildegap | Domener som ofte siteres i svar der konkurrenter nevnes og merkevaren ikke gjør det |
+| AI-robottreff | Daglige forespørsler fra AI-roboter mot egne domener (fra 10.1) |
+| AI-trafikk | Økter fra AI-tjenester (fra 10.2) |
+
+`ekko:aggregate` bygger `agg_daily` og `agg_source_daily` på nytt for gitt dato. Jobben er idempotent og kan kjøres om igjen for historiske datoer.
+
+---
+
+## 10. Logg- og trafikkdata
+
+### 10.1 AI-roboter fra ClickHouse
+
+Integrasjonen `clickhouse_logs` per merkevare lagrer tilkobling (vert, database, bruker, passord, kryptert) og tabellnavn. `ekko:sync-bot-hits` teller forespørsler siste døgn per domene og bot. Bots gjenkjennes på user-agent:
+
+| Bot | User-agent inneholder |
+|---|---|
+| OpenAI søk | `OAI-SearchBot` |
+| OpenAI trening | `GPTBot` |
+| ChatGPT bruker | `ChatGPT-User` |
+| Perplexity | `PerplexityBot`, `Perplexity-User` |
+| Anthropic | `ClaudeBot`, `Claude-User`, `Claude-SearchBot` |
+| Google | `Google-Extended`, `GoogleOther` |
+| Andre | konfigurerbar liste i `config/ekko.php` |
+
+Listen over user-agents vedlikeholdes i konfigurasjon, ikke i kode. Spørringene skal følge skjemaet som er dokumentert i skillen `clickhouse-logs-query` for Maksimer-loggene.
+
+Tenants uten ClickHouse kan i stedet laste opp loggfiler (nginx/Apache combined-format, gz) via grensesnittet. Filene parses av en jobb.
+
+### 10.2 AI-trafikk fra GA4
+
+Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto som kunden gir lesetilgang. `ekko:sync-ga4` henter `sessions`, `engagedSessions` og `conversions` per dag der `sessionSource` matcher `chatgpt.com`, `chat.openai.com`, `perplexity.ai`, `gemini.google.com`, `copilot.microsoft.com` og `claude.ai`. Listen ligger i konfigurasjon.
+
+---
+
+## 11. Varsler og rapporter
+
+### 11.1 Varseltyper
+
+| Type | Utløses når | Standard terskel |
+|---|---|---|
+| `visibility_drop` | Synlighet for et marked og en motor faller mer enn terskelen uke mot uke, med n ≥ 30 begge uker | 10 prosentpoeng |
+| `competitor_takeover` | En konkurrent går fra ikke-førsteplass til førsteplass-rate over terskelen på et kjerneprompt | 50 % |
+| `citation_lost` | Eget domene var sitert i forrige runde og ikke i denne, på et kjerneprompt | – |
+| `new_competitor` | En ukjent merkevare forekommer i mer enn terskelen av svarene i et marked over 7 dager | 10 % |
+| `model_change` | Motoren rapporterer ny modell-ID | – |
+| `quota` | Forbruk når 80 % eller 100 % av kvote eller budsjett | – |
+| `integration_error` | Synk mot ClickHouse eller GA4 feiler to dager på rad | – |
+
+Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like varsler samles til én melding per tenant per døgn.
+
+### 11.2 Rapporter
+
+- **Format:** PDF, generert med `spatie/laravel-pdf` fra en egen Blade/Vue-mal i samme stil som grensesnittet.
+- **Innhold:**
+  - nøkkeltall for perioden med endring mot forrige periode
+  - synlighet og share of voice per motor
+  - topp 10 prompts med størst endring
+  - konkurrenttabell
+  - topp 15 siterte domener og kildegap
+  - AI-robottreff og AI-trafikk
+  - modellbytter i perioden
+- **Profil:** tenantens eller partnerens logo og primærfarge (`report_schedules.branding`).
+- **Språk:** rapportens `locale`, uavhengig av mottakers brukerinnstilling.
+- **Lagring og utsending:** PDF-en lagres i `ekko-reports` og sendes som vedlegg. Grensesnittet har nedlastingslenke.
+
+---
+
+## 12. Pakker, kvoter, forbruk og fakturagrunnlag
+
+### 12.1 Pakker
+
+Pakker defineres av plattformadmin i `plans`. Startoppsett:
+
+| Pakke | Merkevarer | Markeder per merkevare | Prompts per marked | Motorer | Maks frekvens | Kall per måned |
+|---|---|---|---|---|---|---|
+| Basis | 1 | 1 | 30 | ChatGPT, Gemini, Google AI Overviews og AI Mode | daglig | 4 000 |
+| Standard | 3 | 2 | 50 | Basis + Claude og Perplexity | daglig (Claude Haiku), ukentlig (Claude Sonnet og Perplexity) | 50 000 |
+| Byrå | ubegrenset | ubegrenset | 100 | alle, inkludert API-motorer med egne nøkler | daglig | settes per tenant |
+
+Tallene er utgangspunkt og kan endres uten kodeendring.
+
+### 12.2 Forbruk
+
+Hvert eksterne kall gir én rad i `usage_events` med kostnad beregnet fra `engine_prices` som var gyldig på tidspunktet. `usage_monthly` oppdateres hver time.
+
+### 12.3 Fakturagrunnlag
+
+Plattformadmin har en månedlig eksport (CSV) per tenant med:
+- pakke
+- antall kall
+- kostnad per motor
+- sum
+- påslag (prosent per tenant)
+
+Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres kunde-tenantene under partneren, med én linje per kunde.
+
+### 12.4 Egne API-nøkler
+
+Med `byok_enabled` legger tenant-admin inn egne nøkler per leverandør i `tenant_api_keys`. Nøklene verifiseres med et testkall ved lagring. Kall med egne nøkler logges med `billed_to = byok` og teller ikke mot plattformbudsjettet.
+
+### 12.5 Anthropic-kreditter
+
+Ekko bruker de månedlige API-kredittene som følger med konsernets Claude Team-abonnement. Potten er 20 dollar per Standard-sete og 100 dollar per Premium-sete, med et tak på 500 dollar i måneden. Med om lag 50 seter er taket nådd uansett setetype.
+
+**Vilkår som styrer designet:**
+- Kredittene legges i én Claude Console-organisasjon, som kobles til Team-abonnementet av en eier. Koblingen kan ikke endres uten å gå via Anthropic support.
+- Kredittene brukes før kjøpte kreditter og dekker Messages API og Message Batches API, inkludert websøk.
+- Kredittene dekker ikke interaktiv Claude Code eller bruk i Claude-appene.
+- Ubrukte kreditter utløper ved slutten av hver faktureringsperiode. Potten bør derfor brukes opp hver måned, men ikke overskrides.
+
+**Oppsett i Claude Console:**
+- **Organisasjon:** kredittene kobles til den Console-organisasjonen konsernet bruker til egne verktøy.
+- **Workspace:** Ekko får et eget workspace med egen API-nøkkel og egen forbruksgrense, slik at Ekko ikke tar mer av potten enn tildelt.
+- **Automatisk påfylling:** skrus av. Når kredittene er brukt opp, stopper kallene i stedet for å belaste kort, og Ekko går over i redusert modus (se under).
+- **Forbruksgrensen** settes til andelen av potten som er tildelt Ekko, og registreres også i Ekko (`config/ekko.php`: `anthropic.monthly_pool_usd`, `anthropic.cycle_start_day`).
+
+**Kredittstyrt planlegging.** Ekko følger Team-abonnementets faktureringsperiode, ikke kalendermåneden. Claude-arbeid deles i tre nivåer:
+
+| Nivå | Innhold | Når |
+|---|---|---|
+| 1. Grunnlast | `claude_haiku` daglig, `claude_sonnet` ukentlig for kjerneprompts, uttrekk av alle svar | alltid |
+| 2. Tillegg | `claude_sonnet` daglig for kjerneprompts. Ekstra gjentakelser (inntil 3) for prompts der svarene spriker mest siste 14 dager. Månedlig innsiktstekst per merkevare (Sonnet 5.5) til rapporten. | når prognosen viser ledig pott |
+| 3. Redusert modus | `claude_haiku` bare for kjerneprompts. Resten av Claude-kjøringene settes til `skipped_quota` ut perioden. | når forbruket når 95 % av tildelt pott, eller API-et svarer at kredittene er brukt opp |
+
+`ekko:anthropic-budget` kjører daglig før dispatcheren:
+- Prognose: forbruk så langt + planlagt grunnlast ut perioden + 10 % buffer.
+- Ledig beløp ut over prognosen fordeles på nivå 2-tiltakene i rekkefølgen over, fordelt jevnt på dagene som gjenstår.
+- De siste 3 dagene i perioden kan bufferen også brukes.
+
+`Admin/Usage.vue` viser forbruk mot pott i inneværende periode, prognose, hva som er lagt inn som tillegg og om redusert modus er aktiv.
+
+**Skalering:** Grunnlasten koster om lag 20–30 dollar per merkevare og marked i måneden. Potten dekker dermed grunnlasten for om lag 15–20 merkevarer. Ut over det kan kjerneprompts kjøres daglig og resten ukentlig for Claude (`prompt_scope`), noe som omtrent halverer forbruket per merkevare. Alternativt betales overskytende forbruk via kjøpte kreditter.
+
+## 13. Oppstartsveiviser
+
+Veiviseren gjør at en ny merkevare er klar til første kjøring på få minutter.
+
+1. **Grunnlag:** navn, primærdomene, land og språk.
+2. **Analyse:** jobben henter forsiden og opptil 5 sentrale undersider (fra sitemap eller navigasjon) og sender innholdet til **Claude Sonnet 5.5** (`claude-sonnet-5-5`). Modellen returnerer:
+   - bransje og kategori
+   - forslag til navnevarianter
+   - 5–10 konkurrenter med domener
+   - 5–8 temaer
+   - 50 prompts på markedets språk, merket med tema, intensjon og trakttrinn, der 10 er foreslått som kjerneprompts
+3. **Redigering:** brukeren redigerer, sletter og legger til i forslagene. Ingenting lagres før brukeren bekrefter.
+4. **Motorer og frekvens:** forhåndsvalgt fra pakken, med kostnadsestimat per måned vist før bekreftelse.
+5. **Integrasjoner (valgfritt):** ClickHouse eller loggopplasting, GA4.
+6. **Første kjøring:** startes umiddelbart for kjerneprompts. Resten følger ordinær plan.
+
+For et nytt marked på en eksisterende merkevare foreslår veiviseren prompts på det nye språket ut fra eksisterende temaer (`cross_market_key`). Promptene skal formuleres slik brukere i markedet faktisk spør, ikke som oversettelser.
+
+---
+## 14. Brukergrensesnitt
+
+### 14.1 Look & feel
+
+Ekko skal se ut og oppføre seg som Varde og Borg. Tokenene under er hentet fra Varde og Borg slik de kjører i produksjon. Ved oppstart kopieres tema-filen (Tailwind v4 `@theme`) og layout-komponentene fra Varde-repoet (4.1), slik at det finnes én sannhet.
+
+**Fargetokens (felles for Varde og Borg):**
+
+| Token | Verdi | Bruk |
+|---|---|---|
+| `--color-primary` | `#e84a38` | Primærknapper, aktive elementer |
+| `--color-primary-deep` | `#c73823` | Hover og aktiv tilstand på primær |
+| `--color-secondary` | `#791220` | Sekundæraksent (burgunder) |
+| `--color-secondary-deep` | `#5a0e18` | Hover på sekundær |
+| `--color-accent` | `#ffb6c3` | Aksent i mørkt tema (lenker, markering) |
+| `--color-ink` | `#1a1212` | Hovedtekst i lyst tema |
+| `--color-ink-soft` | `#4a3a36` | Sekundærtekst i lyst tema |
+| `--color-panel` | `#15100f` | Paneler i mørkt tema |
+| `--color-light-beige` | `#f5ede4` | Bakgrunn i lyst tema, tekst i mørkt tema |
+| `--color-light-beige-deep` | `#eae0d2` | Sekundærflater i lyst tema |
+| `--color-medium-beige` | `#e2b8a5` | Dekorative flater |
+| `--color-dark-beige` | `#906056` | Dempet tekst og ikoner |
+| `--color-line` | `#e8ded2` | Skillelinjer i lyst tema |
+| `--color-line-soft` | `#f0e6d8` | Svake skillelinjer |
+| `--color-row-hover` | `#fbf7f1` | Hover på tabellrader i lyst tema |
+| `--color-success` | `#4a7c59` | Positiv endring |
+| `--color-warning` | `#c97b3e` | Advarsel |
+| `--color-error` | `#a8382f` | Feil og negativ endring |
+
+**Skall-tokens (tema-avhengige):**
+
+| Token | Mørkt tema (standard) | Lyst tema |
+|---|---|---|
+| `--color-shell` | `#000` | `#f5ede4` |
+| `--color-shell-panel` | `#000` | `#fff` |
+| `--color-shell-surface` | `#0b0909` | `#fff` |
+| `--color-shell-fg` | `#fff` | `#1a1212` |
+| `--color-shell-text` | `#f5ede4` | `#1a1212` |
+| `--color-shell-accent` | `#ffb6c3` | `#c73823` |
+
+**Typografi:**
+- **Skrift:** Suisse Intl med vektene 300 (Light), 400 (Book), 450 (Regular) og 500 (Medium), selvhostet som woff2 under `/fonts`. Reserve: `ui-sans-serif, system-ui, -apple-system`.
+- **Størrelser:** brødtekst `text-sm`. Metadata og hjelpetekst 12–13 px med `text-shell-text/50` og `/40`. Store tall og overskrifter med `font-medium tracking-tight`.
+- **Kode og ID-er:** `font-mono`.
+
+**Komponenter og mønstre (som i Varde):**
+- **Tema:** mørkt tema er standard, satt med `data-theme` på `<html>`. Valget (mørkt, lyst, system) lagres i `localStorage` under nøkkelen `ekko.theme` og settes med et inline-skript før første rendering, slik at siden ikke blinker.
+- **Knapper:** primærknapper er `rounded-full bg-primary hover:bg-primary-deep text-white text-sm font-medium`. Sekundærknapper er rammeknapper i skall-farger.
+- **Hjørner:** paneler og kort bruker `rounded-xl` eller `rounded-2xl` på `bg-shell-surface`/`bg-shell-panel` med tynne linjer.
+- **Statuskant:** varsler bruker en smal fargekant til venstre (`w-1 bg-warning` / `bg-error`), som på Varde-innloggingen.
+- **Tabeller:** tette, med hover-rad. Tall er høyrejustert med `tabular-nums`.
+- **Grafer:** Chart.js med farger fra tokenene. Egen merkevare i `primary`, konkurrenter i en fast rekkefølge av dempede toner (`dark-beige`, `medium-beige`, `ink-soft`, `accent`, `secondary`). Rutenett i `line`/`line-soft`, ingen skygger eller gradienter.
+- **Ikoner:** Heroicons (outline).
+- **Mobil:** samme `BottomSheet`-mønster som Varde for filtre på små skjermer.
+
+**Språk:** `nb` er standard, med `sv` og `en` tilgjengelig. Alle tekster ligger i språkfiler, uten hardkodede strenger i komponenter. Språkvelger ligger i brukermenyen (`locale.update` som i Varde).
+
+### 14.2 Sider (Inertia-komponenter)
+
+| Komponent | Innhold |
+|---|---|
+| `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google», «Logg inn med Microsoft» |
+| `Pages/Home.vue` | Oversikt for valgt tenant: nøkkeltall per merkevare, siste varsler, neste planlagte kjøringer, forbruk mot kvote |
+| `Pages/Partner/Index.vue` | For partner-rådgivere: alle kunde-tenants med synlighet, endring og varsler i én tabell |
+| `Pages/Brands/Index.vue` | Merkevarer med status og markeder |
+| `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
+| `Pages/Brands/Prompts.vue` | Prompt-tabell med resultater per prompt (synlighet, posisjon, stabilitet per motor), inline redigering, aktivering/deaktivering, import og eksport (CSV) |
+| `Pages/Brands/PromptShow.vue` | Ett prompt: alle svar over tid per motor, svartekst med uthevede nevnelser, kildeliste, råsvar-lenke |
+| `Pages/Brands/Competitors.vue` | Konkurrenter, alias og domener, samt foreslåtte ukjente merkevarer |
+| `Pages/Brands/Sources.vue` | Siterte domener, kildeandel, kildegap mot konkurrenter |
+| `Pages/Brands/Crawlers.vue` | AI-robottreff og AI-trafikk |
+| `Pages/Brands/Settings.vue` | Navn, alias, domener, markeder, motorer, frekvens, gjentakelser, integrasjoner |
+| `Pages/Onboarding/Wizard.vue` | Veiviseren fra kapittel 13 |
+| `Pages/Alerts/Index.vue` | Varsler med kvittering, og regler per merkevare |
+| `Pages/Reports/Index.vue` | Rapportplaner, mottakere, historikk og nedlasting |
+| `Pages/Usage/Index.vue` | Tenantens forbruk per måned og motor, mot kvote og budsjett |
+| `Pages/Team/Show.vue` | Jetstream team-administrasjon: medlemmer, roller, invitasjoner, Slack-webhook, profil for rapporter, egne API-nøkler |
+| `Pages/Admin/Tenants.vue` | Plattformadmin: opprette, endre, stenge tenants, sette partner og pakke |
+| `Pages/Admin/Plans.vue` | Pakker og grenser |
+| `Pages/Admin/Engines.vue` | Motorer, modell-ID, priser, aktivering, helsestatus |
+| `Pages/Admin/Usage.vue` | Forbruk og kostnad for alle tenants, eksport av fakturagrunnlag |
+| `Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue` | OAuth-samtykke og oversikt over tilkoblede MCP-klienter (som i Varde) |
+| `Pages/API/Index.vue` | API-tokens (Jetstream) |
+| `Pages/Profile/Show.vue` | Profil, passord, 2FA, språk, tema |
+
+---
+
+## 15. API og MCP
+
+### 15.1 REST-API
+
+- **Autentisering:** Sanctum-tokens via Jetstream (`Pages/API`). Tokens er knyttet til bruker og tenant.
+- **Rettigheter:** `read` og `write`.
+- **Versjonering:** alle endepunkter under `/api/v1`.
+
+| Metode | Sti | Rettighet |
+|---|---|---|
+| GET | `/api/v1/brands` | read |
+| GET | `/api/v1/brands/{brand}/metrics?market=&engine=&from=&to=&group_by=` | read |
+| GET | `/api/v1/brands/{brand}/prompts` | read |
+| POST/PATCH/DELETE | `/api/v1/brands/{brand}/prompts` | write |
+| GET | `/api/v1/brands/{brand}/responses?prompt=&engine=&from=&to=` | read |
+| GET | `/api/v1/brands/{brand}/sources?from=&to=` | read |
+| GET | `/api/v1/brands/{brand}/competitors` | read |
+| GET | `/api/v1/alerts` | read |
+| GET | `/api/v1/usage?month=` | read |
+
+Rate limit: 60 forespørsler per minutt per token.
+
+### 15.2 MCP-server
+
+- **Endepunkt:** `/mcp`, bygget med `laravel/mcp`.
+- **Autentisering:** OAuth 2.1 via Passport, med samtykkeside som i Varde.
+- **Tilgang:** tokenet bærer brukerens rettigheter og valgt tenant. Partner-rådgivere kan angi `tenant` som parameter for kunde-tenants de har tilgang til.
+- **Verktøybeskrivelser:** norsk, som i Varde. Navnene er på engelsk i snake_case.
+
+| Tool | Beskrivelse |
+|---|---|
+| `whoami` | Bruker, tenants og roller |
+| `list_brands` | Merkevarer med markeder og motorer |
+| `get_visibility` | Metrikker for merkevare, marked, motor, tema og periode, med n |
+| `compare_competitors` | Share of voice, posisjon og anbefalingsrate mot konkurrenter |
+| `get_prompt_results` | Resultater per prompt, sortert etter endring |
+| `get_responses` | Svartekster for prompt og motor i periode, med nevnelser og kilder |
+| `get_sources` | Siterte domener, kildeandel og kildegap |
+| `get_crawler_activity` | AI-robottreff og AI-trafikk |
+| `list_alerts` | Åpne og nylige varsler |
+| `get_usage` | Forbruk mot kvote og budsjett |
+| `propose_prompts` | Forslag til nye prompts for et tema (skriver ingenting) |
+| `upsert_prompts` | Legger til eller endrer prompts (krever skriverett, logges) |
+
+Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Store resultater pagineres med `cursor`.
+
+---
+
+## 16. Sikkerhet og personvern
+
+**Tilgang og isolasjon:**
+- **Isolasjon:** to lag som beskrevet i 5.3. Isolasjonstestene er blokkerende i CI.
+- **Hemmeligheter:**
+  - API-nøkler i Secret Manager, montert som miljøvariabler.
+  - Tenant-nøkler, webhooker og integrasjonskonfigurasjon krypteres i databasen med Laravels `encrypted`-cast.
+  - Ingen hemmeligheter i repo, logger eller råsvar.
+- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP).
+- **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
+
+**Sporbarhet:**
+- **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler.
+- **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke.
+
+**Inndata og innhold:**
+- **Innhold fra motorene behandles som data.** Svartekster vises escaped. Lenker åpnes med `rel="noopener noreferrer nofollow"`.
+- **Svartekster sendes til uttrekksmodellen med instruks** om at innholdet er data og ikke instruksjoner.
+- **Veiviserens nettsidehenting:** kun `https`, maks 2 MB per side, ingen private IP-adresser (SSRF-vern) og maks 6 sider.
+
+**Personvern:**
+- **Region:** alle data i EU (`europe-west1`).
+- **Databehandleravtale:** inngås med hver tenant, fordi brukerkontoer er personopplysninger.
+- **Personopplysninger:** prompts og svar skal ikke inneholde personopplysninger. Veiviseren og prompt-editoren advarer mot e-postadresser og telefonnummer i prompt-tekst.
+- **Sletting:**
+  - Råsvar slettes etter 400 dager.
+  - Aggregater beholdes så lenge tenanten er aktiv.
+  - Ved stenging av en tenant slettes alle data etter 30 dager, med mulighet for eksport (CSV og JSON) før sletting.
+  - Brukere kan slette egen konto (Jetstream).
+
+---
+
+## 17. Drift
+
+### 17.1 Miljøer
+
+| Miljø | Formål | Database | Motorer |
+|---|---|---|---|
+| `local` | Utvikling (Laravel Sail eller Herd, Postgres lokalt) | lokal | kun fixtures |
+| `production` | Produksjon, i `ekko-514612` | `db-g1-small` | levende |
+
+### 17.2 CI/CD
+
+- **På hver PR (GitHub Actions):**
+  - Pint, Larastan, ESLint
+  - Pest med isolasjonstester
+  - nettlesertester for innlogging, veiviser og dashboard
+  - bygg av image
+- **Ved merge til `main`** utrulles automatisk til produksjon:
+  1. Bygg og push av image til Artifact Registry.
+  2. Migrering som egen jobb (`ekko-migrate`). Cloud SQL tar et øyeblikksbilde (on-demand backup) rett før migreringen.
+  3. Ny revisjon av `ekko-web` rulles ut uten trafikk, med en egen revisjonsadresse (Cloud Run revision tag).
+  4. Røyktest mot revisjonsadressen: innlogging, dashboard, API og MCP svarer uten feil.
+  5. Består testen, flyttes all trafikk til ny revisjon, og jobbene oppdateres til nytt image. Feiler den, beholder forrige revisjon trafikken og deployen stopper.
+- **Tilbakerulling:** trafikken flyttes tilbake til forrige revisjon med én kommando, dokumentert i `docs/runbook.md`.
+- **Migreringer** skal være bakoverkompatible (først legge til, deretter fjerne i en senere utrulling), slik at forrige revisjon fungerer mot ny database ved tilbakerulling.
+- **Ny funksjonalitet** som skal prøves på egne tenants først, skrus av og på med funksjonsflagg per tenant (Laravel Pennant).
+- **Infrastruktur:** all GCP-infrastruktur ligger i `infra/terraform`. Endringer i infrastruktur går også via PR.
+
+### 17.3 Kostnad
+
+**Forutsetninger for estimatet:**
+- Priser i `europe-west1` per november 2026, uten rabattavtaler.
+- Et kall mot en motor tar i snitt 30 sekunder (venting på svar).
+- Hver worker-task kjører 8 parallelle prosesser på 1 vCPU / 1 GiB.
+- Cloud Run-jobber faktureres for hele instansens levetid, minimum ett minutt per instans. Derfor startes worker-jobben kun når det finnes arbeid, og korte periodiske oppgaver går som interne endepunkter på web-tjenesten (3.1).
+- Gratiskvoten for Cloud Run gjelder per faktureringskonto. Ekko bør ha egen faktureringskonto, slik at kvoten ikke deles med andre tjenester.
+
+**Google Cloud per måned (USD):**
+
+| Post | Konsernets tenants (~12 merkevarer, ~30 000 kall) | Vekst (~50 merkevarer, ~150 000 kall) | Skala (~200 merkevarer, ~600 000 kall) |
+|---|---|---|---|
+| Cloud SQL (instans, SSD, backup) | 30–35 (`db-g1-small`, 20 GB) | 60–65 (1 vCPU / 3,75 GB, 50 GB) | 120–130 (2 vCPU / 7,5 GB, 100 GB) |
+| Cloud Run, worker og daglige jobber | 0–2 (innenfor gratiskvoten) | 6–10 | 40–45 |
+| Cloud Run, web og API | 0 (skalerer til null) | 0–13 | 15–25 |
+| Cloud Storage (råsvar og rapporter) | under 1 | 1–2 | 4–6 |
+| Artifact Registry, Secret Manager, Scheduler, Monitoring | 3–4 | 3–4 | 4–6 |
+| **Sum** | **35–42** | **70–95** | **185–215** |
+
+**Kommentarer:**
+- **Web og API:** «Web» kan holdes på null ved å la tjenesten skalere ned til null instanser. Første side etter en pause tar da 2–4 sekunder å laste. Én minimumsinstans fjerner ventetiden og koster om lag 13 dollar i måneden.
+- **Database i skala-nivået:** med betalende kunder bør databasen kjøres med høy tilgjengelighet (regional standby). Det dobler databasekostnaden, slik at summen blir om lag 320–360 dollar.
+- **Rabattavtale:** for maskintyper med dedikerte kjerner kan Cloud SQL-kostnaden reduseres med rabattavtale på 1 eller 3 år. Delte kjerner (`db-f1-micro`, `db-g1-small`) gir ikke slik rabatt.
+
+**Motorkostnader** kommer i tillegg og er den største posten. Estimat per merkevare og marked med 50 prompts (15 kjerneprompts) og standardoppsettet i 7.4:
+
+| Motor | Kall per måned | Per kall (USD) | Per måned (USD) |
+|---|---|---|---|
+| `chatgpt_ui`, `gemini_ui`, `google_aio`, `google_ai_mode` | 4 × 1 500 | 0,0006–0,002 | 6–9 |
+| `claude_haiku` | 1 500 | 0,012–0,022 | 18–33 |
+| `claude_sonnet` | 65 | 0,04–0,06 | 3–4 |
+| `perplexity_api` | 215 | 0,01–0,02 | 2–4 |
+| Uttrekk med Claude Haiku 5.5 i batch | ca. 7 800 | 0,0003 | 2–3 |
+| **Sum** | | | **31–53** |
+
+Anslaget forutsetter 1–2 websøk, om lag 15 000 input-tokens og 800 output-tokens per API-svar. Websøkavgiften (10 dollar per 1 000 søk hos Anthropic) er den største delen av Claude-kostnaden.
+
+Av summen er 20–30 dollar Anthropic-grunnlast når grunnversjonen av websøket brukes. For konsernets tenants (~12 merkevarer) blir Anthropic-grunnlasten om lag 270–360 dollar i måneden, som dekkes av Team-kredittene (12.5). Resten av potten brukes til tilleggene i nivå 2. Det som betales utenom kredittene, er om lag 100–160 dollar til DataForSEO og Perplexity.
+
+Faktiske priser legges i `engine_prices` og vedlikeholdes av plattformadmin. Dashboardet i `Pages/Admin/Usage.vue` viser reell kostnad per motor, slik at prisene kan kontrolleres mot leverandørfakturaene.
+
+### 17.4 Overvåking og varsling (til plattformadmin)
+
+- **Utrullingsfeil:** feilrate over 2 % på `ekko-web` over 10 minutter.
+- **Jobbfeil:** en Cloud Run Job-kjøring feiler.
+- **Motorfeil:** feilrate over 20 % på en motor siste døgn. Det gir også statusflagg i `Admin/Engines`.
+- **Ufullstendig innsamling:** `run_batches` som ikke er ferdig 6 timer etter planlagt tid.
+- **Database:** Cloud SQL med CPU over 80 % eller lagring over 80 % i 30 minutter.
+- **Uttrekk:** batcher som ikke er ferdige etter 24 timer.
+
+### 17.5 Backup og gjenoppretting
+
+- **Database:** automatisk daglig backup med 7 dagers oppbevaring og PITR.
+- **Råsvar:** objektversjonering på i Cloud Storage.
+- **Gjenopprettingstest:** backup gjenopprettes til en midlertidig Cloud SQL-instans som slettes etterpå. Fremgangsmåten dokumenteres i `docs/runbook.md`, og testen kjøres før lansering.
+
+---
+
+## 18. Testing og kvalitetskrav
+
+**Testdekning:**
+- **Tenant-isolasjon:**
+  - én test per rute, API-endepunkt og MCP-tool som verifiserer at data fra tenant B ikke kan leses av tenant A
+  - tilsvarende for partner mot ikke-tilknyttet tenant
+  - en test som verifiserer at RLS stopper en spørring der det globale scopet er fjernet
+- **Motoradaptere:** kontraktstester mot innspilte svar for hver motor, inkludert feilsvar (429, 5xx, tomt svar, svar uten kilder).
+- **Uttrekk:** gullsett i `tests/Fixtures/extraction` med minst 40 svar på norsk og svensk og fasit for nevnelser, posisjon og kilder. Deterministisk ledd skal treffe 100 % på kjente alias. Modell-leddet evalueres med et eget kommando-skript, ikke i CI.
+- **Metrikker:** enhetstester for alle formler i kapittel 9 med kjente datasett.
+- **Kvoter:** tester for 80 %, 100 %, kjerneprompt-prioritering og egne API-nøkler.
+- **Nettlesertester:** innlogging, tenant-bytte, veiviser til første kjøring, dashboard-filtre, temabytte.
+
+**Generelle krav til kode:**
+- Larastan nivå 6 uten unntak i ny kode.
+- Ingen N+1-spørringer på dashboard-sidene, kontrollert med `preventLazyLoading` i testmiljøet.
+- Dashboard-sider skal svare på under 800 ms (p95) med ett års data for en merkevare med 100 prompts og 6 motorer. Det oppnås gjennom spørringer mot `agg_daily` og riktige indekser.
+- Alle tekster i språkfiler med `nb` og `sv` komplett før lansering.
+
+---
+## 19. Utviklingsorganisering
+
+### 19.1 Fordeling mellom agenter og modeller
+
+Fordelingen bygger på hva slags arbeid hver del er:
+- **Claude Code** tar arkitektur, tenant-isolasjon, sikkerhet og alt som bruker Claude-modellene i selve produktet.
+- **Codex** tar avgrensede, godt spesifiserte backend- og infrastrukturoppgaver som kan verifiseres med tester og kjøres parallelt.
+- **Cursor med Grok** tar brukergrensesnittet: Vue-sider, grafer, rapportmal og språkfiler.
+
+| Agent | Modell | Ansvar |
+|---|---|---|
+| Claude Code | Claude Opus 5.5 | Fundament, tenant-modell, RLS, roller og policies, isolasjonstester, MCP-server, sikkerhetsgjennomgang. Obligatorisk reviewer for alle PR-er fra Codex og Cursor som berører tilgang, data eller hemmeligheter. |
+| Claude Code | Claude Sonnet 5.5 | Innlogging, deterministisk gjenkjenning, modellbasert uttrekk, metrikker og aggregering, varsler, backend for oppstartsveiviseren |
+| Codex | GPT-6.1 Sol | Datamodell, motoradaptere, dispatcher og worker, kvoter og forbruk, fakturagrunnlag, ClickHouse- og GA4-synk, REST-API. Reviewer for PR-er fra Claude Code. |
+| Codex | GPT-6.1 Terra | Terraform, container, CI/CD, overvåking, runbook, ytelsestest |
+| Cursor | Grok 4.7 | Tema og layout fra Varde, alle Vue-sider og grafer, veiviser-UI, admin-UI, partneroversikt, PDF-rapportmal, språkfiler |
+
+Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget per arbeidspakke står i Board-oppgaven og kan endres der.
+
+**Modeller i selve produktet** er uavhengige av utviklingsverktøyene:
+- **Claude Haiku 5.5** for uttrekk
+- **Claude Sonnet 5.5** for veiviserens forslag
+
+### 19.2 Felles regler for alle agenter
+
+- **Kilde for krav:** spesifikasjonen ligger i repoet som `docs/spec.md`. `AGENTS.md` i rotmappen har de felles reglene, og `CLAUDE.md` importerer `AGENTS.md`, Codex leser `AGENTS.md` direkte, og Cursor har en regel i `.cursor/rules/ekko.mdc` som peker til `AGENTS.md` og `docs/spec.md`.
+- **Referanse:** agentene henter mønstre fra Varde-repoet (layout, Dockerfile, i18n, MCP-oppsett) heller enn å finne opp egne. Varde er kun lesing: ingen endringer, commits, grener eller PR-er der.
+- **Tilgang:** agentenes GitHub-integrasjoner (Claude Code, Codex og Cursor) har skrivetilgang til `ekko` og lesetilgang til `varde`.
+- **Én oppgave = én gren = én PR.** Grennavn er `t<nr>-<kort-beskrivelse>`, f.eks. `t12-chatgpt-api-adapter`. PR-tittelen starter med agentens merkelapp og oppgavenummeret, f.eks. «[Codex] T12 – Adapter chatgpt_api». Review-workflowen (19.5) bruker merkelappen til å velge reviewer.
+- **PR-beskrivelse:**
+  - Board-oppgavenummer
+  - hva som er gjort
+  - hvilke akseptkriterier som er oppfylt
+  - testbevis (kommandoer og resultat)
+  - eventuelle avvik fra spesifikasjonen
+- **Kryssreview:** ingen PR merges uten review fra en annen agent enn forfatteren. Hvordan reviewen utløses og hvem som reviewer hva, står i 19.5.
+- **Åpne review-kommentarer først:** ved start av hver økt sjekker agenten egne åpne PR-er. Har en reviewer bedt om endringer, rettes det før agenten tar en ny oppgave.
+- **Merge** gjøres av Nils-Fredrik.
+- **CI må være grønn.** Agentene skal ikke deaktivere, hoppe over eller svekke tester for å få grønt bygg.
+- **Avvik fra spesifikasjonen** registreres som beslutning på Board med begrunnelse og oppdateres i `docs/spec.md` i samme PR.
+- **Arkitekturbeslutninger** som ikke står i spesifikasjonen, dokumenteres som ADR i `docs/decisions/`.
+- **Ingen hemmeligheter, kundedata eller råsvar** i commits, PR-er eller Board-poster.
+- **Claude Code** brukes med innlogging på eget Team-sete, aldri med API-nøkkel fra Console-organisasjonen som mottar Team-kredittene. Ellers trekkes utviklingsarbeidet fra potten Ekko skal bruke.
+
+### 19.3 Bruk av board.maksimer.es
+
+**Board:** https://board.maksimer.com/b/vn4w66vc (`vn4w66vc`)
+
+**Hvordan oppgaver havner hos riktig agent.** Board fordeler ikke oppgaver selv. Fordelingen styres av en merkelapp først i hver oppgavetittel, og av at hver agent bare tar oppgaver med sin egen merkelapp:
+
+| Merkelapp | Agent | Modell |
+|---|---|---|
+| `[Claude Code]` | Claude Code | Claude Opus 5.5 eller Sonnet 5.5, som angitt i oppgaven |
+| `[Codex]` | Codex | GPT-6.1 Sol eller Terra, som angitt i oppgaven |
+| `[Cursor]` | Cursor | Grok 4.7 |
+
+**Arbeidsflyt for en agentøkt:**
+1. Eieren starter en økt i agenten, i `ekko`-repoet, med beskjeden «Ta neste oppgave fra Board».
+2. Agenten leser hendelser rettet til seg (`for_me`) og lister oppgavene på boardet.
+3. Agenten velger den første åpne oppgaven med egen merkelapp der alle avhengigheter er lukket. Finnes ingen, sier den fra og stopper.
+4. Agenten reserverer oppgaven (`claim`), starter den (`start`), lager gren og jobber etter oppgavebeskrivelsen og `docs/spec.md`.
+5. Underveis poster agenten ett poeng per post:
+   - `decision` for valg som påvirker andre oppgaver
+   - `blocker` for hindringer som krever avklaring
+   - `finding` for oppdagelser som andre bør vite om
+   - `question` til eieren
+6. Når PR-en er klar, legges den på oppgaven som `pr:Nils-Fredrik/ekko#<nr>`, og agenten poster `status` med testbevis.
+7. Eieren merger etter kryssreview (19.2), og oppgaven lukkes (`close`).
+
+**Øvrige regler:**
+- **Svar** gis med `reply` på aktuell post. Tråder som er ferdige, lukkes med `resolve`.
+- **Overlevering:** når en agent leverer fra seg til en annen (f.eks. backend klar for UI), brukes `handoff` med henvisning til oppgaven som overtar.
+- **Parallelle økter:** flere økter kan kjøre samtidig, også i samme agent. Reservasjonen (`claim`) hindrer at to økter tar samme oppgave.
+- **Ny oppgave** (f.eks. funn fra sikkerhetsgjennomgangen) opprettes med merkelapp for agenten som skal løse den.
+
+### 19.4 Oppsett per agent
+
+Alle tre agentene kobles til Board-MCP (`https://board.maksimer.com/mcp`) og til GitHub.
+
+| Agent | Board-MCP | Instruksjoner | Modell |
+|
+
+### 19.5 Kryssreview av pull requests
+
+Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot-brukere på PR-en, slik at det er tydelig hvem som har reviewet, også når alle agentene ellers bruker samme GitHub-konto.
+
+| PR fra | Reviewer | Integrasjon |
+|### 19.6 Lokalt oppsett
+
+Agentene jobber aldri i samme mappe. Hver agentøkt som kjører lokalt, har sin egen arbeidskopi i form av en `git worktree` fra én felles klone:
+
+```
+~/kode/ekko            # eierens klone, kun for oversikt og egne endringer
+~/kode/ekko-claude     # git worktree for Claude Code
+~/kode/ekko-cursor     # git worktree for Cursor
+~/kode/ekko-codex      # git worktree for Codex CLI
+```
+
+Opprettes med `git worktree add ../ekko-claude origin/main` (tilsvarende for de andre). Kjører en agent flere økter samtidig, får hver økt sin egen worktree (`ekko-claude-2` osv.).
+
+**Regler per worktree:**
+- Ny oppgave starter alltid fra oppdatert `origin/main` på en ny gren (`git fetch` og `git switch -c t<nr>-… origin/main`).
+- Egen `.env` med egen database på den felles lokale Postgres-serveren (`ekko_claude`, `ekko_cursor`, `ekko_codex`), slik at migreringer og testdata ikke kolliderer.
+- Egne porter for `php artisan serve` og Vite:
+
+| Worktree | App | Vite |
+|---|---|---|
+| `ekko-claude` | 8001 | 5174 |
+| `ekko-cursor` | 8002 | 5175 |
+| `ekko-codex` | 8003 | 5176 |
+
+- `vendor/` og `node_modules/` installeres i hver worktree.
+
+**Skybaserte økter:** Codex i skyen og Cursors bakgrunnsagenter kjører i egne containere koblet til GitHub og trenger ingen lokal mappe. De bruker oppsettskriptet `scripts/agent-setup.sh`, som installerer avhengigheter, starter Postgres og kjører migreringer med testdata. Skriptet lages i T01.
+
+---|---|---|
+| `[Codex]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
+| `[Cursor]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
+| `[Claude Code]` | Codex med GPT-6.1 Sol | ChatGPT Codex-tilkoblingen med kodereview slått på |
+
+**Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex GPT-6.1 Sol, uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
+
+**Workflow** (`.github/workflows/agent-review.yml`), som kjører når en PR åpnes eller oppdateres:
+1. Leser merkelappen i PR-tittelen og de endrede filene.
+2. For `[Codex]`- og `[Cursor]`-PR-er kjøres `claude-code-action` med Opus 5.5 og en review-instruks som viser til `AGENTS.md`, `docs/spec.md` og akseptkriteriene i Board-oppgaven.
+3. For `[Claude Code]`-PR-er og følsomme endringer postes kommentaren `@codex review` på PR-en.
+4. Hver reviewer avslutter med en tydelig konklusjon: «GODKJENT» eller «ENDRINGER KREVES», med konkrete punkter.
+
+**Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre runder uten godkjenning postes en `blocker` på Board, og eieren avgjør.
+
+**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI og grønn `agent-review` før eieren kan merge.
+
+**Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
+
+**Før workflowen er på plass** (frem til T42 er merget) utløses review manuelt ved å kommentere `@claude review` eller `@codex review` på PR-en.
+
+---|---|---|---|
+| Claude Code | `claude mcp add --transport http board https://board.maksimer.com/mcp` | `CLAUDE.md` (importerer `AGENTS.md`) | velges per økt: Opus 5.5 eller Sonnet 5.5 etter oppgaven |
+| Codex | Board legges inn som MCP-server i `~/.codex/config.toml` | `AGENTS.md` | GPT-6.1 Sol eller Terra etter oppgaven |
+| Cursor | `.cursor/mcp.json` i repoet med Board som server | `.cursor/rules/ekko.mdc`, som peker til `AGENTS.md` og `docs/spec.md` | Grok 4.7 valgt i modellvelgeren |
+
+`AGENTS.md` inneholder arbeidsflyten i 19.3 med agentens merkelapp. Hver agent får i tillegg beskjed i sin egen instruksjonsfil om hvilken merkelapp den skal ta.
+
+---
+
+## 20. Arbeidspakker
+
+Rekkefølgen styres kun av avhengighetene. Alle pakker uten uoppfylte avhengigheter kan kjøres parallelt.
+
+| Nr | Arbeidspakke | Agent / modell | Avhenger av |
+|---|---|---|---|
+| T01 | Repo og fundament | Claude Code / Opus 5.5 | – |
+| T02 | Tema og layout fra Varde | Cursor / Grok 4.7 | T01 |
+| T03 | Tenant-modell og kontekst | Claude Code / Opus 5.5 | T01 |
+| T04 | Postgres RLS | Claude Code / Opus 5.5 | T03 |
+| T05 | Roller, policies og tenant-velger | Claude Code / Opus 5.5 | T03 |
+| T06 | Isolasjonstestsuite | Claude Code / Opus 5.5 | T04, T05 |
+| T07 | Innlogging og invitasjoner | Claude Code / Sonnet 5.5 | T05 |
+| T08 | Datamodell | Codex / GPT-6.1 Sol | T03 |
+| T09 | Terraform | Codex / GPT-6.1 Terra | T01 |
+| T10 | Container og CI/CD | Codex / GPT-6.1 Terra | T09 |
+| T11 | Motorkontrakt og register | Codex / GPT-6.1 Sol | T08 |
+| T12 | Adapter `chatgpt_api` | Codex / GPT-6.1 Sol | T11 |
+| T13 | Adaptere `claude_haiku` og `claude_sonnet` | Codex / GPT-6.1 Sol | T11 |
+| T14 | Adapter `gemini_api` | Codex / GPT-6.1 Sol | T11 |
+| T15 | Adapter `perplexity_api` | Codex / GPT-6.1 Sol | T11 |
+| T16 | DataForSEO-adaptere (standardkø) | Codex / GPT-6.1 Sol | T11 |
+| T17 | Dispatcher, kø og worker | Codex / GPT-6.1 Sol | T11, T19 |
+| T18 | Deterministisk gjenkjenning | Claude Code / Sonnet 5.5 | T08 |
+| T19 | Pakker, kvoter og forbruk | Codex / GPT-6.1 Sol | T08 |
+| T20 | Modellbasert uttrekk | Claude Code / Sonnet 5.5 | T18 |
+| T21 | Aggregering og metrikker | Claude Code / Sonnet 5.5 | T20 |
+| T22 | ClickHouse-synk og loggopplasting | Codex / GPT-6.1 Sol | T08 |
+| T23 | GA4-synk | Codex / GPT-6.1 Sol | T08 |
+| T24 | Varsler | Claude Code / Sonnet 5.5 | T21, T19 |
+| T25 | Veiviser, backend | Claude Code / Sonnet 5.5 | T08, T19 |
+| T26 | Oversikt og merkevare-dashboard | Cursor / Grok 4.7 | T02, T21 |
+| T27 | Prompt-, svar-, konkurrent-, kilde- og robotsider | Cursor / Grok 4.7 | T26 |
+| T28 | Innstillinger, varsler, rapporter, forbruk, team | Cursor / Grok 4.7 | T02, T24, T19 |
+| T29 | Veiviser, UI | Cursor / Grok 4.7 | T02, T25 |
+| T30 | Admin-sider | Cursor / Grok 4.7 | T02, T19, T05 |
+| T31 | Fakturagrunnlag | Codex / GPT-6.1 Sol | T19 |
+| T32 | PDF-rapporter | Cursor / Grok 4.7 | T21, T10 |
+| T33 | REST-API v1 | Codex / GPT-6.1 Sol | T21, T05 |
+| T34 | MCP-server | Claude Code / Opus 5.5 | T21, T05 |
+| T35 | Partneroversikt | Cursor / Grok 4.7 | T26, T05 |
+| T36 | Overvåking og runbook | Codex / GPT-6.1 Terra | T10 |
+| T37 | Ytelsestest | Codex / GPT-6.1 Terra | T21, T26 |
+| T38 | Språkfiler `sv` og `en` | Cursor / Grok 4.7 | T26–T30, T35 |
+| T39 | Sikkerhetsgjennomgang | Claude Code / Opus 5.5 | T06, T07, T25, T33, T34 |
+| T40 | Ende-til-ende i produksjon | Claude Code / Opus 5.5 og eier | alle |
+| T41 | Kredittstyrt planlegging for Anthropic | Codex / GPT-6.1 Sol | T17, T19, T20 |
+| T42 | Kryssreview i GitHub | Codex / GPT-6.1 Terra | T01 |
+
+### T01 – Repo og fundament
+Laravel med Jetstream (Inertia/Vue, team og API på), Tailwind v4, Pest, Pint, Larastan, ESLint, Ziggy og `laravel-vue-i18n` med samme versjoner og struktur som Varde. Opprett `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/ekko.mdc`, `docs/spec.md`, `docs/decisions/`, PR-mal og `scripts/agent-setup.sh` (19.6).
+- Ny installasjon kjører lokalt med Postgres. `composer test` og `npm run lint` er grønne.
+- `AGENTS.md` inneholder reglene i 19.2.
+
+### T02 – Tema og layout fra Varde
+Port `@theme`-tokens, Suisse Intl-fonter, `AppLayout`, toppmeny med tenant-velger-plass, temabytte (`ekko.theme`), språkvelger, `BottomSheet`, `DialogModal` og innloggingssiden.
+- Visuell sammenligning med Varde i mørkt og lyst tema, på desktop og mobil, uten avvik i farger, typografi og knapper.
+- Ingen blink ved sidelasting i lyst tema.
+
+### T03 – Tenant-modell og kontekst
+Utvid `teams` og `users` (6.1). Lag `BelongsToTenant`, `current_tenant_id()`, `SetTenantContext`-jobbmiddleware og `plans`-tabellen.
+- En modell med traiten kan ikke opprettes eller leses uten satt tenant (test).
+
+### T04 – Postgres RLS
+Opprett databaseroller og RLS-policyer for alle tenant-eide tabeller, samt middleware `ApplyTenantRls` for web, API, MCP og jobber. Lag en migreringshjelper som legger på RLS for nye tabeller.
+- En test fjerner det globale scopet og verifiserer at RLS fortsatt stopper lesing på tvers.
+
+### T05 – Roller, policies og tenant-velger
+Jetstream-roller, `TenantAccess` med partnerlogikk, policyer for alle ressurser, plattformadmin og «opptre som tenant» med banner og logg.
+- Rolletabellen i 5.2 er dekket av tester.
+
+### T06 – Isolasjonstestsuite
+Rammeverk som automatisk itererer over alle registrerte ruter, API-endepunkter og MCP-tools og verifiserer isolasjon. Testene er blokkerende i CI.
+- En ny rute uten policy får CI til å feile.
+
+### T07 – Innlogging og invitasjoner
+Socialite for Google og Microsoft med kobling mot inviterte brukere, påkrevd 2FA for admin og partner, og innloggingsbegrensning.
+- En uinvitert Google-konto får ikke tilgang.
+- Invitasjoner utløper etter 7 dager.
+
+### T08 – Datamodell
+Migreringer, modeller, fabrikker og seedere for 6.2–6.5. Seedere lager demodata for to tenants og én partner.
+- `php artisan migrate:fresh --seed` gir et brukbart demomiljø.
+
+### T09 – Terraform
+Ressursene i 3.1 i prosjektet `ekko-514612`, med egne tjenestekontoer per komponent (web, jobber, Scheduler, CI) og IAM med minste privilegium.
+- `terraform plan` er rent etter `apply`.
+- Ingen nøkler i state utover referanser til Secret Manager.
+
+### T10 – Container og CI/CD
+Dockerfile basert på Varde (web og jobber i samme image, Chromium kun i jobb-target), GitHub Actions etter 17.2, Workload Identity Federation og migreringsjobb.
+- Merge til `main` gir ny versjon i produksjon uten manuelle steg, med røyktest før trafikk flyttes.
+- Feilet røyktest gir ingen endring i trafikken (testet med en bevisst feilende revisjon).
+
+### T11 – Motorkontrakt og register
+`EngineAdapter`, `EngineRequest`, `EngineResult`, `EngineRegistry`, lagring av råsvar i GCS, prisberegning fra `engine_prices`, logging til `usage_events` og fixtures-rammeverk.
+- En dummy-adapter går gjennom hele løpet i test.
+
+### T12–T16 – Motoradaptere
+Én adapter per motor etter 7.3 og 7.4, med kontraktstester mot fixtures for normalsvar, svar uten kilder, 429, 5xx og tidsavbrudd.
+- Hver adapter returnerer kilder med `from_annotation = true` der leverandøren gir dem.
+- Lokasjon og språk er verifisert i fixtures for `NO/nb` og `SE/sv`.
+- DataForSEO-adapterne implementerer `QueuedEngineAdapter` og bruker standardkøen. Innsending, henting og ny innsending etter 6 timer er dekket av tester.
+
+### T17 – Dispatcher, kø og worker
+`ekko:dispatch-due`, fordeling over uka (7.1), rettferdig kø, kvotekontroll (7.2), rate limiting per motor og retry, samt start av Cloud Run Job fra dispatcher.
+- Simulering med 3 tenants og 500 prompts gir jevn fordeling over 7 dager og flettet kø.
+
+### T18 – Deterministisk gjenkjenning
+Etter 8.1, med normalisering for nb, nn og sv.
+- 100 % treff på gullsettet for kjente alias.
+
+### T19 – Pakker, kvoter og forbruk
+`plans`, `usage_monthly`, timesoppdatering, budsjettstopp, varsling ved 80 % og 100 %, og egne API-nøkler med verifisering.
+- Testene i kapittel 18 for kvoter er grønne.
+
+### T20 – Modellbasert uttrekk
+Message Batches med Claude Haiku 5.5, tvunget JSON-skjema, sammenstilling etter 8.2, enkeltforsøk ved feil og evalueringskommando mot gullsettet.
+- Gullsett med minst 40 svar (nb og sv) er etablert.
+- Evalueringsrapporten viser presisjon og treffrate for `is_recommended` og `list_position`.
+
+### T21 – Aggregering og metrikker
+`ekko:aggregate`, `MetricsService` med alle formler i kapittel 9, modellbytte-markører og indekser.
+- Enhetstester per metrikk.
+- Aggregeringen er idempotent.
+
+### T22 – ClickHouse-synk og loggopplasting
+Etter 10.1, med konfigurerbar bot-liste og parser for combined-format.
+- Testdata gir riktige tellinger per bot og domene.
+
+### T23 – GA4-synk
+Etter 10.2.
+- Fixture-baserte tester av mapping.
+- Feil i tilgang gir `integration_error`-varsel.
+
+### T24 – Varsler
+Alle typer i 11.1, samling per døgn, levering til Slack og e-post, og kvittering.
+- Hver varseltype har en test som utløser og en som ikke utløser.
+
+### T25 – Veiviser, backend
+Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kapittel 13, kostnadsestimat og forslag for nytt marked basert på `cross_market_key`.
+- Forslagene returneres som strukturert JSON og lagres ikke før bekreftelse.
+
+### T26 – Oversikt og merkevare-dashboard
+`Home.vue`, `Brands/Index.vue` og `Brands/Show.vue` med filtre, nøkkeltall, trendgrafer, share of voice, motor-sammenligning og modellbytte-markører.
+- Fargebruk etter 14.1.
+- n vises på alle prosenter.
+- Mobilvisning med `BottomSheet`-filtre.
+
+### T27 – Prompt-, svar-, konkurrent-, kilde- og robotsider
+`Brands/Prompts.vue`, `PromptShow.vue`, `Competitors.vue`, `Sources.vue` og `Crawlers.vue`, inkludert CSV-import og -eksport av prompts.
+- Nevnelser er uthevet i svartekst.
+- Forslag om ukjente merkevarer kan legges til som konkurrent med ett klikk.
+
+### T28 – Innstillinger, varsler, rapporter, forbruk, team
+`Brands/Settings.vue`, `Alerts/Index.vue`, `Reports/Index.vue`, `Usage/Index.vue` og utvidelser i `Team/Show.vue` (Slack, rapportprofil, egne nøkler).
+- Alle skjemaer har validering og feilvisning som i Varde.
+
+### T29 – Veiviser, UI
+`Onboarding/Wizard.vue` etter kapittel 13, med redigerbare forslag og kostnadsestimat.
+- Nettlesertest fra start til første kjøring.
+
+### T30 – Admin-sider
+`Admin/Tenants.vue`, `Plans.vue`, `Engines.vue` og `Usage.vue`.
+- Kun plattformadmin har tilgang (isolasjonstest).
+
+### T31 – Fakturagrunnlag
+CSV-eksport etter 12.3 med partneraggregering og påslag.
+- Summen i eksporten stemmer med `usage_events` for testmåneden.
+
+### T32 – PDF-rapporter
+Rapportmal etter 11.2 i samme stil som grensesnittet, generering, lagring og utsending, med profil fra tenant eller partner.
+- PDF for testdata genereres på under 30 sekunder.
+- Rapporten er visuelt kontrollert i `nb` og `sv`.
+
+### T33 – REST-API v1
+Endepunktene i 15.1 med ressurser, paginering og rate limit, samt OpenAPI-beskrivelse i `docs/api.yaml`.
+- Isolasjonstestene dekker alle endepunkter.
+
+### T34 – MCP-server
+`laravel/mcp` med Passport OAuth, samtykkeside og tilkoblingsoversikt (som Varde) og verktøyene i 15.2.
+- Verifisert tilkobling fra Claude med OAuth.
+- Partner kan velge kunde-tenant.
+- Skrivende verktøy logges.
+
+### T35 – Partneroversikt
+`Partner/Index.vue` med alle kunde-tenants, nøkkeltall, endring og varsler.
+- Viser kun tilknyttede tenants (isolasjonstest).
+
+### T36 – Overvåking og runbook
+Varslingspolicyer i 17.4 (Terraform), `docs/runbook.md` med drift, feilsøking, gjenoppretting og nøkkelrotasjon, samt gjennomført gjenopprettingstest mot en midlertidig instans.
+
+### T37 – Ytelsestest
+Syntetisk datasett (ett år, 100 prompts, 6 motorer, 3 gjentakelser) og måling av dashboard og API.
+- p95 under 800 ms på dashboard-sidene, målt mot en egen testtenant i produksjon som slettes etterpå.
+
+### T38 – Språkfiler
+Komplette `sv`- og `en`-filer.
+- Ingen manglende nøkler (automatisk kontroll i CI).
+
+### T39 – Sikkerhetsgjennomgang
+Gjennomgang av isolasjon, RLS, roller, innlogging, egne API-nøkler, SSRF, MCP-tilganger, hemmeligheter og logger.
+- Funn registreres som oppgaver på Board og lukkes før lansering.
+
+### T40 – Ende-til-ende i produksjon
+Konsernets tenants (Maksimer AS, Maksimer AB, Mediebruket, Funbit) og én partner-tenant med to testkunder settes opp i produksjon med lav kvote den første uka. Én full uke kjøres.
+- Alle motorer leverer.
+- Uttrekk og aggregering går uten manuelle inngrep.
+- Rapporter sendes.
+- Kostnad avviker mindre enn 15 % fra estimatet i veiviseren.
+
+### T41 – Kredittstyrt planlegging for Anthropic
+`ekko:anthropic-budget` med prognose, buffer, fordeling av tillegg og redusert modus etter 12.5. Håndtering av svar fra API-et om at kredittene er brukt opp. Visning i `Admin/Usage.vue`.
+- Simulering over en hel faktureringsperiode med 12 merkevarer treffer 90–100 % av tildelt pott uten å overskride den.
+- Redusert modus slår inn og ut riktig i test.
+
+### T42 – Kryssreview i GitHub
+Workflowen `agent-review.yml`, `.github/review-paths.yml`, status-sjekken `agent-review` og grenbeskyttelse på `main` etter 19.5. Installasjon av Claude GitHub App og ChatGPT Codex-tilkoblingen dokumenteres i `docs/runbook.md`.
+- En testPR merket `[Codex]` får review fra Claude, og en merket `[Claude Code]` får review fra Codex.
+- En testPR som endrer en følsom sti får review fra begge.
+- `main` kan ikke merges uten grønn CI og grønn `agent-review`.
+
+---
+
+## 21. Avklaringer
+
+| Nr | Avklaring | Status |
+|---|---|---|
+| A1 | Domene | Ikke aktuelt. Ekko kjører på Cloud Run-adressen (3.1). |
+| A2 | Repo | https://github.com/Nils-Fredrik/ekko. Varde (https://github.com/Nils-Fredrik/varde) brukes som referanse med lesetilgang for agentene (4.1). |
+| A3 | Google Cloud | Prosjekt `ekko-514612` er opprettet. |
+| A4 | Leverandørkontoer og API-nøkler: Anthropic (organisasjonen med Team-abonnementet), Perplexity og DataForSEO. OpenAI og Google (Gemini API) kun for valgfrie API-motorer. | Avklares underveis. Forutsetning for T12–T16. |
+| A5 | App-registrering for Google- og Microsoft-innlogging | Avklares underveis. Forutsetning for T07. |
+| A6 | E-posttjeneste og avsenderadresse for varsler og rapporter | Avklares underveis. Forutsetning for T24 og T32. |
+| A7 | Startpriser og påslag per pakke | Avklares underveis. Forutsetning for T19 og T31. |
