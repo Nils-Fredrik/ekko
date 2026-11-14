@@ -71,6 +71,7 @@ resource "google_sql_database_instance" "postgres" {
     availability_type = "ZONAL"
     backup_configuration {
       enabled                        = true
+      location                       = var.region
       point_in_time_recovery_enabled = true
       backup_retention_settings {
         retained_backups = 7
