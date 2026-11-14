@@ -282,6 +282,35 @@ test('forceDelete only deletes in the tenant in the context', function () {
         ->and(DB::table('test_tenant_records')->where('id', $ownId)->exists())->toBeFalse();
 });
 
+test('an orWhere cannot escape the tenant in builder writes', function (string $write) {
+    DB::statement('ALTER TABLE test_tenant_records ADD COLUMN hits integer NOT NULL DEFAULT 0');
+    insertRecord($this->tenantA, 'own');
+    $otherId = insertRecord($this->tenantB, 'other');
+    DB::table('test_tenant_records')->update(['updated_at' => '2000-01-01 00:00:00']);
+
+    app(TenantContext::class)->set($this->tenantA->id);
+
+    // Without grouping this becomes: id = B OR name = 'own' AND tenant_id = A.
+    $query = fn () => TenantRecord::query()->whereKey($otherId)->orWhere('name', 'own');
+
+    match ($write) {
+        'update' => $query()->update(['name' => 'changed']),
+        'delete' => $query()->delete(),
+        'forceDelete' => $query()->forceDelete(),
+        'increment' => $query()->increment('hits'),
+        'incrementEach' => $query()->incrementEach(['hits' => 1]),
+        'touch' => $query()->touch(),
+        'updateOrInsert' => TenantRecord::query()->whereKey($otherId)->orWhere('name', 'own')
+            ->updateOrInsert(['name' => 'other'], ['hits' => 9]),
+    };
+
+    $other = DB::table('test_tenant_records')->where('id', $otherId)->first();
+    expect($other)->not->toBeNull()
+        ->and($other->name)->toBe('other')
+        ->and($other->hits)->toBe(0)
+        ->and((string) $other->updated_at)->toStartWith('2000-01-01');
+})->with(['update', 'delete', 'forceDelete', 'increment', 'incrementEach', 'touch', 'updateOrInsert']);
+
 test('forceDelete requires a tenant in the context', function () {
     $otherId = insertRecord($this->tenantB, 'other');
 

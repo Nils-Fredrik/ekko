@@ -119,15 +119,24 @@ class TenantBuilder extends Builder
     }
 
     /**
-     * Eloquent's forceDelete() deletes through the base query without any scope. Here it keeps every
-     * other scope off (so soft-deleted rows can be removed for good), but always applies the tenant.
+     * Eloquent's forceDelete() deletes through the base query without any scope. Here every other
+     * scope stays off (so soft-deleted rows can be removed for good), but the tenant scope is applied
+     * through Eloquent's scope mechanism. That wraps existing conditions in parentheses, so an
+     * orWhere cannot escape the tenant: (id = ? OR name = ?) AND tenant_id = ?.
      */
     public function forceDelete(): int
     {
-        $query = $this->getQuery()->clone();
-        $query->where($this->model->qualifyColumn('tenant_id'), current_tenant_id());
+        $query = clone $this;
+        $query->withoutGlobalScopes(array_values(array_filter(
+            array_keys($this->scopes),
+            fn (string $identifier) => $identifier !== TenantScope::class,
+        )));
 
-        return $query->delete();
+        if (! array_key_exists(TenantScope::class, $query->scopes)) {
+            $query->withGlobalScope(TenantScope::class, new TenantScope);
+        }
+
+        return $query->toBase()->delete();
     }
 
     /**
