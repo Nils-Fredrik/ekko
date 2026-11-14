@@ -214,7 +214,7 @@ Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
 
 ## 6. Datamodell
 
-Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til `teams.id`, indeks og RLS. Tidsstempler lagres i UTC.
+Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til `teams.id`, indeks og RLS. Tidsstempler lagres i UTC. Relasjoner mellom tenant-eide tabeller med vanlig fremmednøkkel sjekker også at radene tilhører samme tenant (se [ADR 0006](decisions/0006-tenant-eide-tabellrelasjoner.md)).
 
 ### 6.1 Tenant og tilgang
 
@@ -1118,7 +1118,7 @@ Socialite for Google og Microsoft med kobling mot inviterte brukere, påkrevd 2F
 - Invitasjoner utløper etter 7 dager.
 
 ### T08 – Datamodell
-Migreringer, modeller, fabrikker og seedere for 6.2–6.5. Seedere lager demodata for to tenants og én partner.
+Migreringer, modeller, fabrikker og seedere for 6.2–6.5. Seedere lager demodata for to tenants og én partner. I lokalt miljø kan du logge inn som `norway@example.test`, `sweden@example.test` eller `partner@example.test` med standardpassordet fra `UserFactory`.
 - `php artisan migrate:fresh --seed` gir et brukbart demomiljø.
 
 ### T09 – Terraform
