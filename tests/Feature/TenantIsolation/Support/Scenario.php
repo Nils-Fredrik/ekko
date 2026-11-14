@@ -1,0 +1,108 @@
+<?php
+
+namespace Tests\Feature\TenantIsolation\Support;
+
+use App\Models\Team;
+use App\Models\TeamInvitation;
+use App\Models\User;
+use Illuminate\Support\Str;
+use Laravel\Sanctum\PersonalAccessToken;
+
+/**
+ * Two tenants. The tests act as users of tenant A and must never see or change anything in tenant
+ * B. Everything in B carries a unique marker, so a leak shows up as the marker in a response.
+ */
+final class Scenario
+{
+    public string $marker;
+
+    public Team $tenantA;
+
+    public User $adminA;
+
+    /** @var array<string, User> role => user in tenant A */
+    public array $membersA = [];
+
+    public Team $tenantB;
+
+    public User $ownerB;
+
+    public User $memberB;
+
+    public TeamInvitation $invitationB;
+
+    public PersonalAccessToken $tokenB;
+
+    public static function create(): self
+    {
+        $s = new self;
+        $s->marker = 'ISOLATION-B-'.Str::upper(Str::random(12));
+
+        $s->adminA = User::factory()->withPersonalTeam()->create();
+        $s->tenantA = Team::factory()->tenant()->create(['user_id' => $s->adminA->id, 'name' => 'Tenant A']);
+        $s->adminA->switchTeam($s->tenantA);
+
+        foreach (['admin', 'partner_advisor', 'editor', 'reader'] as $role) {
+            $member = User::factory()->withPersonalTeam()->create();
+            $s->tenantA->users()->attach($member, ['role' => $role]);
+            $member->switchTeam($s->tenantA);
+            $s->membersA[$role] = $member->fresh();
+        }
+
+        $s->ownerB = User::factory()->withPersonalTeam()->create([
+            'name' => "{$s->marker} owner",
+            'email' => strtolower($s->marker).'-owner@example.test',
+        ]);
+        $s->tenantB = Team::factory()->tenant()->create(['user_id' => $s->ownerB->id, 'name' => "{$s->marker} tenant"]);
+        $s->memberB = User::factory()->create([
+            'name' => "{$s->marker} member",
+            'email' => strtolower($s->marker).'-member@example.test',
+        ]);
+        $s->tenantB->users()->attach($s->memberB, ['role' => 'editor']);
+        $s->invitationB = $s->tenantB->teamInvitations()->create([
+            'email' => strtolower($s->marker).'-invited@example.test',
+            'role' => 'reader',
+        ]);
+        $s->tokenB = $s->ownerB->tokens()->create([
+            'name' => "{$s->marker} token",
+            'token' => hash('sha256', Str::random(40)),
+            'abilities' => ['read'],
+        ]);
+
+        $s->adminA = $s->adminA->fresh();
+
+        return $s;
+    }
+
+    /**
+     * A fingerprint of everything in tenant B and its users, to prove a request changed nothing.
+     *
+     * @return array<string, mixed>
+     */
+    public function snapshotOfB(): array
+    {
+        $tenant = $this->tenantB->fresh();
+
+        return [
+            'tenant' => $tenant?->only(['id', 'name', 'user_id', 'partner_team_id', 'plan_id', 'status', 'byok_enabled']),
+            'members' => $tenant?->users()->orderBy('users.id')->get()->map(fn (User $u) => [$u->id, $u->membership->role])->all(),
+            'invitations' => $tenant?->teamInvitations()->orderBy('id')->get(['id', 'email', 'role'])->toArray(),
+            'owner' => $this->ownerB->fresh()?->only(['id', 'name', 'email', 'current_team_id']),
+            'member' => $this->memberB->fresh()?->only(['id', 'name', 'email', 'current_team_id']),
+            'tokens' => PersonalAccessToken::query()->where('tokenable_id', $this->ownerB->id)->orderBy('id')->get(['id', 'name', 'abilities'])->toArray(),
+        ];
+    }
+
+    /**
+     * An invitation in tenant A, for routes that act on an invitation in the user's own tenant.
+     */
+    public function invitationInA(): TeamInvitation
+    {
+        return $this->tenantA->teamInvitations()->create(['email' => 'invited-a@example.test', 'role' => 'reader']);
+    }
+
+    public function userWithRole(string $role): User
+    {
+        return $role === 'owner' ? $this->adminA : $this->membersA[$role];
+    }
+}
