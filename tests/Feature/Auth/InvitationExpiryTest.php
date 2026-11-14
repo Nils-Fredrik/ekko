@@ -222,3 +222,22 @@ test('the invitation for a mixed-case address cannot land on a look-alike user',
     expect($team->fresh()->hasUser($victim))->toBeTrue()
         ->and($team->fresh()->hasUser($attacker->fresh()))->toBeFalse();
 });
+
+test('the e-mail migration stops on case duplicates and names user ids, not addresses', function () {
+    DB::statement('DROP INDEX users_email_lower_unique');
+    $first = User::factory()->create(['email' => 'dup@example.test']);
+    DB::table('users')->insert(['name' => 'Dup', 'email' => 'Dup@Example.test', 'password' => 'x']);
+    $second = DB::table('users')->where('email', 'Dup@Example.test')->value('id');
+
+    $migration = require database_path('migrations/2026_11_14_190000_make_user_email_case_insensitive_unique.php');
+
+    try {
+        $migration->up();
+        $this->fail('The migration should refuse case duplicates.');
+    } catch (RuntimeException $e) {
+        expect($e->getMessage())->toContain("{$first->id}+{$second}")
+            ->and(strtolower($e->getMessage()))->not->toContain('dup@example.test');
+    }
+
+    expect(DB::table('users')->where('email', 'Dup@Example.test')->exists())->toBeTrue();
+});
