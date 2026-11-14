@@ -9,6 +9,7 @@ use App\Tenancy\TenantMismatchException;
 use App\Tenancy\TenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Query\Builder;
 
 /**
  * For every tenant-owned model (docs/spec.md 5.3, layer 1):
@@ -22,13 +23,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 trait BelongsToTenant
 {
-    /**
-     * The Eloquent builder for tenant-owned models (guards builder writes).
-     *
-     * @var class-string<TenantBuilder<Model>>
-     */
-    protected static string $builder = TenantBuilder::class;
-
     public static function bootBelongsToTenant(): void
     {
         static::addGlobalScope(new TenantScope);
@@ -72,6 +66,19 @@ trait BelongsToTenant
         if ($tenantId !== $contextTenantId) {
             throw TenantMismatchException::forModel($model::class, $tenantId, $contextTenantId);
         }
+    }
+
+    /**
+     * The Eloquent builder for tenant-owned models (guards builder writes). A method, not the
+     * static $builder property: redeclaring Model::$builder in a trait is a fatal error on
+     * PHP 8.4 ("define the same property ... incompatible").
+     *
+     * @param  Builder  $query
+     * @return TenantBuilder<Model>
+     */
+    public function newEloquentBuilder($query): TenantBuilder
+    {
+        return new TenantBuilder($query);
     }
 
     /**
