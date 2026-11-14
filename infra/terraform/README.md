@@ -39,7 +39,8 @@ are T36. No Terraform resource should ever contain a secret value.
    and versions at deployment. The image must implement the web process and
    job commands described in the specification. Subsequent image changes need
    coordinated Terraform and deployment ownership (T10). After initial creation
-   Terraform ignores image changes and web traffic, which are managed by T10.
+   Terraform ignores image changes, web traffic, web revision names and deploy
+   client metadata, which are managed by T10.
    T10 must pin production traffic to a tested revision before infrastructure
    updates that create revisions; otherwise a `LATEST` traffic target can expose
    an untested revision. Never apply infrastructure changes without reviewing
@@ -53,6 +54,14 @@ are T36. No Terraform resource should ever contain a secret value.
    `/internal/tick/*` endpoints. Public Cloud Run IAM does not protect a path.
    The future dispatcher must bound the worker task-count override at eight;
    the worker uses Cloud Run automatic parallelism for the requested count.
+
+The `ekko-task` identity can create PDF objects in the reports bucket. Scheduled
+report generation uploads each new PDF under a unique object name. The worker
+allows 420 seconds per queue job to cover up to three 120-second engine calls
+and retry delays. All workloads use a 450-second database queue reservation.
+Keep individual job timeout overrides below the reservation time. Cloud Run
+allows 3900 seconds per worker task so a job can finish after the worker reaches
+its 3300-second process lifetime.
 
 The default bucket names are global. If they are already owned elsewhere,
 choose unique names using `raw_bucket_name` and `reports_bucket_name`; do not

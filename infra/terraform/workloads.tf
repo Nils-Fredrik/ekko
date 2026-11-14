@@ -1,7 +1,10 @@
 locals {
+  worker_job_timeout_seconds = 420
+  queue_retry_after_seconds  = 450
+
   jobs = var.enable_workloads ? {
     dispatch = { command = ["php", "artisan", "ekko:dispatch-due"], timeout = "3600s" }
-    worker   = { command = ["sh", "-c", "pids=''; for i in 1 2 3 4 5 6 7 8; do php artisan queue:work --stop-when-empty --max-time=3300 & pids=\"$pids $!\"; done; status=0; for pid in $pids; do wait $pid || status=1; done; exit $status"], timeout = "3600s" }
+    worker   = { command = ["sh", "-c", "pids=''; for i in 1 2 3 4 5 6 7 8; do php artisan queue:work --stop-when-empty --max-time=3300 --timeout=${local.worker_job_timeout_seconds} & pids=\"$pids $!\"; done; status=0; for pid in $pids; do wait $pid || status=1; done; exit $status"], timeout = "3900s" }
     task     = { command = ["sh", "-c"], timeout = "3600s" }
     migrate  = { command = ["php", "artisan", "migrate", "--force"], timeout = "3600s" }
   } : {}
@@ -13,6 +16,8 @@ locals {
     DB_HOST               = "/cloudsql/${google_sql_database_instance.postgres.connection_name}"
     DB_PORT               = "5432"
     DB_DATABASE           = google_sql_database.app.name
+    DB_RLS_ROLE           = var.app_db_user
+    DB_QUEUE_RETRY_AFTER  = tostring(local.queue_retry_after_seconds)
     QUEUE_CONNECTION      = "database"
     CACHE_STORE           = "database"
     SESSION_DRIVER        = "database"
@@ -86,7 +91,7 @@ resource "google_cloud_run_v2_service" "web" {
   }
   lifecycle {
     # T10 deploys image revisions and manages traffic after bootstrap.
-    ignore_changes = [template[0].containers[0].image, traffic]
+    ignore_changes = [client, client_version, template[0].containers[0].image, template[0].revision, traffic]
     precondition {
       condition     = length(trimspace(var.image)) > 0
       error_message = "Set image to an existing application image before enabling workloads."
@@ -166,7 +171,7 @@ resource "google_cloud_run_v2_job" "job" {
   }
   # T10 owns image updates after the initial provision.
   lifecycle {
-    ignore_changes = [template[0].template[0].containers[0].image]
+    ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
   }
   depends_on = [google_project_service.api, google_secret_manager_secret_iam_member.read, google_project_iam_member.cloudsql_client]
 }

@@ -1,10 +1,12 @@
 locals {
   apis = toset([
+    "analyticsdata.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
     "clouderrorreporting.googleapis.com",
     "cloudscheduler.googleapis.com",
     "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
     "logging.googleapis.com",
     "monitoring.googleapis.com",
     "run.googleapis.com",
@@ -184,6 +186,12 @@ resource "google_storage_bucket_iam_member" "reports_worker" {
   bucket = google_storage_bucket.reports.name
   role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.component["worker"].email}"
+}
+
+resource "google_storage_bucket_iam_member" "reports_task" {
+  bucket = google_storage_bucket.reports.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.component["task"].email}"
 }
 
 resource "google_storage_bucket_iam_member" "reports_web" {
