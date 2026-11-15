@@ -98,3 +98,6 @@ jobs:
 
       - name: Pest, including the tenant isolation suite
         run: composer test
+
+      - name: Agent review security contracts
+        run: node --test tests/agent-review/*.test.mjs

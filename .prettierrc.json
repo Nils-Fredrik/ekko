@@ -4,5 +4,13 @@
     "singleQuote": true,
     "semi": true,
     "trailingComma": "all",
-    "htmlWhitespaceSensitivity": "ignore"
+    "htmlWhitespaceSensitivity": "ignore",
+    "overrides": [
+        {
+            "files": ".github/review-paths.yml",
+            "options": {
+                "parser": "json"
+            }
+        }
+    ]
 }

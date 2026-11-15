@@ -1,0 +1,8 @@
+{
+    "mcpServers": {
+        "ekko_review": {
+            "command": "node",
+            "args": ["scripts/agent-review/claude-comment.mjs"]
+        }
+    }
+}
