@@ -42,12 +42,12 @@ final class AuditLog
         $this->record($tenant, 'member.added', $by, $member, ['role' => $role]);
     }
 
-    public function memberRoleChanged(User $by, Team $tenant, User $member, ?string $from, string $to): void
+    public function memberRoleChanged(User $by, Team $tenant, User $member, string $from, string $to): void
     {
         $this->record($tenant, 'member.role_changed', $by, $member, ['from' => $from, 'to' => $to]);
     }
 
-    public function memberRemoved(User $by, Team $tenant, User $member, ?string $role): void
+    public function memberRemoved(User $by, Team $tenant, User $member, string $role): void
     {
         $this->record($tenant, 'member.removed', $by, $member, ['role' => $role]);
     }

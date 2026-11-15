@@ -205,3 +205,32 @@ test('masking fails closed when the changes have an unknown shape', function () 
     expect(fn () => (new Prompt)->beforeActivityLogged($activityWith('secret text'), 'updated'))
         ->toThrow(LogicException::class);
 });
+
+test('removing someone outside the tenant, or removing twice, is refused and recorded once', function () {
+    $admin = User::factory()->create();
+    $this->tenant->users()->attach($admin, ['role' => 'admin']);
+    $member = User::factory()->create();
+    $this->tenant->users()->attach($member, ['role' => 'reader']);
+    $admin->switchTeam($this->tenant);
+    $stranger = User::factory()->create();
+
+    $this->actingAs($admin)->delete("/teams/{$this->tenant->id}/members/{$stranger->id}")->assertNotFound();
+    $this->actingAs($admin)->delete("/teams/{$this->tenant->id}/members/{$member->id}");
+    $this->actingAs($admin)->delete("/teams/{$this->tenant->id}/members/{$member->id}")->assertNotFound();
+
+    $entries = auditEntries('member.removed');
+
+    expect($entries)->toHaveCount(1)
+        ->and($entries[0]->subject_id)->toBe($member->id);
+});
+
+test('acting as a tenant does not start when the revision log cannot be written', function () {
+    $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
+    // Rolled back with the test transaction.
+    DB::statement('ALTER TABLE activity_log RENAME TO activity_log_unavailable');
+
+    $this->actingAs($admin)->withSession(['auth.password_confirmed_at' => time()])
+        ->post("/admin/acting-as/{$this->tenant->id}", ['reason' => 'Support case 4711'])
+        ->assertServerError()
+        ->assertSessionMissing('acting_as');
+});
