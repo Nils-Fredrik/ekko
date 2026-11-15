@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Competitor extends Model
 {
     use BelongsToTenant;
+
     /** @use HasFactory<CompetitorFactory> */
     use HasFactory;
 

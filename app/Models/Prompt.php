@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Prompt extends Model
 {
     use BelongsToTenant;
+
     /** @use HasFactory<PromptFactory> */
     use HasFactory;
 

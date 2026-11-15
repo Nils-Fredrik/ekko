@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class AlertRule extends Model
 {
     use BelongsToTenant;
+
     /** @use HasFactory<AlertRuleFactory> */
     use HasFactory;
 

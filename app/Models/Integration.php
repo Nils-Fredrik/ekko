@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Integration extends Model
 {
     use BelongsToTenant;
+
     /** @use HasFactory<IntegrationFactory> */
     use HasFactory;
 
