@@ -22,12 +22,11 @@ class PromptController extends Controller
         Gate::authorize('view', $brand);
         Gate::authorize('create', Prompt::class);
         $data = $this->validated($request, true);
-        // Serialize creates within a market: the limit and duplicate check apply under concurrency.
+        // Match MCP: lock the market before checking active capacity or locking a prompt.
         $market = Market::query()->where('brand_id', $brand->id)->lockForUpdate()->findOrFail($data['market_id']);
         $this->topic($data, $brand);
-        $limit = Team::query()->findOrFail(current_tenant_id())->plan?->max_prompts_per_market;
-        if ($limit !== null && $market->prompts()->count() >= $limit) {
-            throw ValidationException::withMessages(['market_id' => __('api.prompt_limit')]);
+        if ($data['is_active'] ?? true) {
+            $this->checkActiveCapacity($market->id);
         }
         $data['text_hash'] = hash('sha256', $data['text']);
         $this->unique($market->id, $data['text_hash']);
@@ -43,7 +42,9 @@ class PromptController extends Controller
         $prompt = $this->prompt($brand, $id);
         Gate::authorize('update', $prompt);
         $data = $this->validated($request, false);
-        Market::query()->whereKey($prompt->market_id)->lockForUpdate()->firstOrFail();
+        if (! $prompt->is_active && ($data['is_active'] ?? false)) {
+            $this->checkActiveCapacity($prompt->market_id);
+        }
         $this->topic($data, $brand);
         if (isset($data['text'])) {
             $data['text_hash'] = hash('sha256', $data['text']);
@@ -67,7 +68,21 @@ class PromptController extends Controller
 
     private function prompt(Brand $brand, int $id): Prompt
     {
-        return Prompt::query()->whereHas('market', fn ($q) => $q->where('brand_id', $brand->id))->lockForUpdate()->findOrFail($id);
+        $query = Prompt::query()->whereHas('market', fn ($q) => $q->where('brand_id', $brand->id));
+        $marketId = (clone $query)->findOrFail($id)->market_id;
+        // MCP also locks markets before saving prompts. Re-read the prompt after acquiring the market
+        // lock so capacity checks use its current state, not a snapshot from before a competing write.
+        Market::query()->where('brand_id', $brand->id)->lockForUpdate()->findOrFail($marketId);
+
+        return $query->where('market_id', $marketId)->lockForUpdate()->findOrFail($id);
+    }
+
+    private function checkActiveCapacity(int $marketId): void
+    {
+        $limit = Team::query()->findOrFail(current_tenant_id())->plan?->max_prompts_per_market;
+        if ($limit !== null && Prompt::query()->where('market_id', $marketId)->where('is_active', true)->count() >= $limit) {
+            throw ValidationException::withMessages(['market_id' => __('api.prompt_limit')]);
+        }
     }
 
     /** @return array<string, mixed> */

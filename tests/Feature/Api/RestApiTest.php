@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Mcp\McpTestClient;
 
 function apiCall($test, string $token, string $method, string $url, array $data = [])
@@ -126,6 +127,50 @@ test('prompt validation enforces market ownership uniqueness and plan limits', f
     apiCall($this, $token, 'POST', $this->path.'/prompts', ['market_id' => $this->market->id, 'text' => 'No metadata?'])->assertUnprocessable();
     apiCall($this, $token, 'POST', $this->path.'/prompts', $data + ['tenant_id' => 999])->assertUnprocessable();
 });
+
+test('active prompt capacity allows replacements but rejects reactivation beyond the limit', function () {
+    $this->team->forceFill(['plan_id' => Plan::factory()->create(['max_prompts_per_market' => 1])->id])->save();
+    $data = ['market_id' => $this->market->id, 'text' => 'Original question?', 'intent' => 'category', 'funnel_stage' => 'awareness'];
+    $token = $this->token->plainTextToken;
+    $url = $this->path.'/prompts';
+    $original = apiCall($this, $token, 'POST', $url, $data)->assertCreated()->json('data.id');
+    apiCall($this, $token, 'POST', $url, array_replace($data, ['text' => 'Inactive draft?', 'is_active' => false]))
+        ->assertCreated()->assertJsonPath('data.is_active', false);
+    apiCall($this, $token, 'POST', $url, array_replace($data, ['text' => 'Replacement?']))->assertUnprocessable();
+
+    apiCall($this, $token, 'PATCH', $url, ['id' => $original, 'is_active' => false])->assertOk();
+    $replacement = apiCall($this, $token, 'POST', $url, array_replace($data, ['text' => 'Replacement?']))
+        ->assertCreated()->json('data.id');
+    apiCall($this, $token, 'PATCH', $url, ['id' => $original, 'is_active' => true])
+        ->assertUnprocessable()->assertJsonValidationErrors('market_id');
+    $this->context->run($this->team->id, function () use ($original) {
+        expect(Prompt::findOrFail($original)->is_active)->toBeFalse();
+        expect(Prompt::query()->where('market_id', $this->market->id)->where('is_active', true)->count())->toBe(1);
+    });
+
+    apiCall($this, $token, 'PATCH', $url, ['id' => $replacement, 'is_active' => false])->assertOk();
+    apiCall($this, $token, 'PATCH', $url, ['id' => $original, 'is_active' => true])->assertOk();
+    // A plan downgrade may leave a market above its new limit. Edits and deactivation still work.
+    $this->team->plan->forceFill(['max_prompts_per_market' => 0])->save();
+    apiCall($this, $token, 'PATCH', $url, ['id' => $original, 'text' => 'Edited after downgrade?', 'is_active' => true])->assertOk();
+    apiCall($this, $token, 'PATCH', $url, ['id' => $original, 'is_active' => false])->assertOk();
+    apiCall($this, $token, 'PATCH', $url, ['id' => $original, 'is_active' => true])->assertUnprocessable();
+});
+
+test('REST prompt writes acquire market locks before prompt locks to match MCP', function (string $method) {
+    $prompt = $this->context->run($this->team->id, fn () => Prompt::factory()->create(['market_id' => $this->market->id]));
+    $lockedTables = [];
+    DB::listen(function ($query) use (&$lockedTables) {
+        if (str_contains(strtolower($query->sql), 'for update') && preg_match('/from "(markets|prompts)"/', $query->sql, $match)) {
+            $lockedTables[] = $match[1];
+        }
+    });
+
+    apiCall($this, $this->token->plainTextToken, $method, $this->path.'/prompts', ['id' => $prompt->id])->assertSuccessful();
+
+    // Reversing these locks forms a deadlock cycle with an MCP writer holding the market lock.
+    expect($lockedTables)->toBe(['markets', 'prompts']);
+})->with(['PATCH', 'DELETE']);
 
 test('collections paginate and reject unbounded sizes', function () {
     $this->context->run($this->team->id, fn () => Brand::factory()->count(2)->create());
