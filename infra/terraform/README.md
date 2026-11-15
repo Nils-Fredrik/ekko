@@ -41,7 +41,9 @@ ever contain a secret value.
    `enable_https = true` in every production plan after bootstrap. Run plan/apply
    with workloads disabled first to reserve the IP and request DNS authorization.
    `terraform output -json production_dns_records` gives the exact A and CNAME
-   records for the existing DNS provider. Keep the CNAME for certificate renewal.
+   records for the existing DNS provider. In Cloudflare, set **both** records to
+   **DNS only** (grey cloud), without proxying or CNAME flattening of the
+   authorization record. Keep the CNAME for certificate renewal.
    No AAAA record is provisioned; remove conflicting old records when switching.
    Configure the Google Web OAuth client as described below, then set its public
    ID in `google_oauth_client_id`. Set `enable_workloads = true`, `image` and

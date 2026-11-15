@@ -54,7 +54,7 @@ Alle tre direkte leverandørnøkler (OpenAI, Anthropic, Gemini) har nå aktiv ve
 
 Avgrenset HTTPS-bootstrap opprettet sju ressurser: to API-aktiveringer, global IPv4, DNS-autorisasjon, sertifikat, sertifikatkart og kartoppføring. Planen hadde ingen endringer eller slettinger. Ingen Cloud Run-tjeneste eller trafikk er startet. Dette er et målrettet bootstrapbevis, ikke en ren full Terraform-plan.
 
-Publiser disse postene hos dagens DNS-leverandør, TTL 300:
+Publiser disse postene hos dagens DNS-leverandør, TTL 300. I Cloudflare skal **begge** være **DNS only** (grå sky); sertifikatposten må svare med den eksakte CNAME-en, og appens A-post må svare med Google-IP-en:
 
 | Navn | Type | Verdi |
 |---|---|---|
