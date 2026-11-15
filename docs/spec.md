@@ -274,7 +274,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 | `alerts` | `tenant_id`, `alert_rule_id`, `triggered_at`, `payload` (jsonb), `delivered_at`, `acknowledged_by` |
 | `report_schedules` | `tenant_id`, `brand_id`, `cadence` (weekly, monthly), `recipients` (jsonb), `locale`, `branding` (tenant, partner) |
 | `reports` | `tenant_id`, `report_schedule_id`, `period_start`, `period_end`, `pdf_uri`, `sent_at` |
-| `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `status` |
+| `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `last_failed_on`, `status` |
 | `activity_log` | fra spatie/laravel-activitylog, med `tenant_id` |
 
 ---
@@ -506,7 +506,7 @@ Tenants uten ClickHouse kan i stedet laste opp loggfiler (nginx/Apache combined-
 
 ### 10.2 AI-trafikk fra GA4
 
-Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto som kunden gir lesetilgang. `ekko:sync-ga4` henter `sessions`, `engagedSessions` og `conversions` per dag der `sessionSource` matcher `chatgpt.com`, `chat.openai.com`, `perplexity.ai`, `gemini.google.com`, `copilot.microsoft.com` og `claude.ai`. Listen ligger i konfigurasjon.
+Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto med lesetilgang til kundens property. `ekko:sync-ga4` henter `sessions`, `engagedSessions` og `keyEvents` per dag der `sessionSource` matcher `chatgpt.com`, `chat.openai.com`, `perplexity.ai`, `gemini.google.com`, `copilot.microsoft.com` og `claude.ai`. Listen ligger i `config/ga4.php`. Google har erstattet API-metrikken `conversions` med `keyEvents`. Ekko lagrer den i `ai_referrals_daily.conversions`. Se [ADR 0015](decisions/0015-ga4-synk.md) for oppsett og synkronisering.
 
 ---
 
