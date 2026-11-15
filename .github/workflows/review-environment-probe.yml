@@ -1,0 +1,17 @@
+name: T42 protected environment denial probe
+
+on:
+    pull_request:
+        branches: [main]
+
+permissions: {}
+
+jobs:
+    must-be-denied:
+        environment: agent-review
+        runs-on: ubuntu-latest
+        steps:
+            - name: Fail if a pull request ref reaches the protected environment
+              run: |
+                  echo "Unexpected access: pull request refs must be denied by the main-only environment policy."
+                  exit 1
