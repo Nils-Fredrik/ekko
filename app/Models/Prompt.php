@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\RecordsRevisions;
 use Database\Factories\PromptFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,8 @@ class Prompt extends Model
 
     /** @use HasFactory<PromptFactory> */
     use HasFactory;
+
+    use RecordsRevisions;
 
     /** @var list<string> */
     protected $fillable = [
@@ -52,5 +55,17 @@ class Prompt extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    /** @return list<string> */
+    protected function revisionAttributes(): array
+    {
+        return ['market_id', 'topic_id', 'intent', 'funnel_stage', 'priority', 'is_active'];
+    }
+
+    /** @return list<string> */
+    protected function maskedRevisionAttributes(): array
+    {
+        return ['text'];
     }
 }

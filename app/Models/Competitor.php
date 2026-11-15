@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\RecordsRevisions;
 use Database\Factories\CompetitorFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,6 +16,8 @@ class Competitor extends Model
 
     /** @use HasFactory<CompetitorFactory> */
     use HasFactory;
+
+    use RecordsRevisions;
 
     /** @var list<string> */
     protected $fillable = [
@@ -47,5 +50,11 @@ class Competitor extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    /** @return list<string> */
+    protected function revisionAttributes(): array
+    {
+        return ['brand_id', 'name', 'is_active'];
     }
 }

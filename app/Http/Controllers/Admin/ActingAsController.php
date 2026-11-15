@@ -33,8 +33,9 @@ class ActingAsController extends Controller
         ]);
 
         $this->stopCurrent($admin);
-        $this->actingAs->start($admin, $team, $validated['reason']);
+        // Logged first: if the revision log cannot be written, acting as the tenant does not start.
         $this->audit->actingAsStarted($admin, $team, $validated['reason']);
+        $this->actingAs->start($admin, $team, $validated['reason']);
 
         return redirect()->route('dashboard');
     }
