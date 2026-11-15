@@ -3,12 +3,17 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonImmutable;
 use Database\Factories\RunFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+/**
+ * @property string|null $quota_reservation_token
+ * @property CarbonImmutable|null $quota_reserved_at
+ */
 class Run extends Model
 {
     use BelongsToTenant;
@@ -27,6 +32,14 @@ class Run extends Model
         'error_code',
         'started_at',
         'finished_at',
+    ];
+
+    /** @var list<string> */
+    protected $hidden = [
+        'quota_reservation_token',
+        'quota_reserved_at',
+        'quota_reserved_cost_usd',
+        'quota_reserved_billed_to',
     ];
 
     /** @return BelongsTo<RunBatch, $this> */
@@ -59,6 +72,7 @@ class Run extends Model
         return [
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
+            'quota_reserved_at' => 'immutable_datetime',
         ];
     }
 }

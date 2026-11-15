@@ -2,6 +2,7 @@
 
 use App\Engines\Credentials\ApiKeyProvider;
 use App\Engines\Credentials\TenantApiKeys;
+use App\Engines\EngineCallFailed;
 use App\Engines\EngineCollector;
 use App\Engines\RawResponseStore;
 use App\Models\Engine;
@@ -16,7 +17,9 @@ use App\Models\UsageEvent;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\Support\Engines\EngineFixtures;
 
 test('collection uses the verified tenant key and stops at its BYOK budget between rollups', function () {
@@ -35,6 +38,45 @@ test('collection uses the verified tenant key and stops at its BYOK budget betwe
         'byok_enabled' => true,
         'monthly_byok_budget_usd' => '1.00',
     ]);
+    $engine = quotaEngine();
+
+    app(TenantContext::class)->run($tenant->id, function () use ($tenant, $engine) {
+        [$first, $next] = app(TenantRls::class)->run([$tenant->id], function () use ($tenant, $engine) {
+            app(TenantApiKeys::class)->store($tenant->owner, ApiKeyProvider::OpenAi, 'verified-test-key');
+
+            return quotaRuns($engine);
+        });
+
+        $collector = app(EngineCollector::class);
+        expect($collector->collect($first->id))->not->toBeNull()
+            ->and($collector->collect($next->id))->toBeNull()
+            ->and($collector->collect($next->id))->toBeNull();
+
+        app(TenantRls::class)->run([$tenant->id], function () use ($next) {
+            expect(UsageEvent::query()->sole()->billed_to)->toBe('byok')
+                ->and($next->refresh()->status)->toBe('skipped_quota');
+        });
+    });
+
+    Http::assertSentCount(2);
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/responses'
+        && $request->hasHeader('Authorization', 'Bearer verified-test-key'));
+});
+
+function quotaRuns(Engine $engine): iterable
+{
+    $market = Market::factory()->create(['country' => 'NO', 'language' => 'nb']);
+    $prompt = Prompt::factory()->for($market)->create(['priority' => 'core']);
+    $batch = RunBatch::factory()->for($market)->create();
+
+    return Run::factory()->for($batch, 'runBatch')->for($prompt)->for($engine)->createMany([
+        ['repetition' => 1],
+        ['repetition' => 2],
+    ]);
+}
+
+function quotaEngine(): Engine
+{
     $engine = Engine::factory()->create([
         'key' => 'chatgpt_api',
         'method' => 'api',
@@ -49,26 +91,116 @@ test('collection uses the verified tenant key and stops at its BYOK budget betwe
         'price_per_search_usd' => '0',
     ]);
 
-    app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], function () use ($tenant, $engine) {
-        app(TenantApiKeys::class)->store($tenant->owner, ApiKeyProvider::OpenAi, 'verified-test-key');
-        $market = Market::factory()->create(['country' => 'NO', 'language' => 'nb']);
-        $prompt = Prompt::factory()->for($market)->create(['priority' => 'core']);
-        $batch = RunBatch::factory()->for($market)->create();
-        [$first, $next] = Run::factory()->for($batch, 'runBatch')->for($prompt)->for($engine)->createMany([
-            ['repetition' => 1],
-            ['repetition' => 2],
+    return $engine;
+}
+
+test('a second run can enter while the first provider call is in progress if quota allows', function (int $limit) {
+    $this->travelTo(now()->parse('2026-11-15T12:00:00Z'));
+    $fixture = EngineFixtures::load('chatgpt_api', 'no-nb');
+    $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['monthly_call_quota' => $limit]))->create();
+    $engine = quotaEngine();
+    $rls = app(TenantRls::class);
+    $depth = DB::transactionLevel();
+    $calls = 0;
+
+    $raw = Mockery::mock(RawResponseStore::class);
+    $raw->expects('put')->times($limit)->andReturn('gs://fixture/collected.json');
+    app()->instance(RawResponseStore::class, $raw);
+
+    app(TenantContext::class)->run($tenant->id, function () use ($tenant, $engine, $limit, $depth, $fixture, $rls, &$calls) {
+        [$first, $second] = $rls->run([$tenant->id], fn () => quotaRuns($engine));
+        $collector = app(EngineCollector::class);
+        Http::preventStrayRequests()->fake([
+            'https://api.openai.com/v1/responses' => function () use ($first, $second, $collector, $depth, $fixture, $limit, &$calls) {
+                expect(DB::transactionLevel())->toBe($depth);
+
+                if (++$calls === 1) {
+                    // Even after the grace period, a live advisory lock protects the first call.
+                    $this->travel(10)->minutes();
+                    expect(fn () => $collector->collect($first->id, 'synthetic-key'))
+                        ->toThrow(EngineCallFailed::class, 'run_already_reserved');
+                    expect($collector->collect($second->id, 'synthetic-key') !== null)->toBe($limit === 2);
+                }
+
+                return Http::response($fixture);
+            },
         ]);
 
+        expect($collector->collect($first->id, 'synthetic-key'))->not->toBeNull();
+        $rls->run([$tenant->id], function () use ($limit, $first, $second, $collector) {
+            expect(UsageEvent::query()->count())->toBe($limit)
+                ->and($first->refresh()->quota_reservation_token)->toBeNull()
+                ->and($second->refresh()->status)->toBe($limit === 2 ? 'collected' : 'skipped_quota')
+                ->and(fn () => $collector->collect($first->id))->toThrow(LogicException::class);
+        });
+    });
+
+    expect($calls)->toBe($limit);
+})->with(['one call left' => 1, 'two calls left' => 2]);
+
+test('a handled provider failure releases its reservation so a retry can use the quota', function () {
+    $this->travelTo(now()->parse('2026-11-15T12:00:00Z'));
+    Http::preventStrayRequests()->fake([
+        'https://api.openai.com/v1/responses' => Http::sequence()->push([], 422)->push(EngineFixtures::load('chatgpt_api', 'no-nb')),
+    ]);
+    $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['monthly_call_quota' => 1]))->create();
+    $engine = quotaEngine();
+    $raw = Mockery::mock(RawResponseStore::class);
+    $raw->expects('put')->once()->andReturn('gs://fixture/collected.json');
+    app()->instance(RawResponseStore::class, $raw);
+
+    app(TenantContext::class)->run($tenant->id, function () use ($tenant, $engine) {
+        $rls = app(TenantRls::class);
+        [$run] = $rls->run([$tenant->id], fn () => quotaRuns($engine));
         $collector = app(EngineCollector::class);
-        expect($collector->collect($first->id))->not->toBeNull()
-            ->and(UsageEvent::query()->sole()->billed_to)->toBe('byok')
-            ->and($collector->collect($next->id))->toBeNull()
-            ->and($next->refresh()->status)->toBe('skipped_quota')
-            ->and($collector->collect($next->id))->toBeNull()
-            ->and(UsageEvent::query()->count())->toBe(1);
-    }));
+
+        expect(fn () => $collector->collect($run->id, 'synthetic-key'))
+            ->toThrow(EngineCallFailed::class, 'openai_http_422');
+        $rls->run([$tenant->id], fn () => expect($run->refresh()->quota_reservation_token)->toBeNull());
+
+        expect($collector->collect($run->id, 'synthetic-key'))->not->toBeNull();
+        $rls->run([$tenant->id], fn () => expect(UsageEvent::query()->count())->toBe(1));
+    });
 
     Http::assertSentCount(2);
-    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/responses'
-        && $request->hasHeader('Authorization', 'Bearer verified-test-key'));
+});
+
+test('a disconnected worker retains its reservation until the grace period expires', function () {
+    $this->travelTo(now()->parse('2026-11-15T12:00:00Z'));
+    Http::preventStrayRequests()->fake([
+        'https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'no-nb')),
+    ]);
+    $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['monthly_call_quota' => 1]))->create();
+    $engine = quotaEngine();
+    $raw = Mockery::mock(RawResponseStore::class);
+    $raw->expects('put')->once()->andReturn('gs://fixture/collected.json');
+    app()->instance(RawResponseStore::class, $raw);
+
+    app(TenantContext::class)->run($tenant->id, function () use ($tenant, $engine) {
+        $rls = app(TenantRls::class);
+        [$run, $other] = $rls->run([$tenant->id], function () use ($engine) {
+            [$run, $other] = quotaRuns($engine);
+            $run->forceFill([
+                'quota_reservation_token' => (string) Str::uuid(),
+                'quota_reserved_at' => now(),
+                'quota_reserved_cost_usd' => '1.00',
+                'quota_reserved_billed_to' => 'byok',
+            ])->save();
+
+            return [$run, $other];
+        });
+        $collector = app(EngineCollector::class);
+
+        expect(fn () => $collector->collect($run->id, 'synthetic-key'))
+            ->toThrow(EngineCallFailed::class, 'run_already_reserved')
+            ->and($collector->collect($other->id, 'synthetic-key'))->toBeNull();
+        Http::assertNothingSent();
+
+        $this->travel(10)->minutes();
+
+        expect($collector->collect($run->id, 'synthetic-key'))->not->toBeNull();
+        $rls->run([$tenant->id], fn () => expect(UsageEvent::query()->count())->toBe(1));
+    });
+
+    Http::assertSentCount(1);
 });

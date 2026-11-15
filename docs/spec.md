@@ -247,7 +247,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | Tabell | Viktige kolonner |
 |---|---|
 | `run_batches` | `tenant_id`, `market_id`, `scheduled_for`, `status`, `planned_runs`, `completed_runs`, `failed_runs` |
-| `runs` | `tenant_id`, `run_batch_id`, `prompt_id`, `engine_key`, `repetition`, `status` (queued, running, submitted, collected, extracted, failed, skipped_quota), `attempts`, `error_code`, `started_at`, `finished_at` |
+| `runs` | `tenant_id`, `run_batch_id`, `prompt_id`, `engine_key`, `repetition`, `status` (queued, running, submitted, collected, extracted, failed, skipped_quota), `attempts`, `error_code`, `started_at`, `finished_at`, midlertidig kvotereservasjon |
 | `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at`, `answer_type` (list, single_recommendation, comparison, informational, refusal), `llm_failed` |
 | `mentions` | `tenant_id`, `response_id`, `entity_type` (brand, competitor, unknown), `entity_id` (null for unknown), `surface_name`, `first_char_offset`, `list_position` (null hvis ikke liste), `is_recommended`, `sentiment` (-1.0–1.0), `detection` (deterministic, llm) |
 | `citations` | `tenant_id`, `response_id`, `url`, `url_normalized`, `domain`, `ownership` (own, competitor, third_party), `competitor_id`, `source_type` (news, review, forum, wiki, marketplace, social, gov, other), `rank_in_answer`, `from_annotation` (bool) |
@@ -298,12 +298,12 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 
 ### 7.2 Kvotekontroll før kjøring
 
-Før en `run` legges i køen, sjekkes tenantens forbruk for måneden. Kvotekontrollen leser ferske forbrukshendelser mellom de timevise oppdateringene av `usage_monthly`.
+Før en `run` legges i køen, sjekkes tenantens forbruk for måneden. Kvotekontrollen leser ferske forbrukshendelser og aktive reservasjoner mellom de timevise oppdateringene av `usage_monthly`.
 
 - Hvis planlagte kall pluss forbruk overstiger kallkvoten, legges bare `core`-prompts innenfor ledig kvote i køen. Resten markeres `skipped_quota`.
 - Det samme gjelder ved forventet overskridelse av et budsjett, for kall som belastes dette budsjettet.
 - Når kallkvoten er nådd, settes alle til `skipped_quota`. Når et budsjett er nådd, gjelder stoppen kall som belastes dette budsjettet.
-- Ved 80 % og 100 % opprettes varsel for tenant-admin og plattformadmin. T24 leverer varslene.
+- Ved 80 % og 100 % av et tak med registrert forbruk opprettes varsel for tenant-admin og plattformadmin. T24 leverer varslene.
 - Tenant-admin kan sette et eget månedsbudsjett for kall med egne nøkler når `byok_enabled` er aktivert. Se [ADR 0013](decisions/0013-kvoter-og-forbruk.md).
 
 ### 7.3 Motoradapter-kontrakt

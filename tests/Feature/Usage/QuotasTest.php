@@ -169,3 +169,26 @@ test('BYOK costs affect only the tenant budget while all calls count toward the 
             ->and(Alert::query()->sole()->payload['threshold_percent'])->toBe(80);
     });
 });
+
+test('an intentionally disabled platform budget does not alert when only a BYOK call is used', function () {
+    $this->travelTo(now()->parse('2026-11-15T12:00:00Z'));
+    $plan = Plan::factory()->create(['monthly_budget_usd' => '0.00']);
+    $tenant = Team::factory()->tenant()->withPlan($plan)->create(['byok_enabled' => true]);
+
+    inQuotaTenant($tenant, fn () => UsageEvent::factory()->create([
+        'occurred_at' => now(),
+        'billed_to' => BillingAccount::Byok->value,
+        'calls' => 1,
+        'cost_usd' => '1.00',
+    ]));
+
+    $this->artisan('ekko:usage-rollup')->assertSuccessful();
+
+    inQuotaTenant($tenant, function () {
+        $usage = UsageMonthly::query()->sole();
+
+        expect($usage->status)->toBe('ok')
+            ->and(Alert::query()->count())->toBe(0)
+            ->and(app(QuotaGuard::class)->allows($usage, new PlannedRun(1, true, BillingAccount::Platform, '0')))->toBeFalse();
+    });
+});
