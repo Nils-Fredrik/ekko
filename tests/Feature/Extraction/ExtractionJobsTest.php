@@ -384,7 +384,7 @@ it('takes a lock per tenant for the run, held until the transaction ends', funct
     runSubmit($a['tenant']);
 
     // The lock belongs to the (test) transaction, so it is still visible here: key pair (namespace, tenant id).
-    $held = DB::table('pg_locks')->where('locktype', 'advisory')->where('classid', 20261115)->where('objid', $a['tenant']->id)->count();
+    $held = DB::table('pg_locks')->whereRaw('pid = pg_backend_pid()')->where('locktype', 'advisory')->where('classid', 20261115)->where('objid', $a['tenant']->id)->count();
     expect($held)->toBe(1);
 });
 
