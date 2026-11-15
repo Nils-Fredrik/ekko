@@ -288,7 +288,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 |---|---|---|
 | `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker` |
 | `extraction-poll` | hvert 15. minutt, via internt endepunkt | Sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
-| `aggregate` | hver time | `ekko:aggregate` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) kjøres av egen trigger etter første aggregering etter 05:30 (ADR 0012) |
+| `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) kjøres av egen trigger etter første aggregering etter 05:30 (ADR 0012) |
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
 | `usage-rollup` | hver time, via internt endepunkt | `ekko:usage-rollup` og kvotekontroll |

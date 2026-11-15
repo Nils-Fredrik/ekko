@@ -1,7 +1,7 @@
 locals {
   scheduled_jobs = var.enable_workloads ? {
     dispatch        = { schedule = "0 1 * * *", job = "dispatch", args = [] }
-    aggregate       = { schedule = "30 5 * * *", job = "task", args = ["php artisan ekko:aggregate --date=yesterday"] }
+    aggregate       = { schedule = "0 * * * *", job = "task", args = ["php artisan ekko:aggregate --sync"] }
     log_sync        = { schedule = "0 4 * * *", job = "task", args = ["php artisan ekko:sync-bot-hits && php artisan ekko:sync-ga4"] }
     weekly_reports  = { schedule = "30 6 * * 1", job = "task", args = ["php artisan ekko:send-reports"] }
     monthly_reports = { schedule = "30 6 1 * *", job = "task", args = ["php artisan ekko:send-reports"] }
