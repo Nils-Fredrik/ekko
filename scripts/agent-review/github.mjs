@@ -82,10 +82,14 @@ export async function runReview(
         });
     }
 
-    async function prepare() {
+    async function requestReview() {
         // Invalidate an earlier success even if mergeability lookup subsequently fails.
         if (!/^[a-f0-9]{40}$/.test(env.EVENT_HEAD || '')) throw new Error('Invalid event head');
         await status(env.EVENT_HEAD, 'pending', 'Venter på kryssreview');
+    }
+
+    async function prepare() {
+        await requestReview();
         const pr = await getPull();
         if (pr.head.sha !== env.EVENT_HEAD || pr.base.sha !== env.EVENT_BASE) throw new Error('Stale event');
         reviewRounds([], Number(env.AGENT_REVIEW_BOT_ID));
@@ -213,6 +217,9 @@ export async function runReview(
     }
 
     switch (command) {
+        case 'request':
+            await requestReview();
+            break;
         case 'prepare':
             await prepare();
             break;
