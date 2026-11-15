@@ -4,10 +4,13 @@ use App\Models\Alert;
 use App\Models\Brand;
 use App\Models\Market;
 use App\Models\Prompt;
+use App\Models\Topic;
+use App\Onboarding\AnalysisStore;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
 use Tests\Feature\TenantIsolation\Support\RouteAccess;
 use Tests\Feature\TenantIsolation\Support\Scenario;
+use Tests\Support\Onboarding\OnboardingFakes;
 
 /*
 |--------------------------------------------------------------------------
@@ -111,6 +114,54 @@ return [
 
             return ['params' => ['brand' => $id]];
         },
+    ),
+    // The onboarding wizard (ADR 0018). Proposals are JSON and nothing is saved. Starting a brand analysis has no
+    // resource id: it creates a proposal in the signed-in tenant only (OnboardingTest covers the roles without
+    // brands.manage, and that nothing is written to tenant B). The model, DNS and HTTP are fakes in the register.
+    'onboarding.analyses.store' => RouteAccess::user(
+        own: function (Scenario $s) {
+            OnboardingFakes::bind();
+
+            return ['data' => ['name' => 'Eksempel', 'primary_domain' => 'eksempel.no', 'country' => 'NO', 'language' => 'nb']];
+        },
+    ),
+    // The proposal is addressed by id and kept per tenant: B's id is not found from A (404), and A's role
+    // without brands.manage gets 403.
+    'onboarding.analyses.show' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['analysis' => app(AnalysisStore::class)->create($s->tenantB->id, $s->ownerB->id, 'brand', ['name' => $s->marker])->id]],
+        own: fn (Scenario $s) => ['params' => ['analysis' => app(AnalysisStore::class)->create($s->tenantA->id, $s->adminA->id, 'brand', ['name' => 'Own'])->id]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    // The brand is bound under the tenant scope: B's brand is a 404 from A.
+    'brands.market-proposals.store' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantB->id,
+                fn () => tap(Brand::factory()->create(), fn (Brand $b) => Topic::factory()->create(['brand_id' => $b->id, 'cross_market_key' => 'k']))->id,
+            );
+
+            return ['params' => ['brand' => $id], 'data' => ['country' => 'SE', 'language' => 'sv']];
+        },
+        own: function (Scenario $s) {
+            OnboardingFakes::bind(OnboardingFakes::marketJson(['k']));
+            $id = app(TenantContext::class)->run(
+                $s->tenantA->id,
+                fn () => tap(Brand::factory()->create(), fn (Brand $b) => Topic::factory()->create(['brand_id' => $b->id, 'cross_market_key' => 'k']))->id,
+            );
+
+            return ['params' => ['brand' => $id], 'data' => ['country' => 'SE', 'language' => 'sv']];
+        },
+        deniedRoles: ['editor', 'reader'],
+    ),
+    // An existing market of B is a 404 from A, and the cost estimate needs markets.manage.
+    'onboarding.cost-estimate' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => Market::factory()->create()->id);
+
+            return ['data' => ['market_id' => $id, 'engines' => [['engine_key' => 'chatgpt_ui', 'frequency' => 'daily']]]];
+        },
+        own: fn (Scenario $s) => ['data' => ['prompt_count' => 10, 'engines' => [['engine_key' => 'chatgpt_ui', 'frequency' => 'daily']]]],
+        deniedRoles: ['editor', 'reader'],
     ),
     // Acknowledging an alert is the tenant admin's (alert rights, docs/spec.md 5.2). Addressed by id.
     'alerts.acknowledge' => RouteAccess::tenant(
@@ -253,6 +304,8 @@ return [
         foreign: fn (Scenario $s) => ['params' => ['connection' => $s->mcpConnectionOf($s->ownerB, $s->tenantB)->id]],
         own: fn (Scenario $s) => ['params' => ['connection' => $s->mcpConnectionOf($s->adminA, $s->tenantA)->id]],
     ),
+
+    'admin.usage' => RouteAccess::platformAdmin(),
 
     // Platform admin only.
     'teams.create' => RouteAccess::platformAdmin(),

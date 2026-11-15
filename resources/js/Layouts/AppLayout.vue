@@ -173,6 +173,10 @@ const logout = () => {
                                             {{ $t('API Tokens') }}
                                         </DropdownLink>
 
+                                        <DropdownLink v-if="user.is_platform_admin" :href="route('admin.usage')">
+                                            {{ $t('anthropic_budget.title') }}
+                                        </DropdownLink>
+
                                         <DropdownLink
                                             v-if="$page.props.auth.user.is_platform_admin"
                                             :href="route('admin.billing.index')"
