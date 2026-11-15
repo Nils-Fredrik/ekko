@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ActingAsController;
 use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Auth\SocialLoginController;
+use App\Http\Controllers\BotLogUploadController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
@@ -32,6 +33,9 @@ Route::middleware([
     Route::get('/dashboard', HomeController::class)->name('dashboard');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+
+    Route::get('/teams/{team}/bot-log-uploads', [BotLogUploadController::class, 'index'])->name('bot-log-uploads.index');
+    Route::post('/brands/{brand}/bot-log-uploads', [BotLogUploadController::class, 'store'])->name('bot-log-uploads.store');
 
     // Platform admin: act as a tenant (docs/spec.md 5.2). Starting needs a confirmed password.
     Route::post('/admin/acting-as/{team}', [ActingAsController::class, 'store'])

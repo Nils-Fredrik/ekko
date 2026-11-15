@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\Brand;
+use App\Models\Market;
+use App\Models\Prompt;
 use App\Tenancy\TenantContext;
+use Illuminate\Http\UploadedFile;
 use Tests\Feature\TenantIsolation\Support\RouteAccess;
 use Tests\Feature\TenantIsolation\Support\Scenario;
 
@@ -24,10 +27,44 @@ $teamB = fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id]];
 $teamA = fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id]];
 $tenantRoles = ['owner', 'admin', 'partner_advisor', 'editor', 'reader'];
 
+$apiResource = function (Scenario $s, bool $foreign, string $action = 'read'): array {
+    return app(TenantContext::class)->run($foreign ? $s->tenantB->id : $s->tenantA->id, function () use ($action) {
+        $brand = Brand::factory()->create();
+        $market = Market::factory()->create(['brand_id' => $brand->id]);
+        $data = match ($action) {
+            'store' => ['market_id' => $market->id, 'text' => 'A synthetic question?', 'intent' => 'category', 'funnel_stage' => 'awareness'],
+            'update', 'destroy' => ['id' => Prompt::factory()->create(['market_id' => $market->id])->id, 'text' => 'Updated question?'],
+            default => [],
+        };
+
+        return ['params' => ['brand' => $brand->id], 'data' => $data];
+    });
+};
+$apiEntries = [];
+foreach (['metrics', 'prompts', 'responses', 'sources', 'competitors'] as $resource) {
+    $apiEntries['api.v1.'.$resource.'.index'] = RouteAccess::tenant(
+        foreign: fn (Scenario $s) => $apiResource($s, true),
+        own: fn (Scenario $s) => $apiResource($s, false),
+    );
+}
+foreach (['store', 'update', 'destroy'] as $action) {
+    $apiEntries['api.v1.prompts.'.$action] = RouteAccess::tenant(
+        foreign: fn (Scenario $s) => $apiResource($s, true, $action),
+        own: fn (Scenario $s) => $apiResource($s, false, $action),
+        deniedRoles: ['reader'],
+    );
+}
+// No resource parameter: the token determines the tenant, like the dashboard list. ApiIsolationTest
+// verifies the collection contents and raw RLS against another tenant and a partner's client.
+foreach (['brands', 'alerts', 'usage'] as $resource) {
+    $apiEntries['api.v1.'.$resource.'.index'] = RouteAccess::user(own: fn () => []);
+}
+
 return [
     'admin.billing.index' => RouteAccess::platformAdmin(),
     'admin.billing.export' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['data' => ['month' => '2026-10']]),
     'admin.billing.markup' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id], 'data' => ['markup_percent' => '10.0000']]),
+    ...$apiEntries,
     // Public and system routes.
     'home' => RouteAccess::public(),
     // Sets the caller's own language (session, and the user row when signed in). No tenant data.
@@ -110,6 +147,28 @@ return [
     ),
     // Ends the admin's own acting-as session state only; no tenant data.
     'admin.acting-as.stop' => RouteAccess::user(),
+
+    'bot-log-uploads.index' => RouteAccess::tenant(
+        foreign: $teamB,
+        own: function (Scenario $s): array {
+            $s->brandIn($s->tenantA);
+            $s->brandIn($s->tenantB);
+
+            return ['params' => ['team' => $s->tenantA->id]];
+        },
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'bot-log-uploads.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $s->brandIn($s->tenantB)->id]],
+        own: fn (Scenario $s) => [
+            'params' => ['brand' => $s->brandIn($s->tenantA)->id],
+            'data' => [
+                'domain' => 'site.example.test',
+                'log' => UploadedFile::fake()->createWithContent('access.log.gz', gzencode((string) file_get_contents(base_path('tests/Fixtures/bot-logs/combined.txt')))),
+            ],
+        ],
+        deniedRoles: ['editor', 'reader'],
+    ),
 
     // Tenants: the tenant switcher, the team page, members and invitations.
     'current-team.update' => RouteAccess::tenant(
