@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Alerts\AlertDelivery;
 use App\Alerts\AlertEvaluator;
 use App\Jobs\Middleware\SetTenantContext;
+use App\Metrics\DailyAggregator;
 use App\Models\AlertEvaluation;
 use App\Models\Run;
 use App\Models\Team;
@@ -38,11 +39,11 @@ class EvaluateTenantAlerts extends TenantJob
         return [new SetTenantContext];
     }
 
-    public function handle(AlertEvaluator $evaluator, AlertDelivery $delivery, TenantRls $rls): void
+    public function handle(AlertEvaluator $evaluator, AlertDelivery $delivery, DailyAggregator $aggregator, TenantRls $rls): void
     {
         $now = CarbonImmutable::now();
 
-        $date = $rls->run([$this->tenantId], function () use ($evaluator, $delivery, $now): string {
+        $date = $rls->run([$this->tenantId], function () use ($evaluator, $delivery, $aggregator, $now): string {
             $tenant = Team::query()->findOrFail($this->tenantId);
             $timezone = $this->timezone((string) $tenant->timezone);
             $local = $now->setTimezone($timezone);
@@ -55,6 +56,7 @@ class EvaluateTenantAlerts extends TenantJob
                 && ! AlertEvaluation::query()->where('local_date', $date)->exists()
                 && ! $this->awaitsExtraction($local)
                 && $this->claim($date, $now)) {
+                $this->refreshAggregates($aggregator, $local);
                 $evaluator->evaluate($now, $timezone);
                 $delivery->assignDigest($now, $date);
             }
@@ -63,6 +65,20 @@ class EvaluateTenantAlerts extends TenantJob
         });
 
         $delivery->deliver($now, $date);
+    }
+
+    /**
+     * Rebuilds the last days of the aggregate before they are compared. The hourly aggregation runs before this
+     * job, so answers whose extraction finished in between would otherwise be missing from the figures, and the
+     * claimed day is not evaluated again. Yesterday and the days before it, as far back as the hourly
+     * aggregation goes (ekko.aggregate.lookback_days); older days do not change.
+     */
+    private function refreshAggregates(DailyAggregator $aggregator, CarbonImmutable $local): void
+    {
+        $days = max(1, (int) config('ekko.aggregate.lookback_days'));
+        for ($back = 1; $back <= $days; $back++) {
+            $aggregator->aggregate($local->subDays($back)->toDateString());
+        }
     }
 
     /**

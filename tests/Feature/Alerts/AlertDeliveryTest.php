@@ -310,6 +310,19 @@ test('detected alerts are delivered in the same run, and only the tenant in the 
     });
 });
 
+test('the days compared are aggregated again first, so late extractions count', function () {
+    // Answers extracted after the hourly aggregation: agg_daily does not have them yet.
+    foreach (range(0, 39) as $i) {
+        $this->w->answer($this->w->p1, '2026-11-15 10:00:00', $i < 30 ? ['brand' => []] : []);
+    }
+    expect(AggDaily::query()->where('date', '2026-11-15')->exists())->toBeFalse();
+
+    runAlertJob($this->w);
+
+    $row = AggDaily::query()->where('date', '2026-11-15')->sole();
+    expect($row->responses)->toBe(40)->and($row->brand_mentioned)->toBe(30);
+});
+
 test('the command evaluates active tenants once a day', function () {
     makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));
     $paused = Team::factory()->tenant()->create(['status' => 'paused']);
