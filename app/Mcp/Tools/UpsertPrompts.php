@@ -65,6 +65,9 @@ class UpsertPrompts extends EkkoTool
             'prompts.*.is_active' => ['nullable', 'boolean'],
         ])->validate()['prompts'];
 
+        // Lock the markets first, in id order, so concurrent calls cannot both pass the plan limit.
+        $this->lockMarkets($items);
+
         $gate = Gate::forUser($context->user);
         $created = [];
         $updated = [];
@@ -140,6 +143,34 @@ class UpsertPrompts extends EkkoTool
             __('mcp.summaries.upsert_prompts', ['created' => count($created), 'updated' => count($updated)]),
             ['created' => $created, 'updated' => $updated],
         );
+    }
+
+    /**
+     * Locks every market the call touches (FOR UPDATE, in id order to avoid deadlocks). Concurrent calls for the
+     * same market then run one after the other, and the plan limit is checked on committed counts.
+     *
+     * @param  array<int, array<string, mixed>>  $items
+     */
+    private function lockMarkets(array $items): void
+    {
+        $ids = [];
+        $promptIds = [];
+        foreach ($items as $item) {
+            if (isset($item['market'])) {
+                $ids[] = (int) $item['market'];
+            }
+            if (isset($item['id'])) {
+                $promptIds[] = (int) $item['id'];
+            }
+        }
+        if ($promptIds !== []) {
+            $ids = [...$ids, ...Prompt::query()->whereIn('id', $promptIds)->pluck('market_id')->map(fn ($id): int => (int) $id)->all()];
+        }
+        $ids = array_values(array_unique($ids));
+        sort($ids);
+        if ($ids !== []) {
+            Market::query()->whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get(['id']);
+        }
     }
 
     /**

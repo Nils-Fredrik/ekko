@@ -333,3 +333,19 @@ test('upsert_prompts publishes topic as nullable and removes the topic with null
         ->and($result['isError'])->toBeFalse($result['raw'])
         ->and($this->w->p1->fresh()->topic_id)->toBeNull();
 });
+
+test('upsert_prompts locks the markets it touches before counting against the plan limit', function () {
+    $token = adminToken($this, write: true);
+    $queries = [];
+    DB::listen(function ($query) use (&$queries) {
+        $queries[] = strtolower($query->sql);
+    });
+
+    McpTestClient::call($this, $token, 'upsert_prompts', ['prompts' => [['id' => $this->w->p1->id, 'is_active' => true]]]);
+
+    $lock = collect($queries)->search(fn (string $sql) => str_contains($sql, 'from "markets"') && str_contains($sql, 'for update'));
+    $count = collect($queries)->search(fn (string $sql) => str_contains($sql, 'count(*)') && str_contains($sql, 'from "prompts"'));
+    expect($lock)->not->toBeFalse()
+        ->and($count)->not->toBeFalse()
+        ->and($lock)->toBeLessThan($count);
+});
