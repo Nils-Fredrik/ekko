@@ -87,6 +87,7 @@ export async function runReview(
         if (pr.head.sha !== env.EVENT_HEAD || pr.base.sha !== env.EVENT_BASE) throw new Error('Stale event');
         // Set pending before review work starts. If anything fails, the gate stays closed.
         await status(pr.head.sha, 'pending', 'Venter på kryssreview');
+        reviewRounds([], Number(env.AGENT_REVIEW_BOT_ID));
         const files = await allPages(`${pull}/files`);
         if (files.length !== pr.changed_files || files.length >= 3000)
             throw new Error('Changed file list is incomplete');
@@ -151,8 +152,8 @@ export async function runReview(
                 if (!snapshot.required.codex || codexApproved(comments, snapshot.head, env.REQUESTED_AT, reviews)) {
                     if (!sameSnapshot(await getPull(), snapshot))
                         throw new Error('PR changed before publishing status');
-                    await status(snapshot.head, 'success', 'Påkrevd kryssreview er godkjent');
                     await recordRound(snapshot, 'success');
+                    await status(snapshot.head, 'success', 'Påkrevd kryssreview er godkjent');
                     return;
                 }
                 await sleep(30_000);
