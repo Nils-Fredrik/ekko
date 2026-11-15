@@ -35,3 +35,6 @@ Thumbs.db
 *.tfvars
 *.tfvars.json
 crash.log
+
+__pycache__/
+/performance-result.json
