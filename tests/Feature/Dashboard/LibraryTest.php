@@ -343,3 +343,26 @@ test('sources and crawlers read MetricsService', function () {
             ->where('traffic.0.source', 'chatgpt.com')
             ->where('traffic.0.sessions', 10));
 });
+
+test('csv export keeps formula-like prompt text from being evaluated in a spreadsheet', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => '=1+1'])
+        ->assertRedirect();
+
+    $export = $this->actingAs($owner)->get(route('brands.prompts.export', $world->brand))->assertOk()->getContent();
+    expect($export)->toContain("'=1+1")->and($export)->not->toContain("\n=1+1");
+
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\n'=2+2,NO\n'=1+1,NO\n"])
+        ->assertRedirect();
+
+    app(TenantContext::class)->run($world->tenant->id, function () use ($world) {
+        expect(Prompt::query()->where('market_id', $world->market->id)->where('text', '=2+2')->exists())->toBeTrue()
+            ->and(Prompt::query()->where('text', "'=1+1")->exists())->toBeFalse()
+            ->and(Prompt::query()->where('market_id', $world->market->id)->where('text', '=1+1')->count())->toBe(1);
+    });
+});

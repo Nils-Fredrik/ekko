@@ -21,6 +21,11 @@ final class PromptCsv
     /** @var list<string> */
     public const COLUMNS = ['text', 'market', 'language', 'location', 'topic', 'intent', 'funnel_stage', 'priority', 'active', 'market_id'];
 
+    /**
+     * A cell that starts with =, +, -, @, a tab or a carriage return is a formula in a spreadsheet.
+     */
+    private const FORMULA_PREFIX = '/^[=+\\-@\\t\\r]/';
+
     public static function export(Brand $brand): string
     {
         $handle = fopen('php://temp', 'r+');
@@ -43,11 +48,11 @@ final class PromptCsv
             }
 
             fputcsv($handle, [
-                $prompt->text,
+                self::spreadsheetCell($prompt->text),
                 $prompt->market->country,
                 $prompt->market->language,
-                $prompt->market->location_label ?? '',
-                $prompt->topic_id === null ? '' : $prompt->topic->name,
+                self::spreadsheetCell($prompt->market->location_label ?? ''),
+                self::spreadsheetCell($prompt->topic_id === null ? '' : $prompt->topic->name),
                 $prompt->intent,
                 $prompt->funnel_stage,
                 $prompt->priority,
@@ -113,7 +118,7 @@ final class PromptCsv
 
             $values = [];
             foreach ($columns as $index => $column) {
-                $values[$column] = trim((string) ($row[$index] ?? ''));
+                $values[$column] = self::fromSpreadsheet(trim((string) ($row[$index] ?? '')));
             }
 
             $error = self::storeRow($brand, $values);
@@ -256,6 +261,27 @@ final class PromptCsv
         }
 
         return in_array($value, $allowed, true) ? $value : null;
+    }
+
+    /**
+     * A leading apostrophe makes a formula cell into text. Import strips that marker so a round trip keeps the prompt.
+     */
+    private static function spreadsheetCell(string $value): string
+    {
+        if ($value !== '' && preg_match(self::FORMULA_PREFIX, $value) === 1) {
+            return "'".$value;
+        }
+
+        return $value;
+    }
+
+    private static function fromSpreadsheet(string $value): string
+    {
+        if (str_starts_with($value, "'") && preg_match(self::FORMULA_PREFIX, substr($value, 1)) === 1) {
+            return substr($value, 1);
+        }
+
+        return $value;
     }
 
     private static function withinQuota(int $marketId): bool
