@@ -151,9 +151,10 @@ return [
         'proposal_ttl_hours' => 24,
         // Analyses a user may start per minute.
         'analyses_per_minute' => 6,
-        // How long a started analysis counts against the quota before it is billed. Longer than the job's timeout
-        // (240 s), so only an analysis whose worker died runs out before it is finished.
-        'pending_reservation_seconds' => 600,
+        // How long a started analysis counts against the quota before it is billed: the longest wait for a worker
+        // (if starting it after the request fails, the next dispatch-due or extraction-poll starts it, every 15
+        // minutes) plus the job's timeout (240 s), with margin. Only an analysis whose worker died runs out first.
+        'pending_reservation_seconds' => 1800,
         'estimate' => [
             // Runs per month for one prompt and one repetition.
             'runs_per_month' => ['daily' => '30', 'weekly' => '4.35', 'monthly' => '1', 'off' => '0'],

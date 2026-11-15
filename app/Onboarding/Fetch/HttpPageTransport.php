@@ -3,6 +3,7 @@
 namespace App\Onboarding\Fetch;
 
 use Closure;
+use GuzzleHttp\Exception\ConnectException;
 use GuzzleHttp\Handler\CurlHandler;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
@@ -52,7 +53,7 @@ final class HttpPageTransport implements PageTransport
                 throw FetchFailed::because(FetchFailed::TOO_LARGE);
             }
             if ($e instanceof ConnectionException) {
-                throw FetchFailed::because(str_contains($e->getMessage(), 'timed out') ? FetchFailed::TIMEOUT : FetchFailed::CONNECTION);
+                throw FetchFailed::because(self::timedOut($e) ? FetchFailed::TIMEOUT : FetchFailed::CONNECTION);
             }
 
             throw $e;
@@ -69,6 +70,20 @@ final class HttpPageTransport implements PageTransport
             $truncated,
             is_numeric($length) ? (int) $length : null,
         );
+    }
+
+    /**
+     * Whether cURL gave up on time: error 28 (CURLE_OPERATION_TIMEDOUT) in the handler context of Guzzle's
+     * exception, or the message when there is no context (a faked or otherwise wrapped failure).
+     */
+    private static function timedOut(ConnectionException $e): bool
+    {
+        $previous = $e->getPrevious();
+        if ($previous instanceof ConnectException && isset($previous->getHandlerContext()['errno'])) {
+            return (int) $previous->getHandlerContext()['errno'] === CURLE_OPERATION_TIMEDOUT;
+        }
+
+        return str_contains($e->getMessage(), 'timed out');
     }
 
     /**

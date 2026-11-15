@@ -13,6 +13,7 @@ use App\Onboarding\Analysis;
 use App\Onboarding\AnalysisStore;
 use App\Onboarding\CostEstimator;
 use App\Onboarding\Fetch\SiteUrl;
+use App\Scheduling\WorkerLauncher;
 use App\Tenancy\TenantContext;
 use App\Usage\BillingAccount;
 use App\Usage\MonthlyUsage;
@@ -25,6 +26,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 /**
  * The backend of the onboarding wizard (docs/spec.md 13, ADR 0018). It returns proposals as JSON and saves
@@ -174,6 +176,18 @@ class OnboardingController extends Controller
         }
 
         RunOnboardingAnalysis::dispatch($tenantId, $analysis->id);
+
+        // The worker is a Cloud Run job that only runs when started (T17). It is started once the response is
+        // sent, after the request's transaction has committed the queued job, so the user does not wait for the
+        // next scheduled dispatch. A failure to start is reported, not shown: the next dispatch-due or
+        // extraction-poll starts the worker as well.
+        defer(function (): void {
+            try {
+                app(WorkerLauncher::class)->startIfPending();
+            } catch (Throwable $e) {
+                report($e);
+            }
+        });
 
         // Re-read: with a synchronous queue (local development, tests) the job has already finished.
         $current = $store->find($tenantId, $analysis->id) ?? $analysis;

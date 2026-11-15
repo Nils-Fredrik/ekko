@@ -128,6 +128,10 @@ it('keeps prompts that only contain ordinary numbers', function (string $text) {
     'year range' => 'Hvilke sommerdekk er best for sesongen 2024-2025?',
     'tyre size' => 'Hvilke dekk passer til 205/55 R16 91V?',
     'two years' => 'Hva var beste løpesko i 2024 og 2025?',
+    'date' => 'Hvilke butikker har åpent 24.12.2026?',
+    'new year date' => 'Hvilke sko kom på salg 01.01.2025?',
+    'iso date' => 'Hva skjer på skomessen 2026-03-15?',
+    'year range with a space' => 'Hvilke vinterdekk vant testene 2024 2025?',
 ]);
 
 it('drops prompts with an unknown topic, intent or funnel stage, or text that is missing or too short', function () {

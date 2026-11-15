@@ -66,6 +66,15 @@ final class CostEstimator
             $issues[] = ['code' => 'prompts_above_plan'];
         }
 
+        // As in Dispatcher::plan(): a core prompt runs on the engine's core row when it has one, and only then on
+        // the all row. So an all row covers the standard prompts only when the engine also has a core row.
+        $hasCoreRow = [];
+        foreach ($setup as $row) {
+            if ($row['prompt_scope'] === 'core') {
+                $hasCoreRow[$row['engine_key']] = true;
+            }
+        }
+
         foreach ($setup as $row) {
             $engineKey = $row['engine_key'];
             $engine = Engine::query()->find($engineKey);
@@ -94,7 +103,11 @@ final class CostEstimator
                 continue;
             }
 
-            $prompts = $row['prompt_scope'] === 'core' ? $corePromptCount : $promptCount;
+            $prompts = match (true) {
+                $row['prompt_scope'] === 'core' => $corePromptCount,
+                isset($hasCoreRow[$engineKey]) => max(0, $promptCount - $corePromptCount),
+                default => $promptCount,
+            };
             $calls = (int) BigDecimal::of($prompts * $row['repetitions'])
                 ->multipliedBy($config['runs_per_month'][$row['frequency']] ?? '0')
                 ->toScale(0, RoundingMode::Up)

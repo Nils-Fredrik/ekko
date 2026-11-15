@@ -18,6 +18,9 @@ use App\Onboarding\AnalysisStore;
 use App\Onboarding\Fetch\FetchFailed;
 use App\Onboarding\Fetch\TransportResponse;
 use App\Onboarding\OnboardingRunner;
+use App\Scheduling\CloudRunAccessToken;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\Onboarding\FakePageTransport;
 use Tests\Support\Onboarding\OnboardingFakes;
@@ -489,4 +492,48 @@ it('validates the new market', function (array $data, string $field) {
 it('runs within the time the queue gives a job before it hands it to another worker', function () {
     // A second pickup would fail at once (tries = 1) and mark the analysis failed while the first still runs.
     expect((new RunOnboardingAnalysis(1, 'x'))->timeout)->toBeLessThan((int) config('queue.connections.database.retry_after'));
+});
+
+/** Cloud Run as in WorkerLauncherTest: enabled, with a fake token, and the API calls faked by the test. */
+function onboardingCloudRun(): void
+{
+    config(['collection.cloud_run.enabled' => true, 'collection.cloud_run.project' => 'ekko-fixture', 'collection.cloud_run.region' => 'europe-west1']);
+    $token = Mockery::mock(CloudRunAccessToken::class);
+    $token->shouldReceive('get')->andReturn('fixture-token');
+    app()->instance(CloudRunAccessToken::class, $token);
+}
+
+it('starts the worker once the queued analysis is committed', function () {
+    [$tenant, $owner] = wizardTenant();
+    OnboardingFakes::bind();
+    onboardingCloudRun();
+    config(['queue.default' => 'database']);
+    $queued = null;
+    Http::fake([
+        'run.googleapis.com/*/executions*' => function () use (&$queued) {
+            // Only after the request has committed is the job row there for the worker.
+            $queued = DB::table('jobs')->where('payload', 'like', '%RunOnboardingAnalysis%')->count();
+
+            return Http::response(['executions' => []]);
+        },
+        'run.googleapis.com/*:run' => Http::response(['name' => 'operation']),
+    ]);
+
+    $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->assertStatus(202)->assertJsonPath('status', 'queued');
+
+    expect($queued)->toBe(1);
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), 'jobs/ekko-worker:run'));
+});
+
+it('answers the request even when the worker cannot be started', function () {
+    [$tenant, $owner] = wizardTenant();
+    OnboardingFakes::bind();
+    onboardingCloudRun();
+    config(['queue.default' => 'database']);
+    Http::fake(['run.googleapis.com/*' => Http::response('', 500)]);
+
+    $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->assertStatus(202);
+
+    expect(DB::table('jobs')->count())->toBe(1);
+    Http::assertNotSent(fn ($request) => str_ends_with($request->url(), ':run'));
 });

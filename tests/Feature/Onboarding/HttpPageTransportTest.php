@@ -5,6 +5,7 @@
 
 use App\Onboarding\Fetch\FetchFailed;
 use App\Onboarding\Fetch\HttpPageTransport;
+use GuzzleHttp\Exception\ConnectException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -85,6 +86,23 @@ it('turns a connection failure into a stable reason', function (string $message,
     ['cURL error 28: Operation timed out after 7001 milliseconds', FetchFailed::TIMEOUT],
     ['cURL error 7: Failed to connect to eksempel.no port 443', FetchFailed::CONNECTION],
     ['cURL error 60: SSL certificate problem', FetchFailed::CONNECTION],
+]);
+
+it('reads a timeout from the cURL error number, not from the message', function (int $errno, string $reason) {
+    $guzzle = new ConnectException('message without the usual words', new GuzzleHttp\Psr7\Request('GET', 'https://eksempel.no/'), null, ['errno' => $errno]);
+    Http::fake(fn () => throw new ConnectionException($guzzle->getMessage(), 0, $guzzle));
+
+    try {
+        (new HttpPageTransport)->get('https://eksempel.no/', 'eksempel.no', '93.184.216.34', 1000, 7);
+    } catch (FetchFailed $e) {
+        expect($e->reason)->toBe($reason);
+
+        return;
+    }
+    throw new RuntimeException('Expected a FetchFailed.');
+})->with([
+    'timeout (28)' => [CURLE_OPERATION_TIMEDOUT, FetchFailed::TIMEOUT],
+    'refused (7)' => [CURLE_COULDNT_CONNECT, FetchFailed::CONNECTION],
 ]);
 
 it('takes the port for the pinning from the URL', function () {

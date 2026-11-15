@@ -59,6 +59,29 @@ it('estimates calls and cost per engine, and the extraction of every answer', fu
         ->assertJsonPath('core_prompt_count', 10);
 });
 
+it('counts a core prompt on the engine\'s core row only, as the dispatcher does', function () {
+    estimateEngines();
+    $plan = Plan::factory()->create(['allowed_engines' => ['est_api', 'est_scrape'], 'monthly_call_quota' => null, 'max_prompts_per_market' => 50]);
+    [, $owner] = wizardTenant($plan);
+
+    // est_api has a core row (daily) and an all row (weekly): the 10 core prompts run daily, the 40 others weekly.
+    // est_scrape has only an all row, so it runs all 50.
+    estimate($this, $owner, [
+        'prompt_count' => 50,
+        'core_prompt_count' => 10,
+        'engines' => [
+            ['engine_key' => 'est_api', 'frequency' => 'daily', 'prompt_scope' => 'core'],
+            ['engine_key' => 'est_api', 'frequency' => 'weekly', 'prompt_scope' => 'all'],
+            ['engine_key' => 'est_scrape', 'frequency' => 'monthly', 'prompt_scope' => 'all'],
+        ],
+    ])->assertOk()
+        // 10 * 30 = 300, 40 * 4.35 = 174 (not 50 * 4.35 = 218), 50 * 1 = 50.
+        ->assertJsonPath('engines.0.calls', 300)
+        ->assertJsonPath('engines.1.calls', 174)
+        ->assertJsonPath('engines.2.calls', 50)
+        ->assertJsonPath('calls', 524);
+});
+
 it('multiplies by repetitions and counts nothing for an engine that is off', function () {
     estimateEngines();
     $plan = Plan::factory()->create(['allowed_engines' => ['est_api', 'est_scrape'], 'monthly_call_quota' => null, 'max_repetitions' => 3]);

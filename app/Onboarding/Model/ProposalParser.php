@@ -231,7 +231,7 @@ final class ProposalParser
     /**
      * A phone number, not an amount or a period: with a country code 8 to 15 digits; without one 8 digits (Norway,
      * Denmark), or 8 to 10 digits starting with 0 (Sweden). Amounts with a space as thousands separator
-     * (10 000 000) and year ranges (2024-2025) do not count.
+     * (10 000 000), year ranges (2024-2025, 2024 2025) and dates (24.12.2026, 2026-12-24) do not count.
      */
     private function looksLikePhoneNumber(string $candidate): bool
     {
@@ -245,7 +245,10 @@ final class ProposalParser
         if (preg_match('/^\d{1,3}(?:[\s.]\d{3})+$/', $candidate) === 1) {
             return false;
         }
-        if (preg_match('/^(?:19|20)\d{2}\s?-\s?(?:19|20)\d{2}$/', $candidate) === 1) {
+        if (preg_match('/^(?:19|20)\d{2}(?:\s*-\s*|\s+)(?:19|20)\d{2}$/', $candidate) === 1) {
+            return false;
+        }
+        if (preg_match('/^(?:\d{1,2}[.\-]\d{1,2}[.\-](?:19|20)\d{2}|(?:19|20)\d{2}-\d{2}-\d{2})$/', $candidate) === 1) {
             return false;
         }
 
