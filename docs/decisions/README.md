@@ -30,3 +30,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0020](0020-dispatch-og-worker.md)              | Varig dispatch, køleverandører og worker                                                   | Foreslått |
 | [0021](0021-fakturagrunnlag.md)                 | Månedlig fakturagrunnlag, partnerlinjer og eksplisitt påslag                               | Foreslått |
 | [0022](0022-sha-bundet-kryssreview.md)          | SHA-bundet kryssreview med egen godkjenningsidentitet                                      | Foreslått |
+| [0023](0023-anthropic-kredittplan.md)           | Faktureringsperioder, kredittplan og felles Anthropic-reservasjoner                        | Foreslått |

@@ -648,6 +648,8 @@ Ekko bruker de månedlige API-kredittene som følger med konsernets Claude Team-
 - Ledig beløp ut over prognosen fordeles på nivå 2-tiltakene i rekkefølgen over, fordelt jevnt på dagene som gjenstår.
 - De siste 3 dagene i perioden kan bufferen også brukes.
 
+Implementasjonen er presisert i ADR 0023: faktureringsankeret er i UTC, korte måneder avkorter dag 29–31 uten varig forskyvning, og ventende kall reserverer estimert kapasitet. Pakkegrenser overstyres ikke av tillegg. Variasjon måles som variasjon i merkevareomtale siste 14 dager. Månedlig innsikt tildeles én gang per merkevare/periode og konsumeres av T32. Plattformens anonyme kostnadsbok beholdes ved tenantsletting. Console-grensen og deaktivert automatisk påfylling er fortsatt den harde ytre grensen; simuleringsbeviset gjelder estimert planlegging, ikke en feilkonfigurert leverandørkonto.
+
 `Admin/Usage.vue` viser forbruk mot pott i inneværende periode, prognose, hva som er lagt inn som tillegg og om redusert modus er aktiv.
 
 **Skalering:** Grunnlasten koster om lag 20–30 dollar per merkevare og marked i måneden. Potten dekker dermed grunnlasten for om lag 15–20 merkevarer. Ut over det kan kjerneprompts kjøres daglig og resten ukentlig for Claude (`prompt_scope`), noe som omtrent halverer forbruket per merkevare. Alternativt betales overskytende forbruk via kjøpte kreditter.

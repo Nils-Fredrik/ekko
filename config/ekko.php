@@ -99,6 +99,10 @@ return [
     | (0.5 = half price) applies to Message Batches only, not to the single retry through the Messages API.
     */
     'anthropic' => [
+        // Null until the owner confirms the workspace allocation and billing anchor.
+        'monthly_pool_usd' => env('EKKO_ANTHROPIC_POOL_USD'),
+        'cycle_start_day' => (int) env('EKKO_ANTHROPIC_CYCLE_START_DAY', 1),
+        'insight_estimate_usd' => '0.05',
         'extraction' => [
             'model' => env('EKKO_EXTRACTION_MODEL', 'claude-haiku-5-5'),
             'max_tokens' => 16000,

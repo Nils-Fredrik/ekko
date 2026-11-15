@@ -118,6 +118,7 @@ final class ExtractionWriter
 
             UsageEvent::query()->create([
                 'run_id' => $response->run_id,
+                'anthropic_operation' => $outcome->budgetOperation,
                 'kind' => 'extraction',
                 'occurred_at' => CarbonImmutable::now('UTC'),
                 'calls' => 1,

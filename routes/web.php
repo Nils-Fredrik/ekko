@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ActingAsController;
 use App\Http\Controllers\Admin\BillingController;
+use App\Http\Controllers\Admin\UsageController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\BotLogUploadController;
@@ -39,6 +40,8 @@ Route::middleware([
 
     Route::get('/teams/{team}/bot-log-uploads', [BotLogUploadController::class, 'index'])->name('bot-log-uploads.index');
     Route::post('/brands/{brand}/bot-log-uploads', [BotLogUploadController::class, 'store'])->name('bot-log-uploads.store');
+
+    Route::get('/admin/usage', UsageController::class)->name('admin.usage');
 
     // The onboarding wizard's backend (docs/spec.md 13, ADR 0018): proposals as JSON, nothing is saved.
     Route::prefix('onboarding')->name('onboarding.')->group(function () {
