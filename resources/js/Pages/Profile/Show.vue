@@ -16,7 +16,7 @@ defineProps({
 <template>
     <AppLayout :title="$t('Profile')">
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $t('Profile') }}</h2>
+            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ $t('Profile') }}</h2>
         </template>
 
         <div>

@@ -2,11 +2,15 @@
 
 use App\Http\Controllers\Admin\ActingAsController;
 use App\Http\Controllers\Auth\SocialLoginController;
+use App\Http\Controllers\LocaleController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // No public landing page: guests are sent to the login page by the auth middleware.
 Route::redirect('/', '/dashboard')->name('home');
+
+// Language, including on the login page before anyone is signed in (docs/spec.md 14.1).
+Route::put('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
 // Login with Google (docs/spec.md 5.4). Guests only, rate limited per IP.
 Route::middleware(['guest', 'throttle:sso'])->prefix('auth/{provider}')->whereIn('provider', config('ekko.sso_providers'))->group(function () {

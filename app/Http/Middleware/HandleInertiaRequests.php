@@ -41,6 +41,22 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'locale' => app()->getLocale(),
+            'locales' => function (): array {
+                $locales = config('ekko.locales');
+                if (! is_array($locales)) {
+                    return [];
+                }
+
+                $shared = [];
+                foreach ($locales as $code) {
+                    if (! is_string($code)) {
+                        continue;
+                    }
+                    $shared[] = ['code' => $code, 'label' => __("app.locales.{$code}")];
+                }
+
+                return $shared;
+            },
             // Providers with credentials; the login page shows a button for each.
             'ssoProviders' => fn () => array_values(array_filter(
                 config('ekko.sso_providers'),

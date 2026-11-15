@@ -7,7 +7,248 @@
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../vendor/laravel/jetstream/**/*.blade.php';
 
-/* Design tokens, Suisse Intl and the dark/light shell are ported from Varde in T02 (docs/spec.md 14.1). */
+/* Maksimer design system, same tokens as Varde (docs/spec.md 14.1). Suisse Intl is self-hosted. */
+@font-face {
+    font-family: 'Suisse Intl';
+    font-weight: 300;
+    font-style: normal;
+    src: url('/fonts/SuisseIntl-Light.woff2') format('woff2');
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Suisse Intl';
+    font-weight: 400;
+    font-style: normal;
+    src: url('/fonts/SuisseIntl-Book.woff2') format('woff2');
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Suisse Intl';
+    font-weight: 400;
+    font-style: italic;
+    src: url('/fonts/SuisseIntl-BookIt.woff2') format('woff2');
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Suisse Intl';
+    font-weight: 450;
+    font-style: normal;
+    src: url('/fonts/SuisseIntl-Regular.woff2') format('woff2');
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Suisse Intl';
+    font-weight: 500;
+    font-style: normal;
+    src: url('/fonts/SuisseIntl-Medium.woff2') format('woff2');
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Suisse Intl';
+    font-weight: 500;
+    font-style: italic;
+    src: url('/fonts/SuisseIntl-MediumIt.woff2') format('woff2');
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Suisse Intl';
+    font-weight: 600;
+    font-style: normal;
+    src: url('/fonts/SuisseIntl-Semibold.woff2') format('woff2');
+    font-display: swap;
+}
+
+/* Use the token utilities, never raw hex in components. */
+@theme {
+    --font-sans: 'Suisse Intl', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+    --color-primary: #e84a38;
+    --color-primary-deep: #c73823;
+    --color-accent: #ffb6c3;
+    --color-accent-soft: #ffd8df;
+    --color-secondary: #791220;
+    --color-secondary-deep: #5a0e18;
+
+    --color-light-beige: #f5ede4;
+    --color-light-beige-deep: #eae0d2;
+    --color-medium-beige: #e2b8a5;
+    --color-dark-beige: #906056;
+    --color-dark-beige-deep: #6f4a42;
+
+    --color-ink: #1a1212;
+    --color-ink-soft: #4a3a36;
+    --color-line: #e8ded2;
+    --color-line-soft: #f0e6d8;
+    --color-row-hover: #fbf7f1;
+
+    --color-chrome: #0c0a0a;
+    --color-panel: #15100f;
+
+    /* Shell (page background, top bar, text on the background). Dark by default;
+       the light theme replaces these under [data-theme="light"]. */
+    --color-shell: #000000;
+    --color-shell-panel: #000000;
+    --color-shell-surface: #0b0909;
+    --color-shell-fg: #ffffff;
+    --color-shell-text: #f5ede4;
+    --color-shell-accent: #ffb6c3;
+
+    --color-success: #4a7c59;
+    --color-warning: #c97b3e;
+    --color-error: #a8382f;
+
+    /* Jetstream's built-in components use gray and indigo. Map them onto the palette
+       so existing forms match without rewriting each component. */
+    --color-gray-50: #fbf7f1;
+    --color-gray-100: #f5ede4;
+    --color-gray-200: #f0e6d8;
+    --color-gray-300: #e8ded2;
+    --color-gray-400: #906056;
+    --color-gray-500: #6f4a42;
+    --color-gray-600: #4a3a36;
+    --color-gray-700: #4a3a36;
+    --color-gray-800: #1a1212;
+    --color-gray-900: #1a1212;
+    --color-indigo-100: #ffd8df;
+    --color-indigo-400: #e84a38;
+    --color-indigo-500: #e84a38;
+    --color-indigo-600: #e84a38;
+    --color-indigo-700: #c73823;
+
+    --shadow-pop: 0 14px 40px rgba(26, 18, 18, 0.1), 0 4px 10px rgba(26, 18, 18, 0.05);
+    --shadow-card: 0 4px 14px rgba(26, 18, 18, 0.06), 0 2px 4px rgba(26, 18, 18, 0.04);
+}
+
+:root[data-theme='light'] {
+    --color-shell: #f5ede4;
+    --color-shell-panel: #ffffff;
+    --color-shell-surface: #ffffff;
+    --color-shell-fg: #1a1212;
+    --color-shell-text: #1a1212;
+    --color-shell-accent: #c73823;
+    --shell-scheme: light;
+}
+
+:root {
+    --shell-scheme: dark;
+}
+
+@layer base {
+    *,
+    ::after,
+    ::before,
+    ::backdrop,
+    ::file-selector-button {
+        border-color: var(--color-line, currentColor);
+    }
+
+    html,
+    body {
+        height: 100%;
+        background: var(--color-shell);
+    }
+
+    body {
+        color: var(--color-shell-text);
+        font-feature-settings: 'ss01', 'cv11';
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+    }
+
+    table {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .bg-white,
+    .bg-light-beige {
+        color: var(--color-ink);
+    }
+
+    input:where(
+            [type='text'],
+            [type='email'],
+            [type='url'],
+            [type='password'],
+            [type='number'],
+            [type='date'],
+            [type='month'],
+            [type='week'],
+            [type='time'],
+            [type='datetime-local'],
+            [type='search'],
+            [type='tel']
+        ),
+    select,
+    textarea {
+        border-radius: 0.5rem;
+        border-color: var(--color-line);
+        background-color: #fff;
+        color: var(--color-ink);
+    }
+
+    input:where(
+            [type='text'],
+            [type='email'],
+            [type='url'],
+            [type='password'],
+            [type='number'],
+            [type='date'],
+            [type='month'],
+            [type='week'],
+            [type='time'],
+            [type='datetime-local'],
+            [type='search'],
+            [type='tel']
+        ):focus,
+    select:focus,
+    textarea:focus {
+        border-color: var(--color-primary);
+        --tw-ring-color: rgb(232 74 56 / 0.3);
+    }
+
+    input[type='checkbox'],
+    input[type='radio'] {
+        border-color: var(--color-line);
+        color: var(--color-primary);
+        --tw-ring-color: rgb(232 74 56 / 0.4);
+    }
+
+    ::placeholder {
+        color: rgba(74, 58, 54, 0.5);
+    }
+}
+
+@layer components {
+    .eyebrow {
+        font-size: 11.5px;
+        letter-spacing: 0.12em;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: var(--color-primary);
+    }
+}
+
+/* Touch screens zoom in on focus when a field is smaller than 16px. */
+@media (pointer: coarse) and (width < 64rem) {
+    input:where(
+            [type='text'],
+            [type='email'],
+            [type='url'],
+            [type='password'],
+            [type='number'],
+            [type='date'],
+            [type='month'],
+            [type='week'],
+            [type='time'],
+            [type='datetime-local'],
+            [type='search'],
+            [type='tel']
+        ),
+    select,
+    textarea {
+        font-size: 16px;
+    }
+}
 
 [x-cloak] {
     display: none;
