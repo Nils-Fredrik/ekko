@@ -10,6 +10,7 @@ use App\Models\Prompt;
 use App\Models\Run;
 use App\Models\RunBatch;
 use App\Models\Team;
+use App\Models\TenantApiKey;
 use App\Models\UsageEvent;
 use App\Scheduling\Dispatcher;
 use App\Tenancy\Rls\TenantRls;
@@ -105,16 +106,22 @@ test('a durable database job executes collection with tenant context and records
     Http::preventStrayRequests()->fake([
         'https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'no-nb')),
     ]);
-    config(['engines.chatgpt_api.api_key' => 'synthetic-key']);
+    $tenant->forceFill(['byok_enabled' => true])->save();
+    app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], fn () => TenantApiKey::query()->create([
+        'provider' => 'openai', 'key' => 'synthetic-tenant-key', 'last_verified_at' => now(),
+    ])));
+    config(['engines.chatgpt_api.api_key' => 'unused-platform-key']);
     $raw = Mockery::mock(RawResponseStore::class);
     $raw->expects('put')->once()->andReturn('gs://fixture/durable.json');
     app()->instance(RawResponseStore::class, $raw);
     expect(app(Dispatcher::class)->dispatch(CarbonImmutable::now()))->toBe(1);
     $this->artisan('queue:work', ['connection' => 'database', '--once' => true, '--sleep' => 0])->assertSuccessful();
     expect(DB::table('jobs')->count())->toBe(0);
+    Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer synthetic-tenant-key'));
     app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], function () {
         expect(Run::query()->sole()->status)->toBe('collected')
-            ->and(UsageEvent::query()->count())->toBe(1);
+            ->and(UsageEvent::query()->count())->toBe(1)
+            ->and(UsageEvent::query()->sole()->billed_to)->toBe('byok');
     }));
 });
 

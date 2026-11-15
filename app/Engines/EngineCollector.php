@@ -151,10 +151,7 @@ final readonly class EngineCollector
                 language: $market->language,
                 city: $market->location_label,
                 runId: (string) $run->id,
-                apiKey: $apiKey ?? match ($run->engine_key) {
-                    'chatgpt_api', 'gemini_api' => config('engines.'.$run->engine_key.'.api_key'),
-                    default => null,
-                },
+                apiKey: $apiKey,
             ),
         );
     }
