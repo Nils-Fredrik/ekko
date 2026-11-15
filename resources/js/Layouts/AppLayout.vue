@@ -177,6 +177,12 @@ const logout = () => {
                                             {{ $t('anthropic_budget.title') }}
                                         </DropdownLink>
 
+                                        <DropdownLink
+                                            v-if="$page.props.auth.user.is_platform_admin"
+                                            :href="route('admin.billing.index')"
+                                        >
+                                            {{ $t('billing.title') }}
+                                        </DropdownLink>
                                         <DropdownLink :href="route('mcp.connections')">
                                             {{ $t('mcp.nav') }}
                                         </DropdownLink>
@@ -292,6 +298,14 @@ const logout = () => {
                         @click="menuOpen = false"
                     >
                         {{ $t('API Tokens') }}
+                    </Link>
+                    <Link
+                        v-if="$page.props.auth.user.is_platform_admin"
+                        :href="route('admin.billing.index')"
+                        class="rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('billing.title') }}
                     </Link>
                     <Link
                         :href="route('mcp.connections')"

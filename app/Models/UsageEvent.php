@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/** @property string $cost_usd Exact decimal:8 cast, never a binary float. */
 #[ObservedBy(AnthropicSpendObserver::class)]
 class UsageEvent extends Model
 {
