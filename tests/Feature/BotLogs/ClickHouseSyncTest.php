@@ -1,10 +1,13 @@
 <?php
 
+use App\Models\Alert;
+use App\Models\AlertRule;
 use App\Models\BotHitDaily;
 use App\Models\Brand;
 use App\Models\Integration;
 use App\Models\Team;
 use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -73,7 +76,7 @@ it('replaces one UTC day with fixture counts for each bot and domain', function 
                 ['news.site.example.test', 'claude_searchbot', 1, 1, [['hits' => 1, 'path' => '/']]],
                 ['site.example.test', 'gptbot', 3, 2, [['hits' => 2, 'path' => '/shop'], ['hits' => 1, 'path' => '/help']]],
             ]);
-        expect($integration->refresh()->status)->toBe('active')->and($integration->last_sync_at)->not->toBeNull();
+        expect($integration->refresh()->status)->toBe('synced')->and($integration->last_sync_at)->not->toBeNull();
     });
 
     $this->artisan('ekko:sync-bot-hits')->assertSuccessful();
@@ -105,7 +108,7 @@ it('preserves the previous snapshot and continues syncing unrelated tenants on f
             ->and(BotHitDaily::query()->sole()->hits)->toBe(7);
     });
     $context->run($teamB->id, function () use ($integrationB) {
-        expect($integrationB->refresh()->status)->toBe('active')
+        expect($integrationB->refresh()->status)->toBe('synced')
             ->and(BotHitDaily::query()->sole()->hits)->toBe(1);
     });
 });
@@ -138,4 +141,112 @@ it('discards results when the connection configuration changes during the fetch'
             ->and($integration->last_sync_at)->toBeNull()
             ->and(BotHitDaily::query()->exists())->toBeFalse();
     });
+});
+
+it('alerts once per local failure day after consecutive failures and isolates tenants', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-15 00:30:00', 'UTC'));
+    $teamA = Team::factory()->tenant()->create(['timezone' => 'America/Los_Angeles']);
+    $teamB = Team::factory()->tenant()->create();
+    $integrationA = clickHouseIntegration($teamA, 'a.example.test');
+    $integrationB = clickHouseIntegration($teamB, 'b.example.test');
+    $context = app(TenantContext::class);
+    $lastSuccess = now()->subDays(2);
+    $context->run($teamA->id, function () use ($integrationA, $lastSuccess) {
+        $integrationA->update(['last_sync_at' => $lastSuccess]);
+        BotHitDaily::factory()->create(['brand_id' => $integrationA->brand_id, 'date' => '2026-11-10', 'hits' => 7]);
+    });
+    Http::fake(['https://clickhouse.example.test:8443*' => function (Request $request) {
+        parse_str(parse_url($request->url(), PHP_URL_QUERY), $query);
+
+        return str_contains($query['param_domains'], 'a.example.test')
+            ? Http::response('synthetic-provider-error', 503)
+            : Http::response('');
+    }]);
+
+    $this->artisan('ekko:sync-bot-hits --date=2026-11-10')->assertFailed();
+    $this->artisan('ekko:sync-bot-hits --date=2026-11-10')->assertFailed();
+    $context->run($teamA->id, function () use ($integrationA) {
+        expect($integrationA->fresh()->last_failed_on->toDateString())->toBe('2026-11-14')
+            ->and(Alert::query()->count())->toBe(0);
+    });
+    $this->travel(1)->day();
+    $this->artisan('ekko:sync-bot-hits --date=2026-11-10')->assertFailed();
+    $this->artisan('ekko:sync-bot-hits --date=2026-11-10')->assertFailed();
+    $context->run($teamA->id, function () use ($integrationA, $teamA, $lastSuccess) {
+        $integration = $integrationA->fresh();
+        $alert = Alert::query()->sole();
+        expect($integration->status)->toBe('error')
+            ->and($integration->last_failed_on->toDateString())->toBe('2026-11-15')
+            ->and($integration->last_sync_at->equalTo($lastSuccess))->toBeTrue()
+            ->and(BotHitDaily::query()->sole()->hits)->toBe(7)
+            ->and($alert->tenant_id)->toBe($teamA->id)
+            ->and($alert->payload)->toEqual([
+                'integration_id' => $integrationA->id,
+                'integration_type' => 'clickhouse_logs',
+                'error_code' => 'sync_failed',
+            ]);
+        expect(AlertRule::query()->sole()->type)->toBe('integration_error');
+    });
+    $context->run($teamB->id, function () use ($integrationB) {
+        expect($integrationB->fresh()->status)->toBe('synced')
+            ->and($integrationB->fresh()->last_failed_on)->toBeNull()
+            ->and(Alert::query()->count())->toBe(0)
+            ->and(AlertRule::query()->count())->toBe(0);
+    });
+});
+
+it('breaks the failure streak after a skipped day or successful sync', function () {
+    $team = Team::factory()->tenant()->create();
+    $integration = clickHouseIntegration($team, 'site.example.test');
+    Http::fake(['https://clickhouse.example.test:8443*' => Http::sequence()
+        ->push('', 503)->push('', 503)->push('')->push('', 503)->push('', 503)]);
+    $this->artisan('ekko:sync-bot-hits')->assertFailed();
+    $this->travel(2)->days();
+    $this->artisan('ekko:sync-bot-hits')->assertFailed();
+    app(TenantContext::class)->run($team->id, fn () => expect(Alert::query()->count())->toBe(0));
+    $this->travel(1)->day();
+    $this->artisan('ekko:sync-bot-hits')->assertSuccessful();
+    app(TenantContext::class)->run($team->id, function () use ($integration) {
+        expect($integration->fresh()->status)->toBe('synced')
+            ->and($integration->fresh()->last_failed_on)->toBeNull();
+    });
+    $this->travel(1)->day();
+    $this->artisan('ekko:sync-bot-hits')->assertFailed();
+    app(TenantContext::class)->run($team->id, fn () => expect(Alert::query()->count())->toBe(0));
+    $this->travel(1)->day();
+    $this->artisan('ekko:sync-bot-hits')->assertFailed();
+    app(TenantContext::class)->run($team->id, fn () => expect(Alert::query()->count())->toBe(1));
+});
+
+it('reuses configured alert rules and respects disabled rules', function (bool $brandSpecific, bool $active) {
+    $team = Team::factory()->tenant()->create();
+    $integration = clickHouseIntegration($team, 'site.example.test');
+    $rule = app(TenantContext::class)->run($team->id, fn () => AlertRule::factory()->create([
+        'brand_id' => $brandSpecific ? $integration->brand_id : null,
+        'type' => 'integration_error', 'is_active' => $active,
+    ]));
+    Http::fake(['https://clickhouse.example.test:8443*' => Http::response('', 403)]);
+    $this->artisan('ekko:sync-bot-hits')->assertFailed();
+    $this->travel(1)->day();
+    $this->artisan('ekko:sync-bot-hits')->assertFailed();
+    app(TenantContext::class)->run($team->id, function () use ($rule, $active) {
+        expect(AlertRule::query()->count())->toBe(1)
+            ->and(Alert::query()->count())->toBe($active ? 1 : 0);
+        if ($active) {
+            expect(Alert::query()->sole()->alert_rule_id)->toBe($rule->id);
+        }
+    });
+})->with([[true, true], [false, true], [true, false], [false, false]]);
+
+it('records failures without re-reading broken encrypted configuration', function () {
+    $team = Team::factory()->tenant()->create();
+    $integration = clickHouseIntegration($team, 'site.example.test');
+    app(TenantContext::class)->run($team->id, fn () => Integration::query()->whereKey($integration->id)
+        ->update(['config' => json_encode('invalid-ciphertext')]));
+    Http::fake();
+    $this->artisan('ekko:sync-bot-hits')->assertFailed();
+    $this->travel(1)->day();
+    $this->artisan('ekko:sync-bot-hits')->assertFailed();
+    Http::assertNothingSent();
+    app(TenantContext::class)->run($team->id, fn () => expect(Alert::query()->sole()->payload['integration_id'])->toBe($integration->id));
 });

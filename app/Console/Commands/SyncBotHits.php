@@ -6,6 +6,7 @@ use App\BotLogs\BotHits;
 use App\BotLogs\BrandLogDomains;
 use App\BotLogs\ClickHouseBotHits;
 use App\BotLogs\ClickHouseSyncFailed;
+use App\Models\AlertRule;
 use App\Models\BotLogUpload;
 use App\Models\Brand;
 use App\Models\Integration;
@@ -17,6 +18,7 @@ use Illuminate\Console\Command;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
+use JsonException;
 
 final class SyncBotHits extends Command
 {
@@ -47,7 +49,7 @@ final class SyncBotHits extends Command
                 });
 
                 foreach ($integrationIds as $integrationId) {
-                    $ok = $rls->run([$team->id], fn (): bool => $this->sync($integrationId, $date, $clickHouse, $hits));
+                    $ok = $rls->run([$team->id], fn (): bool => $this->sync($integrationId, $date, CarbonImmutable::today($team->timezone), $clickHouse, $hits));
                     if (! $ok) {
                         $failed++;
                         Log::warning('ClickHouse bot hit sync failed.', ['tenant_id' => $team->id, 'integration_id' => $integrationId]);
@@ -59,7 +61,7 @@ final class SyncBotHits extends Command
         return $failed === 0 ? self::SUCCESS : self::FAILURE;
     }
 
-    private function sync(int $id, CarbonImmutable $date, ClickHouseBotHits $clickHouse, BotHits $hits): bool
+    private function sync(int $id, CarbonImmutable $date, CarbonImmutable $today, ClickHouseBotHits $clickHouse, BotHits $hits): bool
     {
         $integration = Integration::query()->where('type', 'clickhouse_logs')->find($id);
         if ($integration === null) {
@@ -79,7 +81,7 @@ final class SyncBotHits extends Command
             /** @var array<string, mixed> $settings */
             $settings = $integration->getAttribute('config');
             $rows = $clickHouse->forDay($settings, $date, $domains, config()->array('ekko.bot_logs.bots'));
-        } catch (ClickHouseSyncFailed|DecryptException) {
+        } catch (ClickHouseSyncFailed|DecryptException|JsonException) {
             $rows = null;
         }
 
@@ -94,15 +96,52 @@ final class SyncBotHits extends Command
         }
 
         if ($rows === null) {
-            $lockedIntegration->update(['status' => 'error']);
+            $this->recordFailure($lockedIntegration, $today);
 
             return false;
         }
 
         $hits->replace($lockedBrand, [$date->toDateString()], $rows);
-        $lockedIntegration->update(['status' => 'active', 'last_sync_at' => now()]);
+        Integration::query()->whereKey($lockedIntegration->id)->update([
+            'status' => 'synced', 'last_sync_at' => now(), 'last_failed_on' => null,
+        ]);
 
         return true;
+    }
+
+    private function recordFailure(Integration $integration, CarbonImmutable $today): void
+    {
+        $previousFailure = $integration->last_failed_on?->toDateString();
+        // The integration row is locked. Retries on the same local day cannot duplicate the alert.
+        // Update operational state directly so a broken encrypted config is never read again.
+        Integration::query()->whereKey($integration->id)->update([
+            'status' => 'error',
+            'last_failed_on' => $today->toDateString(),
+        ]);
+        if ($previousFailure !== $today->subDay()->toDateString()) {
+            return;
+        }
+
+        $rule = AlertRule::query()->where('type', 'integration_error')
+            ->where(fn ($query) => $query->where('brand_id', $integration->brand_id)->orWhereNull('brand_id'))
+            ->orderByRaw('brand_id IS NULL')->oldest('id')->first()
+            ?? AlertRule::query()->create([
+                'brand_id' => $integration->brand_id,
+                'type' => 'integration_error',
+                'channels' => ['in_app'],
+                'is_active' => true,
+            ]);
+
+        if ($rule->is_active) {
+            $rule->alerts()->create([
+                'triggered_at' => now(),
+                'payload' => [
+                    'integration_id' => $integration->id,
+                    'integration_type' => 'clickhouse_logs',
+                    'error_code' => 'sync_failed',
+                ],
+            ]);
+        }
     }
 
     private function date(): CarbonImmutable
