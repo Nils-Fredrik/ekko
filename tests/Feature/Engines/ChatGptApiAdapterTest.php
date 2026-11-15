@@ -34,7 +34,7 @@ it('collects a fresh localized Responses request and preserves provider annotati
     Engine::factory()->create(['key' => 'chatgpt_api', 'model_id' => 'gpt-5-mini-2025-08-07']);
 
     $adapter = app(EngineRegistry::class)->resolve('chatgpt_api');
-    $market = Market::factory()->make(['country' => $country, 'language' => $language, 'location_label' => $city]);
+    $market = new Market(['country' => $country, 'language' => $language, 'location_label' => $city]);
 
     expect($adapter)->toBeInstanceOf(ChatGptApiAdapter::class)
         ->and($adapter->supports($market))->toBeTrue();
