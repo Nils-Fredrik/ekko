@@ -239,6 +239,46 @@ final class MetricsService
     }
 
     /**
+     * Share of voice split between the brand and each active competitor (docs/spec.md 9.1).
+     * Mentions come from agg_daily. The denominator is the brand plus those competitors, so the
+     * parts sum to the same share of voice as summary().
+     *
+     * @return list<array{id: string, name: string|null, mentions: int, share: float|null, n: int}>
+     */
+    public function voiceParts(MetricsFilter $filter): array
+    {
+        $responses = (int) $this->dailyQuery($filter)->sum('agg_daily.responses');
+        $brandMentions = (int) $this->dailyQuery($filter)->sum('agg_daily.brand_mentioned');
+        $parts = [[
+            'id' => 'brand',
+            'name' => null,
+            'mentions' => $brandMentions,
+        ]];
+
+        $competitors = Competitor::query()
+            ->where('brand_id', $filter->brandId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        foreach ($competitors as $competitor) {
+            $parts[] = [
+                'id' => (string) $competitor->id,
+                'name' => $competitor->name,
+                'mentions' => $this->competitorMentions($filter, $competitor->id),
+            ];
+        }
+
+        $total = array_sum(array_column($parts, 'mentions'));
+
+        return array_map(fn (array $part): array => [
+            ...$part,
+            'share' => Formulas::ratio($part['mentions'], $total),
+            'n' => $responses,
+        ], $parts);
+    }
+
+    /**
      * Model change markers (docs/spec.md 7.5) in the period, oldest first, optionally for some engines.
      *
      * @param  list<string>  $engineKeys
@@ -253,6 +293,14 @@ final class MetricsService
             ->when($engineKeys !== [], fn (Builder $query) => $query->whereIn('engine_key', $engineKeys))
             ->orderBy('changed_on')->orderBy('engine_key')
             ->get();
+    }
+
+    private function competitorMentions(MetricsFilter $filter, int $competitorId): int
+    {
+        return (int) $this->dailyQuery($filter)->toBase()->selectRaw(
+            "coalesce(sum((case when jsonb_typeof(agg_daily.competitor_mentions) = 'object' then agg_daily.competitor_mentions->>? else null end)::bigint), 0) as mentions",
+            [(string) $competitorId],
+        )->value('mentions');
     }
 
     /**
