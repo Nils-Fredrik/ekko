@@ -10,5 +10,3 @@ Les og følg `AGENTS.md` (arbeidsflyt, regler og lokalt oppsett) og `docs/spec.m
 Modell: Grok 4.7.
 
 Din mappe er `~/kode/ekko-cursor`, database `ekko_cursor`, porter 8002 og 5175.
-
-Når du åpner eller oppdaterer en PR, kommenter `@codex review` på PR-en slik at Codex gjør review. Gjør det også for følsomme endringer og når workflowen i `docs/spec.md` 19.5 ikke har kjørt av seg selv.
