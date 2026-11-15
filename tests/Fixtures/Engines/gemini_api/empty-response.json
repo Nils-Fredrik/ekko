@@ -1,0 +1,6 @@
+{
+    "promptFeedback": {"blockReason": "SAFETY"},
+    "usageMetadata": {"promptTokenCount": 21, "totalTokenCount": 21},
+    "modelVersion": "gemini-3.8-flash",
+    "responseId": "fixture-blocked"
+}
