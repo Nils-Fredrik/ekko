@@ -10,10 +10,15 @@ use DOMXPath;
 /**
  * The parts of a fetched HTML page the wizard needs: readable text, title, description and links. The page is
  * untrusted. It is parsed without network access, scripts and styles are dropped, and the text is cut to a
- * fixed length. Nothing is executed or rendered.
+ * fixed length. The title and description are cut too, so a page cannot inflate the model input through them.
+ * Nothing is executed or rendered.
  */
 final readonly class HtmlPage
 {
+    public const MAX_TITLE_CHARS = 300;
+
+    public const MAX_DESCRIPTION_CHARS = 500;
+
     /**
      * @param  list<string>  $navigationLinks  links in <nav> and <header>, in page order
      * @param  list<string>  $links  all other links, in page order
@@ -36,10 +41,10 @@ final readonly class HtmlPage
 
         $xpath = new DOMXPath($document);
 
-        $title = self::clean($xpath->evaluate('string(//title)'));
+        $title = mb_substr(self::clean($xpath->evaluate('string(//title)')), 0, self::MAX_TITLE_CHARS);
         $description = '';
         foreach ($xpath->query('//meta[translate(@name, "DESCRIPTION", "description")="description"]/@content') ?: [] as $node) {
-            $description = self::clean($node->nodeValue ?? '');
+            $description = mb_substr(self::clean($node->nodeValue ?? ''), 0, self::MAX_DESCRIPTION_CHARS);
             break;
         }
 

@@ -215,6 +215,15 @@ it('cuts the text of a page and never executes or keeps scripts and styles', fun
         ->and(mb_strlen($parsed->text))->toBeLessThanOrEqual(6000);
 });
 
+it('cuts a huge title and description too, so they cannot inflate the model input', function () {
+    $html = page(str_repeat('T', 1_200_000), '<p>Avsnitt</p>', '<meta name="description" content="'.str_repeat('D', 600_000).'">');
+    $parsed = HtmlPage::parse($html, 'https://eksempel.no/', 6000);
+
+    expect(mb_strlen($parsed->title))->toBe(HtmlPage::MAX_TITLE_CHARS)
+        ->and(mb_strlen($parsed->description))->toBe(HtmlPage::MAX_DESCRIPTION_CHARS)
+        ->and($parsed->text)->toBe('Avsnitt');
+});
+
 it('survives broken markup and binary junk', function () {
     $parsed = HtmlPage::parse("<p>uten slutt <b>fet <a href='/x'>lenke</p></div><<>>\x00\xff\xfe", 'https://eksempel.no/', 6000);
 
