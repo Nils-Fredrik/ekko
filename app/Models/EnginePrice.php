@@ -7,6 +7,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property string $price_per_call_usd
+ * @property string $price_per_1k_input_tokens_usd
+ * @property string $price_per_1k_output_tokens_usd
+ * @property string $price_per_search_usd
+ */
 class EnginePrice extends Model
 {
     /** @use HasFactory<EnginePriceFactory> */

@@ -1,6 +1,7 @@
 locals {
   scheduled_jobs = var.enable_workloads ? {
     dispatch        = { schedule = "0 1 * * *", job = "dispatch", args = [] }
+    usage_rollup    = { schedule = "0 * * * *", job = "task", args = ["php artisan ekko:usage-rollup"] }
     aggregate       = { schedule = "0 * * * *", job = "task", args = ["php artisan ekko:aggregate --sync"] }
     log_sync        = { schedule = "0 4 * * *", job = "task", args = ["php artisan ekko:sync-bot-hits && php artisan ekko:sync-ga4"] }
     weekly_reports  = { schedule = "30 6 * * 1", job = "task", args = ["php artisan ekko:send-reports"] }
@@ -8,8 +9,12 @@ locals {
   } : {}
   ticks = var.enable_workloads ? {
     extraction-poll = "*/15 * * * *"
-    usage-rollup    = "0 * * * *"
   } : {}
+}
+
+moved {
+  from = google_cloud_scheduler_job.tick["usage-rollup"]
+  to   = google_cloud_scheduler_job.job["usage_rollup"]
 }
 
 resource "google_cloud_scheduler_job" "job" {

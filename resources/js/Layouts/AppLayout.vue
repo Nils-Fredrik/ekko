@@ -76,6 +76,9 @@ const logout = () => {
                                 <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
                                     {{ $t('Dashboard') }}
                                 </NavLink>
+                                <NavLink :href="route('brands.index')" :active="route().current('brands.*')">
+                                    {{ $t('app.nav.brands') }}
+                                </NavLink>
                             </div>
                         </div>
 
@@ -262,6 +265,14 @@ const logout = () => {
                         @click="menuOpen = false"
                     >
                         {{ $t('Dashboard') }}
+                    </Link>
+                    <Link
+                        :href="route('brands.index')"
+                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
+                        :class="route().current('brands.*') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'"
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('app.nav.brands') }}
                     </Link>
                     <Link
                         :href="route('profile.show')"

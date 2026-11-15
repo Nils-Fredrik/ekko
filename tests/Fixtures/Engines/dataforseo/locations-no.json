@@ -1,0 +1,24 @@
+{
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "tasks": [
+    {
+      "id": "11150800-0000-0000-0000-123456789abc",
+      "status_code": 20000,
+      "result": [
+        {
+          "location_code": 2578,
+          "location_name": "Norway",
+          "country_iso_code": "NO",
+          "location_type": "Country"
+        },
+        {
+          "location_code": 1010952,
+          "location_name": "Oslo,Oslo,Norway",
+          "country_iso_code": "NO",
+          "location_type": "City"
+        }
+      ]
+    }
+  ]
+}

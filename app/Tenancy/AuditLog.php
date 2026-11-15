@@ -53,6 +53,14 @@ final class AuditLog
         $this->record($tenant, 'member.removed', $by, $member, ['role' => $role]);
     }
 
+    public function byokBudgetChanged(User $by, Team $tenant, ?string $previous): void
+    {
+        $this->record($tenant, 'byok.budget_changed', $by, null, [
+            'from' => $previous,
+            'to' => $tenant->monthly_byok_budget_usd,
+        ]);
+    }
+
     /**
      * A change made through the Claude connection (MCP, docs/spec.md 15.2). The changed rows also have their own
      * revisions (RecordsRevisions); this entry says that Claude made them, with which tool and connection.

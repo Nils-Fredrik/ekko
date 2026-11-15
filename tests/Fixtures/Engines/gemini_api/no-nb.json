@@ -1,0 +1,42 @@
+{
+    "candidates": [
+        {
+            "content": {
+                "parts": [
+                    {"text": "Eksempel på et tankesammendrag.", "thought": true},
+                    {"text": "Besøk Fjordparken i Oslo."},
+                    {"text": "\nKystmuseet er et annet alternativ."}
+                ],
+                "role": "model"
+            },
+            "finishReason": "STOP",
+            "index": 0,
+            "groundingMetadata": {
+                "webSearchQueries": ["Fjordparken Oslo", "Kystmuseet Oslo", "Fjordparken Oslo", ""],
+                "searchEntryPoint": {"renderedContent": "<div>Illustrativt søkeforslag</div>"},
+                "groundingChunks": [
+                    {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/fixture", "title": "www.Fjordparken.test"}},
+                    {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/duplicate", "title": "fjordparken.test"}},
+                    {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/unknown", "title": "En tittel uten domenenavn"}},
+                    {"web": {"uri": "https://example.test/kystmuseet"}},
+                    {"web": {"uri": "https://example.test/kystmuseet"}},
+                    {"web": {"uri": "ftp://example.test/uventet-kilde", "title": "Uventet kilde"}}
+                ],
+                "groundingSupports": [
+                    {
+                        "segment": {"partIndex": 1, "endIndex": 24, "text": "Besøk Fjordparken i Oslo."},
+                        "groundingChunkIndices": [0]
+                    }
+                ]
+            }
+        }
+    ],
+    "usageMetadata": {
+        "promptTokenCount": 41,
+        "candidatesTokenCount": 24,
+        "thoughtsTokenCount": 16,
+        "totalTokenCount": 81
+    },
+    "modelVersion": "gemini-3.8-flash",
+    "responseId": "fixture-no-nb"
+}
