@@ -51,7 +51,10 @@ final class GoldSetEvaluator
         $deterministic = [];
         foreach ($gold['responses'] as $response) {
             $deterministic[$response['id']] = $this->matcher->detect($response['text'], $aliases);
-            $requests[$response['id']] = $this->prompts->build($response['id'], $response['text'], $response['language'], $aliases, $deterministic[$response['id']]);
+            $requests[$response['id']] = $this->prompts->build(
+                $response['id'], $response['text'], $response['language'], $aliases, $deterministic[$response['id']],
+                array_column($response['citations'], 'url'),
+            );
         }
 
         $attempts = [];

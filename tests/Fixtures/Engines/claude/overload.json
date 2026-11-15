@@ -1,0 +1,5 @@
+{
+    "type": "error",
+    "error": {"type": "overloaded_error", "message": "Synthetic overload error."},
+    "request_id": "req_fixture_overload"
+}

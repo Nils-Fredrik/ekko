@@ -270,20 +270,31 @@ it('lets annotated citations win and only adds source_type to them', function ()
             'response_id' => $response->id, 'url' => 'https://www.dagbladet.no/test?utm_source=chatgpt', 'url_normalized' => 'https://dagbladet.no/test',
             'domain' => 'dagbladet.no', 'ownership' => 'third_party', 'from_annotation' => true, 'rank_in_answer' => 1,
         ]);
+        // A source the engine gave that the answer text never writes out: the model only sees it in sources.
+        Citation::query()->create([
+            'response_id' => $response->id, 'url' => 'https://www.trustpilot.com/review/fjordkaffe.no', 'url_normalized' => 'https://trustpilot.com/review/fjordkaffe.no',
+            'domain' => 'trustpilot.com', 'ownership' => 'third_party', 'from_annotation' => true, 'rank_in_answer' => 2,
+        ]);
     });
-    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => entry(
+    $client = new FakeExtractionClient(fn (string $id): array => entry(
         [reported('Fjordkaffe', 'brand', $a['brand'], false)],
-        [['url' => 'https://www.dagbladet.no/test', 'source_type' => 'news'], ['url' => 'https://example.org/other', 'source_type' => 'forum']],
-    )));
+        [
+            ['url' => 'https://www.dagbladet.no/test', 'source_type' => 'news'],
+            ['url' => 'https://example.org/other', 'source_type' => 'forum'],
+            ['url' => 'https://www.trustpilot.com/review/fjordkaffe.no', 'source_type' => 'review'],
+        ],
+    ));
+    app()->instance(ExtractionClient::class, $client);
 
     dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
     dispatch_sync(new PollExtractionBatch($a['tenant']->id, ExtractionJob::query()->withoutGlobalScopes()->sole()->id));
 
+    expect($client->requests[0]->user)->toContain('sources:'."\n".'["https://www.dagbladet.no/test?utm_source=chatgpt","https://www.trustpilot.com/review/fjordkaffe.no"]');
     app(TenantContext::class)->run($a['tenant']->id, function () use ($response) {
-        $citations = Citation::query()->where('response_id', $response->id)->get();
-        expect($citations)->toHaveCount(1)
-            ->and($citations[0]->from_annotation)->toBeTrue()
-            ->and($citations[0]->source_type)->toBe('news');
+        $citations = Citation::query()->where('response_id', $response->id)->orderBy('rank_in_answer')->get();
+        expect($citations)->toHaveCount(2)
+            ->and($citations->pluck('from_annotation')->all())->toBe([true, true])
+            ->and($citations->pluck('source_type')->all())->toBe(['news', 'review']);
     });
 });
 
