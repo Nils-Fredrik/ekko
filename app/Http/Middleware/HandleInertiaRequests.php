@@ -41,6 +41,11 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'locale' => app()->getLocale(),
+            // Providers with credentials; the login page shows a button for each.
+            'ssoProviders' => fn () => array_values(array_filter(
+                config('ekko.sso_providers'),
+                fn (string $provider) => filled(config("services.{$provider}.client_id")) && filled(config("services.{$provider}.client_secret")),
+            )),
             'actingAs' => fn () => $this->actingAs($request),
         ];
     }

@@ -1,11 +1,18 @@
 <?php
 
 use App\Http\Controllers\Admin\ActingAsController;
+use App\Http\Controllers\Auth\SocialLoginController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // No public landing page: guests are sent to the login page by the auth middleware.
 Route::redirect('/', '/dashboard')->name('home');
+
+// Login with Google (docs/spec.md 5.4). Guests only, rate limited per IP.
+Route::middleware(['guest', 'throttle:sso'])->prefix('auth/{provider}')->whereIn('provider', config('ekko.sso_providers'))->group(function () {
+    Route::get('redirect', [SocialLoginController::class, 'redirect'])->name('social.redirect');
+    Route::get('callback', [SocialLoginController::class, 'callback'])->name('social.callback');
+});
 
 Route::middleware([
     'auth:sanctum',

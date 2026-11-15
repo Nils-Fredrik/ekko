@@ -53,7 +53,7 @@ test('a tenant admin cannot add or invite someone as partner advisor', function 
 });
 
 test('a partner advisor can give the partner advisor role', function () {
-    $advisor = User::factory()->create();
+    $advisor = User::factory()->withTwoFactor()->create();
     $this->tenant->users()->attach($advisor, ['role' => 'partner_advisor']);
 
     $this->actingAs($advisor)->put("/teams/{$this->tenant->id}/members/{$this->target->id}", ['role' => 'partner_advisor']);

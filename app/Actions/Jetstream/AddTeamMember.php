@@ -10,6 +10,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Laravel\Jetstream\Contracts\AddsTeamMembers;
 use Laravel\Jetstream\Events\AddingTeamMember;
 use Laravel\Jetstream\Events\TeamMemberAdded;
@@ -24,6 +25,9 @@ class AddTeamMember implements AddsTeamMembers
     public function add(User $user, Team $team, string $email, ?string $role = null): void
     {
         Gate::forUser($user)->authorize('addTeamMember', $team);
+
+        // Case-insensitive: an invitation for "Ann@x.no" is for the user "ann@x.no".
+        $email = Str::lower($email);
 
         $this->validate($team, $email, $role);
 
@@ -40,7 +44,7 @@ class AddTeamMember implements AddsTeamMembers
             throw new AuthorizationException;
         }
 
-        $newTeamMember = Jetstream::findUserByEmailOrFail($email);
+        $newTeamMember = User::query()->whereRaw('lower(email) = ?', [$email])->firstOrFail();
 
         AddingTeamMember::dispatch($team, $newTeamMember);
 
@@ -53,7 +57,7 @@ class AddTeamMember implements AddsTeamMembers
 
     private function isInvited(Team $team, string $email, string $role): bool
     {
-        return $team->teamInvitations()->where('email', $email)->where('role', $role)->exists();
+        return $team->teamInvitations()->whereRaw('lower(email) = ?', [$email])->where('role', $role)->exists();
     }
 
     /**
@@ -64,9 +68,7 @@ class AddTeamMember implements AddsTeamMembers
         Validator::make([
             'email' => $email,
             'role' => $role,
-        ], $this->rules(), [
-            'email.exists' => __('We were unable to find a registered user with this email address.'),
-        ])->after(
+        ], $this->rules())->after(
             $this->ensureUserIsNotAlreadyOnTeam($team, $email)
         )->validateWithBag('addTeamMember');
     }
@@ -79,7 +81,11 @@ class AddTeamMember implements AddsTeamMembers
     protected function rules(): array
     {
         return array_filter([
-            'email' => ['required', 'email', 'exists:users'],
+            'email' => ['required', 'email', function (string $attribute, mixed $value, Closure $fail) {
+                if (! User::query()->whereRaw('lower(email) = ?', [Str::lower((string) $value)])->exists()) {
+                    $fail(__('We were unable to find a registered user with this email address.'));
+                }
+            }],
             'role' => Jetstream::hasRoles()
                             ? ['required', 'string', new Role]
                             : null,

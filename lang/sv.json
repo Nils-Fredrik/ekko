@@ -377,5 +377,8 @@
     "You may delete any of your existing tokens if they are no longer needed.": "Du kan ta bort någon av dina befintliga tokens om de inte längre behövs.",
     "You may not delete your personal team.": "Du får inte radera ditt personliga team.",
     "You may not leave a team that you created.": "Du får inte lämna ett lag som du skapat.",
-    "Your email address is unverified.": "Din e-postadress är overifierad."
+    "Your email address is unverified.": "Din e-postadress är overifierad.",
+    "Log in with :provider": "Logga in med :provider",
+    "or with email and password": "eller med e-post och lösenord",
+    "Email Verification": "Bekräfta e-post"
 }

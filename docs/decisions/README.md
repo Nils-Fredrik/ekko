@@ -15,3 +15,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0005](0005-isolasjonstestsuite.md) | Isolasjonstestsuite med ruteregister | Akseptert |
 | [0006](0006-tenant-eide-tabellrelasjoner.md) | Fremmednøkler for tenant-eide data | Akseptert |
 | [0007](0007-terraform-oppstart-og-deploy.md) | Terraform, databasebrukere og deployansvar | Akseptert |
+| [0008](0008-innlogging-og-invitasjoner.md) | Innlogging med Google, invitasjoner og tofaktor | Akseptert |

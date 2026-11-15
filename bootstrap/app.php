@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\ApplyTenantRls;
+use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetCurrentTenant;
 use Illuminate\Foundation\Application;
@@ -17,7 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->alias(['two-factor.required' => EnsureTwoFactorEnabled::class]);
+
         $middleware->web(append: [
+            EnsureTwoFactorEnabled::class,
             SetCurrentTenant::class,
             ApplyTenantRls::class,
             HandleInertiaRequests::class,

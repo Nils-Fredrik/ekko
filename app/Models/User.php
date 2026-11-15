@@ -2,21 +2,24 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\TenantRole;
 use App\Tenancy\TenantAccess;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Jetstream\HasTeams;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable
+class User extends Authenticatable implements MustVerifyEmail
 {
     use HasApiTokens;
 
@@ -60,9 +63,43 @@ class User extends Authenticatable
         'profile_photo_url',
     ];
 
+    /**
+     * E-mail addresses are stored trimmed and lower case, so lookups and uniqueness do not depend
+     * on case (ADR 0008).
+     *
+     * @return Attribute<string, string>
+     */
+    protected function email(): Attribute
+    {
+        return Attribute::make(set: fn (string $value): string => Str::lower(trim($value)));
+    }
+
     public function isPlatformAdmin(): bool
     {
         return $this->is_platform_admin === true;
+    }
+
+    /**
+     * Whether this user must use two-factor authentication: the platform admin and partner
+     * advisors (docs/spec.md 5.4). Optional for everyone else.
+     */
+    public function requiresTwoFactor(): bool
+    {
+        return $this->isPlatformAdmin()
+            || $this->teams()->wherePivot('role', TenantRole::PartnerAdvisor->value)->exists();
+    }
+
+    public function hasConfirmedTwoFactor(): bool
+    {
+        return $this->two_factor_secret !== null && $this->two_factor_confirmed_at !== null;
+    }
+
+    /**
+     * @return HasMany<SocialAccount, $this>
+     */
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
     }
 
     /**

@@ -17,7 +17,7 @@ beforeEach(function () {
     $this->client = Team::factory()->clientOf($this->partner)->create(['name' => 'Client']);
     $this->unrelated = Team::factory()->tenant()->create(['name' => 'Unrelated']);
 
-    $this->advisor = User::factory()->create();
+    $this->advisor = User::factory()->withTwoFactor()->create();
     $this->partner->users()->attach($this->advisor, ['role' => 'partner_advisor']);
 });
 

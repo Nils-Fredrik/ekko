@@ -86,7 +86,7 @@ flowchart LR
 
 Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lokalt mot fixtures, og nye versjoner verifiseres i produksjon før de får trafikk (17.2).
 
-**Adresse:** Ekko nås på Cloud Run-adressen til `ekko-web` (`*.run.app`). Den samme adressen brukes i OAuth-klientene (Google, Microsoft og MCP) og som `APP_URL`. Et eget domene kan kobles på senere ved å endre `APP_URL` og redirect-adressene i OAuth-klientene.
+**Adresse:** Ekko nås på Cloud Run-adressen til `ekko-web` (`*.run.app`). Den samme adressen brukes i OAuth-klientene (Google og MCP) og som `APP_URL`. Et eget domene kan kobles på senere ved å endre `APP_URL` og redirect-adressene i OAuth-klientene.
 
 
 | Komponent | Tjeneste | Konfigurasjon |
@@ -125,7 +125,7 @@ Stakken følger Varde. Agentene har lesetilgang til Varde-repoet (https://github
 | Database | PostgreSQL 16 |
 | Kø og cache | Laravel `database`-driver |
 | MCP | `laravel/mcp` med OAuth via Laravel Passport, samme mønster som Varde (`Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`) |
-| Innlogging | Jetstream (e-post og passord, 2FA) og Socialite (Google og Microsoft) |
+| Innlogging | Jetstream (e-post og passord, 2FA) og Socialite (Google) |
 | PDF | `spatie/laravel-pdf` med Chromium i worker-imaget |
 | Revisjonslogg | `spatie/laravel-activitylog` |
 | Funksjonsflagg | Laravel Pennant, med flagg per tenant |
@@ -205,8 +205,8 @@ Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
 ### 5.4 Innlogging
 
 - **E-post og passord** via Jetstream. 2FA er påkrevd for plattformadmin og partner-rådgivere og valgfritt for andre.
-- **Google og Microsoft** via Socialite. En Google- eller Microsoft-konto kobles til en eksisterende invitert bruker basert på e-postadresse. Det finnes ingen åpen registrering.
-- **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager.
+- **Google** via Socialite. En Google-konto kobles til en eksisterende invitert bruker basert på verifisert e-postadresse. Det finnes ingen åpen registrering. Microsoft er utsatt (eierens beslutning 2026-11-14); hva som kreves når den kommer, står i `docs/decisions/0008-innlogging-og-invitasjoner.md`.
+- **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager, kontrollert på serveren. Den kan bare godtas av en innlogget bruker med samme, bekreftede e-postadresse. Å endre e-postadressen krever ny bekreftelse. En Google-konto med en gyldig invitasjon får opprettet brukeren og godtar invitasjonene (ellers ingen bruker). Kontoer kobles til eksisterende brukere bare når leverandøren har verifisert e-posten og brukerens egen adresse er bekreftet. Detaljer i `docs/decisions/0008-innlogging-og-invitasjoner.md`.
 - **Tenant-velger:** brukere med flere tenants bytter mellom dem i toppmenyen, som Jetstreams team-switcher. Valgt tenant lagres på brukeren.
 - **Sesjon:** samme oppsett som Varde, med `__Host-`-prefiks på sesjonscookien, `secure` og `samesite=lax`.
 
@@ -681,7 +681,7 @@ Ekko skal se ut og oppføre seg som Varde og Borg. Tokenene under er hentet fra 
 
 | Komponent | Innhold |
 |---|---|
-| `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google», «Logg inn med Microsoft» |
+| `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google» |
 | `Pages/Home.vue` | Oversikt for valgt tenant: nøkkeltall per merkevare, siste varsler, neste planlagte kjøringer, forbruk mot kvote |
 | `Pages/Partner/Index.vue` | For partner-rådgivere: alle kunde-tenants med synlighet, endring og varsler i én tabell |
 | `Pages/Brands/Index.vue` | Merkevarer med status og markeder |
@@ -1113,7 +1113,7 @@ Rammeverk som automatisk itererer over alle registrerte ruter, API-endepunkter o
 - En ny rute uten policy får CI til å feile.
 
 ### T07 – Innlogging og invitasjoner
-Socialite for Google og Microsoft med kobling mot inviterte brukere, påkrevd 2FA for admin og partner, og innloggingsbegrensning.
+Socialite for Google med kobling mot inviterte brukere (Microsoft utsatt, ADR 0008), påkrevd 2FA for admin og partner, og innloggingsbegrensning.
 - En uinvitert Google-konto får ikke tilgang.
 - Invitasjoner utløper etter 7 dager.
 
@@ -1269,6 +1269,6 @@ Workflowen `agent-review.yml`, `.github/review-paths.yml`, status-sjekken `agent
 | A2 | Repo | https://github.com/Nils-Fredrik/ekko. Varde (https://github.com/Nils-Fredrik/varde) brukes som referanse med lesetilgang for agentene (4.1). |
 | A3 | Google Cloud | Prosjekt `ekko-514612` er opprettet. |
 | A4 | Leverandørkontoer og API-nøkler: Anthropic (organisasjonen med Team-abonnementet), Perplexity og DataForSEO. OpenAI og Google (Gemini API) kun for valgfrie API-motorer. | Avklares underveis. Forutsetning for T12–T16. |
-| A5 | App-registrering for Google- og Microsoft-innlogging | Avklares underveis. Forutsetning for T07. |
+| A5 | App-registrering for Google-innlogging | Avklares underveis. Forutsetning for å ta T07 i bruk. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0008). |
 | A6 | E-posttjeneste og avsenderadresse for varsler og rapporter | Avklares underveis. Forutsetning for T24 og T32. |
 | A7 | Startpriser og påslag per pakke | Avklares underveis. Forutsetning for T19 og T31. |

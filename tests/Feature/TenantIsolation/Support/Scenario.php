@@ -48,10 +48,11 @@ final class Scenario
         $s->adminA->switchTeam($s->tenantA);
 
         $s->clientOfA = Team::factory()->clientOf($s->tenantA)->create(['name' => 'Client of A']);
-        $s->platformAdmin = User::factory()->platformAdmin()->withPersonalTeam()->create();
+        $s->platformAdmin = User::factory()->platformAdmin()->withPersonalTeam()->withTwoFactor()->create();
 
         foreach (['admin', 'partner_advisor', 'editor', 'reader'] as $role) {
-            $member = User::factory()->withPersonalTeam()->create();
+            // Partner advisors must have two-factor authentication to reach anything (T07).
+            $member = User::factory()->withPersonalTeam()->withTwoFactor($role === 'partner_advisor')->create();
             $s->tenantA->users()->attach($member, ['role' => $role]);
             $member->switchTeam($s->tenantA);
             $s->membersA[$role] = $member->fresh();
