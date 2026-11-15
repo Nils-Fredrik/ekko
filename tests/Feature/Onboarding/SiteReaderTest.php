@@ -186,7 +186,7 @@ it('refuses a front page on a host that resolves to a private address', function
         ->and($transport->requests)->toBe([]);
 });
 
-it('ignores a sitemap with a document type, an index, or broken XML', function (string $body) {
+it('ignores a sitemap that is empty, has a document type, is an index, or is broken XML', function (string $body) {
     [$reader] = reader([
         'https://eksempel.no/' => FakePageTransport::html(page('Forside', '<nav><a href="/fra-navigasjon">Nav</a></nav>')),
         'https://eksempel.no/sitemap.xml' => FakePageTransport::html($body, 'text/xml'),
@@ -200,6 +200,8 @@ it('ignores a sitemap with a document type, an index, or broken XML', function (
     'external entity' => '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY xxe SYSTEM "file:///etc/passwd">]><urlset><url><loc>https://eksempel.no/fra-sitemap</loc></url></urlset>',
     'index' => '<?xml version="1.0"?><sitemapindex><sitemap><loc>https://eksempel.no/fra-sitemap</loc></sitemap></sitemapindex>',
     'broken' => '<urlset><url><loc>https://eksempel.no/fra-sitemap</loc></url>',
+    'empty' => '',
+    'only whitespace' => "  \n ",
 ]);
 
 it('cuts the text of a page and never executes or keeps scripts and styles', function () {

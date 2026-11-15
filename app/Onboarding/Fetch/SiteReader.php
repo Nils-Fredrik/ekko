@@ -80,8 +80,9 @@ final class SiteReader
             return [];
         }
 
-        // A sitemap is plain data. A document type declaration is how entity expansion attacks start, so it is refused.
-        if (preg_match('/<!(DOCTYPE|ENTITY)/i', $sitemap->body) === 1) {
+        // An empty sitemap counts as none (loadXML() throws on an empty string). A sitemap is plain data. A document
+        // type declaration is how entity expansion attacks start, so it is refused.
+        if (trim($sitemap->body) === '' || preg_match('/<!(DOCTYPE|ENTITY)/i', $sitemap->body) === 1) {
             return [];
         }
         $document = new DOMDocument;
