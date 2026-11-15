@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    // Single sign-on (docs/spec.md 5.4). Credentials only through the environment; see .env.example.
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+    ],
+
 ];

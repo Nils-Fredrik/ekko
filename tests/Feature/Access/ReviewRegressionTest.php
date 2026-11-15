@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\URL;
 test('an invitation as partner advisor, sent by a partner advisor, can be accepted', function () {
     Mail::fake();
     $partner = Team::factory()->tenant()->create();
-    $advisor = User::factory()->create();
+    $advisor = User::factory()->withTwoFactor()->create();
     $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
     $invitee = User::factory()->withPersonalTeam()->create();
 
@@ -51,7 +51,7 @@ test('switchTeam refuses null', function () {
 test('the switcher hides clients of a closed partner, so it never lists a tenant that cannot be opened', function () {
     $partner = Team::factory()->tenant()->create(['name' => 'Partner']);
     $client = Team::factory()->clientOf($partner)->create(['name' => 'Client']);
-    $advisor = User::factory()->create();
+    $advisor = User::factory()->withTwoFactor()->create();
     $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
 
     $partner->forceFill(['status' => 'closed'])->save();
@@ -64,7 +64,7 @@ test('the switcher hides clients of a closed partner, so it never lists a tenant
 test('a partner advisor stays tenant admin in a client, also with a lower membership role there', function (string $role) {
     $partner = Team::factory()->tenant()->create();
     $client = Team::factory()->clientOf($partner)->create();
-    $advisor = User::factory()->create();
+    $advisor = User::factory()->withTwoFactor()->create();
     $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
     $client->users()->attach($advisor, ['role' => $role]);
 
@@ -131,7 +131,7 @@ test('a user who owns only a personal team can still delete the account', functi
 test('an old partner advisor invitation cannot be accepted after the tenant became a client', function () {
     Mail::fake();
     $tenant = Team::factory()->tenant()->create();
-    $advisor = User::factory()->create();
+    $advisor = User::factory()->withTwoFactor()->create();
     $tenant->users()->attach($advisor, ['role' => 'partner_advisor']);
     $invitee = User::factory()->withPersonalTeam()->create();
 
@@ -152,7 +152,7 @@ test('the switcher uses a fixed number of queries, however many client tenants t
     $queriesFor = function (int $clients): int {
         $partner = Team::factory()->tenant()->create();
         Team::factory()->count($clients)->clientOf($partner)->create();
-        $advisor = User::factory()->create();
+        $advisor = User::factory()->withTwoFactor()->create();
         $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
         $advisor = $advisor->fresh();
         app(TenantAccess::class)->flush();

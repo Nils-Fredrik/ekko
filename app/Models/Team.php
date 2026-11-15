@@ -187,4 +187,14 @@ class Team extends JetstreamTeam
             'byok_enabled' => 'boolean',
         ];
     }
+
+    /**
+     * Case-insensitive, unlike Jetstream's: addresses are compared the same way everywhere.
+     *
+     * @param  string  $email
+     */
+    public function hasUserWithEmail($email): bool
+    {
+        return $this->allUsers()->contains(fn ($user) => strcasecmp((string) $user->email, $email) === 0);
+    }
 }

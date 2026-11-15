@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Jetstream;
 
 use App\Models\TeamInvitation;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Laravel\Jetstream\Http\Controllers\TeamInvitationController as JetstreamTeamInvitationController;
@@ -20,8 +21,28 @@ class TeamInvitationController extends JetstreamTeamInvitationController
     {
         $invitation = TeamInvitation::query()->whereKey($invitationId)->firstOrFail();
 
-        abort_unless(strcasecmp((string) $request->user()?->email, $invitation->email) === 0, 403);
+        $user = $request->user();
 
-        return parent::accept($request, $invitationId);
+        abort_unless(strcasecmp((string) $user?->email, $invitation->email) === 0, 403);
+
+        // The invitation proves the e-mail address only if the user has proven it too (finding #140,
+        // ADR 0008): changing the e-mail address on a profile clears the verification.
+        abort_unless($user instanceof MustVerifyEmail && $user->hasVerifiedEmail(), 403, __('auth.invitation.unverified'));
+
+        // The server is the judge: an old signed link stops working after 7 days (docs/spec.md 5.4).
+        if ($invitation->isExpired()) {
+            $invitation->delete();
+
+            return redirect(config('fortify.home'))->dangerBanner(__('auth.invitation.expired'));
+        }
+
+        $response = parent::accept($request, $invitationId);
+
+        // An invited user without a current tenant lands in the tenant just joined, not nowhere.
+        if ($user->current_team_id === null) {
+            $user->switchTeam($invitation->team);
+        }
+
+        return $response;
     }
 }
