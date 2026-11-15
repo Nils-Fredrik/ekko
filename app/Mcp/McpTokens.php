@@ -106,17 +106,29 @@ final class McpTokens
         });
     }
 
+    /** How many used refresh tokens a connection remembers, to recognise a replay. */
+    public const USED_REFRESH_MEMORY = 50;
+
     /**
      * Renews with the refresh token: a new access token and a new refresh token; the old one stops working.
-     * Null when the token is unknown, expired, disconnected or belongs to another client.
+     * Null when the token is unknown, expired, disconnected or belongs to another client. A refresh token that was
+     * already used means it leaked (RFC 9700 4.14.2): the connection it belonged to is disconnected, so whoever
+     * holds the newer tokens loses them too.
      *
      * @return array{access_token: string, refresh_token: string, expires_in: int, scope: string}|null
      */
     public function refresh(string $refreshToken, string $clientId): ?array
     {
         return DB::transaction(function () use ($refreshToken, $clientId): ?array {
-            $connection = McpConnection::query()->active()->where('refresh_token_hash', self::hash($refreshToken))->lockForUpdate()->first();
-            if ($connection === null || $connection->client_id !== $clientId || $connection->refresh_expires_at?->isPast()) {
+            $hash = self::hash($refreshToken);
+            $connection = McpConnection::query()->active()->where('refresh_token_hash', $hash)->lockForUpdate()->first();
+            if ($connection === null) {
+                McpConnection::query()->active()->whereJsonContains('used_refresh_hashes', $hash)->lockForUpdate()->get()
+                    ->each(fn (McpConnection $replayed) => $this->revoke($replayed));
+
+                return null;
+            }
+            if ($connection->client_id !== $clientId || $connection->refresh_expires_at?->isPast()) {
                 return null;
             }
             $user = $connection->user;
@@ -162,6 +174,7 @@ final class McpTokens
         $connection->forceFill([
             'access_token_id' => $access->accessToken->getKey(),
             'refresh_token_hash' => self::hash($refresh),
+            'used_refresh_hashes' => array_slice(array_values(array_filter([$connection->refresh_token_hash, ...($connection->used_refresh_hashes ?? [])])), 0, self::USED_REFRESH_MEMORY),
             'refresh_expires_at' => Date::now()->addDays(self::REFRESH_DAYS),
         ])->save();
 

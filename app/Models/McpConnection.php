@@ -21,6 +21,7 @@ use Illuminate\Support\Carbon;
  * @property list<string> $abilities
  * @property int|null $access_token_id
  * @property string|null $refresh_token_hash
+ * @property list<string> $used_refresh_hashes
  * @property Carbon|null $refresh_expires_at
  * @property Carbon|null $last_used_at
  * @property Carbon|null $revoked_at
@@ -31,7 +32,7 @@ class McpConnection extends Model
     /** @var list<string> */
     protected $fillable = [
         'user_id', 'team_id', 'client_id', 'client_name', 'redirect_host', 'abilities',
-        'access_token_id', 'refresh_token_hash', 'refresh_expires_at', 'last_used_at', 'revoked_at',
+        'access_token_id', 'refresh_token_hash', 'used_refresh_hashes', 'refresh_expires_at', 'last_used_at', 'revoked_at',
     ];
 
     /** @return BelongsTo<User, $this> */
@@ -64,6 +65,7 @@ class McpConnection extends Model
     {
         return [
             'abilities' => 'array',
+            'used_refresh_hashes' => 'array',
             'refresh_expires_at' => 'datetime',
             'last_used_at' => 'datetime',
             'revoked_at' => 'datetime',

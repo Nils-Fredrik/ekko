@@ -32,6 +32,8 @@ return new class extends Migration
             $table->jsonb('abilities');
             $table->foreignId('access_token_id')->nullable()->constrained('personal_access_tokens')->nullOnDelete();
             $table->char('refresh_token_hash', 64)->nullable()->unique();
+            // Hashes of refresh tokens already used: a replay of one disconnects the connection (RFC 9700 4.14.2).
+            $table->jsonb('used_refresh_hashes')->default('[]');
             $table->timestampTz('refresh_expires_at')->nullable();
             $table->timestampTz('last_used_at')->nullable();
             $table->timestampTz('revoked_at')->nullable();

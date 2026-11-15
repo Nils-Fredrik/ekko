@@ -31,7 +31,7 @@ Passport kan ikke brukes på samme `User` som Sanctum. Begge `HasApiTokens`-trai
 2. **Nøklene.**
    - **Tilgangsnøkkelen** er en Sanctum-nøkkel med navnet `Claude (MCP)` og evnen `mcp`, pluss `mcp:write` når brukeren tillot endringer. Den gjelder i én time og virker bare på `/mcp` (`AuthenticateMcp`). Sanctum-vakten avviser nøkler med evnen `mcp` overalt ellers (`Sanctum::authenticateAccessTokensUsing` i `AppServiceProvider`), også på samtykkesiden, så en lesetilkobling ikke kan godkjenne en bredere tilkobling.
    - **Vanlige API-nøkler** virker ikke på `/mcp`. Claude-nøklene vises ikke under API-nøkler (`User::tokens()`).
-   - **Refresh-nøkkelen** gjelder i 30 dager etter siste bruk, og bare hashen lagres.
+   - **Refresh-nøkkelen** gjelder i 30 dager etter siste bruk, og bare hashen lagres. Brukes en refresh-nøkkel som allerede er brukt, kobles tilkoblingen fra (RFC 9700 4.14.2). Tilkoblingen husker de siste 50 brukte hashene.
    - **Engangskoden** gjelder i fem minutter. Brukes den på nytt, kobles bare tilkoblingen den ga fra (`mcp_auth_codes.mcp_connection_id`).
    - **Tabellene** `mcp_clients`, `mcp_auth_codes` og `mcp_connections` tilhører brukeren, som API-nøkler, og er ikke tenant-eide.
 3. **Tenanten velges på samtykkesiden.** Brukeren velger blant tenantene i tenant-velgeren, uten personlige team. Valget lagres på tilkoblingen (`team_id`).

@@ -78,11 +78,9 @@ test('the whole flow: discovery, registration, consent, token, a tool call, refr
     expect($whoami['data']['can_write'])->toBeTrue()
         ->and($whoami['data']['tenants'][0]['id'])->toBe($this->tenant->id);
 
-    // Refresh: a new pair, the old refresh token and the old access token stop working.
+    // Refresh: a new pair, and the old access token stops working.
     $renewed = $this->post('/oauth/token', ['grant_type' => 'refresh_token', 'refresh_token' => $tokens['refresh_token'], 'client_id' => $clientId])
         ->assertOk()->json();
-    $this->post('/oauth/token', ['grant_type' => 'refresh_token', 'refresh_token' => $tokens['refresh_token'], 'client_id' => $clientId])
-        ->assertStatus(400)->assertJson(['error' => 'invalid_grant']);
     McpTestClient::rpc($this, $tokens['access_token'], 'tools/list')->assertUnauthorized();
     McpTestClient::rpc($this, $renewed['access_token'], 'tools/list')->assertOk();
 
@@ -240,4 +238,23 @@ test('a reused code disconnects only the connection it gave', function () {
     expect($tokens->exchangeCode($code, $client->id, McpTestClient::REDIRECT, McpTestClient::VERIFIER))->toBeNull();
     McpTestClient::rpc($this, $first['access_token'], 'tools/list')->assertUnauthorized();
     McpTestClient::rpc($this, $second['access_token'], 'tools/list')->assertOk();
+});
+
+test('a replayed refresh token disconnects the connection, also the tokens of whoever refreshed first', function () {
+    $tokens = app(McpTokens::class);
+    $client = McpTestClient::client();
+    $first = $tokens->exchangeCode(
+        $tokens->issueCode($this->user, $this->tenant, $client, McpTestClient::REDIRECT, McpTestClient::challenge(), [McpTokens::READ]),
+        $client->id, McpTestClient::REDIRECT, McpTestClient::VERIFIER,
+    );
+
+    // Someone with a leaked refresh token renews first; then Claude uses the same refresh token.
+    $stolen = $tokens->refresh($first['refresh_token'], $client->id);
+    $replay = $tokens->refresh($first['refresh_token'], $client->id);
+
+    expect($stolen)->not->toBeNull()
+        ->and($replay)->toBeNull()
+        ->and($tokens->refresh($stolen['refresh_token'], $client->id))->toBeNull()
+        ->and(McpConnection::query()->sole()->revoked_at)->not->toBeNull();
+    McpTestClient::rpc($this, $stolen['access_token'], 'tools/list')->assertUnauthorized();
 });
