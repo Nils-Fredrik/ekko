@@ -12,6 +12,7 @@ use App\Models\ExtractionJob;
 use App\Models\Response;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Submits the collected, not yet extracted responses of one tenant to Anthropic Message Batches
@@ -22,10 +23,14 @@ use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
  * One run submits at most one batch and queues itself again when more answers wait. The whole run is one
  * transaction, so a failure after the provider accepted a batch would lose the batch's row; with one
  * batch per run, a failing submit has nothing accepted to lose. Only one submit job per tenant is queued
- * at a time, and the lock is released when the job starts, so it can queue its successor.
+ * at a time, and the lock is released when the job starts, so it can queue its successor. A Postgres advisory
+ * lock per tenant keeps two runs from overlapping once they have started.
  */
 class SubmitExtractionBatch extends TenantJob implements ShouldBeUniqueUntilProcessing
 {
+    /** First key of the transaction-scoped advisory lock; the second is the tenant id. */
+    private const LOCK_NAMESPACE = 20261115;
+
     /** Seconds a queued submit job holds the lock if it never starts. */
     public int $uniqueFor = 3600;
 
@@ -40,12 +45,17 @@ class SubmitExtractionBatch extends TenantJob implements ShouldBeUniqueUntilProc
         ExtractionPromptBuilder $prompts,
         ExtractionWriter $writer,
     ): void {
+        // The unique lock is released when the job starts, so a second run can start while this one still holds
+        // its transaction open. This lock, per tenant and released at commit or rollback, makes that run wait and
+        // then see the batch row this one wrote, instead of sending the same answers again.
+        DB::select('select pg_advisory_xact_lock(?, ?)', [self::LOCK_NAMESPACE, $this->tenantId]);
+
         $size = max(1, (int) config('ekko.anthropic.extraction.batch_size'));
 
         // An empty answer has nothing to analyse: no model call, the run is simply extracted.
         Response::query()
             ->whereHas('run', fn ($query) => $query->where('status', 'collected'))
-            ->whereRaw("btrim(answer_text) = ''")
+            ->whereRaw("answer_text ~ '^\\s*$'")
             ->each(fn (Response $response) => $writer->markExtracted($response));
 
         $inFlight = [];
@@ -59,7 +69,7 @@ class SubmitExtractionBatch extends TenantJob implements ShouldBeUniqueUntilProc
         // before the limit, so answers that are waiting for their results never crowd out new ones.
         $responses = Response::query()
             ->whereHas('run', fn ($query) => $query->where('status', 'collected'))
-            ->whereRaw("btrim(answer_text) <> ''")
+            ->whereRaw("answer_text !~ '^\\s*$'")
             ->whereNotIn('id', $inFlight)
             ->with('run.prompt.market')
             ->orderBy('id')

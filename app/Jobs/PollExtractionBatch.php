@@ -77,7 +77,8 @@ class PollExtractionBatch extends TenantJob
         ExtractionWriter $writer,
     ): void {
         $job = ExtractionJob::query()->findOrFail($this->extractionJobId);
-        if ($job->status === 'completed') {
+        if ($job->status !== 'submitted') {
+            // Finished, or given up (failed): never written twice and never turned from failed to completed.
             return;
         }
 

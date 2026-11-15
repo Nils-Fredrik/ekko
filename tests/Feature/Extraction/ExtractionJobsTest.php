@@ -25,6 +25,7 @@ use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Extraction\FakeExtractionClient;
 
 /**
@@ -346,6 +347,50 @@ it('submits at most one batch per run and queues itself again while answers wait
 
     runSubmit($a['tenant']);
     expect($client->batches)->toHaveCount(3);
+});
+
+it('does not send answers of only whitespace, tabs or line breaks to the model', function () {
+    Bus::fake();
+    $a = extractionTenant();
+    $blank = [collectedResponse($a, "\n\n"), collectedResponse($a, "\t \r\n"), collectedResponse($a, '   ')];
+    $real = collectedResponse($a, 'Fjordkaffe er bra.');
+    $client = new FakeExtractionClient(fn (string $id): array => entry([]));
+    app()->instance(ExtractionClient::class, $client);
+
+    runSubmit($a['tenant']);
+
+    expect($client->batches)->toBe([["r{$real->id}"]]);
+    foreach ($blank as $response) {
+        expect($response->run()->withoutGlobalScopes()->first()->status)->toBe('extracted');
+    }
+});
+
+it('takes a lock per tenant for the run, held until the transaction ends', function () {
+    Bus::fake();
+    $a = extractionTenant();
+    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => entry([])));
+
+    runSubmit($a['tenant']);
+
+    // The lock belongs to the (test) transaction, so it is still visible here: key pair (namespace, tenant id).
+    $held = DB::table('pg_locks')->where('locktype', 'advisory')->where('classid', 20261115)->where('objid', $a['tenant']->id)->count();
+    expect($held)->toBe(1);
+});
+
+it('does not turn a failed batch into a completed one when the job is run again', function () {
+    Bus::fake([PollExtractionBatch::class]);
+    $a = extractionTenant();
+    $response = collectedResponse($a, 'Fjordkaffe er bra.');
+    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => entry([reported('Fjordkaffe', 'brand', $a['brand'], true)])));
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    $job = ExtractionJob::query()->withoutGlobalScopes()->sole();
+    (new PollExtractionBatch($a['tenant']->id, $job->id))->failed(new RuntimeException);
+
+    runPoll($a['tenant'], $job->id);
+
+    expect($job->refresh()->status)->toBe('failed');
+    app(TenantContext::class)->run($a['tenant']->id, fn () => expect($response->refresh()->llm_failed)->toBeTrue()
+        ->and(UsageEvent::query()->count())->toBe(0));
 });
 
 it('does not let answers that wait for results crowd out new ones', function () {
