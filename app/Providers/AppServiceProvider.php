@@ -5,6 +5,8 @@ namespace App\Providers;
 use App\Engines\EngineRegistry;
 use App\Engines\GcsRawResponseStore;
 use App\Engines\RawResponseStore;
+use App\Extraction\AnthropicExtractionClient;
+use App\Extraction\ExtractionClient;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
@@ -23,6 +25,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(TenantAccess::class);
         $this->app->scoped(EngineRegistry::class, EngineRegistry::discover(...));
         $this->app->bind(RawResponseStore::class, GcsRawResponseStore::class);
+        // Resolved lazily: without ANTHROPIC_API_KEY the app boots, and only extraction fails.
+        $this->app->bind(ExtractionClient::class, fn (): ExtractionClient => AnthropicExtractionClient::fromConfig());
     }
 
     /**

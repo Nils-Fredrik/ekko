@@ -1,0 +1,338 @@
+<?php
+
+// Batch submission and result handling per tenant (docs/spec.md 8.2, ADR 0011).
+
+use App\Detection\DeterministicDetector;
+use App\Extraction\ExtractionClient;
+use App\Jobs\PollExtractionBatch;
+use App\Jobs\SubmitExtractionBatch;
+use App\Jobs\TenantJob;
+use App\Models\Brand;
+use App\Models\Citation;
+use App\Models\Competitor;
+use App\Models\Engine;
+use App\Models\ExtractionJob;
+use App\Models\Market;
+use App\Models\Mention;
+use App\Models\Prompt;
+use App\Models\Response;
+use App\Models\Run;
+use App\Models\RunBatch;
+use App\Models\Team;
+use App\Models\UsageEvent;
+use App\Tenancy\Rls\TenantRls;
+use App\Tenancy\TenantContext;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Bus;
+use Tests\Support\Extraction\FakeExtractionClient;
+
+/**
+ * One tenant with a brand (Fjordkaffe) and a competitor (Nordlys Rosteri) and a market in Norwegian.
+ *
+ * @return array{tenant: Team, brand: int, competitor: int, market: Market}
+ */
+function extractionTenant(): array
+{
+    $tenant = Team::factory()->tenant()->create();
+
+    return app(TenantContext::class)->run($tenant->id, function () use ($tenant): array {
+        $brand = Brand::factory()->create(['name' => 'Fjordkaffe']);
+        $brand->aliases()->create(['alias' => 'Fjordkaffe', 'match_mode' => 'case_insensitive']);
+        $brand->domains()->create(['domain' => 'fjordkaffe.no', 'include_subdomains' => true]);
+        $competitor = Competitor::factory()->for($brand)->create();
+        $competitor->aliases()->create(['alias' => 'Nordlys Rosteri', 'match_mode' => 'case_insensitive']);
+        $competitor->domains()->create(['domain' => 'nordlys.no']);
+
+        return [
+            'tenant' => $tenant, 'brand' => $brand->id, 'competitor' => $competitor->id,
+            'market' => Market::factory()->for($brand)->create(['language' => 'nb']),
+        ];
+    });
+}
+
+function collectedResponse(array $setup, string $text, string $status = 'collected'): Response
+{
+    return app(TenantContext::class)->run($setup['tenant']->id, function () use ($setup, $text, $status): Response {
+        $prompt = Prompt::factory()->for($setup['market'])->create();
+        $batch = RunBatch::factory()->for($setup['market'])->create();
+        $run = Run::factory()->for($batch, 'runBatch')->for($prompt)->for(Engine::factory()->create())->create(['status' => $status]);
+
+        return Response::factory()->create(['run_id' => $run->id, 'answer_text' => $text]);
+    });
+}
+
+/** @param  array<string, mixed>  $overrides */
+function entry(array $mentions, array $citations = [], string $type = 'list', int $in = 120, int $out = 30): array
+{
+    return ['batch' => ['text' => ['mentions' => $mentions, 'citations' => $citations, 'answer_type' => $type], 'input_tokens' => $in, 'output_tokens' => $out]];
+}
+
+function reported(string $surface, string $type, ?int $id, bool $recommended, float $sentiment = 0.5, ?int $position = null): array
+{
+    return [
+        'surface_name' => $surface, 'entity' => ['type' => $type, 'id' => $id], 'list_position' => $position,
+        'is_recommended' => $recommended, 'sentiment' => $sentiment, 'evidence' => 'x',
+    ];
+}
+
+/** Runs the callback as a tenant job would see it: in the tenant context and under row-level security. */
+function asTenant(Team $tenant, Closure $callback): mixed
+{
+    return app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], $callback));
+}
+
+it('submits one batch per tenant for collected answers and stores the batch as an extraction job', function () {
+    Bus::fake([PollExtractionBatch::class]);
+    $a = extractionTenant();
+    $b = extractionTenant();
+    $first = collectedResponse($a, 'Jeg anbefaler Fjordkaffe.');
+    $second = collectedResponse($a, 'Nordlys Rosteri er kjent.');
+    $other = collectedResponse($b, 'Fjordkaffe hos en annen tenant.');
+    collectedResponse($a, 'Allerede ferdig.', 'extracted');
+
+    $client = new FakeExtractionClient(fn (string $id): array => entry([]));
+    app()->instance(ExtractionClient::class, $client);
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+
+    expect($client->batches)->toBe([["r{$first->id}", "r{$second->id}"]])
+        ->and(collect($client->requests)->pluck('user')->implode("\n"))->not->toContain('annen tenant');
+
+    $jobs = ExtractionJob::query()->withoutGlobalScopes()->get();
+    expect($jobs)->toHaveCount(1)
+        ->and($jobs[0]->tenant_id)->toBe($a['tenant']->id)
+        ->and($jobs[0]->status)->toBe('submitted')
+        ->and($jobs[0]->response_ids)->toBe([$first->id, $second->id])
+        ->and($jobs[0]->provider_batch_id)->toBe('batch-1');
+    Bus::assertDispatched(PollExtractionBatch::class, fn (PollExtractionBatch $job): bool => $job->tenantId === $a['tenant']->id && $job->extractionJobId === $jobs[0]->id);
+
+    // The other tenant's answer is untouched, and a second submit does not send the same answers again.
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    expect($client->batches)->toHaveCount(1)
+        ->and($other->run()->withoutGlobalScopes()->first()->status)->toBe('collected');
+});
+
+it('splits a tenant into batches of the configured size', function () {
+    config(['ekko.anthropic.extraction.batch_size' => 2]);
+    $a = extractionTenant();
+    foreach (range(1, 5) as $i) {
+        collectedResponse($a, "Fjordkaffe nummer {$i}.");
+    }
+    $client = new FakeExtractionClient(fn (string $id): array => entry([]));
+    app()->instance(ExtractionClient::class, $client);
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+
+    expect(array_map('count', $client->batches))->toBe([2, 2, 1]);
+});
+
+it('sends the market language, the catalog and the deterministic result with each answer', function () {
+    $a = extractionTenant();
+    $response = collectedResponse($a, "Topplisten:\n1. Nordlys Rosteri\n2. Fjordkaffe");
+    $client = new FakeExtractionClient(fn (string $id): array => entry([]));
+    app()->instance(ExtractionClient::class, $client);
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+
+    $user = $client->requests[0]->user;
+    expect($client->requests[0]->customId)->toBe("r{$response->id}")
+        ->and($user)->toContain('market_language: nb')
+        ->and($user)->toContain('"aliases":["Fjordkaffe"]')
+        ->and($user)->toContain('"surface_name":"Nordlys Rosteri","list_position":1')
+        ->and($user)->toContain('"surface_name":"Fjordkaffe","list_position":2');
+});
+
+it('writes the combined result of a batch: enriched mentions, unknown companies, citations, usage and run status', function () {
+    $a = extractionTenant();
+    $text = "Topplisten:\n1. Nordlys Rosteri\n2. Fjordkaffe\nKaffebønna AS er nytt, se https://www.dagbladet.no/test?utm_source=x og https://fjordkaffe.no/kjop.";
+    $listed = collectedResponse($a, $text);
+    $badThenGood = collectedResponse($a, 'Jeg anbefaler Fjordkaffe.');
+    $failing = collectedResponse($a, 'Nordlys Rosteri nevnes her.');
+    $empty = collectedResponse($a, '   ');
+
+    $client = new FakeExtractionClient(function (string $id) use ($a, $listed, $badThenGood, $failing): array {
+        return match ($id) {
+            "r{$listed->id}" => entry([
+                reported('Nordlys Rosteri', 'competitor', $a['competitor'], false, 0.1, 1),
+                reported('Fjordkaffe', 'brand', $a['brand'], true, 0.9, 7),
+                reported('Kaffebønna AS', 'unknown', null, false, -0.3),
+            ], [
+                ['url' => 'https://www.dagbladet.no/test?utm_source=x', 'source_type' => 'news'],
+                ['url' => 'https://fjordkaffe.no/kjop', 'source_type' => 'marketplace'],
+                ['url' => 'ftp://nope.example/a', 'source_type' => 'other'],
+            ]),
+            "r{$badThenGood->id}" => ['batch' => ['text' => 'not json', 'input_tokens' => 50, 'output_tokens' => 5]]
+                + ['retry' => entry([reported('Fjordkaffe', 'brand', $a['brand'], true, 0.8)], [], 'single_recommendation', 60, 20)['batch']],
+            "r{$failing->id}" => ['batch' => ['error' => 'errored'], 'retry' => ['text' => 'still not json', 'input_tokens' => 40, 'output_tokens' => 4]],
+        };
+    });
+    app()->instance(ExtractionClient::class, $client);
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    $job = ExtractionJob::query()->withoutGlobalScopes()->sole();
+    dispatch_sync(new PollExtractionBatch($a['tenant']->id, $job->id));
+
+    expect($client->batches[0])->not->toContain("r{$empty->id}")
+        ->and($client->retries)->toBe(["r{$badThenGood->id}", "r{$failing->id}"]);
+
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($a, $listed, $badThenGood, $failing, $empty, $job) {
+        $mentions = Mention::query()->where('response_id', $listed->id)->orderBy('first_char_offset')->get();
+        expect($mentions)->toHaveCount(3)
+            ->and($mentions[0]->entity_id)->toBe($a['competitor'])
+            ->and($mentions[0]->detection)->toBe('deterministic')
+            ->and($mentions[0]->is_recommended)->toBeFalse()
+            ->and($mentions[0]->list_position)->toBe(1)
+            ->and($mentions[1]->entity_id)->toBe($a['brand'])
+            ->and($mentions[1]->is_recommended)->toBeTrue()
+            ->and($mentions[1]->sentiment)->toBe('0.900')
+            ->and($mentions[1]->list_position)->toBe(2)           // the deterministic position, not the model's 7
+            ->and($mentions[2]->entity_type)->toBe('unknown')
+            ->and($mentions[2]->entity_id)->toBeNull()
+            ->and($mentions[2]->detection)->toBe('llm')
+            ->and($mentions[2]->surface_name)->toBe('Kaffebønna AS')
+            ->and($mentions[2]->sentiment)->toBe('-0.300');
+
+        $citations = Citation::query()->where('response_id', $listed->id)->orderBy('rank_in_answer')->get();
+        expect($citations)->toHaveCount(2)
+            ->and($citations[0]->url_normalized)->toBe('https://dagbladet.no/test')
+            ->and($citations[0]->source_type)->toBe('news')
+            ->and($citations[0]->ownership)->toBe('third_party')
+            ->and($citations[0]->from_annotation)->toBeFalse()
+            ->and($citations[1]->ownership)->toBe('own')
+            ->and($citations[1]->source_type)->toBe('marketplace');
+
+        expect($listed->refresh()->answer_type)->toBe('list')
+            ->and($listed->llm_failed)->toBeFalse()
+            ->and($listed->run->status)->toBe('extracted')
+            ->and($badThenGood->refresh()->answer_type)->toBe('single_recommendation')
+            ->and(Mention::query()->where('response_id', $badThenGood->id)->sole()->is_recommended)->toBeTrue();
+
+        // Failed twice: the deterministic mention stays, the response is flagged, the run is still extracted.
+        $failed = $failing->refresh();
+        expect($failed->llm_failed)->toBeTrue()
+            ->and($failed->answer_type)->toBeNull()
+            ->and($failed->run->status)->toBe('extracted')
+            ->and(Mention::query()->where('response_id', $failing->id)->sole()->detection)->toBe('deterministic');
+
+        // An empty answer is not sent to the model and needs no flag.
+        expect($empty->refresh()->llm_failed)->toBeFalse()
+            ->and($empty->run->status)->toBe('extracted')
+            ->and($job->refresh()->status)->toBe('completed')
+            ->and($job->completed_at)->not->toBeNull();
+
+        // Usage: one event per billed call. Batch calls get the batch discount, the retry does not.
+        $usage = UsageEvent::query()->where('kind', 'extraction')->orderBy('id')->get();
+        expect($usage)->toHaveCount(4)
+            ->and($usage->pluck('run_id')->unique()->count())->toBe(3)
+            ->and($usage->every(fn (UsageEvent $event): bool => $event->engine_key === null && $event->billed_to === 'platform' && $event->calls === 1))->toBeTrue();
+        $byRun = $usage->groupBy('run_id');
+        // (0.10 * 120 + 0.50 * 30) / 1e6 * 0.5
+        expect($byRun[$listed->run_id]->sole()->cost_usd)->toBe('0.00001350');
+        // batch 50 in / 5 out discounted, then retry 60 in / 20 out at full price
+        expect($byRun[$badThenGood->run_id]->pluck('cost_usd')->all())->toBe(['0.00000375', '0.00001600']);
+    });
+});
+
+it('is safe to run again and does not log usage twice', function () {
+    $a = extractionTenant();
+    $response = collectedResponse($a, 'Fjordkaffe er bra.');
+    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => entry([reported('Fjordkaffe', 'brand', $a['brand'], true)])));
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    $job = ExtractionJob::query()->withoutGlobalScopes()->sole();
+    dispatch_sync(new PollExtractionBatch($a['tenant']->id, $job->id));
+    dispatch_sync(new PollExtractionBatch($a['tenant']->id, $job->id));
+
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($response) {
+        expect(UsageEvent::query()->where('kind', 'extraction')->count())->toBe(1)
+            ->and(Mention::query()->where('response_id', $response->id)->count())->toBe(1);
+    });
+});
+
+/** Runs a poll job by hand, in its tenant, while Bus::fake() holds back the automatic one. */
+function runPoll(Team $tenant, int $extractionJobId): void
+{
+    $poll = new PollExtractionBatch($tenant->id, $extractionJobId);
+    asTenant($tenant, fn () => app()->call([$poll, 'handle']));
+}
+
+it('keeps recomputing after a re-detect: model enrichment never relies on earlier deterministic rows', function () {
+    $a = extractionTenant();
+    Bus::fake([PollExtractionBatch::class]);
+    $response = collectedResponse($a, 'Fjordkaffe er bra.');
+    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => entry([reported('Fjordkaffe', 'brand', $a['brand'], true, 0.4)])));
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    // Something re-ran deterministic detection after submission: its rows are new and not yet enriched.
+    app(TenantContext::class)->run($a['tenant']->id, fn () => app(DeterministicDetector::class)->detect($response));
+    $job = ExtractionJob::query()->withoutGlobalScopes()->sole();
+    runPoll($a['tenant'], $job->id);
+
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($response) {
+        $mention = Mention::query()->where('response_id', $response->id)->sole();
+        expect($mention->is_recommended)->toBeTrue()->and($mention->sentiment)->toBe('0.400');
+    });
+});
+
+it('lets annotated citations win and only adds source_type to them', function () {
+    $a = extractionTenant();
+    $response = collectedResponse($a, 'Fjordkaffe, se https://www.dagbladet.no/test og https://example.org/other.');
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($response) {
+        Citation::query()->create([
+            'response_id' => $response->id, 'url' => 'https://www.dagbladet.no/test?utm_source=chatgpt', 'url_normalized' => 'https://dagbladet.no/test',
+            'domain' => 'dagbladet.no', 'ownership' => 'third_party', 'from_annotation' => true, 'rank_in_answer' => 1,
+        ]);
+    });
+    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => entry(
+        [reported('Fjordkaffe', 'brand', $a['brand'], false)],
+        [['url' => 'https://www.dagbladet.no/test', 'source_type' => 'news'], ['url' => 'https://example.org/other', 'source_type' => 'forum']],
+    )));
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    dispatch_sync(new PollExtractionBatch($a['tenant']->id, ExtractionJob::query()->withoutGlobalScopes()->sole()->id));
+
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($response) {
+        $citations = Citation::query()->where('response_id', $response->id)->get();
+        expect($citations)->toHaveCount(1)
+            ->and($citations[0]->from_annotation)->toBeTrue()
+            ->and($citations[0]->source_type)->toBe('news');
+    });
+});
+
+it('waits for a batch that has not ended instead of writing anything', function () {
+    $a = extractionTenant();
+    $response = collectedResponse($a, 'Fjordkaffe er bra.');
+    $client = new FakeExtractionClient(fn (string $id): array => entry([reported('Fjordkaffe', 'brand', $a['brand'], true)]), ended: false);
+    app()->instance(ExtractionClient::class, $client);
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    $extractionJob = ExtractionJob::query()->withoutGlobalScopes()->sole();
+
+    $poll = (new PollExtractionBatch($a['tenant']->id, $extractionJob->id))->withFakeQueueInteractions();
+    asTenant($a['tenant'], fn () => app()->call([$poll, 'handle']));
+
+    $poll->assertReleased(config('ekko.anthropic.extraction.poll_delay_seconds'));
+    expect($extractionJob->refresh()->status)->toBe('submitted')
+        ->and($response->run()->withoutGlobalScopes()->first()->status)->toBe('collected');
+});
+
+it('never lets one tenant poll or write another tenants batch', function () {
+    Bus::fake([PollExtractionBatch::class]);
+    $a = extractionTenant();
+    $b = extractionTenant();
+    collectedResponse($a, 'Fjordkaffe er bra.');
+    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => entry([])));
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    $jobOfA = ExtractionJob::query()->withoutGlobalScopes()->sole();
+
+    expect(fn () => runPoll($b['tenant'], $jobOfA->id))->toThrow(ModelNotFoundException::class);
+    expect($jobOfA->refresh()->status)->toBe('submitted');
+});
+
+it('runs as tenant jobs, and the submit job is unique per tenant', function () {
+    expect(is_subclass_of(SubmitExtractionBatch::class, TenantJob::class))->toBeTrue()
+        ->and(is_subclass_of(PollExtractionBatch::class, TenantJob::class))->toBeTrue()
+        ->and((new SubmitExtractionBatch(7))->uniqueId())->toBe('extraction-submit:7')
+        ->and(new SubmitExtractionBatch(7))->toBeInstanceOf(ShouldBeUnique::class);
+});
