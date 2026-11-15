@@ -94,7 +94,7 @@ Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lok
 | Web, API og MCP | Cloud Run service `ekko-web` | min 0, maks 4 instanser, 1 vCPU / 1 GiB, Cloud SQL-tilkobling via Unix-socket |
 | Dispatcher | Cloud Run Job `ekko-dispatch` | `php artisan ekko:dispatch-due` |
 | Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid (av dispatcheren eller av `extraction-poll`). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300 --timeout=420`-prosesser. Ved oppstart settes `taskCount` til `ceil(jobber i kø / 2000)`, maks 8, med automatisk parallellisme i Cloud Run. Databasekøen reserverer jobber i 450 sekunder. |
-| Daglige oppgaver | Cloud Run Job `ekko-task` | samme image, kommando settes per Scheduler-trigger. Brukes kun for daglige og ukentlige oppgaver. |
+| Daglige oppgaver | Cloud Run Job `ekko-task` | samme image, kommando settes per Scheduler-trigger. Kjører daglige og ukentlige oppgaver samt timevis forbruksoppdatering (se 7.1). |
 | Lette periodiske oppgaver | Interne endepunkter på `ekko-web` | Cloud Scheduler kaller `POST /internal/tick/{oppgave}` med OIDC-token fra en egen tjenestekonto. Endepunktene gjør kun korte kontroller og legger tyngre arbeid i køen. |
 | Migrering | Cloud Run Job `ekko-migrate` | `php artisan migrate --force`, kjøres i deploy-pipeline |
 | Database | Cloud SQL for PostgreSQL 16, `db-g1-small` | 20 GB SSD, automatisk backup 7 dager, PITR på |
@@ -220,9 +220,9 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled` |
+| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled`, `monthly_call_quota_override`, `monthly_byok_budget_usd` |
 | `users` (utvidet) | `is_platform_admin`, `locale`, `current_team_id` |
-| `plans` | `name`, `max_brands`, `max_markets_per_brand`, `max_prompts_per_market`, `allowed_engines` (jsonb), `max_frequency`, `max_repetitions`, `monthly_call_quota`, `monthly_budget_usd` |
+| `plans` | `name`, `max_brands`, `max_markets_per_brand`, `max_prompts_per_market`, `allowed_engines` (jsonb), `max_frequency`, `engine_max_frequencies` (jsonb), `max_repetitions`, `monthly_call_quota`, `monthly_budget_usd` |
 | `tenant_api_keys` | `tenant_id`, `provider`, `key` (kryptert), `last_verified_at` |
 
 ### 6.2 Konfigurasjon
@@ -269,7 +269,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 | Tabell | Viktige kolonner |
 |---|---|
 | `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
-| `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `status` (ok, warning, capped) |
+| `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `byok_cost_usd`, `byok_budget_usd`, `quota_alerted_threshold`, `status` (ok, warning, capped) |
 | `alert_rules` | `tenant_id`, `brand_id`, `type`, `threshold`, `channels` (jsonb), `is_active` |
 | `alerts` | `tenant_id`, `alert_rule_id`, `triggered_at`, `payload` (jsonb), `delivered_at`, `acknowledged_by` |
 | `report_schedules` | `tenant_id`, `brand_id`, `cadence` (weekly, monthly), `recipients` (jsonb), `locale`, `branding` (tenant, partner) |
@@ -290,7 +290,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 | `aggregate` | daglig 05:30 | `ekko:aggregate --date=yesterday`, deretter varselsevaluering |
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
-| `usage-rollup` | hver time, via internt endepunkt | `ekko:usage-rollup` og kvotekontroll |
+| `usage-rollup` | hver time, via `ekko-task` | `ekko:usage-rollup` og kvotekontroll |
 
 **Fordeling over uka:** Ved ukentlig frekvens kjøres et prompt på ukedagen `crc32(prompt_id) % 7`. Ved månedlig frekvens kjøres det på dag `crc32(prompt_id) % 28 + 1`. Prompts med `priority = core` kan ha høyere frekvens enn resten av markedet, begrenset av pakken. Dette gir jevn belastning og jevn kostnad.
 
@@ -298,12 +298,13 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 
 ### 7.2 Kvotekontroll før kjøring
 
-Før en `run` legges i køen, sjekkes `usage_monthly` for tenanten:
+Før en `run` legges i køen, sjekkes tenantens forbruk for måneden. Kvotekontrollen leser ferske forbrukshendelser mellom de timevise oppdateringene av `usage_monthly`.
 
-- Hvis planlagte kall pluss forbruk overstiger `monthly_call_quota` eller estimert kostnad overstiger `monthly_budget_usd`, legges bare `core`-prompts i køen. Resten markeres `skipped_quota`.
-- Hvis forbruket allerede har nådd taket, settes alle til `skipped_quota`.
-- Tenant-admin og plattformadmin varsles ved 80 % og 100 %.
-- Tenants med `byok_enabled` følger egne nøkler. Budsjettstoppen gjelder fortsatt, men som en innstilling tenant-admin selv kan endre.
+- Hvis planlagte kall pluss forbruk overstiger kallkvoten, legges bare `core`-prompts innenfor ledig kvote i køen. Resten markeres `skipped_quota`.
+- Det samme gjelder ved forventet overskridelse av et budsjett, for kall som belastes dette budsjettet.
+- Når kallkvoten er nådd, settes alle til `skipped_quota`. Når et budsjett er nådd, gjelder stoppen kall som belastes dette budsjettet.
+- Ved 80 % og 100 % opprettes varsel for tenant-admin og plattformadmin. T24 leverer varslene.
+- Tenant-admin kan sette et eget månedsbudsjett for kall med egne nøkler når `byok_enabled` er aktivert. Se [ADR 0013](decisions/0013-kvoter-og-forbruk.md).
 
 ### 7.3 Motoradapter-kontrakt
 
@@ -555,11 +556,11 @@ Pakker defineres av plattformadmin i `plans`. Startoppsett:
 | Standard | 3 | 2 | 50 | Basis + Claude og Perplexity | daglig (Claude Haiku), ukentlig (Claude Sonnet og Perplexity) | 50 000 |
 | Byrå | ubegrenset | ubegrenset | 100 | alle, inkludert API-motorer med egne nøkler | daglig | settes per tenant |
 
-Tallene er utgangspunkt og kan endres uten kodeendring.
+Tallene er utgangspunkt og kan endres uten kodeendring. Plattformadmin kan overstyre kallkvoten per tenant. Startbudsjetter, priser og påslag avklares i A7.
 
 ### 12.2 Forbruk
 
-Hvert eksterne kall gir én rad i `usage_events` med kostnad beregnet fra `engine_prices` som var gyldig på tidspunktet. `usage_monthly` oppdateres hver time.
+Hvert eksterne kall gir én rad i `usage_events` med kostnad beregnet fra `engine_prices` som var gyldig på tidspunktet. `usage_monthly` oppdateres hver time per UTC-måned. `calls` inkluderer alle kall. `cost_usd` summerer plattformens kostnader, og `byok_cost_usd` summerer kostnad beregnet for kall med egne nøkler.
 
 ### 12.3 Fakturagrunnlag
 
@@ -574,7 +575,7 @@ Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres ku
 
 ### 12.4 Egne API-nøkler
 
-Med `byok_enabled` legger tenant-admin inn egne nøkler per leverandør i `tenant_api_keys`. Nøklene verifiseres med et testkall ved lagring. Kall med egne nøkler logges med `billed_to = byok` og teller ikke mot plattformbudsjettet.
+Med `byok_enabled` legger tenant-admin inn egne nøkler for OpenAI, Anthropic, Google eller Perplexity i `tenant_api_keys`. Et autentisert oppslag av leverandørens modelliste verifiserer nøkkelen før den lagres. Kall med egne nøkler logges med `billed_to = byok` og belastes et eventuelt BYOK-budsjett. Den samme kallkvoten gjelder for begge betalingsmåter.
 
 ### 12.5 Anthropic-kreditter
 
@@ -828,7 +829,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - Priser i `europe-west1` per november 2026, uten rabattavtaler.
 - Et kall mot en motor tar i snitt 30 sekunder (venting på svar).
 - Hver worker-task kjører 8 parallelle prosesser på 1 vCPU / 1 GiB.
-- Cloud Run-jobber faktureres for hele instansens levetid, minimum ett minutt per instans. Derfor startes worker-jobben kun når det finnes arbeid, og korte periodiske oppgaver går som interne endepunkter på web-tjenesten (3.1).
+- Cloud Run-jobber faktureres for hele instansens levetid, minimum ett minutt per instans. Derfor startes worker-jobben kun når det finnes arbeid, og korte periodiske oppgaver går som interne endepunkter på web-tjenesten (3.1). Timevis forbruksoppdatering bruker oppgavejobben for å behandle tenantene i separate transaksjoner.
 - Gratiskvoten for Cloud Run gjelder per faktureringskonto. Ekko bør ha egen faktureringskonto, slik at kvoten ikke deles med andre tjenester.
 
 **Google Cloud per måned (USD):**
