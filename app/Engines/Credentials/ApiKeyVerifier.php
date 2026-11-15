@@ -23,7 +23,7 @@ final class ApiKeyVerifier
                 'anthropic-version' => '2023-06-01',
             ], 'data'],
             ApiKeyProvider::Google => ['https://generativelanguage.googleapis.com/v1beta/models', ['x-goog-api-key' => $key], 'models'],
-            ApiKeyProvider::Perplexity => ['https://api.perplexity.ai/v1/models', ['Authorization' => "Bearer {$key}"], 'data'],
+            ApiKeyProvider::Perplexity => ['https://api.perplexity.ai/v1/skills?limit=1', ['Authorization' => "Bearer {$key}"], 'skills'],
         };
 
         try {

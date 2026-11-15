@@ -585,7 +585,7 @@ Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres ku
 
 ### 12.4 Egne API-nøkler
 
-Med `byok_enabled` legger tenant-admin inn egne nøkler for OpenAI, Anthropic, Google eller Perplexity i `tenant_api_keys`. Et autentisert oppslag av leverandørens modelliste verifiserer nøkkelen før den lagres. Kall med egne nøkler logges med `billed_to = byok` og belastes et eventuelt BYOK-budsjett. Den samme kallkvoten gjelder for begge betalingsmåter.
+Med `byok_enabled` legger tenant-admin inn egne nøkler for OpenAI, Anthropic, Google eller Perplexity i `tenant_api_keys`. Før nøkkelen lagres, verifiseres den med et autentisert oppslag av modellisten hos OpenAI, Anthropic og Google. Hos Perplexity verifiseres den med et oppslag i prosjektets [skill-liste](https://docs.perplexity.ai/api-reference/skills-list-get), begrenset til én oppføring. Kall med egne nøkler logges med `billed_to = byok` og belastes et eventuelt BYOK-budsjett. Den samme kallkvoten gjelder for begge betalingsmåter.
 
 ### 12.5 Anthropic-kreditter
 

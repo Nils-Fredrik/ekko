@@ -52,31 +52,44 @@ test('a tenant admin verifies and stores a hidden encrypted API key with a maske
     'OpenAI' => [ApiKeyProvider::OpenAi, 'https://api.openai.com/v1/models', 'Authorization', 'Bearer test-api-key', 'data'],
     'Anthropic' => [ApiKeyProvider::Anthropic, 'https://api.anthropic.com/v1/models', 'x-api-key', 'test-api-key', 'data'],
     'Google' => [ApiKeyProvider::Google, 'https://generativelanguage.googleapis.com/v1beta/models', 'x-goog-api-key', 'test-api-key', 'models'],
-    'Perplexity' => [ApiKeyProvider::Perplexity, 'https://api.perplexity.ai/v1/models', 'Authorization', 'Bearer test-api-key', 'data'],
+    'Perplexity' => [ApiKeyProvider::Perplexity, 'https://api.perplexity.ai/v1/skills?limit=1', 'Authorization', 'Bearer test-api-key', 'skills'],
 ]);
 
-test('unverified and unauthorized key changes leave the verified credential intact', function () {
-    $url = 'https://api.openai.com/v1/models';
-    Http::preventStrayRequests()->fake([$url => Http::sequence()
-        ->push(['data' => []])->push(['error' => 'test-invalid-key'], 403)]);
+test('unverified and unauthorized key changes leave the verified credential intact', function (
+    ApiKeyProvider $provider, string $url, string $responseField, int $status,
+) {
+    Http::preventStrayRequests()->fake([
+        // Perplexity's public model catalog can return success even for an invalid key.
+        'https://api.perplexity.ai/v1/models' => Http::response(['data' => []]),
+        $url => Http::sequence()->push([$responseField => []])->push(['error' => 'test-invalid-key'], $status),
+    ]);
     $tenant = Team::factory()->tenant()->create(['byok_enabled' => true]);
     $reader = User::factory()->create();
     $tenant->users()->attach($reader, ['role' => 'reader']);
 
-    app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], function () use ($tenant, $reader) {
+    app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], function () use ($tenant, $reader, $provider) {
         $keys = app(TenantApiKeys::class);
-        $keys->store($tenant->owner, ApiKeyProvider::OpenAi, 'test-valid-key');
+        $verifiedAt = $keys->store($tenant->owner, $provider, 'test-valid-key')->refresh()->last_verified_at;
+        $this->travel(1)->minute();
 
-        expect(fn () => $keys->store($tenant->owner, ApiKeyProvider::OpenAi, 'test-invalid-key'))
+        expect(fn () => $keys->store($tenant->owner, $provider, 'test-invalid-key'))
             ->toThrow(ValidationException::class, __('usage.invalid_key'))
-            ->and(fn () => $keys->store($reader, ApiKeyProvider::OpenAi, 'test-new-key'))
-            ->toThrow(AuthorizationException::class)
-            ->and(TenantApiKey::query()->sole()->key)->toBe('test-valid-key')
+            ->and(fn () => $keys->store($reader, $provider, 'test-new-key'))
+            ->toThrow(AuthorizationException::class);
+
+        $stored = TenantApiKey::query()->sole();
+        expect($stored->key)->toBe('test-valid-key')
+            ->and($stored->last_verified_at)->toEqual($verifiedAt)
             ->and(Activity::query()->where('subject_type', TenantApiKey::class)->count())->toBe(1);
     }));
 
     Http::assertSentCount(2);
-});
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
+        && $request->url() === $url && $request->hasHeader('Authorization', 'Bearer test-invalid-key'));
+})->with([
+    'OpenAI' => [ApiKeyProvider::OpenAi, 'https://api.openai.com/v1/models', 'data', 403],
+    'Perplexity' => [ApiKeyProvider::Perplexity, 'https://api.perplexity.ai/v1/skills?limit=1', 'skills', 401],
+]);
 
 test('a tenant admin can set and clear only the BYOK budget', function () {
     $tenant = Team::factory()->tenant()->create(['byok_enabled' => true]);
