@@ -21,4 +21,5 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0011](0011-modellbasert-uttrekk.md) | Modellbasert uttrekk: batcher per tenant, strukturert utdata, sammenstilling og evaluering | Akseptert |
 | [0012](0012-aggregering-og-metrikker.md) | Aggregering og metrikker: dagsaggregat, MetricsService og modellbytte-markører | Akseptert |
 | [0013](0013-kvoter-og-forbruk.md) | Kallkvote, budsjetter og forbruksoppdatering | Foreslått |
+| [0016](0016-mcp-server-og-oauth.md) | MCP-server med egen OAuth-server, tenantvalg og skrivetilgang | Akseptert |
 | [0017](0017-rest-api-token-og-kontrakt.md) | REST-API: tenantbundne tokens og avgrenset kontrakt | Foreslått |

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Tests\Support\Mcp\McpTestClient;
 
 function apiCall($test, string $token, string $method, string $url, array $data = [])
 {
@@ -60,6 +61,15 @@ test('v1 requires a real token and read ability', function () {
     $write = $this->user->createToken('write', ['write', 'tenant:'.$this->team->id]);
     apiCall($this, $write->plainTextToken, 'GET', '/api/v1/brands')->assertForbidden();
     apiCall($this, $this->token->plainTextToken, 'GET', '/api/v1/brands')->assertOk()->assertJsonPath('data.0.id', $this->brand->id);
+});
+
+test('REST API and MCP tokens cannot authenticate on the other interface', function () {
+    $mcpToken = McpTestClient::connect($this->user, $this->team);
+
+    apiCall($this, $mcpToken, 'GET', '/api/v1/brands')->assertUnauthorized();
+    apiCall($this, $this->token->plainTextToken, 'GET', '/api/v1/brands')->assertOk();
+    McpTestClient::rpc($this, $this->token->plainTextToken, 'tools/list')->assertUnauthorized();
+    McpTestClient::rpc($this, $mcpToken, 'tools/list')->assertOk();
 });
 
 test('token tenant is independent of browser selection and permission is rechecked after removal', function () {

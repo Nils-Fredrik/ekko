@@ -124,7 +124,7 @@ Stakken følger Varde. Agentene har lesetilgang til Varde-repoet (https://github
 | Grafer | `vue-chartjs` med Chart.js, fargesatt fra designtokens |
 | Database | PostgreSQL 16 |
 | Kø og cache | Laravel `database`-driver |
-| MCP | `laravel/mcp` med OAuth via Laravel Passport, samme mønster som Varde (`Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`) |
+| MCP | `laravel/mcp` med egen OAuth 2.1-server og Sanctum-nøkler, samme mønster som Varde (`Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`). Passport kan ikke brukes sammen med Sanctum på samme `User` ([ADR 0016](decisions/0016-mcp-server-og-oauth.md)) |
 | Innlogging | Jetstream (e-post og passord, 2FA) og Socialite (Google) |
 | PDF | `spatie/laravel-pdf` med Chromium i worker-imaget |
 | Revisjonslogg | `spatie/laravel-activitylog` |
@@ -147,7 +147,7 @@ Varde-repoet er kun referanse. Agentene leser og kopierer mønstre derfra inn i 
 | Layout og fellesskomponenter: `AppLayout`, toppmeny, team-velger, temabytte, språkvelger, `BottomSheet`, `DialogModal` | Samme oppbygging og oppførsel |
 | `Pages/Auth/Login.vue` | Samme innloggingsside |
 | Oppsett av Inertia, Ziggy og `laravel-vue-i18n` (app-inngangen og en språkfil) | Samme oppsett for ruting og oversettelser |
-| `Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`, MCP-serverklassen, ett eksempel på et MCP-tool og Passport-konfigurasjonen | Samme MCP- og OAuth-mønster (15.2) |
+| `Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`, MCP-serverklassen, ett eksempel på et MCP-tool og OAuth-kontrolleren | Samme MCP- og OAuth-mønster (15.2) |
 | `Dockerfile` og eventuelle Cloud Run- og GitHub Actions-filer | Samme byggeløp og kjøremiljø på Cloud Run (T10) |
 
 Ingen miljøfiler, hemmeligheter eller kundedata kopieres fra Varde.
@@ -773,7 +773,8 @@ Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-
 ### 15.2 MCP-server
 
 - **Endepunkt:** `/mcp`, bygget med `laravel/mcp`.
-- **Autentisering:** OAuth 2.1 via Passport, med samtykkeside som i Varde.
+- **Autentisering:** OAuth 2.1 med egen autorisasjonsserver (dynamisk klientregistrering, PKCE, refresh-nøkler som byttes), med samtykkeside og tilkoblingsoversikt (`/claude`) som i Varde. Passport ble valgt bort fordi det ikke kan brukes sammen med Sanctum på samme `User` ([ADR 0016](decisions/0016-mcp-server-og-oauth.md)).
+- **Tenant og skrivetilgang:** brukeren velger tenant og om Claude kan gjøre endringer på samtykkesiden. Verktøy som endrer noe, vises bare når tilkoblingen tillater det.
 - **Tilgang:** tokenet bærer brukerens rettigheter og valgt tenant. Partner-rådgivere kan angi `tenant` som parameter for kunde-tenants de har tilgang til.
 - **Verktøybeskrivelser:** norsk, som i Varde. Navnene er på engelsk i snake_case.
 
@@ -782,14 +783,14 @@ Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-
 | `whoami` | Bruker, tenants og roller |
 | `list_brands` | Merkevarer med markeder og motorer |
 | `get_visibility` | Metrikker for merkevare, marked, motor, tema og periode, med n |
-| `compare_competitors` | Share of voice, posisjon og anbefalingsrate mot konkurrenter |
+| `compare_competitors` | Share of voice, posisjon og anbefalingsrate mot konkurrenter (posisjon og anbefalingsrate foreløpig bare for merkevaren, ADR 0016) |
 | `get_prompt_results` | Resultater per prompt, sortert etter endring |
 | `get_responses` | Svartekster for prompt og motor i periode, med nevnelser og kilder |
 | `get_sources` | Siterte domener, kildeandel og kildegap |
 | `get_crawler_activity` | AI-robottreff og AI-trafikk |
 | `list_alerts` | Åpne og nylige varsler |
 | `get_usage` | Forbruk mot kvote og budsjett |
-| `propose_prompts` | Forslag til nye prompts for et tema (skriver ingenting) |
+| `propose_prompts` | Grunnlag for forslag til nye prompts for et tema: promptene som finnes, dekning og plass i pakken. Claude lager forslagene (skriver ingenting) |
 | `upsert_prompts` | Legger til eller endrer prompts (krever skriverett, logges) |
 
 Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Store resultater pagineres med `cursor`.
@@ -1258,7 +1259,7 @@ Endepunktene i 15.1 med ressurser, paginering og rate limit, samt OpenAPI-beskri
 - Isolasjonstestene dekker alle endepunkter.
 
 ### T34 – MCP-server
-`laravel/mcp` med Passport OAuth, samtykkeside og tilkoblingsoversikt (som Varde) og verktøyene i 15.2.
+`laravel/mcp` med egen OAuth-server (ADR 0016), samtykkeside og tilkoblingsoversikt (som Varde) og verktøyene i 15.2.
 - Verifisert tilkobling fra Claude med OAuth.
 - Partner kan velge kunde-tenant.
 - Skrivende verktøy logges.
