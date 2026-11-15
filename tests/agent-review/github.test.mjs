@@ -105,6 +105,17 @@ async function harness(t, overrides = {}) {
     };
 }
 
+test('request invalidates an existing approval without needing reviewer credentials or PR code', async (t) => {
+    const h = await harness(t, { CODEX_TRIGGER_TOKEN: '', BOARD_MCP_TOKEN: '' });
+    await h.run('request');
+    assert.equal(h.calls.length, 1);
+    assert.equal(h.calls[0].body.state, 'pending');
+    assert.ok(h.calls[0].url.endsWith(`/statuses/${head}`));
+    const invalid = await harness(t, { EVENT_HEAD: 'invalid' });
+    await assert.rejects(invalid.run('request'), /Invalid event head/);
+    assert.equal(invalid.calls.length, 0);
+});
+
 test('prepare binds requirements to the full file list and uses a separate Codex trigger identity', async (t) => {
     const h = await harness(t);
     h.state.files = [{ filename: 'README.md', previous_filename: 'app/Tenancy/Old.php' }];

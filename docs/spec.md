@@ -1063,7 +1063,7 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 
 **Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex GPT-6.1 Sol, uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
 
-**Workflow** (`.github/workflows/agent-review.yml`), som kjører når en PR åpnes eller oppdateres:
+**Workflows:** `.github/workflows/agent-review.yml` setter pending når en PR åpnes eller oppdateres (`pull_request_target`). `.github/workflows/agent-review-execute.yml` fortsetter på `workflow_run` fra betrodd main, etter kontroll av kildekjøring, workflow-ID/sti og uendret PR-head/base (ADR 0022). Dette unngår Anthropics observerte OIDC-feil på pull_request_target; PR-kode og kilde-artifacts kjøres aldri. Reviewet:
 1. Leser merkelappen i PR-tittelen og de endrede filene.
 2. For `[Codex]`- og `[Cursor]`-PR-er kjøres `claude-code-action` med Opus 5.5 og en review-instruks som viser til `AGENTS.md`, `docs/spec.md` og akseptkriteriene i Board-oppgaven.
 3. For `[Claude Code]`-PR-er og følsomme endringer postes kommentaren `@codex review` på PR-en.
@@ -1326,7 +1326,7 @@ Konsernets tenants (Maksimer AS, Maksimer AB, Mediebruket, Funbit) og én partne
 - Redusert modus slår inn og ut riktig i test.
 
 ### T42 – Kryssreview i GitHub
-Workflowen `agent-review.yml`, `.github/review-paths.yml`, status-sjekken `agent-review` og grenbeskyttelse på `main` etter 19.5. Installasjon av Claude GitHub App og ChatGPT Codex-tilkoblingen dokumenteres i `docs/runbook.md`.
+Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-paths.yml`, status-sjekken `agent-review` og grenbeskyttelse på `main` etter 19.5. Installasjon av Claude GitHub App og ChatGPT Codex-tilkoblingen dokumenteres i `docs/runbook.md`.
 - En testPR merket `[Codex]` får review fra Claude, og en merket `[Claude Code]` får review fra Codex.
 - En testPR som endrer en følsom sti får review fra begge.
 - `main` kan ikke merges uten grønn CI og grønn `agent-review`.
