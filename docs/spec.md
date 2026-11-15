@@ -402,6 +402,12 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 `chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
 
+DataForSEO bruker `task_post` med normal prioritet, `tasks_ready` og `task_get/advanced`. Plattformkontoen konfigureres i `DATAFORSEO_CREDENTIALS` med formatet `login:password`. En oppgave sendes og hentes med samme leverandørkonto.
+
+Startkonfigurasjonen for DataForSEO dekker Norge og Sverige med bokmål og svensk. Leverandøren bruker `no` for Ekkos `nb`. ChatGPT LLM Scraper har landnivå. Gemini og Google bruker bykode når bynavnet kan kobles entydig til leverandørens stedskatalog, ellers brukes landkode. Google AI Overviews ber om også å laste asynkrone oversikter, som kan medføre et pristillegg. Når søkeresultatet har ordinære treff uten en AI-oversikt, registreres det som et tomt AI-svar.
+
+Adapterne leverer oppgave-ID ved innsending og `null` ved henting mens oppgaven venter hos leverandøren. T17 kobler `tasksReady()` og seks-timersregelen til de lagrede kjøringene og køen. Worker lagrer erstatnings-ID og antall innsendinger, slik at samme kjøring får høyst én ny innsending.
+
 `claude_haiku` og `claude_sonnet` bruker `engines.model_id` når den er satt, ellers modellene i tabellen. Kallet autentiseres med tenantens egen Anthropic-nøkkel når en slik nøkkel følger kjøringen, ellers med Ekkos workspace-nøkkel `ANTHROPIC_API_KEY` (12.5). Messages API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg. Kallet setter `max_tokens` til 4096.
 
 Claude-adapterne samler inn svar med `stop_reason` lik `end_turn` og tekstinnhold. `refusal`, `max_tokens` og `pause_turn` gir `anthropic_invalid_response`. En feil fra søkeverktøyet i et HTTP 200-svar gir `anthropic_web_search_failed`. Hvis verktøyet rapporterer `max_uses_exceeded`, kan adapteren fortsatt samle inn et fullført svar og kildene som allerede er sitert.

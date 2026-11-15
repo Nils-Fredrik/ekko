@@ -7,6 +7,18 @@ return [
         'model' => env('OPENAI_CHATGPT_MODEL', 'gpt-5-mini'),
     ],
 
+    'dataforseo' => [
+        'credentials' => env('DATAFORSEO_CREDENTIALS'),
+        'locations' => [
+            'NO' => 2578,
+            'SE' => 2752,
+        ],
+        'languages' => [
+            'nb' => 'no',
+            'sv' => 'sv',
+        ],
+    ],
+
     'gemini_api' => [
         'model' => env('GOOGLE_GEMINI_MODEL', 'gemini-3.8-flash'),
     ],

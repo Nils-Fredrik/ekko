@@ -1,0 +1,62 @@
+{
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "tasks": [
+    {
+      "id": "11150800-0000-0000-0000-123456789abc",
+      "status_code": 20000,
+      "result": [
+        {
+          "location_code": 2578,
+          "language_code": "no",
+          "items": [
+            {
+              "type": "ai_overview",
+              "markdown": null,
+              "items": [
+                {
+                  "type": "ai_overview_element",
+                  "text": "En norsk guide til sykkelruter.",
+                  "references": [
+                    {
+                      "type": "ai_overview_reference",
+                      "url": "https://example.test/guide",
+                      "title": "Eksempelguiden"
+                    }
+                  ]
+                },
+                {
+                  "type": "ai_overview_expanded_element",
+                  "components": [
+                    {
+                      "type": "ai_overview_expanded_component",
+                      "references": [
+                        {
+                          "type": "ai_overview_reference",
+                          "url": "https://example.test/map",
+                          "title": "Kart"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "references": [
+                {
+                  "type": "ai_overview_reference",
+                  "url": "https://example.test/guide",
+                  "title": "Eksempelguiden"
+                },
+                {
+                  "type": "ai_overview_reference",
+                  "url": "https://example.test/map",
+                  "title": "Kart"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
