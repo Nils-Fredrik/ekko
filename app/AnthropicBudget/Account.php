@@ -15,7 +15,8 @@ final class Account
 
     public static function independent(): self
     {
-        config(['database.connections.anthropic_budget' => DB::connection()->getConfig()]);
+        // Laravel keys transaction callbacks and reconnection by the configured name.
+        config(['database.connections.anthropic_budget' => array_replace(DB::connection()->getConfig(), ['name' => 'anthropic_budget'])]);
 
         return new self('anthropic_budget');
     }

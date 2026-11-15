@@ -32,6 +32,19 @@ afterEach(function () {
     DB::purge('anthropic_budget');
 });
 
+test('budget commits do not run the outer job callbacks before the tenant commits', function () {
+    $committed = false;
+    expect(fn () => DB::transaction(function () use (&$committed) {
+        DB::afterCommit(function () use (&$committed) {
+            $committed = true;
+        });
+        Account::independent()->reserve('callback-isolation', Money::units('1'), true);
+        expect($committed)->toBeFalse();
+        throw new RuntimeException('caller_rollback');
+    }))->toThrow('caller_rollback');
+    expect($committed)->toBeFalse();
+});
+
 test('provider admission commits before HTTP and survives the outer job rollback', function () {
     $inner = Mockery::mock(ExtractionClient::class);
     $inner->expects('createBatch')->andReturnUsing(function () {
