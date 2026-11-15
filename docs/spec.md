@@ -248,10 +248,10 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 |---|---|
 | `run_batches` | `tenant_id`, `market_id`, `scheduled_for`, `status`, `planned_runs`, `completed_runs`, `failed_runs` |
 | `runs` | `tenant_id`, `run_batch_id`, `prompt_id`, `engine_key`, `repetition`, `status` (queued, running, submitted, collected, extracted, failed, skipped_quota), `attempts`, `error_code`, `started_at`, `finished_at` |
-| `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at` |
+| `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at`, `answer_type` (list, single_recommendation, comparison, informational, refusal), `llm_failed` |
 | `mentions` | `tenant_id`, `response_id`, `entity_type` (brand, competitor, unknown), `entity_id` (null for unknown), `surface_name`, `first_char_offset`, `list_position` (null hvis ikke liste), `is_recommended`, `sentiment` (-1.0–1.0), `detection` (deterministic, llm) |
 | `citations` | `tenant_id`, `response_id`, `url`, `url_normalized`, `domain`, `ownership` (own, competitor, third_party), `competitor_id`, `source_type` (news, review, forum, wiki, marketplace, social, gov, other), `rank_in_answer`, `from_annotation` (bool) |
-| `extraction_jobs` | `tenant_id`, `provider_batch_id`, `status`, `response_ids` (jsonb), `submitted_at`, `completed_at` |
+| `extraction_jobs` | `tenant_id`, `provider_batch_id`, `status` (submitted, completed, failed), `response_ids` (jsonb), `submitted_at`, `completed_at` |
 
 ### 6.4 Aggregater
 
@@ -426,7 +426,7 @@ Svar med status `collected` sendes i batch til Anthropic Message Batches med mod
 - listen over kjente merkevarer og konkurrenter med alias
 - resultatet fra 8.1
 
-Modellen skal returnere JSON etter dette skjemaet (tvunget via verktøydefinisjon):
+Modellen skal returnere JSON etter dette skjemaet. Skjemaet tvinges med strukturert utdata (`output_config.format`, JSON-skjema), ikke med tvunget verktøykall, siden verktøyet bare ville finnes for å få JSON tilbake (ADR 0011):
 
 ```json
 {
@@ -452,8 +452,12 @@ Modellen skal returnere JSON etter dette skjemaet (tvunget via verktøydefinisjo
 - **Modellen beriker** med `is_recommended`, `sentiment` og `answer_type`, og fanger opp ukjente merkevarer (`unknown`). Ukjente merkevarer som går igjen, foreslås som nye konkurrenter i grensesnittet.
 - **Sitater fra annotasjoner vinner** over sitater modellen finner i teksten. Modellen brukes kun til `source_type` og til motorer uten annotasjoner.
 - **Ugyldig JSON** gir ett nytt forsøk enkeltvis via vanlig Messages API. Feiler det igjen, beholdes de deterministiske resultatene og responsen markeres `extracted` med flagg `llm_failed`.
+- **Batcher følger tenant-grensen:** en batch inneholder bare svar fra én tenant (ADR 0011). Modellens `list_position` lagres bare for ukjente nevnelser. For kjente er listeposisjonen alltid den deterministiske (ADR 0010).
+- **Tomme svar** sendes ikke til modellen.
 
-Kostnad for uttrekk logges i `usage_events` med `kind = extraction`.
+Kostnad for uttrekk logges i `usage_events` med `kind = extraction`, regnet ut fra prisene i `config/ekko.php` (`anthropic.extraction`), siden uttrekksmodellen ikke er en motor i `engines`. Batchkall får batchrabatt, enkeltforsøket ikke.
+
+**Evaluering:** `php artisan ekko:extraction:eval` kjører uttrekket mot gullsettet og viser presisjon og treffrate for `is_recommended` og `list_position` (ADR 0011).
 
 ---
 

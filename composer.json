@@ -5,6 +5,7 @@
     "description": "Ekko – overvåking av merkevarer i AI-søk",
     "require": {
         "php": "^8.4",
+        "anthropic-ai/sdk": "^1.8",
         "brick/math": "^0.14",
         "google/cloud-storage": "^1.0",
         "inertiajs/inertia-laravel": "^2.0",
