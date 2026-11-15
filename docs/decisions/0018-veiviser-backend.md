@@ -34,8 +34,8 @@
 
 ## Konsekvenser
 
-- T29 (veiviser-UI) leser disse endepunktene og bekrefter forslaget. Det trengs et lagringssteg som oppretter alt i én transaksjon og setter standard `market_engines` fra pakken. Det er ikke med i T25.
+- T29 (veiviser-UI) leser disse endepunktene og bekrefter forslaget. Lagringssteget, som oppretter alt i én transaksjon og setter standard `market_engines` fra pakken, er ikke med i T25. Eieren har bestemt at T29 lager det, sammen med skjermbildet (Board, task:29).
 - Hentingen kan ikke nå intranett, skytjenestens metadata-endepunkt eller `localhost`, heller ikke gjennom omdirigering eller en vert som slår opp til både offentlig og privat adresse. Et nettsted som bare svarer over `http`, eller som har en forside over 2 MB, kan ikke analyseres, og brukeren må legge inn forslagene selv.
-- Cachen må være delt mellom web og worker i drift (databasecache eller Redis, ikke `array`), og den må støtte låser. Det gjelder både forslagene og reservasjonene. Forslag som ikke er bekreftet innen 24 timer er borte.
+- Cachen må være delt mellom web og worker i drift (databasecache eller Redis, ikke `array`). Det gjelder både forslagene og reservasjonene. I drift er `CACHE_STORE=database` for begge (`infra/terraform/workloads.tf`), og låsene ligger i PostgreSQL (`CollectionLocks`). Eieren har bestemt at appen ikke sjekker dette ved oppstart; et nytt oppsett med en annen cache må beholde én felles cache for web og worker. Forslag som ikke er bekreftet innen 24 timer er borte.
 - `anthropic.onboarding`-prisene må justeres hvis A7 gir andre priser enn listeprisene. Kostnaden per analyse (rundt 4 000 til 10 000 tokens inn og 3 000 til 6 000 ut) er liten.
 - `ProposalParser` og `OnboardingPromptBuilder::brand` er ikke evaluert mot ekte Sonnet-svar her (CI kaller aldri API-et). Kvaliteten på forslagene bør vurderes manuelt med en ekte nøkkel før T29 tas i bruk.
