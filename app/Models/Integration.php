@@ -9,7 +9,12 @@ use Database\Factories\IntegrationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property array<string, mixed> $config
+ * @property Carbon|null $last_failed_on
+ */
 class Integration extends Model
 {
     use BelongsToTenant;
@@ -45,6 +50,7 @@ class Integration extends Model
         return [
             'config' => EncryptedIntegrationConfig::class,
             'last_sync_at' => 'datetime',
+            'last_failed_on' => 'date',
         ];
     }
 
