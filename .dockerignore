@@ -2,6 +2,8 @@
 .github
 .cursor
 .env
+auth.json
+gha-creds-*.json
 .env.*
 !.env.example
 vendor
@@ -9,6 +11,7 @@ node_modules
 public/build
 public/hot
 bootstrap/cache/*.php
+storage/*.key
 storage/app/*
 !storage/app/.gitignore
 !storage/app/private
