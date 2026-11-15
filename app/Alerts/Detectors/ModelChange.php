@@ -8,7 +8,7 @@ use App\Alerts\AlertType;
 use App\Metrics\MetricsService;
 
 /**
- * model_change (docs/spec.md 11.1, ADR 0017): an engine's dominant model id of a day differs from the
+ * model_change (docs/spec.md 11.1, ADR 0019): an engine's dominant model id of a day differs from the
  * dominant model id of the previous day with answers. Providers alternate between versions during a day,
  * so the markers in model_changes (the first answer with another id) would give false changes.
  */

@@ -16,7 +16,7 @@ use Throwable;
 
 /**
  * Runs the detectors for the tenant in the context and stores an alert for every condition found that has not
- * been alerted within its cooldown (docs/spec.md 11.1, ADR 0017). Quota and integration_error alerts are not
+ * been alerted within its cooldown (docs/spec.md 11.1, ADR 0019). Quota and integration_error alerts are not
  * detected here: the hourly usage rollup (ADR 0013) and the ClickHouse and GA4 syncs create them when the
  * condition occurs, and the delivery sends them with the rest.
  */

@@ -70,7 +70,7 @@ final readonly class UsageRollup
                         'byok_cost_usd' => $usage->byok_cost_usd,
                         'byok_budget_usd' => $usage->byok_budget_usd,
                         'recipient_roles' => ['tenant_admin', 'platform_admin'],
-                        // At 100 % the runs stop, so the alert goes out at once, not in the next digest (ADR 0017).
+                        // At 100 % the runs stop, so the alert goes out at once, not in the next digest (ADR 0019).
                         'urgent' => $level === 100,
                     ],
                 ]);

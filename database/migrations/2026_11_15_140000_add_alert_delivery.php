@@ -9,7 +9,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Delivery and acknowledgement of alerts (docs/spec.md 11.1, ADR 0017).
+        // Delivery and acknowledgement of alerts (docs/spec.md 11.1, ADR 0019).
         Schema::table('alerts', function (Blueprint $table): void {
             $table->string('subject')->nullable()->after('alert_rule_id');
             $table->date('digest_date')->nullable()->after('payload');

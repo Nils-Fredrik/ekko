@@ -16,7 +16,7 @@ return [
     ],
 
     /*
-    | Alerts (docs/spec.md 11.1, ADR 0017). The evaluation runs once per tenant and local day, in the first
+    | Alerts (docs/spec.md 11.1, ADR 0019). The evaluation runs once per tenant and local day, in the first
     | scheduler run after evaluate_after (local time), when yesterday's figures are aggregated, but not before
     | yesterday's runs are extracted unless evaluate_wait_until has passed. All alerts of that run go out as one
     | message per channel (the digest). digest_max_age_days: older alerts that never got a digest stay in the list.

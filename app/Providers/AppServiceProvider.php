@@ -40,6 +40,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('api-v1', function (Request $request) {
+            $token = $request->user()?->currentAccessToken();
+
+            return Limit::perMinute(60)->by('api-v1:'.($token instanceof PersonalAccessToken ? $token->getKey() : $request->ip()));
+        });
+
         // The Claude connection (ADR 0016): tool calls per user, and the OAuth endpoints Claude calls without a
         // session per address.
         RateLimiter::for('mcp', fn (Request $request) => Limit::perMinute((int) config('ekko.mcp.calls_per_minute'))

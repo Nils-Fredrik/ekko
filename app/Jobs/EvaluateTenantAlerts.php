@@ -15,7 +15,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 
 /**
- * The daily alert run of one tenant (docs/spec.md 11.1, ADR 0017). Started every hour. Before the evaluation
+ * The daily alert run of one tenant (docs/spec.md 11.1, ADR 0019). Started every hour. Before the evaluation
  * time (ekko.alerts.evaluate_after, tenant-local) it does nothing, and until ekko.alerts.evaluate_wait_until it
  * waits while runs planned yesterday are still being collected or extracted (only extracted answers count, ADR
  * 0012). The first run after that claims the local day (alert_evaluations), evaluates the alert types and

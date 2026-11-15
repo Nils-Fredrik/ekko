@@ -15,6 +15,7 @@ use App\Models\Team;
 use Carbon\CarbonImmutable;
 use DateTimeZone;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -228,6 +229,28 @@ final class MetricsService
     }
 
     /**
+     * Paginated domains for the REST API, using the same counters and formulas as the dashboard.
+     *
+     * @return LengthAwarePaginator<int|string, array{domain: string, citations: int, responses_with_domain: int, share: float|null, n: int, gap_responses: int, gap_rate: float|null, gap_n: int}>
+     */
+    public function sourcesPage(MetricsFilter $filter, int $perPage): LengthAwarePaginator
+    {
+        $n = $this->sourceResponses($filter);
+        $gapN = (int) $this->dailyQuery($filter)->sum('agg_daily.competitor_only_responses');
+
+        return $this->sourceQuery($filter, 'responses_with_domain')->paginate($perPage)->through(fn (object $row) => [
+            'domain' => (string) $row->domain,
+            'citations' => (int) $row->citations,
+            'responses_with_domain' => (int) $row->responses_with_domain,
+            'share' => Formulas::ratio($row->responses_with_domain, $n),
+            'n' => $n,
+            'gap_responses' => (int) $row->gap_responses,
+            'gap_rate' => Formulas::ratio($row->gap_responses, $gapN),
+            'gap_n' => $gapN,
+        ]);
+    }
+
+    /**
      * Source gap: domains cited in answers that name competitors but not the brand, most frequent first. The rate
      * is the gap answers of the domain ÷ all such answers of the brand (competitor_only_responses); n is that
      * count. A domain the brand owns is never a gap.
@@ -346,7 +369,7 @@ final class MetricsService
     }
 
     /**
-     * Own-domain citation per round (ADR 0017): for each prompt and engine and day, the share of answers with
+     * Own-domain citation per round (ADR 0019): for each prompt and engine and day, the share of answers with
      * a citation of an own domain, oldest day first. A round is the day, as for stability (ADR 0012).
      *
      * @return list<array{prompt_id: int, engine_key: string, date: string, citation: Metric}>

@@ -289,8 +289,8 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 |---|---|---|
 | `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker` |
 | `extraction-poll` | hvert 15. minutt, via internt endepunkt | Sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
-| `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) har egen trigger, `alerts` under (ADR 0012, ADR 0017) |
-| `alerts` | hver time, kvart over | `ekko:evaluate-alerts --sync`. Hver tenant evalueres én gang per lokal dag, ved første kjøring etter 05:30 i tenantens tidssone, og kjøringen leverer døgnmeldingen. Senere kjøringer samme dag prøver bare feilede kanaler på nytt. Kvotevarselet ved 100 % sendes av første kjøring etter at det oppstår, uansett tid på døgnet (ADR 0017) |
+| `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) har egen trigger, `alerts` under (ADR 0012, ADR 0019) |
+| `alerts` | hver time, kvart over | `ekko:evaluate-alerts --sync`. Hver tenant evalueres én gang per lokal dag, ved første kjøring etter 05:30 i tenantens tidssone, og kjøringen leverer døgnmeldingen. Senere kjøringer samme dag prøver bare feilede kanaler på nytt. Kvotevarselet ved 100 % sendes av første kjøring etter at det oppstår, uansett tid på døgnet (ADR 0019) |
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
 | `usage-rollup` | hver time, via `ekko-task` | `ekko:usage-rollup` og kvotekontroll |
@@ -553,7 +553,7 @@ Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto med leseti
 
 Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like varsler samles til én melding per tenant per døgn.
 
-**Evaluering og levering (T24, [ADR 0017](decisions/0017-varsler.md)):**
+**Evaluering og levering (T24, [ADR 0019](decisions/0019-varsler.md)):**
 
 - Terskler står i `alert_rules.threshold`: prosentpoeng for `visibility_drop`, prosent for `competitor_takeover` og `new_competitor`. En regel opprettes med standardverdiene fra `config/ekko.php` første gang typen evalueres, og kan endres per tenant.
 - Sammenligningene bruker de siste sju dagene som slutter i går mot de sju foregående, i tenantens tidssone. Tallene hentes fra `MetricsService`.
@@ -776,7 +776,17 @@ Ekko skal se ut og oppføre seg som Varde og Borg. Tokenene under er hentet fra 
 | GET | `/api/v1/alerts` | read |
 | GET | `/api/v1/usage?month=` | read |
 
-Rate limit: 60 forespørsler per minutt per token.
+Rate limit: 60 forespørsler per minutt per token. Alle v1-ruter deler telleren. `429` inkluderer `Retry-After`.
+
+Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-api-token-og-kontrakt.md) beskriver tenantbinding og avgrensninger:
+
+- Jetstream oppretter personlige tokens med uforanderlig tenantbinding. Kun `read` og `write` kan redigeres. Eksisterende tokens uten tenantbinding må erstattes; de gis ikke tilgang automatisk. Nettlesersesjon alene godtas ikke i v1.
+- Brukerens medlemskap/partnertilgang, tenantstatus, verifisert e-post og krav til tofaktor kontrolleres på hvert kall. Rettigheten er snittet av tokenets ability og brukerens nåværende rolle. Partnerens token får bare tilgang til den bundne tenanten, også i rå SQL.
+- Samlinger bruker `page` (standard 1, maks 1 000 000) og `per_page` (standard 50, maks 100). Ressurssamlinger returnerer `data`, `links`, `meta`. Kilder bruker paginatorens `data`, `current_page`, `last_page`, `per_page`, `total` og lenker; metrikkserien bruker samme format under `data.series`.
+- Datoer er inklusive lokale kalenderdager i tenantens tidssone. Standardperiode er siste 28 dager til og med i dag; maks 366 dager. `group_by` er `day` (standard), `week`, `month`, `market`, `engine`, `prompt`, `topic`, `intent` eller `funnel_stage`. Alle metrikker hentes fra `MetricsService` med `value`, `n` og `low_sample`.
+- PATCH og DELETE sender promptens `id` i JSON-body på samlingsruten. POST krever `market_id`, `text`, `intent` og `funnel_stage`. Et marked kan ikke endres med PATCH. Tema, marked og prompt må tilhøre merkevaren; fremmede ID-er gir 404. Pakkegrensen gjelder aktive prompts og håndheves ved opprettelse og reaktivering. Inaktive prompts beholder historikken uten å bruke plasser. Markedet låses før prompten, i samme rekkefølge som MCP; duplikatsjekken håndheves ved opprettelse og tekstendring. DELETE sletter prompten med databasens kaskader; bruk `is_active: false` for å beholde historikken.
+- `responses` gir svartekst, omtaler og kilder, men ingen lagringsadresser eller motorens råsvar. `usage` viser valgt måned (`YYYY-MM`, standard inneværende lokale måned), eller `data: null` når forbruk ikke finnes. Beløp serialiseres som desimalstrenger.
+- Feil returneres som JSON: 401 (mangler/ugyldig token), 403 (tilgang), 404 (ukjent eller fremmed ressurs), 422 (ugyldige felt eller pakkegrense) og 429 (rate limit).
 
 ### 15.2 MCP-server
 

@@ -24,4 +24,5 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0014](0014-botloggimport.md) | Daglige øyeblikksbilder for robottrafikk | Foreslått |
 | [0015](0015-ga4-synk.md) | GA4-synk | Akseptert |
 | [0016](0016-mcp-server-og-oauth.md) | MCP-server med egen OAuth-server, tenantvalg og skrivetilgang | Akseptert |
-| [0017](0017-varsler.md) | Varsler: evaluering, døgnmelding, levering og kvittering | Foreslått |
+| [0017](0017-rest-api-token-og-kontrakt.md) | REST-API: tenantbundne tokens og avgrenset kontrakt | Foreslått |
+| [0019](0019-varsler.md) | Varsler: evaluering, døgnmelding, levering og kvittering | Foreslått |

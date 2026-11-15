@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 /**
- * Delivers the alerts of a tenant's local day as one message per channel (docs/spec.md 11.1, ADR 0017).
+ * Delivers the alerts of a tenant's local day as one message per channel (docs/spec.md 11.1, ADR 0019).
  *
  * The first run of the day gives the alerts that have no digest date the day's date ({@see assignDigest()}):
  * those are the alerts of the digest, and alerts created later in the day wait for the next one. Later runs of

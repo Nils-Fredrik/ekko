@@ -12,7 +12,7 @@ use App\Models\Prompt;
 /**
  * competitor_takeover (docs/spec.md 11.1): on a core prompt, a competitor whose first-place rate was at or
  * below the threshold (percent) in the previous seven days is above it in the latest seven. Both windows
- * need enough list answers for the prompt (ADR 0017).
+ * need enough list answers for the prompt (ADR 0019).
  */
 final readonly class CompetitorTakeover implements Detector
 {
