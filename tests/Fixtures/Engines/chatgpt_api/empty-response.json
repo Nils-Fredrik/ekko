@@ -1,0 +1,8 @@
+{
+    "id": "resp_fixture_empty",
+    "object": "response",
+    "status": "completed",
+    "model": "gpt-5-mini-2025-08-07",
+    "output": [],
+    "usage": {"input_tokens": 90, "output_tokens": 0}
+}
