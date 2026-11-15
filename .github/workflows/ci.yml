@@ -98,3 +98,6 @@ jobs:
 
       - name: Pest, including the tenant isolation suite
         run: composer test
+
+      - name: Performance measurement contract
+        run: python3 -m unittest discover -s tests/performance -v
