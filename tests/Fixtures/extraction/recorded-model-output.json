@@ -1,0 +1,2272 @@
+{
+ "note": "Synthetic, hand-made model output for the gold set, with a few deliberate mistakes. Not real model output.",
+ "outputs": {
+  "nb-01": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe er et norsk kaffebrenneri med kontor i Bergen."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 634,
+    "output_tokens": 85
+   }
+  },
+  "nb-02": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "De beste kaffebrennerne i Norge: 1. Bergensbrenneriet – kjent for lysbrente bønner. 2. Fjordkaffe – "
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "De beste kaffebrennerne i Norge: 1. Bergensbrenneriet – kjent for lysbrente bønner. 2. Fjordkaffe – "
+      },
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "De beste kaffebrennerne i Norge: 1. Bergensbrenneriet – kjent for lysbrente bønner. 2. Fjordkaffe – "
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 661,
+    "output_tokens": 175
+   }
+  },
+  "nb-03": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Jeg anbefaler fjordkaffe hvis du vil ha økologisk kaffe."
+      }
+     ],
+     "citations": [],
+     "answer_type": "single_recommendation"
+    },
+    "input_tokens": 634,
+    "output_tokens": 85
+   }
+  },
+  "nb-04": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffes bønner kommer fra Colombia."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 629,
+    "output_tokens": 85
+   }
+  },
+  "nb-05": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Fjordkaffe's espresso er populær."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 628,
+    "output_tokens": 85
+   }
+  },
+  "nb-06": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe’s espresso er populær."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 628,
+    "output_tokens": 85
+   }
+  },
+  "nb-07": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 630,
+    "output_tokens": 40
+   }
+  },
+  "nb-08": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Kaffekompaniet-appen lar deg bestille kaffe."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 631,
+    "output_tokens": 85
+   }
+  },
+  "nb-09": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 628,
+    "output_tokens": 40
+   }
+  },
+  "nb-10": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Nordlys Rosteri",
+       "entity": {
+        "type": "competitor",
+        "id": 5
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Nordlys Rosteri og Nordlys Kaffebar er ikke det samme."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 633,
+    "output_tokens": 85
+   }
+  },
+  "nb-11": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "KK",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "KK og FJK konkurrerer om kontorkaffe."
+      },
+      {
+       "surface_name": "FJK",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "KK og FJK konkurrerer om kontorkaffe."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 629,
+    "output_tokens": 130
+   }
+  },
+  "nb-12": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 624,
+    "output_tokens": 40
+   }
+  },
+  "nb-13": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Aasen Kaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 4
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Aasen Kaffe leverer til kafeer i Oslo."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 629,
+    "output_tokens": 85
+   }
+  },
+  "nb-14": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "BERGENSBRENNERIET",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "BERGENSBRENNERIET er størst i vest."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 628,
+    "output_tokens": 85
+   }
+  },
+  "nb-15": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Åsen Kaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 4
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Åsen Kaffe er et lite brenneri."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 628,
+    "output_tokens": 85
+   }
+  },
+  "nb-16": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe AS",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe AS vant prisen."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 626,
+    "output_tokens": 85
+   }
+  },
+  "nb-17": {
+   "batch": {
+    "text": "Here is the JSON you asked for: {\"mentions\": [",
+    "input_tokens": 630,
+    "output_tokens": 12
+   },
+   "retry": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Bergen\nBrenneri",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Bergen Brenneri leverer også til private."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 630,
+    "output_tokens": 85
+   }
+  },
+  "nb-18": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjord Kaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Prøv Fjord Kaffe i dag."
+      }
+     ],
+     "citations": [],
+     "answer_type": "single_recommendation"
+    },
+    "input_tokens": 625,
+    "output_tokens": 85
+   }
+  },
+  "nb-19": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Alternativer: - Kaffekompaniet - Bergensbrenneriet - Fjordkaffe "
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Alternativer: - Kaffekompaniet - Bergensbrenneriet - Fjordkaffe "
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Alternativer: - Kaffekompaniet - Bergensbrenneriet - Fjordkaffe "
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 636,
+    "output_tokens": 175
+   }
+  },
+  "nb-20": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "1. Bergensbrenneriet    - Lysbrent    - Kjent fra Fjordkaffe-testen 2. Nordlys Rosteri  3. Kaffekomp"
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "1. Bergensbrenneriet    - Lysbrent    - Kjent fra Fjordkaffe-testen 2. Nordlys Rosteri  3. Kaffekomp"
+      },
+      {
+       "surface_name": "Nordlys Rosteri",
+       "entity": {
+        "type": "competitor",
+        "id": 5
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "1. Bergensbrenneriet    - Lysbrent    - Kjent fra Fjordkaffe-testen 2. Nordlys Rosteri  3. Kaffekomp"
+      },
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "1. Bergensbrenneriet    - Lysbrent    - Kjent fra Fjordkaffe-testen 2. Nordlys Rosteri  3. Kaffekomp"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 646,
+    "output_tokens": 220
+   }
+  },
+  "nb-21": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe er populært. Her er en liste: 1. Bergensbrenneriet 2. Fjordkaffe"
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe er populært. Her er en liste: 1. Bergensbrenneriet 2. Fjordkaffe"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 638,
+    "output_tokens": 130
+   }
+  },
+  "nb-22": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [
+      {
+       "url": "https://www.fjordkaffe.no/produkter/?utm_source=chatgpt.com&utm_medium=x",
+       "source_type": "other"
+      },
+      {
+       "url": "https://shop.fjordkaffe.no/",
+       "source_type": "marketplace"
+      },
+      {
+       "url": "https://fjordkaffe.se/",
+       "source_type": "other"
+      },
+      {
+       "url": "https://shop.fjordkaffe.se/x",
+       "source_type": "other"
+      },
+      {
+       "url": "https://www.bergensbrenneriet.no/?gclid=abc&fbclid=1&srsltid=z",
+       "source_type": "other"
+      },
+      {
+       "url": "https://blogg.bergensbrenneriet.no/post/",
+       "source_type": "other"
+      },
+      {
+       "url": "https://no.wikipedia.org/wiki/Kaffe#Historie",
+       "source_type": "wiki"
+      },
+      {
+       "url": "https://example.com/a?b=1&utm_campaign=x&c=2",
+       "source_type": "other"
+      }
+     ],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 626,
+    "output_tokens": 40
+   }
+  },
+  "nb-23": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Bestill fra fjordkaffe.no i dag."
+      }
+     ],
+     "citations": [],
+     "answer_type": "single_recommendation"
+    },
+    "input_tokens": 628,
+    "output_tokens": 85
+   }
+  },
+  "nb-24": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 628,
+    "output_tokens": 40
+   }
+  },
+  "nb-25": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 626,
+    "output_tokens": 40
+   }
+  },
+  "nb-26": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjord​kaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjord​kaffe er best i test."
+      }
+     ],
+     "citations": [],
+     "answer_type": "single_recommendation"
+    },
+    "input_tokens": 626,
+    "output_tokens": 85
+   }
+  },
+  "nb-27": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Ｆｊｏｒｄｋａｆｆｅ",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Ｆｊｏｒｄｋａｆｆｅ er best."
+      }
+     ],
+     "citations": [],
+     "answer_type": "single_recommendation"
+    },
+    "input_tokens": 624,
+    "output_tokens": 85
+   }
+  },
+  "nb-28": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Her er tre alternativer:  1. **Fjordkaffe**  Fjordkaffe er et solid valg.  2. **Bergensbrenneriet** "
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Her er tre alternativer:  1. **Fjordkaffe**  Fjordkaffe er et solid valg.  2. **Bergensbrenneriet** "
+      },
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 3,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Her er tre alternativer:  1. **Fjordkaffe**  Fjordkaffe er et solid valg.  2. **Bergensbrenneriet** "
+      },
+      {
+       "surface_name": "Nordlys Rosteri",
+       "entity": {
+        "type": "competitor",
+        "id": 5
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Her er tre alternativer:  1. **Fjordkaffe**  Fjordkaffe er et solid valg.  2. **Bergensbrenneriet** "
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 675,
+    "output_tokens": 220
+   }
+  },
+  "nb-29": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "### 1. Fjordkaffe  God kaffe.  ### 2. Bergensbrenneriet  Lysbrent.  ## Oppsummering  Kaffekompaniet "
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "### 1. Fjordkaffe  God kaffe.  ### 2. Bergensbrenneriet  Lysbrent.  ## Oppsummering  Kaffekompaniet "
+      },
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "### 1. Fjordkaffe  God kaffe.  ### 2. Bergensbrenneriet  Lysbrent.  ## Oppsummering  Kaffekompaniet "
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 647,
+    "output_tokens": 175
+   }
+  },
+  "nb-30": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Topplisten: **1.** Fjordkaffe **2.** Bergensbrenneriet **3.** Kaffekompaniet"
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Topplisten: **1.** Fjordkaffe **2.** Bergensbrenneriet **3.** Kaffekompaniet"
+      },
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Topplisten: **1.** Fjordkaffe **2.** Bergensbrenneriet **3.** Kaffekompaniet"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 639,
+    "output_tokens": 175
+   }
+  },
+  "nb-31": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "### 1. Fjordkaffe - Økologisk - Lysbrent  ### 2. Bergensbrenneriet - Billig  ### 3. Kaffekompaniet -"
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "### 1. Fjordkaffe - Økologisk - Lysbrent  ### 2. Bergensbrenneriet - Billig  ### 3. Kaffekompaniet -"
+      },
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "### 1. Fjordkaffe - Økologisk - Lysbrent  ### 2. Bergensbrenneriet - Billig  ### 3. Kaffekompaniet -"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 648,
+    "output_tokens": 175
+   }
+  },
+  "nn-01": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe er eit norsk kaffibrenneri."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 629,
+    "output_tokens": 85
+   }
+  },
+  "nn-02": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Kva er best? Eg rår til Bergensbrenneriet, men og Fjordkaffe er bra."
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Kva er best? Eg rår til Bergensbrenneriet, men og Fjordkaffe er bra."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 637,
+    "output_tokens": 130
+   }
+  },
+  "nn-03": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Åsen Kaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 4
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Åsen Kaffe leverer til kafear på Vestlandet."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 631,
+    "output_tokens": 85
+   }
+  },
+  "nn-04": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Dei beste: 1) Kaffekompaniet 2) Fjordkaffe"
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Dei beste: 1) Kaffekompaniet 2) Fjordkaffe"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 630,
+    "output_tokens": 130
+   }
+  },
+  "nn-05": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffes bønner er økologiske."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 628,
+    "output_tokens": 85
+   }
+  },
+  "nn-06": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Bjørnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Ho drikk berre Bjørnkaffe om morgonen."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 629,
+    "output_tokens": 85
+   }
+  },
+  "nn-07": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Nordlys Rosteri",
+       "entity": {
+        "type": "competitor",
+        "id": 5
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Nordlys Rosteri i Tromsø er kjend for nordlys-bryggen."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 633,
+    "output_tokens": 85
+   }
+  },
+  "nn-08": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 632,
+    "output_tokens": 40
+   }
+  },
+  "nn-09": {
+   "batch": {
+    "text": "not json",
+    "input_tokens": 700,
+    "output_tokens": 3
+   },
+   "retry": {
+    "text": "{\"mentions\": \"none\"}",
+    "input_tokens": 700,
+    "output_tokens": 8
+   }
+  },
+  "nn-10": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "* Fjordkaffe * Åsen Kaffe "
+      },
+      {
+       "surface_name": "Åsen Kaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 4
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "* Fjordkaffe * Åsen Kaffe "
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 626,
+    "output_tokens": 130
+   }
+  },
+  "nn-11": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Bergen Brenneri",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "– Bergen Brenneri – Fjordkaffe"
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "– Bergen Brenneri – Fjordkaffe"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 627,
+    "output_tokens": 130
+   }
+  },
+  "nn-13": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "1. Fjordkaffe  Om kaffien:  - Økologisk - Lett brent  2. Bjørnkaffe  - Rimeleg  3. Åsen Kaffe  - Lok"
+      },
+      {
+       "surface_name": "Bjørnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "1. Fjordkaffe  Om kaffien:  - Økologisk - Lett brent  2. Bjørnkaffe  - Rimeleg  3. Åsen Kaffe  - Lok"
+      },
+      {
+       "surface_name": "Åsen Kaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 4
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "1. Fjordkaffe  Om kaffien:  - Økologisk - Lett brent  2. Bjørnkaffe  - Rimeleg  3. Åsen Kaffe  - Lok"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 645,
+    "output_tokens": 175
+   }
+  },
+  "nn-12": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Aasen kaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 4
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Dei sel Aasen kaffe i butikken."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 627,
+    "output_tokens": 85
+   }
+  },
+  "sv-01": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe är ett norskt kafferosteri."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 629,
+    "output_tokens": 85
+   }
+  },
+  "sv-02": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Björnkaffe är populärt i Sverige."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 628,
+    "output_tokens": 85
+   }
+  },
+  "sv-03": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Jag rekommenderar Björnkaffe eller Fjordkaffe."
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Jag rekommenderar Björnkaffe eller Fjordkaffe."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 631,
+    "output_tokens": 130
+   }
+  },
+  "sv-04": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffes bönor är ekologiska."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 628,
+    "output_tokens": 85
+   }
+  },
+  "sv-05": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Vilka är bäst? 1. Kaffekompaniet 2. Björnkaffe 3. Fjordkaffe 4. Nordlys Rosteri"
+      },
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Vilka är bäst? 1. Kaffekompaniet 2. Björnkaffe 3. Fjordkaffe 4. Nordlys Rosteri"
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Vilka är bäst? 1. Kaffekompaniet 2. Björnkaffe 3. Fjordkaffe 4. Nordlys Rosteri"
+      },
+      {
+       "surface_name": "Nordlys Rosteri",
+       "entity": {
+        "type": "competitor",
+        "id": 5
+       },
+       "list_position": 4,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Vilka är bäst? 1. Kaffekompaniet 2. Björnkaffe 3. Fjordkaffe 4. Nordlys Rosteri"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 639,
+    "output_tokens": 220
+   }
+  },
+  "sv-06": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe AB",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe AB säljer även i Sverige."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 629,
+    "output_tokens": 85
+   }
+  },
+  "sv-07": {
+   "batch": {
+    "error": "errored"
+   },
+   "retry": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 627,
+    "output_tokens": 40
+   }
+  },
+  "sv-08": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Björnkaffe-påsen var tom."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 626,
+    "output_tokens": 85
+   }
+  },
+  "sv-09": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "BJÖRNKAFFE",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "BJÖRNKAFFE är störst."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 625,
+    "output_tokens": 85
+   }
+  },
+  "sv-10": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 625,
+    "output_tokens": 40
+   }
+  },
+  "sv-11": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [
+      {
+       "url": "https://www.bjornkaffe.se/kaffe/?utm_source=gemini",
+       "source_type": "other"
+      },
+      {
+       "url": "https://se.wikipedia.org/wiki/Kaffe/",
+       "source_type": "wiki"
+      },
+      {
+       "url": "https://www.bjørnkaffe.se/om-oss/",
+       "source_type": "other"
+      },
+      {
+       "url": "https://FJORDKAFFE.no:443/Om-oss/",
+       "source_type": "other"
+      }
+     ],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 624,
+    "output_tokens": 40
+   }
+  },
+  "sv-12": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Aasen Kaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 4
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Aasen Kaffe säljs i butik."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 626,
+    "output_tokens": 85
+   }
+  },
+  "sv-13": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "* Kaffekompaniet * Fjordkaffe * Bergensbrenneriet"
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "* Kaffekompaniet * Fjordkaffe * Bergensbrenneriet"
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "* Kaffekompaniet * Fjordkaffe * Bergensbrenneriet"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 632,
+    "output_tokens": 175
+   }
+  },
+  "sv-14": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Ekologiskt kaffe:  1. **Fjordkaffe** – norskt. 2. **Björnkaffe** – svenskt."
+      },
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Ekologiskt kaffe:  1. **Fjordkaffe** – norskt. 2. **Björnkaffe** – svenskt."
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 638,
+    "output_tokens": 130
+   }
+  },
+  "sv-15": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Nordlys Rosteri",
+       "entity": {
+        "type": "competitor",
+        "id": 5
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Nordlys Rosteri säljer norrsken-kaffe."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 629,
+    "output_tokens": 85
+   }
+  },
+  "sv-16": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjord Kaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjord Kaffe och FJK är samma företag."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 629,
+    "output_tokens": 85
+   }
+  },
+  "sv-17": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 628,
+    "output_tokens": 40
+   }
+  },
+  "sv-18": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Besök fjordkaffe.se."
+      }
+     ],
+     "citations": [],
+     "answer_type": "single_recommendation"
+    },
+    "input_tokens": 625,
+    "output_tokens": 85
+   }
+  },
+  "sv-19": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 620,
+    "output_tokens": 40
+   }
+  },
+  "sv-20": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "1. **Fjordkaffe**  - Ekologiskt - Mörkrostat  2. **Björnkaffe**  - Billigt  3. **Kaffekompaniet**  -"
+      },
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "1. **Fjordkaffe**  - Ekologiskt - Mörkrostat  2. **Björnkaffe**  - Billigt  3. **Kaffekompaniet**  -"
+      },
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.0,
+       "evidence": "1. **Fjordkaffe**  - Ekologiskt - Mörkrostat  2. **Björnkaffe**  - Billigt  3. **Kaffekompaniet**  -"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 648,
+    "output_tokens": 175
+   }
+  },
+  "nb-32": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Hvis du vil ha økologisk kaffe, anbefaler jeg Fjordkaffe. Bergensbrenneriet er også et godt alternat"
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Hvis du vil ha økologisk kaffe, anbefaler jeg Fjordkaffe. Bergensbrenneriet er også et godt alternat"
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 650,
+    "output_tokens": 130
+   }
+  },
+  "nb-33": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": -0.6,
+       "evidence": "Jeg kan ikke anbefale Kaffekompaniet. Kundene klager på leveringstid, og Fjordkaffe kommer bedre ut "
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Jeg kan ikke anbefale Kaffekompaniet. Kundene klager på leveringstid, og Fjordkaffe kommer bedre ut "
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 647,
+    "output_tokens": 130
+   }
+  },
+  "nb-34": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Nordlys Rosteri",
+       "entity": {
+        "type": "competitor",
+        "id": 5
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Her er mine anbefalinger: 1. Nordlys Rosteri – mørkbrent og kraftig. 2. Fjordkaffe – balansert og øk"
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Her er mine anbefalinger: 1. Nordlys Rosteri – mørkbrent og kraftig. 2. Fjordkaffe – balansert og øk"
+      },
+      {
+       "surface_name": "Bjørnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Her er mine anbefalinger: 1. Nordlys Rosteri – mørkbrent og kraftig. 2. Fjordkaffe – balansert og øk"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 653,
+    "output_tokens": 175
+   }
+  },
+  "nb-35": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Kaffe dyrkes i fjellene i Colombia og Etiopia. Fjordkaffe og Bergensbrenneriet er blant de norske ak"
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Kaffe dyrkes i fjellene i Colombia og Etiopia. Fjordkaffe og Bergensbrenneriet er blant de norske ak"
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 652,
+    "output_tokens": 130
+   }
+  },
+  "nb-36": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Ifølge testen i Dagbladet er Fjordkaffe best på smak, foran Kaffekompaniet."
+      },
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Ifølge testen i Dagbladet er Fjordkaffe best på smak, foran Kaffekompaniet."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.dagbladet.no/test/kaffe?utm_source=x",
+       "source_type": "news"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 638,
+    "output_tokens": 130
+   }
+  },
+  "nb-37": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 640,
+    "output_tokens": 40
+   }
+  },
+  "nb-38": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe har lysere brenning, mens Bergensbrenneriet har mørkere. Smaken er ulik, så det kommer an"
+      },
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe har lysere brenning, mens Bergensbrenneriet har mørkere. Smaken er ulik, så det kommer an"
+      }
+     ],
+     "citations": [],
+     "answer_type": "comparison"
+    },
+    "input_tokens": 649,
+    "output_tokens": 130
+   }
+  },
+  "nb-39": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": -0.6,
+       "evidence": "Kaffekompaniet har dårlige anmeldelser på Trustpilot, så jeg ville valgt Fjordkaffe i stedet."
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Kaffekompaniet har dårlige anmeldelser på Trustpilot, så jeg ville valgt Fjordkaffe i stedet."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.trustpilot.com/review/kaffekompaniet.no",
+       "source_type": "review"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 643,
+    "output_tokens": 130
+   }
+  },
+  "sv-21": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Om du vill ha ekologiskt kaffe rekommenderar jag Fjordkaffe. Björnkaffe är ett bra och billigare alt"
+      },
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Om du vill ha ekologiskt kaffe rekommenderar jag Fjordkaffe. Björnkaffe är ett bra och billigare alt"
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 647,
+    "output_tokens": 130
+   }
+  },
+  "sv-22": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": -0.6,
+       "evidence": "Jag skulle undvika Kaffekompaniet, många recensioner nämner dålig leverans. Fjordkaffe får bättre be"
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Jag skulle undvika Kaffekompaniet, många recensioner nämner dålig leverans. Fjordkaffe får bättre be"
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 646,
+    "output_tokens": 130
+   }
+  },
+  "sv-23": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": 1,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Mina rekommendationer: 1. Björnkaffe – mild och prisvärd. 2. Fjordkaffe – ekologisk. 3. Nordlys Rost"
+      },
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": 2,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Mina rekommendationer: 1. Björnkaffe – mild och prisvärd. 2. Fjordkaffe – ekologisk. 3. Nordlys Rost"
+      },
+      {
+       "surface_name": "Nordlys Rosteri",
+       "entity": {
+        "type": "competitor",
+        "id": 5
+       },
+       "list_position": 3,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Mina rekommendationer: 1. Björnkaffe – mild och prisvärd. 2. Fjordkaffe – ekologisk. 3. Nordlys Rost"
+      }
+     ],
+     "citations": [],
+     "answer_type": "list"
+    },
+    "input_tokens": 649,
+    "output_tokens": 175
+   }
+  },
+  "sv-24": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Kaffe odlas i Colombia och Etiopien. Fjordkaffe och Björnkaffe importerar båda direkt."
+      },
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Kaffe odlas i Colombia och Etiopien. Fjordkaffe och Björnkaffe importerar båda direkt."
+      }
+     ],
+     "citations": [],
+     "answer_type": "informational"
+    },
+    "input_tokens": 641,
+    "output_tokens": 130
+   }
+  },
+  "sv-25": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Enligt tråden på Reddit är Fjordkaffe godast, men Björnkaffe är billigare."
+      },
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Enligt tråden på Reddit är Fjordkaffe godast, men Björnkaffe är billigare."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.reddit.com/r/kaffe/comments/abc/",
+       "source_type": "forum"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 638,
+    "output_tokens": 130
+   }
+  },
+  "sv-26": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Det beror på smak. Fjordkaffe är mer fruktigt än Kaffekompaniet."
+      },
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Det beror på smak. Fjordkaffe är mer fruktigt än Kaffekompaniet."
+      }
+     ],
+     "citations": [],
+     "answer_type": "comparison"
+    },
+    "input_tokens": 636,
+    "output_tokens": 130
+   }
+  },
+  "sv-27": {
+   "batch": {
+    "text": {
+     "mentions": [],
+     "citations": [],
+     "answer_type": "refusal"
+    },
+    "input_tokens": 634,
+    "output_tokens": 40
+   }
+  },
+  "sv-28": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": true,
+       "sentiment": 0.7,
+       "evidence": "Bästa köpet just nu är Fjordkaffe, se https://www.fjordkaffe.no/erbjudande?utm_campaign=x för priset"
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.fjordkaffe.no/erbjudande?utm_campaign=x",
+       "source_type": "other"
+      }
+     ],
+     "answer_type": "single_recommendation"
+    },
+    "input_tokens": 645,
+    "output_tokens": 85
+   }
+  }
+ }
+}

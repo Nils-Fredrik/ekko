@@ -29,6 +29,8 @@ class Response extends Model
         'search_calls',
         'cost_usd',
         'collected_at',
+        'answer_type',
+        'llm_failed',
     ];
 
     /** @return BelongsTo<Run, $this> */
@@ -55,12 +57,25 @@ class Response extends Model
         return $this->hasMany(Citation::class);
     }
 
+    /**
+     * The URLs the engine gave as sources with the answer (annotations), in the engine's order.
+     *
+     * @return list<string>
+     */
+    public function annotationUrls(): array
+    {
+        return $this->citations()->where('from_annotation', true)
+            ->orderBy('rank_in_answer')->orderBy('id')
+            ->pluck('url')->map(fn ($url): string => (string) $url)->values()->all();
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
         return [
             'cost_usd' => 'decimal:8',
             'collected_at' => 'datetime',
+            'llm_failed' => 'boolean',
         ];
     }
 }

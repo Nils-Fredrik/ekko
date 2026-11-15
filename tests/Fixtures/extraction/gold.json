@@ -119,7 +119,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -133,17 +134,20 @@
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -157,7 +161,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -171,7 +176,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -185,7 +191,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -199,7 +206,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -221,7 +229,8 @@
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -243,7 +252,8 @@
     {
      "entity": "competitor:nordlys",
      "surface": "Nordlys Rosteri",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -257,12 +267,14 @@
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "KK",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "FJK",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -284,7 +296,8 @@
     {
      "entity": "competitor:aasen",
      "surface": "Aasen Kaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -298,7 +311,8 @@
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "BERGENSBRENNERIET",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -312,7 +326,8 @@
     {
      "entity": "competitor:aasen",
      "surface": "Åsen Kaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -326,7 +341,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe AS",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -340,7 +356,8 @@
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergen\nBrenneri",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -354,7 +371,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjord Kaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -368,17 +386,20 @@
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -392,22 +413,26 @@
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": false
     },
     {
      "entity": "competitor:nordlys",
      "surface": "Nordlys Rosteri",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -421,12 +446,14 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -442,49 +469,57 @@
      "url": "https://www.fjordkaffe.no/produkter/?utm_source=chatgpt.com&utm_medium=x",
      "normalized": "https://fjordkaffe.no/produkter",
      "ownership": "own",
-     "competitor": null
+     "competitor": null,
+     "source_type": "other"
     },
     {
      "url": "https://shop.fjordkaffe.no/",
      "normalized": "https://shop.fjordkaffe.no",
      "ownership": "own",
-     "competitor": null
+     "competitor": null,
+     "source_type": "other"
     },
     {
      "url": "https://fjordkaffe.se/",
      "normalized": "https://fjordkaffe.se",
      "ownership": "own",
-     "competitor": null
+     "competitor": null,
+     "source_type": "other"
     },
     {
      "url": "https://shop.fjordkaffe.se/x",
      "normalized": "https://shop.fjordkaffe.se/x",
      "ownership": "third_party",
-     "competitor": null
+     "competitor": null,
+     "source_type": "other"
     },
     {
      "url": "https://www.bergensbrenneriet.no/?gclid=abc&fbclid=1&srsltid=z",
      "normalized": "https://bergensbrenneriet.no",
      "ownership": "competitor",
-     "competitor": "bergensbrenneriet"
+     "competitor": "bergensbrenneriet",
+     "source_type": "other"
     },
     {
      "url": "https://blogg.bergensbrenneriet.no/post/",
      "normalized": "https://blogg.bergensbrenneriet.no/post",
      "ownership": "competitor",
-     "competitor": "bergensbrenneriet"
+     "competitor": "bergensbrenneriet",
+     "source_type": "other"
     },
     {
      "url": "https://no.wikipedia.org/wiki/Kaffe#Historie",
      "normalized": "https://no.wikipedia.org/wiki/Kaffe",
      "ownership": "third_party",
-     "competitor": null
+     "competitor": null,
+     "source_type": "wiki"
     },
     {
      "url": "https://example.com/a?b=1&utm_campaign=x&c=2",
      "normalized": "https://example.com/a?b=1&c=2",
      "ownership": "third_party",
-     "competitor": null
+     "competitor": null,
+     "source_type": "other"
     }
    ],
    "note": ""
@@ -497,7 +532,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -527,7 +563,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjord​kaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -541,7 +578,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Ｆｊｏｒｄｋａｆｆｅ",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -555,22 +593,26 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     },
     {
      "entity": "competitor:nordlys",
      "surface": "Nordlys Rosteri",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -584,17 +626,20 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -608,17 +653,20 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -632,17 +680,20 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -656,7 +707,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -670,12 +722,14 @@
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -689,7 +743,8 @@
     {
      "entity": "competitor:aasen",
      "surface": "Åsen Kaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -703,12 +758,14 @@
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -722,7 +779,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -736,7 +794,8 @@
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Bjørnkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -750,7 +809,8 @@
     {
      "entity": "competitor:nordlys",
      "surface": "Nordlys Rosteri",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -772,17 +832,20 @@
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Bjørnkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -796,12 +859,14 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:aasen",
      "surface": "Åsen Kaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -815,12 +880,14 @@
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergen Brenneri",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -834,17 +901,20 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Bjørnkaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:aasen",
      "surface": "Åsen Kaffe",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -858,7 +928,8 @@
     {
      "entity": "competitor:aasen",
      "surface": "Aasen kaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -872,7 +943,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -886,7 +958,8 @@
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Björnkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -900,12 +973,14 @@
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Björnkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -919,7 +994,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -933,22 +1009,26 @@
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Björnkaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     },
     {
      "entity": "competitor:nordlys",
      "surface": "Nordlys Rosteri",
-     "list_position": 4
+     "list_position": 4,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -962,7 +1042,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe AB",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -984,7 +1065,8 @@
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Björnkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -998,7 +1080,8 @@
     {
      "entity": "competitor:bjornkaffe",
      "surface": "BJÖRNKAFFE",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -1022,25 +1105,29 @@
      "url": "https://www.bjornkaffe.se/kaffe/?utm_source=gemini",
      "normalized": "https://bjornkaffe.se/kaffe",
      "ownership": "competitor",
-     "competitor": "bjornkaffe"
+     "competitor": "bjornkaffe",
+     "source_type": "other"
     },
     {
      "url": "https://se.wikipedia.org/wiki/Kaffe/",
      "normalized": "https://se.wikipedia.org/wiki/Kaffe",
      "ownership": "third_party",
-     "competitor": null
+     "competitor": null,
+     "source_type": "wiki"
     },
     {
      "url": "https://www.bjørnkaffe.se/om-oss/",
      "normalized": "https://xn--bjrnkaffe-m8a.se/om-oss",
      "ownership": "competitor",
-     "competitor": "bjornkaffe"
+     "competitor": "bjornkaffe",
+     "source_type": "other"
     },
     {
      "url": "https://FJORDKAFFE.no:443/Om-oss/",
      "normalized": "https://fjordkaffe.no/Om-oss",
      "ownership": "own",
-     "competitor": null
+     "competitor": null,
+     "source_type": "other"
     }
    ],
    "note": ""
@@ -1053,7 +1140,8 @@
     {
      "entity": "competitor:aasen",
      "surface": "Aasen Kaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -1067,17 +1155,20 @@
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -1091,12 +1182,14 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Björnkaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -1110,7 +1203,8 @@
     {
      "entity": "competitor:nordlys",
      "surface": "Nordlys Rosteri",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -1124,7 +1218,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjord Kaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": false
     }
    ],
    "citations": [],
@@ -1146,7 +1241,8 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "fjordkaffe",
-     "list_position": null
+     "list_position": null,
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -1168,21 +1264,372 @@
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
-     "list_position": 1
+     "list_position": 1,
+     "is_recommended": true
     },
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Björnkaffe",
-     "list_position": 2
+     "list_position": 2,
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
-     "list_position": 3
+     "list_position": 3,
+     "is_recommended": true
     }
    ],
    "citations": [],
    "note": "blank line and bullets under numbered items"
+  },
+  {
+   "id": "nb-32",
+   "language": "nb",
+   "text": "Hvis du vil ha økologisk kaffe, anbefaler jeg Fjordkaffe. Bergensbrenneriet er også et godt alternativ, men litt dyrere.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": true
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": null,
+     "is_recommended": true
+    }
+   ],
+   "citations": [],
+   "note": "recommendation in prose"
+  },
+  {
+   "id": "nb-33",
+   "language": "nb",
+   "text": "Jeg kan ikke anbefale Kaffekompaniet. Kundene klager på leveringstid, og Fjordkaffe kommer bedre ut i tester.",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null,
+     "is_recommended": false
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": true
+    }
+   ],
+   "citations": [],
+   "note": "advice against one, for another"
+  },
+  {
+   "id": "nb-34",
+   "language": "nb",
+   "text": "Her er mine anbefalinger:\n1. Nordlys Rosteri – mørkbrent og kraftig.\n2. Fjordkaffe – balansert og økologisk.\n3. Bjørnkaffe – rimelig.",
+   "expected": [
+    {
+     "entity": "competitor:nordlys",
+     "surface": "Nordlys Rosteri",
+     "list_position": 1,
+     "is_recommended": true
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 2,
+     "is_recommended": true
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Bjørnkaffe",
+     "list_position": 3,
+     "is_recommended": true
+    }
+   ],
+   "citations": [],
+   "note": "recommended list"
+  },
+  {
+   "id": "nb-35",
+   "language": "nb",
+   "text": "Kaffe dyrkes i fjellene i Colombia og Etiopia. Fjordkaffe og Bergensbrenneriet er blant de norske aktørene som importerer direkte.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": false
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [],
+   "note": "informational"
+  },
+  {
+   "id": "nb-36",
+   "language": "nb",
+   "text": "Ifølge testen i Dagbladet er Fjordkaffe best på smak, foran Kaffekompaniet.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": true
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.dagbladet.no/test/kaffe?utm_source=x",
+     "normalized": "https://dagbladet.no/test/kaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "news"
+    }
+   ],
+   "note": "citation in text"
+  },
+  {
+   "id": "nb-37",
+   "language": "nb",
+   "text": "Beklager, jeg har ikke nok informasjon til å anbefale en bestemt kaffeleverandør.",
+   "expected": [],
+   "citations": [],
+   "note": "refusal"
+  },
+  {
+   "id": "nb-38",
+   "language": "nb",
+   "text": "Fjordkaffe har lysere brenning, mens Bergensbrenneriet har mørkere. Smaken er ulik, så det kommer an på hva du liker.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": false
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [],
+   "note": "comparison without a pick"
+  },
+  {
+   "id": "nb-39",
+   "language": "nb",
+   "text": "Kaffekompaniet har dårlige anmeldelser på Trustpilot, så jeg ville valgt Fjordkaffe i stedet.",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null,
+     "is_recommended": false
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": true
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.trustpilot.com/review/kaffekompaniet.no",
+     "normalized": "https://trustpilot.com/review/kaffekompaniet.no",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "review"
+    }
+   ],
+   "note": "negative, with review source"
+  },
+  {
+   "id": "sv-21",
+   "language": "sv",
+   "text": "Om du vill ha ekologiskt kaffe rekommenderar jag Fjordkaffe. Björnkaffe är ett bra och billigare alternativ.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": true
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": null,
+     "is_recommended": true
+    }
+   ],
+   "citations": [],
+   "note": "recommendation in prose"
+  },
+  {
+   "id": "sv-22",
+   "language": "sv",
+   "text": "Jag skulle undvika Kaffekompaniet, många recensioner nämner dålig leverans. Fjordkaffe får bättre betyg.",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null,
+     "is_recommended": false
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": true
+    }
+   ],
+   "citations": [],
+   "note": "advice against one, for another"
+  },
+  {
+   "id": "sv-23",
+   "language": "sv",
+   "text": "Mina rekommendationer:\n1. Björnkaffe – mild och prisvärd.\n2. Fjordkaffe – ekologisk.\n3. Nordlys Rosteri – mörkrostad.",
+   "expected": [
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": 1,
+     "is_recommended": true
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 2,
+     "is_recommended": true
+    },
+    {
+     "entity": "competitor:nordlys",
+     "surface": "Nordlys Rosteri",
+     "list_position": 3,
+     "is_recommended": true
+    }
+   ],
+   "citations": [],
+   "note": "recommended list"
+  },
+  {
+   "id": "sv-24",
+   "language": "sv",
+   "text": "Kaffe odlas i Colombia och Etiopien. Fjordkaffe och Björnkaffe importerar båda direkt.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": false
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [],
+   "note": "informational"
+  },
+  {
+   "id": "sv-25",
+   "language": "sv",
+   "text": "Enligt tråden på Reddit är Fjordkaffe godast, men Björnkaffe är billigare.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": true
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.reddit.com/r/kaffe/comments/abc/",
+     "normalized": "https://reddit.com/r/kaffe/comments/abc",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "forum"
+    }
+   ],
+   "note": "forum source"
+  },
+  {
+   "id": "sv-26",
+   "language": "sv",
+   "text": "Det beror på smak. Fjordkaffe är mer fruktigt än Kaffekompaniet.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": false
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [],
+   "note": "comparison without a pick"
+  },
+  {
+   "id": "sv-27",
+   "language": "sv",
+   "text": "Tyvärr kan jag inte rekommendera en specifik leverantör.",
+   "expected": [],
+   "citations": [],
+   "note": "refusal"
+  },
+  {
+   "id": "sv-28",
+   "language": "sv",
+   "text": "Bästa köpet just nu är Fjordkaffe, se https://www.fjordkaffe.no/erbjudande?utm_campaign=x för priset.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": true
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.fjordkaffe.no/erbjudande?utm_campaign=x",
+     "normalized": "https://fjordkaffe.no/erbjudande",
+     "ownership": "own",
+     "competitor": null,
+     "source_type": "other"
+    }
+   ],
+   "note": "own site in text"
   }
  ]
 }

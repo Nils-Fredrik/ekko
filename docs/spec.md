@@ -248,21 +248,21 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 |---|---|
 | `run_batches` | `tenant_id`, `market_id`, `scheduled_for`, `status`, `planned_runs`, `completed_runs`, `failed_runs` |
 | `runs` | `tenant_id`, `run_batch_id`, `prompt_id`, `engine_key`, `repetition`, `status` (queued, running, submitted, collected, extracted, failed, skipped_quota), `attempts`, `error_code`, `started_at`, `finished_at` |
-| `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at` |
+| `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at`, `answer_type` (list, single_recommendation, comparison, informational, refusal), `llm_failed` |
 | `mentions` | `tenant_id`, `response_id`, `entity_type` (brand, competitor, unknown), `entity_id` (null for unknown), `surface_name`, `first_char_offset`, `list_position` (null hvis ikke liste), `is_recommended`, `sentiment` (-1.0–1.0), `detection` (deterministic, llm) |
 | `citations` | `tenant_id`, `response_id`, `url`, `url_normalized`, `domain`, `ownership` (own, competitor, third_party), `competitor_id`, `source_type` (news, review, forum, wiki, marketplace, social, gov, other), `rank_in_answer`, `from_annotation` (bool) |
-| `extraction_jobs` | `tenant_id`, `provider_batch_id`, `status`, `response_ids` (jsonb), `submitted_at`, `completed_at` |
+| `extraction_jobs` | `tenant_id`, `provider_batch_id`, `status` (submitted, completed, failed), `response_ids` (jsonb), `submitted_at`, `completed_at` |
 
 ### 6.4 Aggregater
 
 | Tabell | Nøkkel | Innhold |
 |---|---|---|
-| `agg_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `prompt_id`, `date` | `responses`, `brand_mentioned`, `brand_recommended`, `sum_position`, `count_position`, `sum_sentiment`, `own_cited`, `competitor_mentions` (jsonb per competitor_id) |
-| `agg_source_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `domain`, `date` | `citations`, `responses_with_domain` |
+| `agg_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `prompt_id`, `date` | `responses`, `brand_mentioned`, `brand_recommended`, `sum_position`, `count_position`, `list_responses`, `first_place`, `sum_sentiment`, `count_sentiment`, `own_cited`, `competitor_only_responses`, `competitor_mentions` (jsonb per competitor_id) |
+| `agg_source_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `domain`, `date` | `citations`, `responses_with_domain`, `gap_responses` |
 | `bot_hits_daily` | `tenant_id`, `brand_id`, `domain`, `bot`, `date` | `hits`, `unique_paths`, `top_paths` (jsonb) |
 | `ai_referrals_daily` | `tenant_id`, `brand_id`, `source`, `date` | `sessions`, `engaged_sessions`, `conversions` |
 
-Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke separat.
+Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). De lagres ikke separat. `list_responses`, `first_place`, `count_sentiment`, `competitor_only_responses` og `gap_responses` er lagt til for formlene i kapittel 9 (ADR 0012). Dagen er tenantens lokale dag (`teams.timezone`), og bare svar fra kjøringer med status `extracted` teller.
 
 ### 6.5 Drift og økonomi
 
@@ -276,6 +276,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 | `reports` | `tenant_id`, `report_schedule_id`, `period_start`, `period_end`, `pdf_uri`, `sent_at` |
 | `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `status` |
 | `activity_log` | fra spatie/laravel-activitylog, med `tenant_id` |
+| `model_changes` | `tenant_id`, `engine_key`, `changed_on`, `from_model`, `to_model`, `changed_at` (modellbytte-markører, 7.5) |
 
 ---
 
@@ -287,7 +288,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 |---|---|---|
 | `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker` |
 | `extraction-poll` | hvert 15. minutt, via internt endepunkt | Sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
-| `aggregate` | daglig 05:30 | `ekko:aggregate --date=yesterday`, deretter varselsevaluering |
+| `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) kjøres av egen trigger etter første aggregering etter 05:30 (ADR 0012) |
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
 | `usage-rollup` | hver time, via internt endepunkt | `ekko:usage-rollup` og kvotekontroll |
@@ -379,7 +380,7 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 | `google_ai_mode` | Google | SERP, kø | DataForSEO AI Mode-endepunkt (standardkø), der det er tilgjengelig for markedet | daglig | alle |
 | `claude_haiku` | Claude | API | Anthropic Messages API med `claude-haiku-5-5`, grunnversjonen av web search-verktøyet (uten dynamisk filtrering, `max_uses: 2`) og `user_location`. Kilder fra `web_search_result_location`-sitater. | daglig | alle |
 | `claude_sonnet` | Claude | API | Som over, med `claude-sonnet-5-5` | ukentlig | kjerne |
-| `perplexity_api` | Perplexity | API | Perplexitys API med websøk. Kilder fra `citations`/`search_results`. | ukentlig | alle |
+| `perplexity_api` | Perplexity | API | Perplexity Agent API med `perplexity/sonar` og `web_search`. Kilder fra `search_results` og `url_citation`-annotasjoner. | ukentlig | alle |
 | `chatgpt_api` | ChatGPT | API | OpenAI Responses API med `web_search` og `user_location` | av | – |
 | `gemini_api` | Gemini | API | Gemini API med Google Search-grounding. Kilder fra `groundingMetadata`. | av | – |
 
@@ -397,6 +398,8 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 **Oppsett av ny motor:** én adapterklasse, én rad i `engines`, priser i `engine_prices` og fixtures. Det skal ikke være nødvendig å endre noe annet.
 
+`perplexity_api` bruker Agent API (`/v1/agent`) etter at støtten for Sonar Chat Completions opphørte 27. september 2026. Motorens konfigurerte modell har forrang foran `PERPLEXITY_MODEL` (standard `perplexity/sonar`). Agent API får land og eventuell by via nettsøkverktøyets `user_location`. Språk settes med en kort språkinstruks i brukerinnlegget, siden Agent API mangler et språkfilter for søk. Tenantens nøkkel har forrang når den er oppgitt, ellers brukes `PERPLEXITY_API_KEY`. [Migreringsveiledning for Sonar](https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/how-to)
+
 `chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
 
 DataForSEO bruker `task_post` med normal prioritet, `tasks_ready` og `task_get/advanced`. Plattformkontoen konfigureres i `DATAFORSEO_CREDENTIALS` med formatet `login:password`. En oppgave sendes og hentes med samme leverandørkonto.
@@ -405,9 +408,19 @@ Startkonfigurasjonen for DataForSEO dekker Norge og Sverige med bokmål og svens
 
 Adapterne leverer oppgave-ID ved innsending og `null` ved henting mens oppgaven venter hos leverandøren. T17 kobler `tasksReady()` og seks-timersregelen til de lagrede kjøringene og køen. Worker lagrer erstatnings-ID og antall innsendinger, slik at samme kjøring får høyst én ny innsending.
 
+`claude_haiku` og `claude_sonnet` bruker `engines.model_id` når den er satt, ellers modellene i tabellen. Kallet autentiseres med tenantens egen Anthropic-nøkkel når en slik nøkkel følger kjøringen, ellers med Ekkos workspace-nøkkel `ANTHROPIC_API_KEY` (12.5). Messages API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg. Kallet setter `max_tokens` til 4096.
+
+Claude-adapterne samler inn svar med `stop_reason` lik `end_turn` og tekstinnhold. `refusal`, `max_tokens` og `pause_turn` gir `anthropic_invalid_response`. En feil fra søkeverktøyet i et HTTP 200-svar gir `anthropic_web_search_failed`. Hvis verktøyet rapporterer `max_uses_exceeded`, kan adapteren fortsatt samle inn et fullført svar og kildene som allerede er sitert.
+
+`gemini_api` krever en Gemini API-nøkkel fra tenanten. Adapteren bruker motorens konfigurerte modell, med `GOOGLE_GEMINI_MODEL` som reserve (standard `gemini-3.8-flash`). Google Search-verktøyet har ingen egne felter for land, by eller språk. Adapteren sender derfor markedet som en instruks i det ene brukerinnlegget. Dette gir modellen kontekst, uten geografisk avgrensning av søkeresultatene.
+
+Ved Google Search-omdirigeringer beholdes den originale lenken i råsvaret. Til kildeklassifisering bruker adapteren en URL på domenenivå fra et gyldig vertsnavn i `web.domain` når feltet finnes, eller fra en `web.title` som består av et gyldig vertsnavn. Adapteren bruker bare metadataen fra svaret og oppretter en URL til domenets rot for klassifisering. Omdirigeringer uten oppgitt vertsnavn er ukjente og inngår bare i råsvaret. Vanlige kildelenker beholder hele URL-en. Se [Googles eksempel på grounding-svar](https://firebase.google.com/docs/ai-logic/grounding-google-search#understand-the-grounded-result).
+
+I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Adapteren verifiseres med syntetiske svar.
+
 ### 7.5 Gjentakelser og modellversjoner
 
-Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares.
+Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares. Markøren lagres i `model_changes` av `ekko:aggregate` (første svar på dagen med en annen modell-ID enn forrige svar, én per motor og dag) og leses med `MetricsService::modelChanges()` (ADR 0012).
 
 ---
 
@@ -432,7 +445,7 @@ Svar med status `collected` sendes i batch til Anthropic Message Batches med mod
 - listen over kjente merkevarer og konkurrenter med alias
 - resultatet fra 8.1
 
-Modellen skal returnere JSON etter dette skjemaet (tvunget via verktøydefinisjon):
+Modellen skal returnere JSON etter dette skjemaet. Skjemaet tvinges med strukturert utdata (`output_config.format`, JSON-skjema), ikke med tvunget verktøykall, siden verktøyet bare ville finnes for å få JSON tilbake (ADR 0011):
 
 ```json
 {
@@ -456,10 +469,15 @@ Modellen skal returnere JSON etter dette skjemaet (tvunget via verktøydefinisjo
 **Regler for sammenstilling:**
 - **Deterministiske treff vinner** over modellen for om en kjent merkevare er nevnt.
 - **Modellen beriker** med `is_recommended`, `sentiment` og `answer_type`, og fanger opp ukjente merkevarer (`unknown`). Ukjente merkevarer som går igjen, foreslås som nye konkurrenter i grensesnittet.
-- **Sitater fra annotasjoner vinner** over sitater modellen finner i teksten. Modellen brukes kun til `source_type` og til motorer uten annotasjoner.
+- **Sitater fra annotasjoner vinner** over sitater modellen finner i teksten. Modellen brukes kun til `source_type` og til motorer uten annotasjoner. URL-ene fra annotasjonene sendes med til modellen som `sources`, slik at den kan klassifisere dem selv om de ikke står i svarteksten.
+- **Anbefaling:** en merkevare som er et eget punkt i en nummerert liste eller punktliste med alternativer, regnes som anbefalt selv uten vurderende ord, med mindre svaret fraråder eller kritiserer den. Et navn som bare står i beskrivelsen av et annet punkt, regnes ikke.
 - **Ugyldig JSON** gir ett nytt forsøk enkeltvis via vanlig Messages API. Feiler det igjen, beholdes de deterministiske resultatene og responsen markeres `extracted` med flagg `llm_failed`.
+- **Batcher følger tenant-grensen:** en batch inneholder bare svar fra én tenant (ADR 0011). Modellens `list_position` lagres bare for ukjente nevnelser. For kjente er listeposisjonen alltid den deterministiske (ADR 0010).
+- **Tomme svar** sendes ikke til modellen.
 
-Kostnad for uttrekk logges i `usage_events` med `kind = extraction`.
+Kostnad for uttrekk logges i `usage_events` med `kind = extraction`, regnet ut fra prisene i `config/ekko.php` (`anthropic.extraction`), siden uttrekksmodellen ikke er en motor i `engines`. Batchkall får batchrabatt, enkeltforsøket ikke.
+
+**Evaluering:** `php artisan ekko:extraction:eval` kjører uttrekket mot gullsettet og viser presisjon og treffrate for `is_recommended` og `list_position` (ADR 0011).
 
 ---
 
@@ -483,6 +501,8 @@ Alle metrikker beregnes for valgfri kombinasjon av merkevare, marked, motor, tem
 | AI-trafikk | Økter fra AI-tjenester (fra 10.2) |
 
 `ekko:aggregate` bygger `agg_daily` og `agg_source_daily` på nytt for gitt dato. Jobben er idempotent og kan kjøres om igjen for historiske datoer.
+
+Alle formlene ligger i `App\Metrics\MetricsService`. Varsler, dashboard, PDF, API og MCP kaller den og summerer aldri `agg_daily` selv. Detaljer om hver formel, hva n er for hver metrikk og hvordan stabilitet og kildegap regnes ut står i [ADR 0012](decisions/0012-aggregering-og-metrikker.md).
 
 ---
 
