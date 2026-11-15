@@ -4,6 +4,7 @@
 
 return [
     'regex' => [
+        'empty' => 'Det reguljära uttrycket får inte vara tomt.',
         'too_long' => 'Det reguljära uttrycket får vara högst 200 tecken.',
         'control_characters' => 'Det reguljära uttrycket får inte innehålla styrtecken eller ogiltig text.',
         'invalid' => 'Det reguljära uttrycket är ogiltigt.',

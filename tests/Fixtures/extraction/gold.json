@@ -625,6 +625,30 @@
    "note": "closing bold after marker"
   },
   {
+   "id": "nb-31",
+   "language": "nb",
+   "text": "### 1. Fjordkaffe\n- Økologisk\n- Lysbrent\n\n### 2. Bergensbrenneriet\n- Billig\n\n### 3. Kaffekompaniet\n- Stort utvalg",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": "bullets under numbered headings"
+  },
+  {
    "id": "nn-01",
    "language": "nn",
    "text": "Fjordkaffe er eit norsk kaffibrenneri.",
@@ -801,6 +825,30 @@
    ],
    "citations": [],
    "note": ""
+  },
+  {
+   "id": "nn-13",
+   "language": "nn",
+   "text": "1. Fjordkaffe\n\nOm kaffien:\n\n- Økologisk\n- Lett brent\n\n2. Bjørnkaffe\n\n- Rimeleg\n\n3. Åsen Kaffe\n\n- Lokalt",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Bjørnkaffe",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:aasen",
+     "surface": "Åsen Kaffe",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": "paragraph and bullets under numbered items"
   },
   {
    "id": "nn-12",
@@ -1111,6 +1159,30 @@
    "expected": [],
    "citations": [],
    "note": ""
+  },
+  {
+   "id": "sv-20",
+   "language": "sv",
+   "text": "1. **Fjordkaffe**\n\n- Ekologiskt\n- Mörkrostat\n\n2. **Björnkaffe**\n\n- Billigt\n\n3. **Kaffekompaniet**\n\n- Stort utbud",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": "blank line and bullets under numbered items"
   }
  ]
 }

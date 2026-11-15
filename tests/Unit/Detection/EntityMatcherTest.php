@@ -191,3 +191,9 @@ it('limits matches per alias without hiding the aliases after it', function () {
     expect(collect($mentions)->pluck('entityId')->all())->toBe([1, 2])
         ->and($mentions[1]->firstCharOffset)->toBe(5000);
 });
+
+it('gives every entity with the same alias its mention, such as a competitor registered under two brands', function () {
+    $mentions = (new EntityMatcher)->detect('Volvo er bra. Volvo igjen.', aliasList(['competitor', 1, 'Volvo'], ['competitor', 2, 'Volvo'], ['brand', 3, 'Volvo Cars']));
+
+    expect(collect($mentions)->map(fn ($m) => $m->entityType.':'.$m->entityId.'@'.$m->firstCharOffset)->all())->toBe(['competitor:1@0', 'competitor:2@0']);
+});

@@ -16,7 +16,8 @@ it('accepts ordinary patterns', function (string $pattern) {
 it('rejects unsafe or broken patterns with an error code', function (string $pattern, string $error) {
     expect((new RegexAliasGuard)->validate($pattern))->toBe($error);
 })->with([
-    'empty' => ['', 'too_long'],
+    'empty' => ['', 'empty'],
+    'blank' => ['   ', 'empty'],
     'too long' => [str_repeat('a', 201), 'too_long'],
     'control character' => ["a\x01b", 'control_characters'],
     'null byte' => ["a\x00b", 'control_characters'],

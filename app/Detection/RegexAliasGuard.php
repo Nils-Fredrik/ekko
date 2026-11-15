@@ -24,6 +24,8 @@ final class RegexAliasGuard
     private const DELIMITER = "\x01";
 
     /** Error codes double as translation keys: lang/{locale}/detection.php, regex.<code>. */
+    public const ERROR_EMPTY = 'empty';
+
     public const ERROR_TOO_LONG = 'too_long';
 
     public const ERROR_CONTROL = 'control_characters';
@@ -41,7 +43,11 @@ final class RegexAliasGuard
      */
     public function validate(string $pattern): ?string
     {
-        if ($pattern === '' || mb_strlen($pattern) > self::MAX_LENGTH) {
+        if (trim($pattern) === '') {
+            return self::ERROR_EMPTY;
+        }
+
+        if (mb_strlen($pattern) > self::MAX_LENGTH) {
             return self::ERROR_TOO_LONG;
         }
 

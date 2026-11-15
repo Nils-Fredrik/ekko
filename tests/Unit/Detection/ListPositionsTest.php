@@ -99,8 +99,16 @@ it('reads numbered markdown headings as list items', function () {
     expect(positionsFor($text, ['Alfa', 'Beta', 'Gamma']))->toBe(['Alfa' => 1, 'Beta' => 2, 'Gamma' => null]);
 });
 
-it('does not continue a numbered list after a bullet list', function () {
-    $text = "1. Alfa\n\nTekst.\n\n- Beta\n\n2. Gamma";
+it('keeps the numbering when bullets stand under a numbered item', function (string $text) {
+    expect(positionsFor($text, ['Alfa', 'Beta', 'Gamma', 'Punkt']))->toBe(['Alfa' => 1, 'Punkt' => 1, 'Beta' => 2, 'Gamma' => 3]);
+})->with([
+    'heading items' => ["### 1. Alfa\n- Punkt\n- b\n\n### 2. Beta\n- c\n\n### 3. Gamma"],
+    'blank line before bullets' => ["1. **Alfa**\n\n- Punkt\n- b\n\n2. **Beta**\n\n- c\n\n3. **Gamma**"],
+    'paragraph, then bullets' => ["1. Alfa\n\nOm den:\n\n- Punkt\n- b\n\n2. Beta\n\n3. Gamma"],
+]);
 
-    expect(positionsFor($text, ['Alfa', 'Beta', 'Gamma']))->toBe(['Alfa' => 1, 'Beta' => 1, 'Gamma' => 1]);
+it('keeps bullets after a numbered list as a list of their own when the numbering does not resume', function () {
+    $text = "1. Alfa\n2. Beta\n\nAndre:\n\n- Gamma\n- Delta";
+
+    expect(positionsFor($text, ['Alfa', 'Beta', 'Gamma', 'Delta']))->toBe(['Alfa' => 1, 'Beta' => 2, 'Gamma' => 1, 'Delta' => 2]);
 });

@@ -8,8 +8,9 @@ namespace App\Detection;
  * A list is a run of marker lines (`1.`, `1)`, `-`, `*`, `•`, `–`) with the same marker kind and indentation.
  * Deeper-indented markers and plain lines that follow without a blank line belong to the item above.
  * Blank lines do not end a list, but a plain, non-indented line after a blank line does. A numbered list
- * that was ended that way continues when the next marker is the next number (1. Volvo, a paragraph about it,
- * 2. Saab, ...), and the paragraphs belong to the item above. Headings like `### 2. Saab` count as markers.
+ * that was ended that way, or interrupted by bullets at the same indent, continues when the next marker is
+ * the next number (1. Volvo, a paragraph or bullets about it, 2. Saab, ...), and what came between belongs to
+ * the item above. Without a following number the bullets stay a list of their own. Headings like `### 2. Saab` count as markers.
  * The position is the item's 1-based ordinal in its list, which equals the written number.
  */
 final class ListPositions
@@ -52,18 +53,26 @@ final class ListPositions
 
                 if ($block !== null && $indent > $block['indent']) {
                     $this->extend($items, $contentEnd);
+                } elseif ($paused !== null && $kind === 'num' && $indent === $paused['indent'] && (int) $marker['num'] === $paused['count'] + 1) {
+                    // The numbered list goes on: paragraphs and bullet lists in between belong to the item above.
+                    $items = array_slice($items, 0, $paused['item'] + 1);
+                    $this->extend($items, $lastContentEnd);
+                    $block = ['indent' => $paused['indent'], 'kind' => 'num', 'count' => $paused['count'] + 1];
+                    $paused = null;
+                    $items[] = ['start' => $lineStart, 'end' => $contentEnd, 'position' => $block['count']];
                 } elseif ($block !== null && $indent === $block['indent'] && $kind === $block['kind']) {
                     $block['count']++;
                     $items[] = ['start' => $lineStart, 'end' => $contentEnd, 'position' => $block['count']];
-                } elseif ($block === null && $paused !== null && $kind === 'num' && $indent === $paused['indent'] && (int) $marker['num'] === $paused['count'] + 1) {
-                    $this->extend($items, $lastContentEnd);
-                    $block = $paused;
-                    $block['count']++;
-                    $paused = null;
-                    $items[] = ['start' => $lineStart, 'end' => $contentEnd, 'position' => $block['count']];
+                } elseif ($block !== null && $block['kind'] === 'num' && $kind === 'bullet' && $indent === $block['indent']) {
+                    // Bullets under a numbered item: kept as their own list unless the numbering resumes after them.
+                    $paused = $block + ['item' => (int) array_key_last($items)];
+                    $block = ['indent' => $indent, 'kind' => 'bullet', 'count' => 1];
+                    $items[] = ['start' => $lineStart, 'end' => $contentEnd, 'position' => 1];
                 } else {
                     $block = ['indent' => $indent, 'kind' => $kind, 'count' => 1];
-                    $paused = null;
+                    if ($kind === 'num') {
+                        $paused = null;
+                    }
                     $items[] = ['start' => $lineStart, 'end' => $contentEnd, 'position' => 1];
                 }
                 $blankPending = false;
@@ -77,7 +86,9 @@ final class ListPositions
             if ($block !== null && (! $blankPending || $indent > $block['indent'])) {
                 $this->extend($items, $contentEnd);
             } elseif ($block !== null) {
-                $paused = $block['kind'] === 'num' ? $block : null;
+                if ($block['kind'] === 'num') {
+                    $paused = $block + ['item' => (int) array_key_last($items)];
+                }
                 $block = null;
             }
             $blankPending = false;

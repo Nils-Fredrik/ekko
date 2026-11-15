@@ -56,12 +56,17 @@ final class EntityMatcher
         usort($found, fn (array $a, array $b): int => [$b['end'] - $b['start'], $a['start']] <=> [$a['end'] - $a['start'], $b['start']]);
 
         $accepted = [];
+        $spans = [];
         $covered = str_repeat("\0", mb_strlen($folded->original));
         foreach ($found as $candidate) {
             $length = $candidate['end'] - $candidate['start'];
-            if (trim(substr($covered, $candidate['start'], $length), "\0") !== '') {
+            $span = $candidate['start'].':'.$candidate['end'];
+            // An identical span is not an overlap: two entities with the same alias (a competitor
+            // registered under two brands) each get their mention.
+            if (! isset($spans[$span]) && trim(substr($covered, $candidate['start'], $length), "\0") !== '') {
                 continue;
             }
+            $spans[$span] = true;
             $covered = substr_replace($covered, str_repeat("\1", $length), $candidate['start'], $length);
             $accepted[] = $candidate;
         }

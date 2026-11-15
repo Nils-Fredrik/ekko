@@ -4,6 +4,7 @@
 
 return [
     'regex' => [
+        'empty' => 'The regular expression cannot be empty.',
         'too_long' => 'The regular expression can be at most 200 characters.',
         'control_characters' => 'The regular expression cannot contain control characters or invalid text.',
         'invalid' => 'The regular expression is invalid.',
