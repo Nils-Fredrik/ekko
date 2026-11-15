@@ -19,11 +19,12 @@ use Illuminate\Support\Carbon;
  * @property list<string> $abilities
  * @property Carbon $expires_at
  * @property Carbon|null $used_at
+ * @property int|null $mcp_connection_id
  */
 class McpAuthCode extends Model
 {
     /** @var list<string> */
-    protected $fillable = ['code_hash', 'client_id', 'user_id', 'team_id', 'redirect_uri', 'code_challenge', 'abilities', 'expires_at', 'used_at'];
+    protected $fillable = ['code_hash', 'client_id', 'user_id', 'team_id', 'redirect_uri', 'code_challenge', 'abilities', 'expires_at', 'used_at', 'mcp_connection_id'];
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo

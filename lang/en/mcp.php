@@ -29,6 +29,7 @@ return [
         'empty_text' => 'Prompt no. :index: the text is empty.',
         'duplicate_text' => 'Prompt no. :index: the market already has a prompt with this text.',
         'plan_limit' => 'The plan allows at most :limit active prompts per market. Nothing was saved.',
+        'cannot_move' => 'Prompt no. :index: a prompt cannot move to another market. Add it as a new prompt instead.',
     ],
 
     'oauth' => [

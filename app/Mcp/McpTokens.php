@@ -73,8 +73,11 @@ final class McpTokens
                 return null;
             }
             if ($row->used_at !== null) {
-                McpConnection::query()->where('user_id', $row->user_id)->where('client_id', $row->client_id)
-                    ->where('created_at', '>=', $row->used_at)->get()->each(fn (McpConnection $c) => $this->revoke($c));
+                // Only the connection this code gave, never others of the same user and client.
+                $given = $row->mcp_connection_id === null ? null : McpConnection::query()->find($row->mcp_connection_id);
+                if ($given !== null) {
+                    $this->revoke($given);
+                }
 
                 return null;
             }
@@ -97,6 +100,7 @@ final class McpTokens
                 'abilities' => $row->abilities,
                 'last_used_at' => Date::now(),
             ]);
+            $row->update(['mcp_connection_id' => $connection->id]);
 
             return $this->rotate($connection, $user);
         });

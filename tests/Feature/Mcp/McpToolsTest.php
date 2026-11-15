@@ -6,6 +6,7 @@ use App\Models\AggSourceDaily;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\BotHitDaily;
+use App\Models\Market;
 use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\Team;
@@ -243,4 +244,32 @@ test('a partner advisor reaches client tenants with the tenant argument, and not
         ->and($client['data']['tenant']['id'])->toBe($this->w->tenant->id)
         ->and($client['data']['brands'][0]['name'])->toBe('Fjordkaffe')
         ->and($foreign['text'])->toBe(__('mcp.errors.unknown_tenant'));
+});
+
+test('upsert_prompts does not move a prompt to another market', function () {
+    $other = app(TenantContext::class)->run($this->w->tenant->id, fn () => Market::factory()->create());
+
+    $result = McpTestClient::call($this, adminToken($this, write: true), 'upsert_prompts', ['prompts' => [
+        ['id' => $this->w->p1->id, 'market' => $other->id],
+    ]]);
+
+    expect($result['text'])->toBe(__('mcp.errors.cannot_move', ['index' => 1]))
+        ->and($this->w->p1->fresh()->market_id)->toBe($this->w->market->id);
+});
+
+test('a market already over the plan limit can still be edited, but not grow', function () {
+    $plan = Plan::factory()->create(['max_prompts_per_market' => 1]);
+    DB::table('teams')->where('id', $this->w->tenant->id)->update(['plan_id' => $plan->id]);
+    $token = adminToken($this, write: true);
+
+    // Two active prompts and a limit of one: deactivating one is allowed, adding one is not.
+    $edit = McpTestClient::call($this, $token, 'upsert_prompts', ['prompts' => [['id' => $this->w->p2->id, 'is_active' => false]]]);
+    $grow = McpTestClient::call($this, $token, 'upsert_prompts', ['prompts' => [
+        ['market' => $this->w->market->id, 'text' => 'Ny?', 'intent' => 'category', 'funnel_stage' => 'awareness'],
+        ['market' => $this->w->market->id, 'text' => 'Enda en?', 'intent' => 'category', 'funnel_stage' => 'awareness'],
+    ]]);
+
+    expect($edit['isError'])->toBeFalse($edit['raw'])
+        ->and($this->w->p2->fresh()->is_active)->toBeFalse()
+        ->and($grow['text'])->toBe(__('mcp.errors.plan_limit', ['limit' => 1]));
 });

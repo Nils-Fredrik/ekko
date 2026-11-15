@@ -22,7 +22,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
 
 #[Name('upsert_prompts')]
-#[Description('Legger til eller endrer prompts (høyst 25 per kall). Med id endres promptet; uten id legges det til i markedet, eller det som har samme tekst i markedet, endres. Krever at brukeren tillot endringer ved tilkoblingen og har rett til å redigere prompts (admin, partnerrådgiver eller redaktør). Endringene logges med brukerens navn. Bruk bare når brukeren ber om det, og vis først nøyaktig hva som legges til eller endres.')]
+#[Description('Legger til eller endrer prompts (høyst 25 per kall). Med id endres promptet (et prompt kan ikke flyttes til et annet marked); uten id legges det til i markedet, eller det som har samme tekst i markedet, endres. Krever at brukeren tillot endringer ved tilkoblingen og har rett til å redigere prompts (admin, partnerrådgiver eller redaktør). Endringene logges med brukerens navn. Bruk bare når brukeren ber om det, og vis først nøyaktig hva som legges til eller endres.')]
 #[IsIdempotent]
 class UpsertPrompts extends EkkoTool
 {
@@ -39,7 +39,7 @@ class UpsertPrompts extends EkkoTool
             ...$this->tenantArgument($schema),
             'prompts' => $schema->array()->items($schema->object([
                 'id' => $schema->integer()->description('Promptet som endres. Tom: nytt prompt.'),
-                'market' => $schema->integer()->description('Marked-id. Påkrevd for nye prompts.'),
+                'market' => $schema->integer()->description('Marked-id. Påkrevd for nye prompts. Kan ikke endres for et prompt som finnes.'),
                 'text' => $schema->string()->description('Spørsmålet, på markedets språk. Påkrevd for nye prompts.'),
                 'topic' => $schema->integer()->description('Tema-id, eller null for uten tema.'),
                 'intent' => $schema->string()->enum(ProposePrompts::INTENTS)->description('Påkrevd for nye prompts.'),
@@ -68,13 +68,19 @@ class UpsertPrompts extends EkkoTool
         $gate = Gate::forUser($context->user);
         $created = [];
         $updated = [];
-        $touchedMarkets = [];
+        /** @var array<int, int> $activeBefore market id => active prompts before the call */
+        $activeBefore = [];
 
         foreach (array_values($items) as $index => $item) {
             $prompt = isset($item['id'])
                 ? (Prompt::query()->find((int) $item['id']) ?? throw new ToolFailure(__('mcp.errors.unknown_prompt_item', ['index' => $index + 1])))
                 : null;
+            // A prompt keeps its market: its answers and aggregates belong to that market and brand.
+            if ($prompt !== null && isset($item['market']) && (int) $item['market'] !== $prompt->market_id) {
+                throw new ToolFailure(__('mcp.errors.cannot_move', ['index' => $index + 1]));
+            }
             $market = $this->market($item, $prompt, $index);
+            $activeBefore[$market->id] ??= $this->activeIn($market->id);
             $text = array_key_exists('text', $item) && $item['text'] !== null ? trim((string) $item['text']) : null;
             if ($text === '') {
                 throw new ToolFailure(__('mcp.errors.empty_text', ['index' => $index + 1]));
@@ -108,7 +114,7 @@ class UpsertPrompts extends EkkoTool
                 if (! $gate->allows('update', $prompt)) {
                     throw new ToolFailure(__('mcp.errors.forbidden'));
                 }
-                // The same text may only be in a market once (also when the prompt moves to another market).
+                // The same text may only be in a market once.
                 $hash = $text === null ? $prompt->text_hash : self::hash($text);
                 if (Prompt::query()->where('market_id', $market->id)->where('text_hash', $hash)->whereKeyNot($prompt->id)->exists()) {
                     throw new ToolFailure(__('mcp.errors.duplicate_text', ['index' => $index + 1]));
@@ -118,10 +124,9 @@ class UpsertPrompts extends EkkoTool
                     $updated[] = $prompt->id;
                 }
             }
-            $touchedMarkets[$market->id] = true;
         }
 
-        $this->checkPlanLimit($tenant, array_keys($touchedMarkets));
+        $this->checkPlanLimit($tenant, $activeBefore);
 
         $updated = array_values(array_unique(array_diff($updated, $created)));
         app(AuditLog::class)->mcpChange($context->user, $tenant, $this->name(), [
@@ -138,7 +143,7 @@ class UpsertPrompts extends EkkoTool
     }
 
     /**
-     * The market of the item: the argument (for new prompts and moves), or the prompt's own.
+     * The market of the item: the argument for new prompts, or the prompt's own.
      *
      * @param  array<string, mixed>  $item
      */
@@ -167,21 +172,29 @@ class UpsertPrompts extends EkkoTool
     }
 
     /**
-     * The plan's limit on active prompts per market (docs/spec.md 6.1), after the changes.
+     * The plan's limit on active prompts per market (docs/spec.md 6.1). The call is refused when it adds active
+     * prompts beyond the limit. A market already over the limit (after a change to a smaller plan) can still be
+     * edited, as long as the call does not add active prompts there.
      *
-     * @param  list<int>  $marketIds
+     * @param  array<int, int>  $activeBefore  market id => active prompts before the call
      */
-    private function checkPlanLimit(Team $tenant, array $marketIds): void
+    private function checkPlanLimit(Team $tenant, array $activeBefore): void
     {
         $limit = $tenant->plan?->max_prompts_per_market;
         if ($limit === null) {
             return;
         }
-        foreach ($marketIds as $marketId) {
-            if (Prompt::query()->where('market_id', $marketId)->where('is_active', true)->count() > $limit) {
+        foreach ($activeBefore as $marketId => $before) {
+            $after = $this->activeIn($marketId);
+            if ($after > $limit && $after > $before) {
                 throw new ToolFailure(__('mcp.errors.plan_limit', ['limit' => $limit]));
             }
         }
+    }
+
+    private function activeIn(int $marketId): int
+    {
+        return Prompt::query()->where('market_id', $marketId)->where('is_active', true)->count();
     }
 
     /** The text hash that keeps a prompt unique in its market. */

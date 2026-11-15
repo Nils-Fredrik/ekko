@@ -29,10 +29,10 @@ Passport kan ikke brukes på samme `User` som Sanctum. Begge `HasApiTokens`-trai
    | `POST /oauth/revoke` | Frakobling |
 
 2. **Nøklene.**
-   - **Tilgangsnøkkelen** er en Sanctum-nøkkel med navnet `Claude (MCP)` og evnen `mcp`, pluss `mcp:write` når brukeren tillot endringer. Den gjelder i én time og virker bare på `/mcp` (`AuthenticateMcp`).
+   - **Tilgangsnøkkelen** er en Sanctum-nøkkel med navnet `Claude (MCP)` og evnen `mcp`, pluss `mcp:write` når brukeren tillot endringer. Den gjelder i én time og virker bare på `/mcp` (`AuthenticateMcp`). Sanctum-vakten avviser nøkler med evnen `mcp` overalt ellers (`Sanctum::authenticateAccessTokensUsing` i `AppServiceProvider`), også på samtykkesiden, så en lesetilkobling ikke kan godkjenne en bredere tilkobling.
    - **Vanlige API-nøkler** virker ikke på `/mcp`. Claude-nøklene vises ikke under API-nøkler (`User::tokens()`).
    - **Refresh-nøkkelen** gjelder i 30 dager etter siste bruk, og bare hashen lagres.
-   - **Engangskoden** gjelder i fem minutter. Brukes den på nytt, kobles tilkoblingen den ga fra.
+   - **Engangskoden** gjelder i fem minutter. Brukes den på nytt, kobles bare tilkoblingen den ga fra (`mcp_auth_codes.mcp_connection_id`).
    - **Tabellene** `mcp_clients`, `mcp_auth_codes` og `mcp_connections` tilhører brukeren, som API-nøkler, og er ikke tenant-eide.
 3. **Tenanten velges på samtykkesiden.** Brukeren velger blant tenantene i tenant-velgeren, uten personlige team. Valget lagres på tilkoblingen (`team_id`).
    - Hvert verktøykall arbeider i den valgte tenanten. Argumentet `tenant` kan peke på en av tenantene `TenantAccess::rlsTenantIds()` gir for den valgte. For en partnerrådgiver i partner-tenanten er det kunde-tenantene, og for alle andre bare den valgte.
@@ -53,7 +53,7 @@ Passport kan ikke brukes på samme `User` som Sanctum. Begge `HasApiTokens`-trai
 7. **Avgrensninger.**
    - **`compare_competitors`:** gir share of voice, synlighet og antall nevnelser per konkurrent (`MetricsService::competitorComparison`). Posisjon og anbefalingsrate gis bare for merkevaren, fordi `agg_daily` ikke har de tellerne for konkurrenter.
    - **`propose_prompts`:** skriver ingenting og kaller ingen modell. Verktøyet gir grunnlaget (promptene som finnes, dekningen per intensjon og trakttrinn, plassen i pakken og reglene), og Claude lager forslagene.
-   - **`upsert_prompts`:** håndhever pakkens `max_prompts_per_market`, og med for mange aktive prompts lagres ingenting.
+   - **`upsert_prompts`:** et prompt kan ikke flyttes til et annet marked, fordi svarene og aggregatene hører til markedet og merkevaren. Pakkens `max_prompts_per_market` håndheves. Et kall som øker antallet aktive prompts over grensen, avvises, og da lagres ingenting. Et marked som allerede er over grensen, kan fortsatt redigeres.
 8. **Tilkoblingsoversikten** ligger på `/claude` (`Pages/Mcp/Connections.vue`, lenke i brukermenyen). Brukeren ser bare egne tilkoblinger og kan koble dem fra.
 9. **Grenser.** Kall til `/mcp` er begrenset per bruker (`ekko.mcp.calls_per_minute`). OAuth-endepunktene er begrenset per adresse. Klientregistreringen har et tak per døgn for hele appen (`ekko.mcp.clients_per_day`).
 
@@ -65,5 +65,4 @@ Passport kan ikke brukes på samme `User` som Sanctum. Begge `HasApiTokens`-trai
   - Før verktøyet inn i `tests/Feature/TenantIsolation/mcp-tools.php` med rettighet og argumenter, og i `EkkoServer::$tools`.
   - `McpToolIsolationTest` kaller alle verktøyene som alle roller i tenant A, med A's id-er, med B's id-er og med B som tenant.
 - **Eieren må verifisere tilkoblingen fra Claude.** Legg `https://<domene>/mcp` til som custom connector i Claude, koble til og kall `whoami`. Det kan ikke testes i CI. Feature-testene dekker hele OAuth-flyten mot appen.
-- **Kunder (T25):** REST-API-et må kreve evnen `read` eller `write`, så Claude-nøklene (evnen `mcp`) ikke virker der.
 - **Konkurrenter:** posisjon og anbefalingsrate for konkurrenter krever nye tellere i `agg_daily`. Det er en egen oppgave om det trengs.

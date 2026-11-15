@@ -210,3 +210,34 @@ test('the connection page lists only the user\'s own connections, and only the o
     expect($own->fresh()->revoked_at)->not->toBeNull()
         ->and($foreign->fresh()->revoked_at)->toBeNull();
 });
+
+test('a Claude token is never accepted outside /mcp: not on the consent page, the pages or the API', function () {
+    $token = McpTestClient::connect($this->user, $this->tenant);
+    $client = McpTestClient::client();
+    $headers = ['Authorization' => "Bearer {$token}", 'Accept' => 'application/json'];
+
+    $this->withHeaders($headers)->getJson('/api/user')->assertUnauthorized();
+    $this->withHeaders($headers)->getJson('/claude')->assertUnauthorized();
+    $this->withHeaders($headers)->getJson('/oauth/authorize?'.http_build_query(authorizeQuery($client->id)))->assertUnauthorized();
+    $this->withHeaders($headers)->postJson('/oauth/authorize', [...authorizeQuery($client->id), 'decision' => 'approve', 'tenant' => $this->tenant->id, 'allow_write' => '1'])
+        ->assertUnauthorized();
+    // Ordinary API tokens still work there.
+    $this->withHeaders(['Authorization' => 'Bearer '.$this->user->createToken('API', ['read'])->plainTextToken])->getJson('/api/user')->assertOk();
+    expect(McpConnection::query()->count())->toBe(1);
+});
+
+test('a reused code disconnects only the connection it gave', function () {
+    $tokens = app(McpTokens::class);
+    $client = McpTestClient::client();
+    $code = $tokens->issueCode($this->user, $this->tenant, $client, McpTestClient::REDIRECT, McpTestClient::challenge(), [McpTokens::READ]);
+    $first = $tokens->exchangeCode($code, $client->id, McpTestClient::REDIRECT, McpTestClient::VERIFIER);
+    // A later, independent connection with the same client.
+    $second = $tokens->exchangeCode(
+        $tokens->issueCode($this->user, $this->tenant, $client, McpTestClient::REDIRECT, McpTestClient::challenge(), [McpTokens::READ]),
+        $client->id, McpTestClient::REDIRECT, McpTestClient::VERIFIER,
+    );
+
+    expect($tokens->exchangeCode($code, $client->id, McpTestClient::REDIRECT, McpTestClient::VERIFIER))->toBeNull();
+    McpTestClient::rpc($this, $first['access_token'], 'tools/list')->assertUnauthorized();
+    McpTestClient::rpc($this, $second['access_token'], 'tools/list')->assertOk();
+});

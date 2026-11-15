@@ -29,6 +29,7 @@ return [
         'empty_text' => 'Prompt nr :index: texten är tom.',
         'duplicate_text' => 'Prompt nr :index: marknaden har redan en prompt med den här texten.',
         'plan_limit' => 'Paketet tillåter högst :limit aktiva prompts per marknad. Inget sparades.',
+        'cannot_move' => 'Prompt nr :index: en prompt kan inte flyttas till en annan marknad. Lägg till den som en ny prompt i stället.',
     ],
 
     'oauth' => [
