@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ActingAsController;
+use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\HomeController;
@@ -24,6 +25,10 @@ Route::middleware([
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
+    Route::get('/admin/billing', [BillingController::class, 'index'])->name('admin.billing.index');
+    Route::get('/admin/billing/export', [BillingController::class, 'export'])->name('admin.billing.export');
+    Route::put('/admin/billing/{team}/markup', [BillingController::class, 'update'])->name('admin.billing.markup');
+
     Route::get('/dashboard', HomeController::class)->name('dashboard');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');

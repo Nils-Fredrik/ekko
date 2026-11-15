@@ -25,6 +25,9 @@ $teamA = fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id]];
 $tenantRoles = ['owner', 'admin', 'partner_advisor', 'editor', 'reader'];
 
 return [
+    'admin.billing.index' => RouteAccess::platformAdmin(),
+    'admin.billing.export' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['data' => ['month' => '2026-10']]),
+    'admin.billing.markup' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id], 'data' => ['markup_percent' => '10.0000']]),
     // Public and system routes.
     'home' => RouteAccess::public(),
     // Sets the caller's own language (session, and the user row when signed in). No tenant data.

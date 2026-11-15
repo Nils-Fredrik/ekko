@@ -593,7 +593,7 @@ Plattformadmin har en månedlig eksport (CSV) per tenant med:
 - sum
 - påslag (prosent per tenant)
 
-Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres kunde-tenantene under partneren, med én linje per kunde.
+Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres kunde-tenantene under partneren, med én linje per kunde. UTC-måned, desimalavrunding, BYOK, eksplisitt påslag og CSV-format følger [ADR 0021](decisions/0021-fakturagrunnlag.md). Pakke, partner og påslag er dagens oppsett, ikke historiske fakturaavtaler. Uavklart påslag (NULL) stopper eksport til satsen er valgt av plattformadmin.
 
 ### 12.4 Egne API-nøkler
 
