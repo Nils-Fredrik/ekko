@@ -257,12 +257,12 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Nøkkel | Innhold |
 |---|---|---|
-| `agg_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `prompt_id`, `date` | `responses`, `brand_mentioned`, `brand_recommended`, `sum_position`, `count_position`, `sum_sentiment`, `own_cited`, `competitor_mentions` (jsonb per competitor_id) |
-| `agg_source_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `domain`, `date` | `citations`, `responses_with_domain` |
+| `agg_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `prompt_id`, `date` | `responses`, `brand_mentioned`, `brand_recommended`, `sum_position`, `count_position`, `list_responses`, `first_place`, `sum_sentiment`, `count_sentiment`, `own_cited`, `competitor_only_responses`, `competitor_mentions` (jsonb per competitor_id) |
+| `agg_source_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `domain`, `date` | `citations`, `responses_with_domain`, `gap_responses` |
 | `bot_hits_daily` | `tenant_id`, `brand_id`, `domain`, `bot`, `date` | `hits`, `unique_paths`, `top_paths` (jsonb) |
 | `ai_referrals_daily` | `tenant_id`, `brand_id`, `source`, `date` | `sessions`, `engaged_sessions`, `conversions` |
 
-Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke separat.
+Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). De lagres ikke separat. `list_responses`, `first_place`, `count_sentiment`, `competitor_only_responses` og `gap_responses` er lagt til for formlene i kapittel 9 (ADR 0012). Dagen er tenantens lokale dag (`teams.timezone`), og bare svar fra kjøringer med status `extracted` teller.
 
 ### 6.5 Drift og økonomi
 
@@ -276,6 +276,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 | `reports` | `tenant_id`, `report_schedule_id`, `period_start`, `period_end`, `pdf_uri`, `sent_at` |
 | `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `status` |
 | `activity_log` | fra spatie/laravel-activitylog, med `tenant_id` |
+| `model_changes` | `tenant_id`, `engine_key`, `changed_on`, `from_model`, `to_model`, `changed_at` (modellbytte-markører, 7.5) |
 
 ---
 
@@ -401,7 +402,7 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 ### 7.5 Gjentakelser og modellversjoner
 
-Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares.
+Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares. Markøren lagres i `model_changes` av `ekko:aggregate` (første svar på dagen med en annen modell-ID enn forrige svar, én per motor og dag) og leses med `MetricsService::modelChanges()` (ADR 0012).
 
 ---
 
@@ -481,6 +482,8 @@ Alle metrikker beregnes for valgfri kombinasjon av merkevare, marked, motor, tem
 | AI-trafikk | Økter fra AI-tjenester (fra 10.2) |
 
 `ekko:aggregate` bygger `agg_daily` og `agg_source_daily` på nytt for gitt dato. Jobben er idempotent og kan kjøres om igjen for historiske datoer.
+
+Alle formlene ligger i `App\Metrics\MetricsService`. Varsler, dashboard, PDF, API og MCP kaller den og summerer aldri `agg_daily` selv. Detaljer om hver formel, hva n er for hver metrikk og hvordan stabilitet og kildegap regnes ut står i [ADR 0012](decisions/0012-aggregering-og-metrikker.md).
 
 ---
 
