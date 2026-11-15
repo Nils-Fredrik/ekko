@@ -1,0 +1,41 @@
+{
+  "id": "resp_fixture_norway",
+  "object": "response",
+  "model": "perplexity/sonar",
+  "status": "completed",
+  "output": [
+    {
+      "type": "search_results",
+      "queries": ["sykkelruter i Oslo"],
+      "results": [
+        {"id": 1, "url": "https://example.test/oslo", "title": "Sykkelruter i Oslo"},
+        {"id": 2, "url": "https://example.test/norge", "title": null}
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "Oslo har flere merkede sykkelruter.[1]",
+          "annotations": []
+        },
+        {
+          "type": "output_text",
+          "text": "Du finner turforslag hos lokale sykkelorganisasjoner.[2]",
+          "annotations": [
+            {"type": "url_citation", "url": "https://example.test/norge", "title": "Sykling i Norge"},
+            {"type": "url_citation", "url": "https://example.test/oslo/kart", "title": "Sykkelkart"}
+          ]
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 81,
+    "output_tokens": 42,
+    "tool_calls_details": {"search_web": {"invocation": 1}}
+  }
+}
