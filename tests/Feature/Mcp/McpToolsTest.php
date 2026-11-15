@@ -319,3 +319,17 @@ test('a period from today in the tenant timezone is accepted without to', functi
     expect($result['isError'])->toBeFalse($result['raw'])
         ->and($result['data']['period'])->toBe(['from' => now('Europe/Oslo')->format('Y-m-d'), 'to' => now('Europe/Oslo')->format('Y-m-d')]);
 });
+
+test('upsert_prompts publishes topic as nullable and removes the topic with null', function () {
+    $token = adminToken($this, write: true);
+    $topic = app(TenantContext::class)->run($this->w->tenant->id, fn () => Topic::factory()->create(['brand_id' => $this->w->brand->id]));
+    DB::table('prompts')->where('id', $this->w->p1->id)->update(['topic_id' => $topic->id]);
+
+    $tools = McpTestClient::rpc($this, $token, 'tools/list')->json('result.tools');
+    $schema = collect($tools)->firstWhere('name', 'upsert_prompts')['inputSchema']['properties']['prompts']['items']['properties']['topic'];
+    $result = McpTestClient::call($this, $token, 'upsert_prompts', ['prompts' => [['id' => $this->w->p1->id, 'topic' => null]]]);
+
+    expect($schema['type'])->toContain('null')
+        ->and($result['isError'])->toBeFalse($result['raw'])
+        ->and($this->w->p1->fresh()->topic_id)->toBeNull();
+});

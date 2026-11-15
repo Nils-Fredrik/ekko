@@ -41,7 +41,7 @@ class UpsertPrompts extends EkkoTool
                 'id' => $schema->integer()->description('Promptet som endres. Tom: nytt prompt.'),
                 'market' => $schema->integer()->description('Marked-id. Påkrevd for nye prompts. Kan ikke endres for et prompt som finnes.'),
                 'text' => $schema->string()->description('Spørsmålet, på markedets språk. Påkrevd for nye prompts.'),
-                'topic' => $schema->integer()->description('Tema-id, eller null for uten tema.'),
+                'topic' => $schema->integer()->nullable()->description('Tema-id, eller null for å fjerne temaet. Utelatt: uendret.'),
                 'intent' => $schema->string()->enum(ProposePrompts::INTENTS)->description('Påkrevd for nye prompts.'),
                 'funnel_stage' => $schema->string()->enum(ProposePrompts::FUNNEL_STAGES)->description('Påkrevd for nye prompts.'),
                 'priority' => $schema->string()->enum(['core', 'standard'])->description('Standard: standard.'),
