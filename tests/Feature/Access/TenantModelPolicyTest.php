@@ -60,6 +60,7 @@ function tenantModelRights(): array
         Models\Citation::class => $system(POLICY_EVERY_ROLE),
         Models\AggDaily::class => $system(POLICY_EVERY_ROLE),
         Models\AggSourceDaily::class => $system(POLICY_EVERY_ROLE),
+        Models\ModelChange::class => $system(POLICY_EVERY_ROLE),
         Models\BotHitDaily::class => $system(POLICY_EVERY_ROLE),
         Models\AiReferralDaily::class => $system(POLICY_EVERY_ROLE),
         Models\ExtractionJob::class => $system(POLICY_NO_ROLE),

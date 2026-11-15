@@ -57,6 +57,18 @@ class Response extends Model
         return $this->hasMany(Citation::class);
     }
 
+    /**
+     * The URLs the engine gave as sources with the answer (annotations), in the engine's order.
+     *
+     * @return list<string>
+     */
+    public function annotationUrls(): array
+    {
+        return $this->citations()->where('from_annotation', true)
+            ->orderBy('rank_in_answer')->orderBy('id')
+            ->pluck('url')->map(fn ($url): string => (string) $url)->values()->all();
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {

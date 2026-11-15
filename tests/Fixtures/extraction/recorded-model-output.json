@@ -473,7 +473,7 @@
         "id": 1
        },
        "list_position": 1,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "1. Bergensbrenneriet    - Lysbrent    - Kjent fra Fjordkaffe-testen 2. Nordlys Rosteri  3. Kaffekomp"
       },
@@ -495,7 +495,7 @@
         "id": 5
        },
        "list_position": 2,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "1. Bergensbrenneriet    - Lysbrent    - Kjent fra Fjordkaffe-testen 2. Nordlys Rosteri  3. Kaffekomp"
       },
@@ -506,7 +506,7 @@
         "id": 2
        },
        "list_position": 3,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "1. Bergensbrenneriet    - Lysbrent    - Kjent fra Fjordkaffe-testen 2. Nordlys Rosteri  3. Kaffekomp"
       }
@@ -529,7 +529,7 @@
         "id": 1
        },
        "list_position": 2,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "Fjordkaffe er populært. Her er en liste: 1. Bergensbrenneriet 2. Fjordkaffe"
       },
@@ -540,7 +540,7 @@
         "id": 1
        },
        "list_position": 1,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "Fjordkaffe er populært. Her er en liste: 1. Bergensbrenneriet 2. Fjordkaffe"
       }
@@ -765,7 +765,7 @@
         "id": 1
        },
        "list_position": 2,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "### 1. Fjordkaffe  God kaffe.  ### 2. Bergensbrenneriet  Lysbrent.  ## Oppsummering  Kaffekompaniet "
       },
@@ -844,7 +844,7 @@
         "id": 1
        },
        "list_position": 1,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "### 1. Fjordkaffe - Økologisk - Lysbrent  ### 2. Bergensbrenneriet - Billig  ### 3. Kaffekompaniet -"
       },
@@ -855,7 +855,7 @@
         "id": 1
        },
        "list_position": 2,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "### 1. Fjordkaffe - Økologisk - Lysbrent  ### 2. Bergensbrenneriet - Billig  ### 3. Kaffekompaniet -"
       },
@@ -866,7 +866,7 @@
         "id": 2
        },
        "list_position": 3,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "### 1. Fjordkaffe - Økologisk - Lysbrent  ### 2. Bergensbrenneriet - Billig  ### 3. Kaffekompaniet -"
       }
@@ -1095,7 +1095,7 @@
         "id": 1
        },
        "list_position": 1,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "* Fjordkaffe * Åsen Kaffe "
       },
@@ -1106,7 +1106,7 @@
         "id": 4
        },
        "list_position": 2,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "* Fjordkaffe * Åsen Kaffe "
       }
@@ -1129,7 +1129,7 @@
         "id": 1
        },
        "list_position": 1,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "– Bergen Brenneri – Fjordkaffe"
       },
@@ -1140,7 +1140,7 @@
         "id": 1
        },
        "list_position": 2,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "– Bergen Brenneri – Fjordkaffe"
       }
@@ -1163,7 +1163,7 @@
         "id": 1
        },
        "list_position": 1,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "1. Fjordkaffe  Om kaffien:  - Økologisk - Lett brent  2. Bjørnkaffe  - Rimeleg  3. Åsen Kaffe  - Lok"
       },
@@ -1174,7 +1174,7 @@
         "id": 3
        },
        "list_position": 2,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "1. Fjordkaffe  Om kaffien:  - Økologisk - Lett brent  2. Bjørnkaffe  - Rimeleg  3. Åsen Kaffe  - Lok"
       },
@@ -1185,7 +1185,7 @@
         "id": 4
        },
        "list_position": 2,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "1. Fjordkaffe  Om kaffien:  - Økologisk - Lett brent  2. Bjørnkaffe  - Rimeleg  3. Åsen Kaffe  - Lok"
       }
@@ -1535,7 +1535,7 @@
         "id": 2
        },
        "list_position": 1,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "* Kaffekompaniet * Fjordkaffe * Bergensbrenneriet"
       },
@@ -1546,7 +1546,7 @@
         "id": 1
        },
        "list_position": 3,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "* Kaffekompaniet * Fjordkaffe * Bergensbrenneriet"
       },
@@ -1557,7 +1557,7 @@
         "id": 1
        },
        "list_position": 3,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "* Kaffekompaniet * Fjordkaffe * Bergensbrenneriet"
       }
@@ -1705,7 +1705,7 @@
         "id": 1
        },
        "list_position": 1,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "1. **Fjordkaffe**  - Ekologiskt - Mörkrostat  2. **Björnkaffe**  - Billigt  3. **Kaffekompaniet**  -"
       },
@@ -1716,7 +1716,7 @@
         "id": 3
        },
        "list_position": 2,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "1. **Fjordkaffe**  - Ekologiskt - Mörkrostat  2. **Björnkaffe**  - Billigt  3. **Kaffekompaniet**  -"
       },
@@ -1727,7 +1727,7 @@
         "id": 2
        },
        "list_position": 3,
-       "is_recommended": false,
+       "is_recommended": true,
        "sentiment": 0.0,
        "evidence": "1. **Fjordkaffe**  - Ekologiskt - Mörkrostat  2. **Björnkaffe**  - Billigt  3. **Kaffekompaniet**  -"
       }

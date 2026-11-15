@@ -1,0 +1,5 @@
+{
+    "type": "error",
+    "error": {"type": "rate_limit_error", "message": "Synthetic rate limit error."},
+    "request_id": "req_fixture_rate_limit"
+}
