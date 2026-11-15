@@ -1,6 +1,7 @@
 <?php
 
 use App\Tenancy\ActingAs;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Testing\TestResponse;
 use Tests\Feature\TenantIsolation\Support\RouteAccess;
 use Tests\Feature\TenantIsolation\Support\RouteRegister;
@@ -26,6 +27,19 @@ function callRoute(TestCase $test, string $method, string $key, array $request):
     $route = RouteRegister::route($key);
     // With the entry: strict parameters, and a valid signature for signed routes.
     $url = RouteRegister::url($route, $request['params'] ?? [], RouteRegister::entries()[$key]);
+
+    if (str_starts_with($route->uri(), 'api/v1/')) {
+        $user = Auth::user();
+        $token = $user?->createToken('Isolation test', ['read', 'write', 'tenant:'.$user->current_team_id]);
+        Auth::forgetGuards();
+        Auth::shouldUse('web');
+        try {
+            return $test->json($method, $url, $request['data'] ?? [], $token === null ? [] : ['Authorization' => 'Bearer '.$token->plainTextToken]);
+        } finally {
+            Auth::forgetGuards();
+            Auth::shouldUse('web');
+        }
+    }
 
     return $test->json($method, $url, $request['data'] ?? []);
 }
@@ -143,7 +157,9 @@ test('no signed-in page shows anything from another tenant', function () {
             // Signed routes are not scanned: today the only one (team-invitations.accept) changes data
             // and is covered by the foreign check with a valid signature. A signed GET page that only
             // shows data needs its own scan with a signed URL.
-            $response = $this->get(RouteRegister::url($route, $request['params'] ?? [], $access->signed ? null : $access));
+            $response = str_starts_with($route->uri(), 'api/v1/')
+                ? callRoute($this, 'GET', $key, $request)
+                : $this->get(RouteRegister::url($route, $request['params'] ?? [], $access->signed ? null : $access));
             $content = (string) $response->getContent();
 
             expect($response->status())->toBeLessThan(500, "GET {$key} as {$role} answered {$response->status()}");
