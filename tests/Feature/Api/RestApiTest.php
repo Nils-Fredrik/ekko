@@ -164,3 +164,17 @@ test('rate limit is shared by routes but separate per token', function () {
     $this->travel(61)->seconds();
     apiCall($this, $this->token->plainTextToken, 'GET', '/api/v1/brands')->assertOk();
 });
+
+test('v1 returns JSON errors without an Accept header', function () {
+    $this->call('GET', '/api/v1/brands')->assertUnauthorized()->assertHeader('Content-Type', 'application/json');
+    $this->user->forceFill(['email_verified_at' => null])->save();
+    Auth::forgetGuards();
+    Auth::shouldUse('web');
+    $this->call('GET', '/api/v1/brands', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$this->token->plainTextToken])
+        ->assertForbidden()->assertHeader('Content-Type', 'application/json')->assertHeaderMissing('Location');
+    $this->user->forceFill(['email_verified_at' => now(), 'is_platform_admin' => true])->save();
+    Auth::forgetGuards();
+    Auth::shouldUse('web');
+    $this->call('GET', '/api/v1/brands', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$this->token->plainTextToken])
+        ->assertForbidden()->assertHeader('Content-Type', 'application/json')->assertHeaderMissing('Location');
+});

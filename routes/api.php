@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\PromptController;
 use App\Http\Controllers\Api\ReadController;
+use App\Http\Middleware\ApiJsonResponse;
 use App\Http\Middleware\ApiTokenContext;
 use App\Http\Middleware\ApplyTenantRls;
 use App\Http\Middleware\RequireApiAbility;
@@ -16,7 +17,7 @@ Route::get('/user', function (Request $request) {
 // A browser session cannot substitute for a tenant-bound personal access token.
 Route::prefix('v1')->name('api.v1.')
     ->withoutMiddleware([SetCurrentTenant::class, ApplyTenantRls::class])
-    ->middleware(['auth:sanctum', 'verified', 'two-factor.required', 'throttle:api-v1', ApiTokenContext::class])
+    ->middleware([ApiJsonResponse::class, 'auth:sanctum', 'verified', 'two-factor.required', 'throttle:api-v1', ApiTokenContext::class])
     ->group(function (): void {
         Route::middleware(RequireApiAbility::class.':read')->group(function (): void {
             Route::get('brands', [ReadController::class, 'brands'])->name('brands.index');

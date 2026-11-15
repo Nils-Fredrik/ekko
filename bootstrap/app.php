@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Middleware\ApiJsonResponse;
 use App\Http\Middleware\ApiTokenContext;
 use App\Http\Middleware\ApplyTenantRls;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetCurrentTenant;
 use App\Http\Middleware\SetLocale;
+use Illuminate\Auth\Middleware\Authenticate;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -41,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // models are loaded with the tenant in the context and under row-level security.
         $middleware->prependToPriorityList(SubstituteBindings::class, ApplyTenantRls::class);
         $middleware->prependToPriorityList(SubstituteBindings::class, ApiTokenContext::class);
+        $middleware->prependToPriorityList(Authenticate::class, ApiJsonResponse::class);
         $middleware->prependToPriorityList(ApplyTenantRls::class, SetCurrentTenant::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
