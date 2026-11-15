@@ -5,6 +5,7 @@ namespace App\Engines;
 use Illuminate\Contracts\Container\Container;
 use LogicException;
 use OutOfBoundsException;
+use ReflectionClass;
 
 final class EngineRegistry
 {
@@ -32,7 +33,7 @@ final class EngineRegistry
         foreach (glob(app_path('Engines/Adapters/*.php')) ?: [] as $path) {
             $class = 'App\\Engines\\Adapters\\'.pathinfo($path, PATHINFO_FILENAME);
 
-            if (is_subclass_of($class, EngineAdapter::class)) {
+            if (is_subclass_of($class, EngineAdapter::class) && (new ReflectionClass($class))->isInstantiable()) {
                 $adapters[] = $container->make($class);
             }
         }

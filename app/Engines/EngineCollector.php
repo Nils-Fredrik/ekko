@@ -19,7 +19,9 @@ final readonly class EngineCollector
 
     public function collect(int $runId, #[SensitiveParameter] ?string $apiKey = null): CollectedResponse
     {
-        return DB::transaction(function () use ($runId, $apiKey): CollectedResponse {
+        $tenantId = current_tenant_id();
+
+        return DB::transaction(function () use ($runId, $apiKey, $tenantId): CollectedResponse {
             $run = Run::query()->lockForUpdate()->findOrFail($runId);
             $existingResponse = $run->response()->first();
 
@@ -59,7 +61,7 @@ final readonly class EngineCollector
                 'cost_usd' => $this->pricing->cost($price, $result),
             ];
 
-            $rawUri = $this->rawResponses->put($run->tenant_id, $run->id, $collectedAt, $result->raw);
+            $rawUri = $this->rawResponses->put($tenantId, $run->id, $collectedAt, $result->raw);
             $response = $run->response()->create($payload + [
                 'answer_text' => $result->answerText,
                 'model_id_reported' => $result->modelIdReported,
