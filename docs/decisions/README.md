@@ -22,3 +22,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0012](0012-aggregering-og-metrikker.md) | Aggregering og metrikker: dagsaggregat, MetricsService og modellbytte-markører | Akseptert |
 | [0013](0013-kvoter-og-forbruk.md) | Kallkvote, budsjetter og forbruksoppdatering | Foreslått |
 | [0014](0014-botloggimport.md) | Daglige øyeblikksbilder for robottrafikk | Foreslått |
+| [0016](0016-mcp-server-og-oauth.md) | MCP-server med egen OAuth-server, tenantvalg og skrivetilgang | Akseptert |

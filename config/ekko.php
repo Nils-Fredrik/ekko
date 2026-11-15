@@ -16,6 +16,18 @@ return [
     ],
 
     /*
+    | The Claude connection (MCP, docs/spec.md 15.2, ADR 0016). Clients Claude may register per day for the
+    | whole application, tool calls per minute per user and OAuth calls per minute per address.
+    */
+    'mcp' => [
+        'clients_per_day' => 500,
+        'calls_per_minute' => 120,
+        'oauth_per_minute' => 30,
+        // Items per page for tools that page their results with a cursor.
+        'page_size' => 25,
+    ],
+
+    /*
     | Days a team invitation can be accepted (docs/spec.md 5.4). Enforced server-side when the
     | invitation is accepted and when a single sign-on account is linked.
     */
