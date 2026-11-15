@@ -5,6 +5,8 @@ namespace App\Detection;
 use App\Models\Citation;
 use App\Models\Mention;
 use App\Models\Response;
+use App\Tenancy\TenantContext;
+use App\Tenancy\TenantMismatchException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,6 +26,12 @@ final class DeterministicDetector
      */
     public function detect(Response $response, ?DetectionCatalog $catalog = null): array
     {
+        $contextTenantId = app(TenantContext::class)->require();
+        $responseTenantId = (int) $response->getAttribute('tenant_id');
+        if ($responseTenantId !== $contextTenantId) {
+            throw TenantMismatchException::forModel(Response::class, $responseTenantId, $contextTenantId);
+        }
+
         $catalog ??= DetectionCatalog::load();
         $detected = $this->matcher->detect((string) $response->answer_text, $catalog->aliases);
 

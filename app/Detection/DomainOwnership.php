@@ -77,14 +77,13 @@ final class DomainOwnership
         return $domain === $registered || str_ends_with($domain, '.'.$registered);
     }
 
-    /** Lowercase host without scheme, path, port and www., so a stored value may be a bare domain or a URL. */
+    /** Comparable host without scheme, path, port and www. (punycode for æ/ø/å), so a stored value may be a bare domain or a URL. */
     private static function clean(string $value): string
     {
-        $value = strtolower(trim($value));
+        $value = mb_strtolower(trim($value));
         $value = (string) preg_replace('#^[a-z][a-z0-9+.\-]*://#', '', $value);
         $value = (string) preg_replace('#[/:?\#].*$#', '', $value);
-        $value = rtrim($value, '.');
 
-        return str_starts_with($value, 'www.') ? substr($value, 4) : $value;
+        return UrlNormalizer::hostKey($value);
     }
 }

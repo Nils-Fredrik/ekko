@@ -63,3 +63,17 @@ it('lets a brand domain win over the same competitor domain', function () {
 
     expect($ownership->classify('same.no')['ownership'])->toBe('own');
 });
+
+it('compares registered domains with Nordic letters in punycode, like the citation hosts', function () {
+    $ownership = new DomainOwnership(
+        [['domain' => 'blåkors.no', 'include_subdomains' => true]],
+        [['domain' => 'https://www.Bjørnkaffe.se/', 'competitor_id' => 4], ['domain' => 'xn--s-5ga.se', 'competitor_id' => 5]],
+    );
+    $citation = (new UrlNormalizer)->normalize('https://www.blåkors.no/om');
+
+    expect($citation['domain'])->toBe('xn--blkors-jua.no')
+        ->and($ownership->classify($citation['domain'])['ownership'])->toBe('own')
+        ->and($ownership->classify('shop.xn--blkors-jua.no')['ownership'])->toBe('own')
+        ->and($ownership->classify((new UrlNormalizer)->normalize('https://bjørnkaffe.se/a')['domain']))->toBe(['ownership' => 'competitor', 'competitor_id' => 4])
+        ->and($ownership->classify((new UrlNormalizer)->normalize('https://sø.se/a')['domain']))->toBe(['ownership' => 'competitor', 'competitor_id' => 5]);
+});

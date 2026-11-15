@@ -181,3 +181,13 @@ it('survives a long answer with many aliases quickly', function () {
         ->and($mentions[0]->entityId)->toBe(299)
         ->and(microtime(true) - $started)->toBeLessThan(3.0);
 });
+
+it('limits matches per alias without hiding the aliases after it', function () {
+    $aliases = aliasList(['brand', 1, 'støy'], ['brand', 2, 'Ekko']);
+    $text = str_repeat('støy ', 1000).'Ekko';
+
+    $mentions = (new EntityMatcher)->detect($text, $aliases);
+
+    expect(collect($mentions)->pluck('entityId')->all())->toBe([1, 2])
+        ->and($mentions[1]->firstCharOffset)->toBe(5000);
+});

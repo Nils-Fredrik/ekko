@@ -16,8 +16,6 @@ namespace App\Detection;
  */
 final class EntityMatcher
 {
-    private const MAX_OCCURRENCES = 5000;
-
     public function __construct(
         private readonly TextNormalizer $normalizer = new TextNormalizer,
         private readonly RegexAliasGuard $guard = new RegexAliasGuard,
@@ -48,12 +46,9 @@ final class EntityMatcher
                 $text = $folded;
             }
 
-            foreach ($ranges as [$start, $end]) {
+            // Limit per alias, so that one noisy alias cannot hide the aliases after it.
+            foreach (array_slice($ranges, 0, RegexAliasGuard::MAX_MATCHES) as [$start, $end]) {
                 $found[] = ['alias' => $alias, 'start' => $start, 'end' => $end, 'text' => $text];
-            }
-
-            if (count($found) > self::MAX_OCCURRENCES) {
-                break;
             }
         }
 
@@ -61,12 +56,13 @@ final class EntityMatcher
         usort($found, fn (array $a, array $b): int => [$b['end'] - $b['start'], $a['start']] <=> [$a['end'] - $a['start'], $b['start']]);
 
         $accepted = [];
+        $covered = str_repeat("\0", mb_strlen($folded->original));
         foreach ($found as $candidate) {
-            foreach ($accepted as $other) {
-                if ($candidate['start'] < $other['end'] && $other['start'] < $candidate['end']) {
-                    continue 2;
-                }
+            $length = $candidate['end'] - $candidate['start'];
+            if (trim(substr($covered, $candidate['start'], $length), "\0") !== '') {
+                continue;
             }
+            $covered = substr_replace($covered, str_repeat("\1", $length), $candidate['start'], $length);
             $accepted[] = $candidate;
         }
 

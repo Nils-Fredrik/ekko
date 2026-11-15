@@ -76,3 +76,27 @@ it('returns item ranges in code points', function () {
         ['start' => 7, 'end' => 11, 'position' => 2],
     ]);
 });
+
+it('continues a numbered list across paragraphs between the items', function () {
+    $text = "1. **Alfa**\n\nAlfa er trygg, og Epsilon er lik.\n\n2. **Beta**\n\nBeta er rask.\n\n3. **Gamma**\n\nSlutt.";
+
+    expect(positionsFor($text, ['Alfa', 'Beta', 'Gamma', 'Epsilon']))->toBe(['Alfa' => 1, 'Epsilon' => 1, 'Beta' => 2, 'Gamma' => 3]);
+});
+
+it('restarts instead of continuing when the number does not follow on', function () {
+    $text = "1. Alfa\n\nTekst.\n\n1. Beta\n\nTekst.\n\n5. Gamma";
+
+    expect(positionsFor($text, ['Alfa', 'Beta', 'Gamma']))->toBe(['Alfa' => 1, 'Beta' => 1, 'Gamma' => 1]);
+});
+
+it('reads numbered markdown headings as list items', function () {
+    $text = "### 1. Alfa\n\nGod.\n\n### 2. Beta\n\nBra.\n\n## Oppsummering\n\nGamma vinner.";
+
+    expect(positionsFor($text, ['Alfa', 'Beta', 'Gamma']))->toBe(['Alfa' => 1, 'Beta' => 2, 'Gamma' => null]);
+});
+
+it('does not continue a numbered list after a bullet list', function () {
+    $text = "1. Alfa\n\nTekst.\n\n- Beta\n\n2. Gamma";
+
+    expect(positionsFor($text, ['Alfa', 'Beta', 'Gamma']))->toBe(['Alfa' => 1, 'Beta' => 1, 'Gamma' => 1]);
+});

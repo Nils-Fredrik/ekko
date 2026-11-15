@@ -11,6 +11,7 @@ use App\Models\Team;
 use App\Rules\SafeRegexAlias;
 use App\Tenancy\MissingTenantContextException;
 use App\Tenancy\TenantContext;
+use App\Tenancy\TenantMismatchException;
 use Illuminate\Support\Facades\Validator;
 
 beforeEach(function () {
@@ -113,6 +114,21 @@ it('treats answer text as data, never as aliases or instructions', function () {
 
         expect(Mention::query()->where('response_id', $response->id)->sole()->surface_name)->toBe('Ekko');
     });
+});
+
+it('refuses a response from another tenant than the one in the context', function () {
+    $response = $this->context->run($this->other->id, function () {
+        $brand = Brand::factory()->create();
+        $brand->aliases()->create(['alias' => 'Ekko', 'match_mode' => 'case_insensitive']);
+
+        return Response::factory()->create(['answer_text' => 'Ekko']);
+    });
+
+    $this->context->run($this->tenant->id, function () use ($response) {
+        expect(fn () => (new DeterministicDetector)->detect($response))->toThrow(TenantMismatchException::class);
+    });
+
+    $this->context->run($this->other->id, fn () => expect(Mention::query()->count())->toBe(0));
 });
 
 it('requires a tenant context like every tenant-owned model', function () {

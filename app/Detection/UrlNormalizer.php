@@ -54,17 +54,24 @@ final class UrlNormalizer
         ];
     }
 
-    private function host(string $host): ?string
+    /**
+     * The comparable form of a host: lowercase, no trailing dot, internationalized names as punycode and
+     * no leading www. Used for citation hosts and for registered brand and competitor domains alike.
+     */
+    public static function hostKey(string $host): string
     {
-        $host = strtolower(rtrim($host, '.'));
+        $host = mb_strtolower(rtrim($host, '.'));
         if (preg_match('/[^\x00-\x7F]/', $host) === 1) {
             $ascii = idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
             $host = $ascii === false ? $host : $ascii;
         }
 
-        if (str_starts_with($host, 'www.')) {
-            $host = substr($host, 4);
-        }
+        return str_starts_with($host, 'www.') ? substr($host, 4) : $host;
+    }
+
+    private function host(string $host): ?string
+    {
+        $host = self::hostKey($host);
 
         return $host === '' || ! str_contains($host, '.') && $host !== 'localhost' ? null : $host;
     }

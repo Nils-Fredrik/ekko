@@ -76,7 +76,8 @@
      }
     ],
     "domains": [
-     "bjornkaffe.se"
+     "bjornkaffe.se",
+     "bjørnkaffe.se"
     ]
    },
    {
@@ -547,6 +548,59 @@
    "note": "fullwidth NFKC"
   },
   {
+   "id": "nb-28",
+   "language": "nb",
+   "text": "Her er tre alternativer:\n\n1. **Fjordkaffe**\n\nFjordkaffe er et solid valg.\n\n2. **Bergensbrenneriet**\n\nBergensbrenneriet er billigst.\n\n3. **Kaffekompaniet**\n\nKaffekompaniet har bredest utvalg. Nordlys Rosteri nevnes bare her.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    },
+    {
+     "entity": "competitor:nordlys",
+     "surface": "Nordlys Rosteri",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "paragraphs between numbered items"
+  },
+  {
+   "id": "nb-29",
+   "language": "nb",
+   "text": "### 1. Fjordkaffe\n\nGod kaffe.\n\n### 2. Bergensbrenneriet\n\nLysbrent.\n\n## Oppsummering\n\nKaffekompaniet er best.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "numbered headings"
+  },
+  {
    "id": "nn-01",
    "language": "nn",
    "text": "Fjordkaffe er eit norsk kaffibrenneri.",
@@ -903,6 +957,12 @@
      "normalized": "https://se.wikipedia.org/wiki/Kaffe",
      "ownership": "third_party",
      "competitor": null
+    },
+    {
+     "url": "https://www.bjørnkaffe.se/om-oss/",
+     "normalized": "https://xn--bjrnkaffe-m8a.se/om-oss",
+     "ownership": "competitor",
+     "competitor": "bjornkaffe"
     },
     {
      "url": "https://FJORDKAFFE.no:443/Om-oss/",
