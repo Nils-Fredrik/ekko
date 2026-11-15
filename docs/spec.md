@@ -181,7 +181,7 @@ Rollene implementeres med Jetstream-roller per team, med Laravel Policies som en
 - setter `tenant_id` automatisk ved opprettelse
 - kaster unntak hvis ingen tenant er satt i konteksten (gjelder også jobber)
 
-Jobber får alltid `tenant_id` som konstruktørparameter og setter konteksten i `handle()` via middleware `SetTenantContext`.
+Jobber får alltid `tenant_id` som konstruktørparameter og setter konteksten via middleware `SetTenantContext`. Den synkrone motorinnsamleren bruker én RLS-transaksjon for reservasjon og én for oppgjør, med leverandørkallet mellom dem (ADR 0013).
 
 **Lag 2, databasen:** Postgres Row-Level Security på alle tenant-eide tabeller.
 
@@ -192,7 +192,7 @@ CREATE POLICY tenant_isolation ON brands
   USING (tenant_id = ANY (string_to_array(current_setting('app.tenant_ids', true), ',')::bigint[]));
 ```
 
-Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og hver jobb settes `app.tenant_ids` til tenantene brukeren eller jobben har lov til å se. For en partner er det egen tenant pluss kunde-tenantene, i en databasetransaksjon med `SET LOCAL`, gjennom middleware `ApplyTenantRls`.
+Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og hver jobb settes `app.tenant_ids` til tenantene brukeren eller jobben har lov til å se. For en partner er det egen tenant pluss kunde-tenantene. `ApplyTenantRls` setter tilgangen med `SET LOCAL` i en databasetransaksjon. Motorinnsamleren bruker den samme transaksjonshjelperen i hver databasefase.
 
 Plattformadmin-operasjoner og migreringer bruker en egen databaserolle med `BYPASSRLS`. Den brukes kun av jobben `ekko-migrate` og av eksplisitte admin-handlinger som logges.
 

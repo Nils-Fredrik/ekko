@@ -5,6 +5,7 @@ use App\Engines\Credentials\TenantApiKeys;
 use App\Engines\EngineCallFailed;
 use App\Engines\EngineCollector;
 use App\Engines\RawResponseStore;
+use App\Jobs\CollectEngineRun;
 use App\Models\Engine;
 use App\Models\EnginePrice;
 use App\Models\Market;
@@ -16,47 +17,59 @@ use App\Models\Team;
 use App\Models\UsageEvent;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\Support\Engines\EngineFixtures;
 
-test('collection uses the verified tenant key and stops at its BYOK budget between rollups', function () {
+test('a queued engine run uses the tenant key, releases the transaction and respects the BYOK budget', function () {
     $this->travelTo(now()->parse('2026-11-15T12:00:00Z'));
     $fixture = EngineFixtures::load('chatgpt_api', 'no-nb');
-    Http::preventStrayRequests()->fake([
-        'https://api.openai.com/v1/models' => Http::response(['data' => []]),
-        'https://api.openai.com/v1/responses' => Http::response($fixture),
-    ]);
-    $rawStore = Mockery::mock(RawResponseStore::class);
-    $rawStore->expects('put')->once()->andReturn('gs://fixture/collected.json');
-    app()->instance(RawResponseStore::class, $rawStore);
-
     $plan = Plan::factory()->create(['monthly_budget_usd' => '0.00']);
     $tenant = Team::factory()->tenant()->withPlan($plan)->create([
         'byok_enabled' => true,
         'monthly_byok_budget_usd' => '1.00',
     ]);
+    $other = Team::factory()->tenant()->create();
+    $depth = DB::transactionLevel();
+    Http::preventStrayRequests()->fake([
+        'https://api.openai.com/v1/models' => Http::response(['data' => []]),
+        'https://api.openai.com/v1/responses' => function () use ($tenant, $depth, $fixture) {
+            expect(current_tenant_id())->toBe($tenant->id)
+                ->and(DB::transactionLevel())->toBe($depth)
+                ->and(app(TenantRls::class)->currentSettings()['tenant_ids'])->toBe('');
+
+            return Http::response($fixture);
+        },
+    ]);
+    $rawStore = Mockery::mock(RawResponseStore::class);
+    $rawStore->expects('put')->once()->andReturn('gs://fixture/collected.json');
+    app()->instance(RawResponseStore::class, $rawStore);
+
     $engine = quotaEngine();
+    $context = app(TenantContext::class);
+    $rls = app(TenantRls::class);
+    [$first, $next] = $context->run($tenant->id, fn () => $rls->run([$tenant->id], function () use ($tenant, $engine) {
+        app(TenantApiKeys::class)->store($tenant->owner, ApiKeyProvider::OpenAi, 'verified-test-key');
 
-    app(TenantContext::class)->run($tenant->id, function () use ($tenant, $engine) {
-        [$first, $next] = app(TenantRls::class)->run([$tenant->id], function () use ($tenant, $engine) {
-            app(TenantApiKeys::class)->store($tenant->owner, ApiKeyProvider::OpenAi, 'verified-test-key');
+        return quotaRuns($engine);
+    }));
 
-            return quotaRuns($engine);
-        });
+    expect(fn () => dispatch_sync(new CollectEngineRun($other->id, $first->id)))
+        ->toThrow(ModelNotFoundException::class);
+    Http::assertSentCount(1);
 
-        $collector = app(EngineCollector::class);
-        expect($collector->collect($first->id))->not->toBeNull()
-            ->and($collector->collect($next->id))->toBeNull()
-            ->and($collector->collect($next->id))->toBeNull();
+    dispatch_sync(new CollectEngineRun($tenant->id, $first->id));
+    dispatch_sync(new CollectEngineRun($tenant->id, $next->id));
+    expect($context->check())->toBeFalse();
 
-        app(TenantRls::class)->run([$tenant->id], function () use ($next) {
-            expect(UsageEvent::query()->sole()->billed_to)->toBe('byok')
-                ->and($next->refresh()->status)->toBe('skipped_quota');
-        });
-    });
+    $context->run($tenant->id, fn () => $rls->run([$tenant->id], function () use ($first, $next) {
+        expect(UsageEvent::query()->sole()->billed_to)->toBe('byok')
+            ->and($first->refresh()->status)->toBe('collected')
+            ->and($next->refresh()->status)->toBe('skipped_quota');
+    }));
 
     Http::assertSentCount(2);
     Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/responses'
