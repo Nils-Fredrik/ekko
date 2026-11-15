@@ -40,6 +40,8 @@ return [
             'connection' => env('DB_QUEUE_CONNECTION'),
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
+            // Longer than the longest job timeout (CollectEngineRun, 420 s), as in production
+            // (infra/terraform/workloads.tf), so a job still running is never handed to a second worker.
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 450),
             'after_commit' => false,
         ],

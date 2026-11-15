@@ -1,0 +1,46 @@
+<?php
+
+// Veiviserens backend (docs/spec.md 13, T25). Alle språk må ha de samme nøklene.
+
+return [
+    'invalid_domain' => 'Enter a valid domain, for example example.com.',
+    'errors' => [
+        'brand_limit' => 'The plan does not allow more brands.',
+        'market_limit' => 'The plan does not allow more markets for this brand.',
+        'no_topics' => 'The brand has no topics that can be linked across markets.',
+        'quota_reached' => "This month's quota or budget is used up. The analysis cannot be started.",
+        'busy' => 'An analysis is already being started for this tenant. Try again in a moment.',
+        'brand_gone' => 'The brand no longer exists.',
+        'fetch_invalid_url' => 'The address is not valid. The wizard only fetches pages over https.',
+        'fetch_blocked_address' => 'The address points to an internal or private IP address and cannot be fetched.',
+        'fetch_dns' => 'The domain could not be looked up.',
+        'fetch_too_large' => 'The front page is larger than 2 MB and cannot be read.',
+        'fetch_too_many_redirects' => 'The site redirects visitors too many times.',
+        'fetch_timeout' => 'The site answered too slowly.',
+        'fetch_unsupported_content' => 'The front page is not an ordinary web page.',
+        'fetch_http_error' => 'The site answered with an error.',
+        'fetch_connection' => 'Could not connect to the site.',
+        'model_unavailable' => 'The analysis is temporarily unavailable. Try again later.',
+        'model_refused' => 'The model declined to make suggestions for this site.',
+        'model_truncated' => "The model's answer became too long. Try again.",
+        'invalid_model_output' => "The model's answer could not be used. Try again.",
+        'internal' => 'The analysis failed. Try again.',
+    ],
+    'warnings' => [
+        'competitor_dropped' => 'Some competitors had no valid name or domain and were left out.',
+        'topic_dropped' => 'Some topics were invalid and were left out.',
+        'prompt_dropped' => 'Some prompts were invalid and were left out.',
+        'prompt_personal_data' => 'Some prompts contained email addresses or phone numbers and were left out.',
+    ],
+    'issues' => [
+        'unknown_engine' => 'The engine :engine does not exist or is switched off.',
+        'no_price' => 'The engine :engine has no price.',
+        'engine_not_in_plan' => 'The engine :engine is not in the plan.',
+        'frequency_above_plan' => 'The frequency for :engine is higher than the plan allows.',
+        'repetitions_above_plan' => 'The number of repetitions for :engine is higher than the plan allows.',
+        'prompts_above_plan' => 'The number of prompts is higher than the plan allows per market.',
+        'exceeds_call_quota' => "The estimated number of calls, together with this month's usage so far, exceeds the call quota.",
+        'exceeds_budget' => "The estimated cost, together with this month's usage so far, exceeds the budget.",
+        'exceeds_byok_budget' => "The estimated cost with your own keys, together with this month's usage so far, exceeds the budget for own keys.",
+    ],
+];
