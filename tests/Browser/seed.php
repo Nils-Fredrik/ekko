@@ -8,14 +8,16 @@ use App\Models\User;
 use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 // This entry point is excluded from production images. Never seed an ordinary database.
 require __DIR__.'/../../vendor/autoload.php';
 $app = require __DIR__.'/../../bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
-$database = config('database.connections.pgsql.database');
-if (getenv('EKKO_BROWSER_TEST') !== '1' || ! $app->environment('local', 'testing') || ! is_string($database) || ! str_ends_with($database, '_testing')) {
+$database = DB::connection('pgsql')->getDatabaseName();
+$adminDatabase = DB::connection('pgsql_admin')->getDatabaseName();
+if (getenv('EKKO_BROWSER_TEST') !== '1' || ! $app->environment('local', 'testing') || ! is_string($database) || ! str_ends_with($database, '_testing') || $database !== env('DB_TEST_DATABASE') || $adminDatabase !== $database) {
     fwrite(STDERR, "Browser fixtures require local/testing and a dedicated _testing database.\n");
     exit(1);
 }
