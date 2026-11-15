@@ -96,12 +96,14 @@ class PollExtractionBatch extends TenantJob
 
         $catalog = DetectionCatalog::load();
         $deterministic = [];
+        $sources = [];
         foreach ($responses as $id => $response) {
             $detector->detect($response, $catalog);
             $deterministic[$id] = $writer->deterministicMentions($response);
+            $sources[$id] = $response->annotationUrls();
         }
 
-        $requestFor = function (string $customId) use ($responses, $deterministic, $catalog, $prompts): ?ExtractionRequest {
+        $requestFor = function (string $customId) use ($responses, $deterministic, $sources, $catalog, $prompts): ?ExtractionRequest {
             $response = $responses[(int) substr($customId, 1)] ?? null;
 
             return $response === null ? null : $prompts->build(
@@ -110,6 +112,7 @@ class PollExtractionBatch extends TenantJob
                 $response->run->prompt->market->language ?? $response->answer_language ?? 'und',
                 $catalog->aliases,
                 $deterministic[$response->id],
+                $sources[$response->id],
             );
         };
 

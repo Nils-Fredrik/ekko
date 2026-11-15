@@ -29,8 +29,12 @@ class AggDaily extends Model
         'brand_recommended',
         'sum_position',
         'count_position',
+        'list_responses',
+        'first_place',
         'sum_sentiment',
+        'count_sentiment',
         'own_cited',
+        'competitor_only_responses',
         'competitor_mentions',
     ];
 

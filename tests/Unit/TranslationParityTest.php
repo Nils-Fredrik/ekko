@@ -18,7 +18,7 @@ function translationKeys(array $array, string $prefix = ''): array
     return $keys;
 }
 
-$ownFiles = ['app.php', 'jetstream.php', 'roles.php'];
+$ownFiles = ['app.php', 'jetstream.php', 'roles.php', 'metrics.php'];
 
 foreach ($ownFiles as $file) {
     test("lang/*/{$file} has the same keys in nb, sv and en", function () use ($file) {
