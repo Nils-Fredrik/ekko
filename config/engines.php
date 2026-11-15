@@ -2,7 +2,7 @@
 
 return [
     // Deployment gates also stop already queued work; historical results remain readable.
-    'disabled_providers' => array_filter(explode(',', env('EKKO_DISABLED_ENGINE_PROVIDERS', ''))),
+    'disabled_providers' => array_filter(array_map('trim', explode(',', env('EKKO_DISABLED_ENGINE_PROVIDERS', '')))),
     'gemini_grounding_approved' => env('EKKO_GEMINI_GROUNDING_APPROVED', false),
 
     'raw_bucket' => env('EKKO_RAW_BUCKET', 'ekko-raw'),

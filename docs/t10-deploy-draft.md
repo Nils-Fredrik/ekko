@@ -70,3 +70,6 @@ Full etterplan for fundament/HTTPS viser tre planlagte IAM-fjerninger (Microsoft
 Lokalt består `composer test` med 1635 tester / 9382 assertions (512 MB PHP-minne), inkludert tenant-isolasjon. `composer lint` (Pint/Larastan), `npm run lint` (fire eksisterende Vue-advarsler), `npm run build`, deploy-mocktester, fire digest-tester og Terraform fmt/validate består. Første fulltest krevde nytt frontend-bygg etter oppdateringen fra main; ingen tester ble svekket. OpenAI modellisteverifisering mot `eu.api.openai.com/v1/models` ga også HTTP 200 med gyldig liste.
 
 `npm run test:browser` består med tre Chromium-tester, inkludert autentisert login/REST/OAuth/MCP-smoke og tilbakekalling. Dette er fortsatt lokalt bevis, ikke Cloud Run-produksjonsaksept.
+
+
+[CI 43762928988](https://github.com/Nils-Fredrik/ekko/actions/runs/43762928988) er grønn for `8486e18` (test og containerbygg). Claude fant ingen blokkerende kodefeil; Codex fant ingen vesentlige feil. Claude opprettholder kravet om produksjonsaksept. Småmerknadene om `trim(null)` og mellomrom i leverandørlisten er rettet i oppfølgingscommit. Gemini-aktiveringens to steg og gjennomgang av eksisterende pakker står allerede i Terraform-README. Klient-IP må fortsatt verifiseres for begge innkommende veier; ikke bruk et fast antall videresendte ledd.

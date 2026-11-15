@@ -28,7 +28,7 @@ final class ChatGptApiAdapter implements EngineAdapter
 
     public function collect(EngineRequest $request): EngineResult
     {
-        $apiKey = trim($request->apiKey ?? config('engines.chatgpt_api.api_key', ''));
+        $apiKey = trim((string) ($request->apiKey ?? config('engines.chatgpt_api.api_key', '')));
 
         if ($apiKey === '') {
             throw new EngineCallFailed('openai_missing_api_key');
