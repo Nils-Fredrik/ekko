@@ -20,6 +20,7 @@ use Laravel\Jetstream\Team as JetstreamTeam;
  * partner_team_id, plan_id, status and byok_enabled are set by the platform admin and are
  * deliberately not mass assignable.
  *
+ * @property string|null $billing_markup_percent
  * @property int $id
  * @property int $user_id
  * @property int|null $partner_team_id
@@ -54,6 +55,7 @@ class Team extends JetstreamTeam
      * @var list<string>
      */
     protected $hidden = [
+        'billing_markup_percent',
         'slack_webhook_url',
     ];
 
@@ -189,6 +191,7 @@ class Team extends JetstreamTeam
             'byok_enabled' => 'boolean',
             'monthly_call_quota_override' => 'integer',
             'monthly_byok_budget_usd' => 'decimal:2',
+            'billing_markup_percent' => 'decimal:4',
         ];
     }
 

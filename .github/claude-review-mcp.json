@@ -1,0 +1,14 @@
+{
+    "mcpServers": {
+        "ekko_review": {
+            "command": "node",
+            "args": ["scripts/agent-review/claude-comment.mjs"],
+            "env": {
+                "GH_TOKEN": "${GH_TOKEN}",
+                "SNAPSHOT": "${SNAPSHOT}",
+                "PR_NUMBER": "${PR_NUMBER}",
+                "GITHUB_REPOSITORY": "${GITHUB_REPOSITORY}"
+            }
+        }
+    }
+}
