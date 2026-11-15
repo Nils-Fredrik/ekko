@@ -9,6 +9,14 @@ export const claudeBody = (result, head) =>
 // Neither repository, PR, revision, URL nor token can be supplied by the model.
 export async function publishClaudeReview(input, { env = process.env, request = fetch } = {}) {
     const result = claudeVerdict(JSON.stringify(input));
+    if (
+        /(?:gh[opsu]_|github_pat_|sk-ant-|-----BEGIN [A-Z ]*PRIVATE KEY-----)/.test(result.summary) ||
+        Object.values(env).some(
+            (value) => typeof value === 'string' && value.length >= 16 && result.summary.includes(value),
+        )
+    ) {
+        throw new Error('Review text may contain credentials; publication refused');
+    }
     const snapshot = JSON.parse(Buffer.from(env.SNAPSHOT, 'base64').toString());
     const number = Number(env.PR_NUMBER);
     if (env.GITHUB_REPOSITORY !== 'Nils-Fredrik/ekko' || !Number.isSafeInteger(number) || number < 1 || !env.GH_TOKEN)

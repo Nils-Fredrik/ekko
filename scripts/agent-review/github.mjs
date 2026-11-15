@@ -1,4 +1,4 @@
-import { appendFile, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { codexApproved, requiredReviewers, sameSnapshot, claudeVerdict, reviewRounds } from './policy.mjs';
 import { postReviewBlocker } from './board.mjs';
 import { claudeBody } from './claude-comment.mjs';
@@ -50,12 +50,17 @@ export async function runReview(
     }
 
     async function getPull() {
-        const pr = await api(`/repos/${repo}${pull}`);
+        let pr;
+        for (let attempt = 0; attempt < 6; attempt++) {
+            pr = await api(`/repos/${repo}${pull}`);
+            if (pr.mergeable !== null) break;
+            await sleep(5000);
+        }
         if (
             pr.state !== 'open' ||
             pr.base.ref !== 'main' ||
             pr.draft ||
-            pr.mergeable === false ||
+            pr.mergeable !== true ||
             !/^[a-f0-9]{40}$/.test(pr.head.sha) ||
             !/^[a-f0-9]{40}$/.test(pr.base.sha) ||
             !/^[a-f0-9]{40}$/.test(pr.merge_commit_sha || '')
@@ -81,8 +86,7 @@ export async function runReview(
         const pr = await getPull();
         if (pr.head.sha !== env.EVENT_HEAD || pr.base.sha !== env.EVENT_BASE) throw new Error('Stale event');
         // Set pending before review work starts. If anything fails, the gate stays closed.
-        await status(pr.merge_commit_sha, 'pending', 'Venter på kryssreview');
-        if (!env.BOARD_MCP_TOKEN) throw new Error('Board escalation credential missing');
+        await status(pr.head.sha, 'pending', 'Venter på kryssreview');
         const files = await allPages(`${pull}/files`);
         if (files.length !== pr.changed_files || files.length >= 3000)
             throw new Error('Changed file list is incomplete');
@@ -122,10 +126,12 @@ export async function runReview(
         // The diff is data. It is never checked out, interpreted, or executed.
         if (Buffer.byteLength(body) > 5_000_000) throw new Error('Diff is too large for automatic review');
         if (!sameSnapshot(await getPull(), snapshot)) throw new Error('PR changed while fetching diff');
-        await writeFile(`${env.RUNNER_TEMP}/review.diff`, body);
+        await mkdir(`${env.GITHUB_WORKSPACE}/.review`, { recursive: true });
+        await writeFile(`${env.GITHUB_WORKSPACE}/.review/review.diff`, body);
         const pr = await getPull();
+        if (!sameSnapshot(pr, snapshot)) throw new Error('PR changed before context capture');
         await writeFile(
-            `${env.RUNNER_TEMP}/review-context.json`,
+            `${env.GITHUB_WORKSPACE}/.review/review-context.json`,
             JSON.stringify({ title: pr.title, body: pr.body, head: snapshot.head, base: snapshot.base }),
         );
     }
@@ -135,7 +141,8 @@ export async function runReview(
         try {
             if (snapshot.required.claude && env.CLAUDE_RESULT !== 'success')
                 throw new Error('Claude review did not approve');
-            const deadline = now() + 90 * 60_000;
+            if (!env.BOARD_MCP_TOKEN) throw new Error('Board escalation credential missing');
+            const deadline = now() + 45 * 60_000;
             do {
                 if (!sameSnapshot(await getPull(), snapshot)) throw new Error('PR changed during review');
                 const [comments, reviews] = snapshot.required.codex
@@ -144,7 +151,7 @@ export async function runReview(
                 if (!snapshot.required.codex || codexApproved(comments, snapshot.head, env.REQUESTED_AT, reviews)) {
                     if (!sameSnapshot(await getPull(), snapshot))
                         throw new Error('PR changed before publishing status');
-                    await status(snapshot.merge, 'success', 'Påkrevd kryssreview er godkjent');
+                    await status(snapshot.head, 'success', 'Påkrevd kryssreview er godkjent');
                     await recordRound(snapshot, 'success');
                     return;
                 }
@@ -152,7 +159,7 @@ export async function runReview(
             } while (now() < deadline);
             throw new Error('Codex review was not approved before timeout');
         } catch (error) {
-            await status(snapshot.merge, 'failure', 'Kryssreview mangler eller feilet');
+            await status(snapshot.head, 'failure', 'Kryssreview mangler eller feilet');
             // Stale/cancelled code does not consume a new review round.
             if (sameSnapshot(await getPull(), snapshot)) await recordRound(snapshot, 'failure');
             throw error;
@@ -162,11 +169,17 @@ export async function runReview(
     async function recordRound(snapshot, result) {
         const round = { head: snapshot.head, base: snapshot.base, result, run: env.GITHUB_RUN_ID, blocker_sent: false };
         const comments = await allPages(`/issues/${number}/comments`);
-        const prior = reviewRounds(comments);
-        const updated = reviewRounds([
-            ...comments,
-            { user: { id: 41898282 }, body: `<!-- ekko-review-round:v1 ${JSON.stringify(round)} -->` },
-        ]);
+        const prior = reviewRounds(comments, Number(env.AGENT_REVIEW_BOT_ID));
+        const updated = reviewRounds(
+            [
+                ...comments,
+                {
+                    user: { id: Number(env.AGENT_REVIEW_BOT_ID) },
+                    body: `<!-- ekko-review-round:v1 ${JSON.stringify(round)} -->`,
+                },
+            ],
+            Number(env.AGENT_REVIEW_BOT_ID),
+        );
         if (result === 'failure' && updated.failures >= 3 && !prior.reported) {
             await postReviewBlocker({ token: env.BOARD_MCP_TOKEN, number, request });
             round.blocker_sent = true;

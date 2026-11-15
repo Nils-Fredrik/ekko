@@ -80,11 +80,13 @@ export function claudeVerdict(raw) {
     return result;
 }
 
-export function reviewRounds(comments) {
+export function reviewRounds(comments, actorId) {
+    if (!Number.isSafeInteger(actorId) || actorId < 1 || actorId === 41898282)
+        throw new Error('A dedicated review App identity is required');
     const prefix = /^<!-- ekko-review-round:v1 (\{[^\n]*\}) -->/;
     const rounds = [];
     for (const comment of comments) {
-        if (comment.user?.id !== 41898282) continue; // github-actions[bot], never a PR author.
+        if (comment.user?.id !== actorId) continue; // Dedicated App, never the shared GitHub Actions bot.
         const match = prefix.exec(comment.body || '');
         if (!match) continue;
         try {

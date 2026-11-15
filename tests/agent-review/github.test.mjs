@@ -42,6 +42,8 @@ async function harness(t, overrides = {}) {
         CODEX_TRIGGER_TOKEN: 'test-trigger-token',
         BOARD_MCP_TOKEN: 'test-board-token',
         GITHUB_OUTPUT: join(dir, 'output'),
+        GITHUB_WORKSPACE: dir,
+        AGENT_REVIEW_BOT_ID: '12345678',
         RUNNER_TEMP: dir,
         GITHUB_SERVER_URL: 'https://github.com',
         GITHUB_RUN_ID: '10',
@@ -112,7 +114,7 @@ test('prepare binds requirements to the full file list and uses a separate Codex
     assert.match(output, /codex=true/);
     const trigger = h.calls.find((call) => call.body?.body?.startsWith('@codex review'));
     assert.equal(trigger.options.headers.authorization, 'Bearer test-trigger-token');
-    assert.ok(h.calls.some((call) => call.body?.state === 'pending' && call.url.endsWith(`/statuses/${merge}`)));
+    assert.ok(h.calls.some((call) => call.body?.state === 'pending' && call.url.endsWith(`/statuses/${head}`)));
 });
 
 test('prepare fails closed for stale events, missing credentials and truncated file lists', async (t) => {
@@ -121,7 +123,7 @@ test('prepare fails closed for stale events, missing credentials and truncated f
             h.env.EVENT_HEAD = 'd'.repeat(40);
         },
         (h) => {
-            delete h.env.BOARD_MCP_TOKEN;
+            h.state.pr = { ...pr, mergeable: false };
         },
         (h) => {
             h.state.pr = { ...pr, changed_files: 2 };
@@ -141,13 +143,13 @@ test('diff detects a push during download and never executes or writes that diff
     const h = await harness(t);
     h.state.mutateAfterDiff = true;
     await assert.rejects(h.run('diff'), /changed while fetching/);
-    await assert.rejects(readFile(join(h.dir, 'review.diff')));
+    await assert.rejects(readFile(join(h.dir, '.review/review.diff')));
 });
 
 test('gate approves only the captured merge after both exact-head reviews', async (t) => {
     const h = await harness(t, { SNAPSHOT: snapshot({ claude: true, codex: true }) });
     await h.run('gate');
-    assert.ok(h.calls.some((call) => call.body?.state === 'success' && call.url.endsWith(`/statuses/${merge}`)));
+    assert.ok(h.calls.some((call) => call.body?.state === 'success' && call.url.endsWith(`/statuses/${head}`)));
 });
 
 test('gate rejects changed base, title, merge, draft state or failed Claude result', async (t) => {
@@ -185,14 +187,14 @@ test('structured Claude verdict requires a genuine conclusion and nonempty revie
 });
 
 test('three rounds count distinct failed heads, ignore authors, and reset after approval', () => {
-    const record = (head, result = 'failure', id = 41898282) => ({
+    const record = (head, result = 'failure', id = 12345678) => ({
         user: { id },
         body: `<!-- ekko-review-round:v1 ${JSON.stringify({ head, result })} -->`,
     });
-    assert.equal(reviewRounds([record(head), record(head), record(base)]).failures, 2);
-    assert.equal(reviewRounds([record(head), record(base), record(merge)]).failures, 3);
-    assert.equal(reviewRounds([record(head), record(base, 'success'), record(merge)]).failures, 1);
-    assert.equal(reviewRounds([record(head, 'failure', 1)]).failures, 0);
+    assert.equal(reviewRounds([record(head), record(head), record(base)], 12345678).failures, 2);
+    assert.equal(reviewRounds([record(head), record(base), record(merge)], 12345678).failures, 3);
+    assert.equal(reviewRounds([record(head), record(base, 'success'), record(merge)], 12345678).failures, 1);
+    assert.equal(reviewRounds([record(head, 'failure', 1)], 12345678).failures, 0);
 });
 
 test('Board escalation initializes MCP, reads snapshot, and posts a bounded blocker without secrets', async () => {
@@ -226,7 +228,7 @@ test('Board escalation initializes MCP, reads snapshot, and posts a bounded bloc
 test('third failed code revision posts Board blocker and records successful escalation', async (t) => {
     const h = await harness(t, { CLAUDE_RESULT: 'failure' });
     h.state.comments = [base, merge].map((sha) => ({
-        user: { id: 41898282 },
+        user: { id: 12345678 },
         body: `<!-- ekko-review-round:v1 ${JSON.stringify({ head: sha, result: 'failure' })} -->`,
     }));
     await assert.rejects(h.run('gate'), /Claude review did not approve/);
@@ -261,17 +263,61 @@ test('Claude publication is bound to the PR and revision and uses the authentica
     );
 });
 
-test('protection audit requires strict CI and review enforcement including administrators', () => {
-    const protection = {
-        required_status_checks: { strict: true, contexts: ['test', 'agent-review'] },
-        enforce_admins: { enabled: true },
+test('protection audit rejects unbound status sources and unprotected credentials', () => {
+    const fixture = {
+        app_id: 12345,
+        protection: {
+            required_status_checks: {
+                strict: true,
+                checks: [
+                    { context: 'test', app_id: 15368 },
+                    { context: 'agent-review', app_id: 12345 },
+                ],
+            },
+            enforce_admins: { enabled: true },
+        },
+        environment: { name: 'agent-review', deployment_branch_policy: { custom_branch_policies: true } },
+        policies: { branch_policies: [{ name: 'main', type: 'branch' }] },
     };
     const check = (input) =>
         spawnSync(process.execPath, ['scripts/agent-review/check-protection.mjs'], {
             input: JSON.stringify(input),
             encoding: 'utf8',
-        });
-    assert.equal(check(protection).status, 0);
-    assert.notEqual(check({ ...protection, enforce_admins: { enabled: false } }).status, 0);
-    assert.notEqual(check({ ...protection, required_status_checks: { strict: true, contexts: ['test'] } }).status, 0);
+        }).status;
+    assert.equal(check(fixture), 0);
+    assert.notEqual(check({ ...fixture, app_id: 15368 }), 0);
+    assert.notEqual(check({ ...fixture, policies: { branch_policies: [{ name: '*', type: 'branch' }] } }), 0);
+    const unbound = structuredClone(fixture);
+    unbound.protection.required_status_checks.checks[1].app_id = null;
+    assert.notEqual(check(unbound), 0);
+    assert.notEqual(check({ ...fixture, environment: {} }), 0);
+});
+
+test('Claude publication refuses environment secrets and recognizable credentials before HTTP', async () => {
+    let calls = 0;
+    const env = { GH_TOKEN: 'synthetic-credential-value-for-tests' };
+    for (const summary of ['Leaked ' + env.GH_TOKEN, 'Token ghs_fake', 'Token github_pat_fake', 'Token sk-ant-fake']) {
+        await assert.rejects(
+            publishClaudeReview(
+                { conclusion: 'GODKJENT', summary },
+                {
+                    env,
+                    request: async () => {
+                        calls++;
+                    },
+                },
+            ),
+            /credentials/,
+        );
+    }
+    assert.equal(calls, 0);
+});
+
+test('the shared GitHub Actions bot cannot forge or reset review rounds', () => {
+    const comment = {
+        user: { id: 41898282 },
+        body: `<!-- ekko-review-round:v1 ${JSON.stringify({ head, result: 'success' })} -->`,
+    };
+    assert.equal(reviewRounds([comment], 12345678).failures, 0);
+    assert.throws(() => reviewRounds([], 41898282));
 });
