@@ -46,7 +46,7 @@ it('seeds a repeatable demo with two clients, a partner and tenant-scoped histor
                 ->and((int) UsageMonthly::query()->sum('calls'))->toBe(14)
                 ->and(Alert::query()->count())->toBe(1)
                 ->and(Report::query()->count())->toBe(1)
-                ->and(Activity::query()->sole()->subject->is($brand))->toBeTrue();
+                ->and(Activity::query()->where('subject_type', Brand::class)->sole()->subject->is($brand))->toBeTrue();
         });
     }
 

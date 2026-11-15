@@ -4,6 +4,7 @@ namespace App\Actions\Jetstream;
 
 use App\Models\Team;
 use App\Models\User;
+use App\Tenancy\AuditLog;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Laravel\Jetstream\Actions\UpdateTeamMemberRole as JetstreamUpdateTeamMemberRole;
@@ -30,8 +31,13 @@ class UpdateTeamMemberRole extends JetstreamUpdateTeamMemberRole
 
         Gate::forUser($user)->authorize('assignRole', [$team, $role]);
 
+        $previous = $team->users()->wherePivot('user_id', $teamMemberId)->value('team_user.role');
+
         $team->users()->updateExistingPivot($teamMemberId, ['role' => $role]);
 
-        TeamMemberUpdated::dispatch($team->fresh(), Jetstream::findUserByIdOrFail($teamMemberId));
+        $member = Jetstream::findUserByIdOrFail($teamMemberId);
+        app(AuditLog::class)->memberRoleChanged($user, $team, $member, $previous, $role);
+
+        TeamMemberUpdated::dispatch($team->fresh(), $member);
     }
 }

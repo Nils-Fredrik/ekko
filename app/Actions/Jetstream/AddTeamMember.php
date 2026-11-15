@@ -5,6 +5,7 @@ namespace App\Actions\Jetstream;
 use App\Enums\TenantRole;
 use App\Models\Team;
 use App\Models\User;
+use App\Tenancy\AuditLog;
 use Closure;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\Validation\Rule;
@@ -34,7 +35,9 @@ class AddTeamMember implements AddsTeamMembers
         // The partner advisor role reaches client tenants, so not every admin may give it. An
         // accepted invitation was already checked when it was sent (InviteTeamMember), and Jetstream
         // accepts it on behalf of the owner, so it is not checked again here.
-        if ($role !== null && ! $this->isInvited($team, $email, $role)) {
+        $invited = $role !== null && $this->isInvited($team, $email, $role);
+
+        if ($role !== null && ! $invited) {
             Gate::forUser($user)->authorize('assignRole', [$team, $role]);
         }
 
@@ -53,6 +56,9 @@ class AddTeamMember implements AddsTeamMembers
         );
 
         TeamMemberAdded::dispatch($team, $newTeamMember);
+
+        // An accepted invitation is added on behalf of the owner, but it is the member who acted.
+        app(AuditLog::class)->memberAdded($invited ? $newTeamMember : $user, $team, $newTeamMember, (string) $role);
     }
 
     private function isInvited(Team $team, string $email, string $role): bool

@@ -4,6 +4,7 @@ namespace App\Actions\Jetstream;
 
 use App\Models\Team;
 use App\Models\User;
+use App\Tenancy\AuditLog;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
@@ -21,7 +22,11 @@ class RemoveTeamMember implements RemovesTeamMembers
 
         $this->ensureUserDoesNotOwnTeam($teamMember, $team);
 
+        $role = $team->users()->wherePivot('user_id', $teamMember->id)->value('team_user.role');
+
         $team->removeUser($teamMember);
+
+        app(AuditLog::class)->memberRemoved($user, $team, $teamMember, $role);
 
         TeamMemberRemoved::dispatch($team, $teamMember);
     }

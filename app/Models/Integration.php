@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Casts\EncryptedIntegrationConfig;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\RecordsRevisions;
 use Database\Factories\IntegrationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,9 +13,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Integration extends Model
 {
     use BelongsToTenant;
-
     /** @use HasFactory<IntegrationFactory> */
     use HasFactory;
+
+    use RecordsRevisions;
 
     /** @var list<string> */
     protected $fillable = [
@@ -43,5 +45,17 @@ class Integration extends Model
             'config' => EncryptedIntegrationConfig::class,
             'last_sync_at' => 'datetime',
         ];
+    }
+
+    /** @return list<string> */
+    protected function revisionAttributes(): array
+    {
+        return ['brand_id', 'type'];
+    }
+
+    /** @return list<string> */
+    protected function maskedRevisionAttributes(): array
+    {
+        return ['config'];
     }
 }
