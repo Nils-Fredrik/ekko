@@ -6,6 +6,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Tenancy\Rls\TenantRls;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -37,7 +38,7 @@ final class AuditLog
         $this->record($tenant, 'acting_as.stopped', $admin, null, []);
     }
 
-    public function memberAdded(?User $by, Team $tenant, User $member, string $role): void
+    public function memberAdded(?User $by, Team $tenant, User $member, ?string $role): void
     {
         $this->record($tenant, 'member.added', $by, $member, ['role' => $role]);
     }
@@ -67,11 +68,15 @@ final class AuditLog
             $logger->log($event);
         }));
 
-        Log::info($event, [
+        // Only once the entry is committed, so the application log never shows an event that was
+        // rolled back with the request (ApplyTenantRls rolls back on a 5xx). The properties come
+        // first, so none of them can overwrite the ids.
+        $context = [
+            ...$properties,
             'user_id' => $causer?->id,
             'tenant_id' => $tenant->id,
             'subject_user_id' => $subject?->getKey(),
-            ...$properties,
-        ]);
+        ];
+        DB::afterCommit(fn () => Log::info($event, $context));
     }
 }

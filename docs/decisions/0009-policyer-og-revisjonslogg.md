@@ -16,7 +16,8 @@ T05 la grunnlaget med `TenantAccess`, `TenantPermission` og basisklassen `Tenant
 |---|---|---|
 | Merkevarer (med alias og domener), markeder og motoroppsett | alle roller | `brands.manage` / `markets.manage` (admin) |
 | Prompts, temaer, konkurrenter (med alias og domener) | alle roller | `prompts.manage` / `competitors.manage` (admin, redaktør) |
-| Varselregler og varsler, rapportplaner og rapporter | alle roller | `alerts.manage` / `reports.manage` (admin) |
+| Varselregler og rapportplaner | alle roller | `alerts.manage` / `reports.manage` (admin) |
+| Varsler og rapporter | alle roller | endre og slette: `alerts.manage` / `reports.manage` (admin); opprettes bare av systemet |
 | Integrasjoner | `tenant.update` (admin) | `tenant.update` (admin) |
 | Kjøringer, svar, omtaler, sitater, aggregater, robot- og trafikktall | alle roller | ingen; skrives av systemet |
 | Kjørebatcher | alle roller | opprette: `checks.run` (manuell kontroll); ellers ingen |
@@ -30,7 +31,7 @@ Integrasjoner har legitimasjon i konfigurasjonen, så også lesing krever admin.
 - opptre som tenant (start og stopp, med årsak)
 - medlem lagt til, rolle endret (fra og til), medlem fjernet
 
-Prompts, konkurrenter, varselregler og integrasjoner logger opprettelse, endring og sletting gjennom `RecordsRevisions`. Bare navngitte felt logges. Prompt-tekst, varselkanaler og integrasjonskonfigurasjon logges som `[changed]`, aldri med verdien (16: ingen hemmeligheter, prompts ikke i logger).
+Prompts, konkurrenter (med alias og domener, som avgjør hva som telles som treff), varselregler og integrasjoner logger opprettelse, endring og sletting gjennom `RecordsRevisions`. Bare navngitte felt logges. Prompt-tekst, varselkanaler og integrasjonskonfigurasjon logges som `[changed]`, aldri med verdien (16: ingen hemmeligheter, prompts ikke i logger).
 
 Oppføringen skrives i tenanten den gjelder, med tenant-kontekst og RLS satt til den tenanten bare for skrivingen. En plattformadmin som starter «opptre som» fra adminsiden, eller en partner-rådgiver som endrer roller i en kunde-tenant, får dermed oppføringen i riktig tenant. En godtatt invitasjon logges med det nye medlemmet som utøver, ikke eieren Jetstream legger til på vegne av.
 
@@ -38,3 +39,5 @@ Oppføringen skrives i tenanten den gjelder, med tenant-kontekst og RLS satt til
 
 - `activity_log.tenant_id` er påkrevd. Endringer som ikke tilhører en tenant (pakker), og endringer i selve tenanten (`teams`) og tenant-nøkler (tabellen finnes ikke ennå), er ikke dekket her. De må få en egen løsning, for eksempel i T19 og T30.
 - Nye modeller som skal i revisjonsloggen, bruker `RecordsRevisions` og lister feltene sine.
+- `RecordsRevisions` bygger på Eloquent-hendelser. Masseoppdateringer og -slettinger gjennom spørringer (`Prompt::query()->where(...)->update(...)`) kommer derfor ikke i revisjonsloggen. Kode som endrer slike data i bulk, går via modellene eller skriver til revisjonsloggen selv.
+- Ved «opptre som» skrives både stopp-raden for en tidligere tenant og start-raden før sesjonen endres. Kan revisjonsloggen ikke skrives, endres ingenting.

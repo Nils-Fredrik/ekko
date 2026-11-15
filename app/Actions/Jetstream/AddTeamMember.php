@@ -58,7 +58,7 @@ class AddTeamMember implements AddsTeamMembers
         TeamMemberAdded::dispatch($team, $newTeamMember);
 
         // An accepted invitation is added on behalf of the owner, but it is the member who acted.
-        app(AuditLog::class)->memberAdded($invited ? $newTeamMember : $user, $team, $newTeamMember, (string) $role);
+        app(AuditLog::class)->memberAdded($invited ? $newTeamMember : $user, $team, $newTeamMember, $role);
     }
 
     private function isInvited(Team $team, string $email, string $role): bool

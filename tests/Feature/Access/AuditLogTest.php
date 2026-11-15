@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Activity;
+use App\Models\CompetitorAlias;
+use App\Models\CompetitorDomain;
 use App\Models\Integration;
 use App\Models\Prompt;
 use App\Models\Team;
@@ -10,7 +12,9 @@ use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
+use Laravel\Socialite\Facades\Socialite;
 
 // Board task:44 and docs/spec.md 16: the revision log (spatie/laravel-activitylog) records acting
 // as a tenant, role changes and changes to prompts, competitors, alert rules and integrations. Each
@@ -233,4 +237,111 @@ test('acting as a tenant does not start when the revision log cannot be written'
         ->post("/admin/acting-as/{$this->tenant->id}", ['reason' => 'Support case 4711'])
         ->assertServerError()
         ->assertSessionMissing('acting_as');
+});
+
+test('a partner advisor changing a role in a client tenant is recorded in the client tenant', function () {
+    $partner = Team::factory()->tenant()->create();
+    $client = Team::factory()->tenant()->create(['partner_team_id' => $partner->id]);
+    // Partner advisors need two-factor authentication (ADR 0008).
+    $advisor = User::factory()->withTwoFactor()->create();
+    $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
+    $advisor->switchTeam($partner);
+    $member = User::factory()->create();
+    $client->users()->attach($member, ['role' => 'reader']);
+
+    $this->actingAs($advisor)->put("/teams/{$client->id}/members/{$member->id}", ['role' => 'editor'])
+        ->assertSessionHasNoErrors();
+
+    $entries = auditEntries('member.role_changed');
+
+    expect($entries)->toHaveCount(1)
+        ->and($entries[0]->tenant_id)->toBe($client->id)
+        ->and($entries[0]->causer_id)->toBe($advisor->id);
+});
+
+test('an invitation accepted through Google login is recorded as done by the new member', function () {
+    config(['services.google.client_id' => 'test-id', 'services.google.client_secret' => 'test-secret']);
+    $this->tenant->teamInvitations()->create(['email' => 'newcomer@example.test', 'role' => 'editor']);
+    $social = (new Laravel\Socialite\Two\User)->map(['id' => 'google-1', 'name' => 'Newcomer', 'email' => 'newcomer@example.test']);
+    $social->user = ['email_verified' => true];
+    Socialite::fake('google', $social);
+
+    $this->get('/auth/google/callback');
+
+    $newcomer = User::query()->where('email', 'newcomer@example.test')->firstOrFail();
+    $entries = auditEntries('member.added');
+
+    expect($entries)->toHaveCount(1)
+        ->and($entries[0]->tenant_id)->toBe($this->tenant->id)
+        ->and($entries[0]->causer_id)->toBe($newcomer->id)
+        ->and(json_decode($entries[0]->properties, true))->toBe(['role' => 'editor']);
+});
+
+test('switching from one tenant to another records the stop and the start, in that order', function () {
+    $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
+    $second = Team::factory()->tenant()->create();
+    $session = ['auth.password_confirmed_at' => time()];
+
+    $this->actingAs($admin)->withSession($session)->post("/admin/acting-as/{$this->tenant->id}", ['reason' => 'Support case 4711']);
+    $this->actingAs($admin)->withSession($session)->post("/admin/acting-as/{$second->id}", ['reason' => 'Support case 4712']);
+
+    $events = array_map(fn ($entry) => [$entry->event, $entry->tenant_id], auditEntries());
+
+    expect($events)->toBe([
+        ['acting_as.started', $this->tenant->id],
+        ['acting_as.stopped', $this->tenant->id],
+        ['acting_as.started', $second->id],
+    ]);
+});
+
+test('switching tenant keeps the current acting-as when the revision log cannot be written', function () {
+    $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
+    $second = Team::factory()->tenant()->create();
+    $session = ['auth.password_confirmed_at' => time()];
+
+    $this->actingAs($admin)->withSession($session)->post("/admin/acting-as/{$this->tenant->id}", ['reason' => 'Support case 4711']);
+    Log::spy();
+    // Only the entry for the second tenant fails, so the stop entry for the first could be written.
+    // Rolled back with the test transaction.
+    DB::unprepared(<<<SQL
+        CREATE FUNCTION test_refuse_audit() RETURNS trigger LANGUAGE plpgsql AS \$\$
+        BEGIN
+            IF NEW.tenant_id = {$second->id} THEN RAISE EXCEPTION 'revision log unavailable'; END IF;
+            RETURN NEW;
+        END \$\$;
+        CREATE TRIGGER test_refuse_audit BEFORE INSERT ON activity_log FOR EACH ROW EXECUTE FUNCTION test_refuse_audit();
+    SQL);
+
+    $this->actingAs($admin)->withSession($session)->post("/admin/acting-as/{$second->id}", ['reason' => 'Support case 4712'])
+        ->assertServerError()
+        ->assertSessionHas('acting_as.tenant_id', $this->tenant->id);
+
+    // The stop entry for the first tenant is rolled back with the request, in both logs.
+    expect(auditEntries('acting_as.stopped'))->toBe([]);
+    Log::shouldNotHaveReceived('info', ['acting_as.stopped', Mockery::any()]);
+});
+
+test('competitor aliases and domains are recorded', function () {
+    app(TenantContext::class)->set($this->tenant->id);
+    $alias = CompetitorAlias::factory()->create(['alias' => 'Rival Bank']);
+    $domain = CompetitorDomain::factory()->create(['domain' => 'rival.example']);
+
+    $alias->update(['match_mode' => 'case_insensitive']);
+    $domain->delete();
+
+    $subjects = array_map(fn ($entry) => [$entry->subject_type, $entry->event], auditEntries());
+
+    expect($subjects)->toContain([CompetitorAlias::class, 'created'])
+        ->toContain([CompetitorAlias::class, 'updated'])
+        ->toContain([CompetitorDomain::class, 'created'])
+        ->toContain([CompetitorDomain::class, 'deleted']);
+});
+
+test('a member added without a role is recorded with no role, not an empty one', function () {
+    $admin = User::factory()->platformAdmin()->create();
+    $member = User::factory()->create();
+
+    app(AuditLog::class)->memberAdded($admin, $this->tenant, $member, null);
+
+    expect(json_decode(auditEntries('member.added')[0]->properties, true))->toBe(['role' => null]);
 });

@@ -32,8 +32,10 @@ class ActingAsController extends Controller
             'reason' => ['required', 'string', 'min:10', 'max:500'],
         ]);
 
-        $this->stopCurrent($admin);
-        // Logged first: if the revision log cannot be written, acting as the tenant does not start.
+        // Both entries are written before the session changes. If the revision log cannot be
+        // written, nothing starts, and an earlier acting-as is not ended without a stop entry.
+        // start() replaces the earlier state in the session.
+        $this->logStop($admin);
         $this->audit->actingAsStarted($admin, $team, $validated['reason']);
         $this->actingAs->start($admin, $team, $validated['reason']);
 
@@ -44,12 +46,17 @@ class ActingAsController extends Controller
     {
         /** @var User $admin */
         $admin = $request->user();
-        $this->stopCurrent($admin);
+        $this->logStop($admin);
+        $this->actingAs->stop();
 
         return redirect()->route('dashboard');
     }
 
-    private function stopCurrent(User $admin): void
+    /**
+     * Writes the stop entry for the admin's current acting-as, if there is one. The session is
+     * changed by the caller afterwards.
+     */
+    private function logStop(User $admin): void
     {
         $state = $this->actingAs->state();
 
@@ -59,7 +66,5 @@ class ActingAsController extends Controller
                 $this->audit->actingAsStopped($admin, $tenant);
             }
         }
-
-        $this->actingAs->stop();
     }
 }
