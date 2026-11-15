@@ -16,6 +16,42 @@ return [
     ],
 
     /*
+    | Alerts (docs/spec.md 11.1, ADR 0017). The evaluation runs once per tenant and local day, in the first
+    | scheduler run after evaluate_after (local time), when yesterday's figures are aggregated. All alerts of
+    | that run go out as one message per channel (the digest).
+    |
+    | thresholds are in the unit of alert_rules.threshold: percentage points or percent. A rule row is created
+    | the first time its type is evaluated, with these defaults, and can then be changed per tenant.
+    | cooldown_days: the same subject (market and engine, prompt and competitor, ...) is not alerted again
+    | within this many days, so a lasting change gives one alert, not one per day.
+    | min_responses: the smallest n a figure needs to count in the type's comparison.
+    */
+    'alerts' => [
+        'evaluate_after' => '05:30',
+        'default_channels' => ['in_app', 'email', 'slack'],
+        'thresholds' => [
+            'visibility_drop' => 10,
+            'competitor_takeover' => 50,
+            'new_competitor' => 10,
+        ],
+        'cooldown_days' => [
+            'default' => 7,
+            'new_competitor' => 30,
+        ],
+        'min_responses' => [
+            'visibility_drop' => 30,
+            'competitor_takeover' => 5,
+            'new_competitor' => 30,
+        ],
+        'window_days' => 7,
+        'fresh_days' => 3,
+        'round_history_days' => 35,
+        'model_history_days' => 14,
+        'delivery_attempts' => 3,
+        'slack_hosts' => ['hooks.slack.com'],
+    ],
+
+    /*
     | Days a team invitation can be accepted (docs/spec.md 5.4). Enforced server-side when the
     | invitation is accepted and when a single sign-on account is linked.
     */

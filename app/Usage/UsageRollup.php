@@ -53,7 +53,7 @@ final readonly class UsageRollup
             'type' => 'quota',
             'brand_id' => null,
         ], [
-            'channels' => ['email'],
+            'channels' => config('ekko.alerts.default_channels'),
         ]);
 
         foreach ([80, 100] as $level) {

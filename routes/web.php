@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ActingAsController;
+use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\HomeController;
@@ -27,6 +28,7 @@ Route::middleware([
     Route::get('/dashboard', HomeController::class)->name('dashboard');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+    Route::post('/alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
 
     // Platform admin: act as a tenant (docs/spec.md 5.2). Starting needs a confirmed password.
     Route::post('/admin/acting-as/{team}', [ActingAsController::class, 'store'])
