@@ -41,6 +41,7 @@ class AggregateMetrics extends Command
             ->orderBy('id')
             ->get(['id', 'timezone']);
 
+        $failed = [];
         foreach ($tenants as $tenant) {
             // Without a date the days are today and the days back (ekko.aggregate.lookback_days) in the tenant's
             // own timezone, so results that were extracted late are included. Long ranges are split into
@@ -48,8 +49,31 @@ class AggregateMetrics extends Command
             $dates = $days ?? $this->defaultDays((string) $tenant->timezone);
             foreach (array_chunk($dates, 31) as $chunk) {
                 $job = new AggregateTenantDays($tenant->id, $chunk);
-                $this->option('sync') ? dispatch_sync($job) : dispatch($job);
+                if (! $this->option('sync')) {
+                    dispatch($job);
+
+                    continue;
+                }
+
+                // One tenant that fails must not stop the others. The error is reported, and the command
+                // fails at the end, so the scheduler sees it.
+                try {
+                    dispatch_sync($job);
+                } catch (Throwable $e) {
+                    report($e);
+                    $failed[$tenant->id] = $tenant->id;
+                }
             }
+        }
+
+        if ($failed !== []) {
+            $this->components->error(__('metrics.aggregate.failed', [
+                'failed' => count($failed),
+                'tenants' => $tenants->count(),
+                'ids' => implode(', ', $failed),
+            ]));
+
+            return self::FAILURE;
         }
 
         $this->components->info(__($this->option('sync') ? 'metrics.aggregate.done' : 'metrics.aggregate.queued', ['tenants' => $tenants->count()]));

@@ -1,9 +1,9 @@
 <?php
 
-// ekko:aggregate and DailyAggregator (docs/spec.md 6.4, 7.5, 9; ADR 0012). Expected values are computed by hand.
-
 use App\Jobs\AggregateTenantDays;
 use App\Jobs\TenantJob;
+// ekko:aggregate and DailyAggregator (docs/spec.md 6.4, 7.5, 9; ADR 0012). Expected values are computed by hand.
+
 use App\Metrics\DailyAggregator;
 use App\Models\AggDaily;
 use App\Models\AggSourceDaily;
@@ -14,8 +14,10 @@ use App\Models\ModelChange;
 use App\Models\Run;
 use App\Tenancy\MissingTenantContextException;
 use App\Tenancy\TenantContext;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\Metrics\MetricsWorld;
 
@@ -278,6 +280,37 @@ test('the command aggregates every tenant under its own context and timezone', f
     $summary = fn (MetricsWorld $w) => app(TenantContext::class)->run($w->tenant->id, fn () => AggDaily::query()->get(['responses', 'brand_mentioned'])->map->only(['responses', 'brand_mentioned'])->all());
     expect($summary($oslo))->toBe([['responses' => 1, 'brand_mentioned' => 1]])
         ->and($summary($la))->toBe([['responses' => 1, 'brand_mentioned' => 0]]);
+});
+
+test('with --sync a tenant that fails does not stop the others, and the command fails', function () {
+    $broken = MetricsWorld::create();
+    $broken->answer($broken->p1, '2026-11-10T09:00:00Z');
+    $ok = MetricsWorld::create();
+    $ok->answer($ok->p1, '2026-11-10T09:00:00Z');
+    expect($broken->tenant->id)->toBeLessThan($ok->tenant->id);
+
+    // The first tenant fails while it writes its aggregates.
+    DB::unprepared(<<<SQL
+        CREATE FUNCTION fail_broken_tenant() RETURNS trigger LANGUAGE plpgsql AS \$\$
+        BEGIN
+            IF NEW.tenant_id = {$broken->tenant->id} THEN RAISE EXCEPTION 'aggregation failed'; END IF;
+            RETURN NEW;
+        END \$\$;
+        CREATE TRIGGER fail_broken_tenant BEFORE INSERT ON agg_daily FOR EACH ROW EXECUTE FUNCTION fail_broken_tenant();
+        SQL);
+    $reported = [];
+    app(ExceptionHandler::class)->reportable(function (Throwable $e) use (&$reported) {
+        $reported[] = $e;
+    });
+
+    $this->artisan('ekko:aggregate', ['date' => OSLO_DAY, '--sync' => true])
+        ->expectsOutputToContain((string) $broken->tenant->id)
+        ->assertFailed();
+
+    $rows = fn (MetricsWorld $w) => app(TenantContext::class)->run($w->tenant->id, fn () => AggDaily::query()->count());
+    expect($rows($broken))->toBe(0)
+        ->and($rows($ok))->toBe(1)
+        ->and($reported)->toHaveCount(1);
 });
 
 test('the command takes a range and a tenant filter, and queues jobs without --sync', function () {

@@ -23,5 +23,6 @@ return [
         'queued' => 'Aggregation queued for :tenants tenants.',
         'done' => 'Aggregation finished for :tenants tenants.',
         'bad_date' => 'Invalid date or date range. Use the format YYYY-MM-DD.',
+        'failed' => 'Aggregation failed for :failed of :tenants tenants (id :ids). The others are done.',
     ],
 ];
