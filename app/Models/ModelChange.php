@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Database\Factories\ModelChangeFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /**
  * A model change marker (docs/spec.md 7.5): the day the model id an engine reports changed, so jumps in
  * the figures can be explained. Written by the daily aggregation.
+ *
+ * @property string $engine_key
+ * @property CarbonInterface $changed_on
+ * @property string $from_model
+ * @property string $to_model
  */
 class ModelChange extends Model
 {

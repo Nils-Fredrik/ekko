@@ -3,11 +3,10 @@
 use App\Http\Controllers\Admin\ActingAsController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\BotLogUploadController;
+use App\Http\Controllers\BrandController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
-use App\Models\BotLogUpload;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // No public landing page: guests are sent to the login page by the auth middleware.
 Route::redirect('/', '/dashboard')->name('home');
@@ -26,13 +25,9 @@ Route::middleware([
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard', [
-            'botLogUploadsUrl' => Gate::allows('create', BotLogUpload::class)
-                ? route('bot-log-uploads.index', ['team' => current_tenant_id()])
-                : null,
-        ]);
-    })->name('dashboard');
+    Route::get('/dashboard', HomeController::class)->name('dashboard');
+    Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
+    Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
 
     Route::get('/teams/{team}/bot-log-uploads', [BotLogUploadController::class, 'index'])->name('bot-log-uploads.index');
     Route::post('/brands/{brand}/bot-log-uploads', [BotLogUploadController::class, 'store'])->name('bot-log-uploads.store');

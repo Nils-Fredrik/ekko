@@ -386,6 +386,21 @@ test('model change markers are listed for the period and engines', function () {
         ->and(service()->modelChanges('2026-11-01', '2026-11-30', [$w->engine->key])->pluck('to_model')->all())->toBe(['b']);
 });
 
+test('share of voice is split across the brand and each active competitor', function () {
+    ['w' => $w] = metricsData();
+
+    $parts = service()->voiceParts(metricsFilter($w));
+
+    expect($parts)->toHaveCount(3)
+        ->and($parts[0]['mentions'])->toBe(28)
+        ->and($parts[0]['share'])->toBe(28 / 67)
+        ->and($parts[0]['n'])->toBe(40)
+        ->and($parts[1]['name'])->toBe('Nordlys')
+        ->and($parts[1]['mentions'])->toBe(14)
+        ->and($parts[2]['name'])->toBe('Solbaer')
+        ->and($parts[2]['mentions'])->toBe(25);
+});
+
 test('metrics only see the tenant in the context', function () {
     ['w' => $a] = metricsData();
     $b = MetricsWorld::create();

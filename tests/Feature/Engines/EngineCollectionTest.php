@@ -90,36 +90,38 @@ it('collects a fixture through the engine registry and records exactly one respo
     )->andReturn($uri);
 
     $collector = app(EngineCollector::class);
-    $tenancy->run($otherTenant->id, fn () => $rls->run([$otherTenant->id], function () use ($collector, $run) {
+    $tenancy->run($otherTenant->id, function () use ($collector, $run) {
         expect(fn () => $collector->collect($run->id))->toThrow(ModelNotFoundException::class);
-    }));
+    });
 
-    $tenancy->run($tenant->id, fn () => $rls->run([$tenant->id], function () use ($collector, $run, $apiKey, $billedTo, $fixture, $uri) {
+    $tenancy->run($tenant->id, function () use ($tenant, $rls, $collector, $run, $apiKey, $billedTo, $fixture, $uri) {
         $collected = $collector->collect($run->id, $apiKey);
-        $response = Response::query()->sole();
-        $usage = UsageEvent::query()->sole();
-
-        expect($collected->response->id)->toBe($response->id)
-            ->and($collected->result?->citations)->toBe($fixture['sources'])
-            ->and($response->answer_text)->toBe($fixture['answer'])
-            ->and($response->model_id_reported)->toBe('dummy-1')
-            ->and($response->raw_uri)->toBe($uri)
-            ->and($response->cost_usd)->toBe('0.32700000')
-            ->and($usage->run_id)->toBe($run->id)
-            ->and($usage->kind)->toBe('engine_call')
-            ->and($usage->calls)->toBe(1)
-            ->and($usage->input_tokens)->toBe(120)
-            ->and($usage->output_tokens)->toBe(50)
-            ->and($usage->search_calls)->toBe(2)
-            ->and($usage->cost_usd)->toBe('0.32700000')
-            ->and($usage->billed_to)->toBe($billedTo)
-            ->and($run->refresh()->status)->toBe('collected');
-
         $replay = $collector->collect($run->id, $apiKey);
-        expect($replay->response->id)->toBe($response->id)
-            ->and($replay->result)->toBeNull()
-            ->and(UsageEvent::query()->count())->toBe(1);
-    }));
+        $rls->run([$tenant->id], function () use ($run, $collected, $replay, $billedTo, $fixture, $uri) {
+            $response = Response::query()->sole();
+            $usage = UsageEvent::query()->sole();
+
+            expect($collected->response->id)->toBe($response->id)
+                ->and($collected->result?->citations)->toBe($fixture['sources'])
+                ->and($response->answer_text)->toBe($fixture['answer'])
+                ->and($response->model_id_reported)->toBe('dummy-1')
+                ->and($response->raw_uri)->toBe($uri)
+                ->and($response->cost_usd)->toBe('0.32700000')
+                ->and($usage->run_id)->toBe($run->id)
+                ->and($usage->kind)->toBe('engine_call')
+                ->and($usage->calls)->toBe(1)
+                ->and($usage->input_tokens)->toBe(120)
+                ->and($usage->output_tokens)->toBe(50)
+                ->and($usage->search_calls)->toBe(2)
+                ->and($usage->cost_usd)->toBe('0.32700000')
+                ->and($usage->billed_to)->toBe($billedTo)
+                ->and($run->refresh()->status)->toBe('collected');
+
+            expect($replay->response->id)->toBe($response->id)
+                ->and($replay->result)->toBeNull()
+                ->and(UsageEvent::query()->count())->toBe(1);
+        });
+    });
 })->with([
     'platform key' => [null, 'platform'],
     'own key' => ['synthetic-key', 'byok'],

@@ -50,7 +50,7 @@ are T36. No Terraform resource should ever contain a secret value.
 6. Schedules are paused by default. Enable them only after the commands and
    internal endpoints are implemented and tested. Since the web service is
    public, application middleware **must validate** the Scheduler OIDC token,
-   including issuer, audience and the exact Scheduler service account, on both
+   including issuer, audience and the exact Scheduler service account, on
    `/internal/tick/*` endpoints. Public Cloud Run IAM does not protect a path.
    The future dispatcher must bound the worker task-count override at eight;
    the worker uses Cloud Run automatic parallelism for the requested count.
