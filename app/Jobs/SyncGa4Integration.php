@@ -8,10 +8,13 @@ use App\Models\AiReferralDaily;
 use App\Models\AlertRule;
 use App\Models\Integration;
 use App\Models\Team;
+use App\Tenancy\Rls\TenantRls;
+use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Log;
 use JsonException;
+use Throwable;
 
 /** @phpstan-import-type Referral from Ga4Client */
 final class SyncGa4Integration extends TenantJob
@@ -28,9 +31,7 @@ final class SyncGa4Integration extends TenantJob
             return;
         }
 
-        // The tenant job opens the transaction. Locking the integration serializes overlapping syncs.
-        $integration = Integration::query()->where('type', 'ga4')
-            ->whereRelation('brand', 'status', 'active')->lockForUpdate()->find($this->integrationId);
+        $integration = $this->lockIntegration();
         if ($integration === null) {
             return;
         }
@@ -52,7 +53,34 @@ final class SyncGa4Integration extends TenantJob
         }
 
         $this->storeReport($integration->brand_id, $startDate, $endDate, $report);
-        $integration->forceFill(['status' => 'synced', 'last_sync_at' => now(), 'last_failed_on' => null])->save();
+        Integration::query()->whereKey($integration->id)->update([
+            'status' => 'synced',
+            'last_sync_at' => now(),
+            'last_failed_on' => null,
+        ]);
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        // Laravel calls the failure hook after the job's transaction and tenant context unwind.
+        app(TenantContext::class)->run($this->tenantId, fn () => app(TenantRls::class)->run([$this->tenantId], function (): void {
+            $team = Team::query()->find($this->tenantId);
+            if (! $team?->isActive()) {
+                return;
+            }
+
+            $integration = $this->lockIntegration();
+            if ($integration !== null) {
+                $this->recordFailure($integration, CarbonImmutable::today($team->timezone), 'unexpected_failure');
+            }
+        }));
+    }
+
+    private function lockIntegration(): ?Integration
+    {
+        // Keep report writes and failure tracking serialized for the same integration.
+        return Integration::query()->where('type', 'ga4')->whereRelation('brand', 'status', 'active')
+            ->lockForUpdate()->find($this->integrationId);
     }
 
     /** @param array{rows: array<string, Referral>, complete: bool} $report */
@@ -77,7 +105,11 @@ final class SyncGa4Integration extends TenantJob
     private function recordFailure(Integration $integration, CarbonImmutable $today, string $reason): void
     {
         $previousFailure = $integration->last_failed_on?->toDateString();
-        $integration->forceFill(['status' => 'error', 'last_failed_on' => $today->toDateString()])->save();
+        // Sync metadata is operational state. Updating it directly avoids reading the failing config.
+        Integration::query()->whereKey($integration->id)->update([
+            'status' => 'error',
+            'last_failed_on' => $today->toDateString(),
+        ]);
 
         Log::warning('GA4 integration sync failed.', [
             'tenant_id' => $this->tenantId,

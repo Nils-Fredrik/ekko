@@ -9,6 +9,7 @@ use App\Models\Team;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Http;
 
 const GA4_REPORT_ENDPOINT = 'https://analyticsdata.googleapis.com/v1beta/properties/123456789:runReport';
@@ -103,7 +104,8 @@ test('the command requests only configured sources and replaces the expected dai
         ]);
 
     app(TenantContext::class)->run($this->tenant->id, function () use ($existing, $stale, $old, $brandId): void {
-        $rows = AiReferralDaily::query()->where('brand_id', $brandId)->orderBy('date')->orderBy('source')->get();
+        $rows = AiReferralDaily::query()->where('brand_id', $brandId)->get()
+            ->sortBy(fn (AiReferralDaily $row): string => $row->date->toDateString().'|'.$row->source, SORT_STRING)->values();
 
         expect($rows->map(fn (AiReferralDaily $row) => [
             $row->date->toDateString(), $row->source, $row->sessions, $row->engaged_sessions, $row->conversions,
@@ -220,4 +222,42 @@ test('incomplete or malformed reports preserve aggregates missing from the respo
             ->and(AiReferralDaily::query()->count())->toBe(4)
             ->and($stale->fresh()->sessions)->toBe(10);
     });
+});
+
+test('an unexpected failure is recorded without stopping the following tenant', function () {
+    $followingTenant = Team::factory()->tenant()->create();
+    $followingIntegration = seededGa4Integration($followingTenant);
+    app(TenantContext::class)->run($this->tenant->id, fn () => Integration::query()
+        ->whereKey($this->integration->id)
+        ->update(['config' => json_encode(Crypt::encryptString('null'), JSON_THROW_ON_ERROR)]));
+
+    Http::fake([
+        GA4_TOKEN_ENDPOINT => Http::response(['access_token' => 'fake-ga4-token']),
+        GA4_REPORT_ENDPOINT => Http::response(ga4Fixture('daily-report')),
+    ]);
+
+    $this->artisan('ekko:sync-ga4')->assertFailed();
+    $this->travel(1)->day();
+    $this->artisan('ekko:sync-ga4')->assertFailed();
+    Http::assertSentCount(4);
+
+    app(TenantContext::class)->run($this->tenant->id, function (): void {
+        $integration = Integration::query()->findOrFail($this->integration->id);
+        $alert = Alert::query()->sole();
+
+        expect($integration->status)->toBe('error')
+            ->and($integration->last_failed_on->toDateString())->toBe('2026-11-16')
+            ->and($alert->payload)->toMatchArray([
+                'integration_id' => $integration->id,
+                'error_code' => 'unexpected_failure',
+            ])
+            ->and(AiReferralDaily::query()->count())->toBe(0);
+    });
+
+    app(TenantContext::class)->run($followingTenant->id, function () use ($followingIntegration): void {
+        expect($followingIntegration->fresh()->status)->toBe('synced')
+            ->and(AiReferralDaily::query()->count())->toBe(3)
+            ->and(Alert::query()->count())->toBe(0);
+    });
+    expect(app(TenantContext::class)->check())->toBeFalse();
 });
