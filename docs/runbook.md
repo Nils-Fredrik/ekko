@@ -1,5 +1,12 @@
 # Driftsrunbook
 
+## Klientens IP-adresse bak Cloud Run (T39-F3)
+
+`ekko-web` har `TRUSTED_PROXIES=*` (`infra/terraform/workloads.tf`). Appen stoler da på den adressen som kobler til (Googles front) og bruker den siste adressen i `X-Forwarded-For` som klientens. Rategrensene for innlogging, SSO, OAuth og MCP er per klient bare når dette stemmer.
+
+- **Verifiser etter første utrulling:** to forespørsler fra ulike nett skal gi ulik `ip()` i loggen, og ti feilede SSO-forsøk fra ett nett skal ikke gi 429 fra et annet.
+- **Legges det en lastbalanserer foran Cloud Run** (egen domenekobling via HTTPS-lastbalanserer), kommer det et ekstra ledd i `X-Forwarded-For`. Da må `TRUSTED_PROXIES` settes til lastbalansererens adresser i stedet for `*`, ellers blir alle klienter én adresse igjen.
+
 ## Kryssreview i GitHub (T42)
 
 ### Integrasjoner og identiteter
