@@ -2,9 +2,10 @@
 
 use App\Http\Controllers\Admin\ActingAsController;
 use App\Http\Controllers\Auth\SocialLoginController;
+use App\Http\Controllers\BrandController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // No public landing page: guests are sent to the login page by the auth middleware.
 Route::redirect('/', '/dashboard')->name('home');
@@ -23,9 +24,9 @@ Route::middleware([
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
+    Route::get('/dashboard', HomeController::class)->name('dashboard');
+    Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
+    Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
 
     // Platform admin: act as a tenant (docs/spec.md 5.2). Starting needs a confirmed password.
     Route::post('/admin/acting-as/{team}', [ActingAsController::class, 'store'])
