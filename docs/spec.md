@@ -220,7 +220,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled`, `monthly_call_quota_override`, `monthly_byok_budget_usd` |
+| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled`, `monthly_call_quota_override`, `monthly_byok_budget_usd`, `billing_markup_percent` (nullable desimal; ADR 0021) |
 | `users` (utvidet) | `is_platform_admin`, `locale`, `current_team_id` |
 | `plans` | `name`, `max_brands`, `max_markets_per_brand`, `max_prompts_per_market`, `allowed_engines` (jsonb), `max_frequency`, `engine_max_frequencies` (jsonb), `max_repetitions`, `monthly_call_quota`, `monthly_budget_usd` |
 | `tenant_api_keys` | `tenant_id`, `provider`, `key` (kryptert), `last_verified_at` |
@@ -613,7 +613,7 @@ Plattformadmin har en månedlig eksport (CSV) per tenant med:
 - sum
 - påslag (prosent per tenant)
 
-Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres kunde-tenantene under partneren, med én linje per kunde.
+Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres kunde-tenantene under partneren, med én linje per kunde. UTC-måned, desimalavrunding, BYOK, eksplisitt påslag og CSV-format følger [ADR 0021](decisions/0021-fakturagrunnlag.md). Pakke, partner og påslag er dagens oppsett, ikke historiske fakturaavtaler. Uavklart påslag (NULL) stopper eksport til satsen er valgt av plattformadmin.
 
 ### 12.4 Egne API-nøkler
 
