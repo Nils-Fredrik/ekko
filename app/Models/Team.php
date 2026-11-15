@@ -30,6 +30,8 @@ use Laravel\Jetstream\Team as JetstreamTeam;
  * @property array<string, mixed>|null $branding
  * @property string|null $slack_webhook_url
  * @property bool $byok_enabled
+ * @property int|null $monthly_call_quota_override
+ * @property string|null $monthly_byok_budget_usd
  */
 class Team extends JetstreamTeam
 {
@@ -185,6 +187,8 @@ class Team extends JetstreamTeam
             'branding' => 'array',
             'slack_webhook_url' => 'encrypted',
             'byok_enabled' => 'boolean',
+            'monthly_call_quota_override' => 'integer',
+            'monthly_byok_budget_usd' => 'decimal:2',
         ];
     }
 

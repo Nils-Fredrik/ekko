@@ -1,0 +1,43 @@
+{
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "tasks": [
+    {
+      "id": "11150800-0000-0000-0000-123456789abc",
+      "status_code": 20000,
+      "result": [
+        {
+          "location_code": 2578,
+          "language_code": "no",
+          "model": "gemini-fixture",
+          "markdown": "En norsk guide til sykkelruter.",
+          "sources": [
+            {
+              "type": "gemini_source",
+              "url": "https://example.test/guide",
+              "title": "Eksempelguiden"
+            },
+            {
+              "type": "gemini_source",
+              "url": "https://example.test/map",
+              "title": "Kart"
+            }
+          ],
+          "items": [
+            {
+              "type": "gemini_text",
+              "markdown": "En norsk guide til sykkelruter.",
+              "sources": [
+                {
+                  "type": "gemini_source",
+                  "url": "https://example.test/guide",
+                  "title": "Eksempelguiden"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

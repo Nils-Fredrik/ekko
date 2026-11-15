@@ -94,7 +94,7 @@ Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lok
 | Web, API og MCP | Cloud Run service `ekko-web` | min 0, maks 4 instanser, 1 vCPU / 1 GiB, Cloud SQL-tilkobling via Unix-socket |
 | Dispatcher | Cloud Run Job `ekko-dispatch` | `php artisan ekko:dispatch-due` |
 | Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid (av dispatcheren eller av `extraction-poll`). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300 --timeout=420`-prosesser. Ved oppstart settes `taskCount` til `ceil(jobber i kø / 2000)`, maks 8, med automatisk parallellisme i Cloud Run. Databasekøen reserverer jobber i 450 sekunder. |
-| Daglige oppgaver | Cloud Run Job `ekko-task` | samme image, kommando settes per Scheduler-trigger. Brukes kun for daglige og ukentlige oppgaver. |
+| Planlagte oppgaver | Cloud Run Job `ekko-task` | samme image, kommando settes per Scheduler-trigger. Kjører timevis aggregering og forbruksoppdatering samt øvrige planlagte oppgaver (se 7.1). |
 | Lette periodiske oppgaver | Interne endepunkter på `ekko-web` | Cloud Scheduler kaller `POST /internal/tick/{oppgave}` med OIDC-token fra en egen tjenestekonto. Endepunktene gjør kun korte kontroller og legger tyngre arbeid i køen. |
 | Migrering | Cloud Run Job `ekko-migrate` | `php artisan migrate --force`, kjøres i deploy-pipeline |
 | Database | Cloud SQL for PostgreSQL 16, `db-g1-small` | 20 GB SSD, automatisk backup 7 dager, PITR på |
@@ -181,7 +181,7 @@ Rollene implementeres med Jetstream-roller per team, med Laravel Policies som en
 - setter `tenant_id` automatisk ved opprettelse
 - kaster unntak hvis ingen tenant er satt i konteksten (gjelder også jobber)
 
-Jobber får alltid `tenant_id` som konstruktørparameter og setter konteksten i `handle()` via middleware `SetTenantContext`.
+Jobber får alltid `tenant_id` som konstruktørparameter og setter konteksten via middleware `SetTenantContext`. Den synkrone motorinnsamleren bruker én RLS-transaksjon for reservasjon og én for oppgjør, med leverandørkallet mellom dem (ADR 0013).
 
 **Lag 2, databasen:** Postgres Row-Level Security på alle tenant-eide tabeller.
 
@@ -192,7 +192,7 @@ CREATE POLICY tenant_isolation ON brands
   USING (tenant_id = ANY (string_to_array(current_setting('app.tenant_ids', true), ',')::bigint[]));
 ```
 
-Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og hver jobb settes `app.tenant_ids` til tenantene brukeren eller jobben har lov til å se. For en partner er det egen tenant pluss kunde-tenantene, i en databasetransaksjon med `SET LOCAL`, gjennom middleware `ApplyTenantRls`.
+Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og hver jobb settes `app.tenant_ids` til tenantene brukeren eller jobben har lov til å se. For en partner er det egen tenant pluss kunde-tenantene. `ApplyTenantRls` setter tilgangen med `SET LOCAL` i en databasetransaksjon. Motorinnsamleren bruker den samme transaksjonshjelperen i hver databasefase.
 
 Plattformadmin-operasjoner og migreringer bruker en egen databaserolle med `BYPASSRLS`. Den brukes kun av jobben `ekko-migrate` og av eksplisitte admin-handlinger som logges.
 
@@ -220,9 +220,9 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled` |
+| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled`, `monthly_call_quota_override`, `monthly_byok_budget_usd` |
 | `users` (utvidet) | `is_platform_admin`, `locale`, `current_team_id` |
-| `plans` | `name`, `max_brands`, `max_markets_per_brand`, `max_prompts_per_market`, `allowed_engines` (jsonb), `max_frequency`, `max_repetitions`, `monthly_call_quota`, `monthly_budget_usd` |
+| `plans` | `name`, `max_brands`, `max_markets_per_brand`, `max_prompts_per_market`, `allowed_engines` (jsonb), `max_frequency`, `engine_max_frequencies` (jsonb), `max_repetitions`, `monthly_call_quota`, `monthly_budget_usd` |
 | `tenant_api_keys` | `tenant_id`, `provider`, `key` (kryptert), `last_verified_at` |
 
 ### 6.2 Konfigurasjon
@@ -247,7 +247,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | Tabell | Viktige kolonner |
 |---|---|
 | `run_batches` | `tenant_id`, `market_id`, `scheduled_for`, `status`, `planned_runs`, `completed_runs`, `failed_runs` |
-| `runs` | `tenant_id`, `run_batch_id`, `prompt_id`, `engine_key`, `repetition`, `status` (queued, running, submitted, collected, extracted, failed, skipped_quota), `attempts`, `error_code`, `started_at`, `finished_at` |
+| `runs` | `tenant_id`, `run_batch_id`, `prompt_id`, `engine_key`, `repetition`, `status` (queued, running, submitted, collected, extracted, failed, skipped_quota), `attempts`, `error_code`, `started_at`, `finished_at`, midlertidig kvotereservasjon |
 | `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at`, `answer_type` (list, single_recommendation, comparison, informational, refusal), `llm_failed` |
 | `mentions` | `tenant_id`, `response_id`, `entity_type` (brand, competitor, unknown), `entity_id` (null for unknown), `surface_name`, `first_char_offset`, `list_position` (null hvis ikke liste), `is_recommended`, `sentiment` (-1.0–1.0), `detection` (deterministic, llm) |
 | `citations` | `tenant_id`, `response_id`, `url`, `url_normalized`, `domain`, `ownership` (own, competitor, third_party), `competitor_id`, `source_type` (news, review, forum, wiki, marketplace, social, gov, other), `rank_in_answer`, `from_annotation` (bool) |
@@ -257,25 +257,26 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Nøkkel | Innhold |
 |---|---|---|
-| `agg_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `prompt_id`, `date` | `responses`, `brand_mentioned`, `brand_recommended`, `sum_position`, `count_position`, `sum_sentiment`, `own_cited`, `competitor_mentions` (jsonb per competitor_id) |
-| `agg_source_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `domain`, `date` | `citations`, `responses_with_domain` |
+| `agg_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `prompt_id`, `date` | `responses`, `brand_mentioned`, `brand_recommended`, `sum_position`, `count_position`, `list_responses`, `first_place`, `sum_sentiment`, `count_sentiment`, `own_cited`, `competitor_only_responses`, `competitor_mentions` (jsonb per competitor_id) |
+| `agg_source_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `domain`, `date` | `citations`, `responses_with_domain`, `gap_responses` |
 | `bot_hits_daily` | `tenant_id`, `brand_id`, `domain`, `bot`, `date` | `hits`, `unique_paths`, `top_paths` (jsonb) |
 | `ai_referrals_daily` | `tenant_id`, `brand_id`, `source`, `date` | `sessions`, `engaged_sessions`, `conversions` |
 
-Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke separat.
+Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). De lagres ikke separat. `list_responses`, `first_place`, `count_sentiment`, `competitor_only_responses` og `gap_responses` er lagt til for formlene i kapittel 9 (ADR 0012). Dagen er tenantens lokale dag (`teams.timezone`), og bare svar fra kjøringer med status `extracted` teller.
 
 ### 6.5 Drift og økonomi
 
 | Tabell | Viktige kolonner |
 |---|---|
 | `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
-| `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `status` (ok, warning, capped) |
+| `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `byok_cost_usd`, `byok_budget_usd`, `quota_alerted_threshold`, `status` (ok, warning, capped) |
 | `alert_rules` | `tenant_id`, `brand_id`, `type`, `threshold`, `channels` (jsonb), `is_active` |
 | `alerts` | `tenant_id`, `alert_rule_id`, `triggered_at`, `payload` (jsonb), `delivered_at`, `acknowledged_by` |
 | `report_schedules` | `tenant_id`, `brand_id`, `cadence` (weekly, monthly), `recipients` (jsonb), `locale`, `branding` (tenant, partner) |
 | `reports` | `tenant_id`, `report_schedule_id`, `period_start`, `period_end`, `pdf_uri`, `sent_at` |
 | `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `status` |
 | `activity_log` | fra spatie/laravel-activitylog, med `tenant_id` |
+| `model_changes` | `tenant_id`, `engine_key`, `changed_on`, `from_model`, `to_model`, `changed_at` (modellbytte-markører, 7.5) |
 
 ---
 
@@ -287,10 +288,10 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 |---|---|---|
 | `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker` |
 | `extraction-poll` | hvert 15. minutt, via internt endepunkt | Sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
-| `aggregate` | daglig 05:30 | `ekko:aggregate --date=yesterday`, deretter varselsevaluering |
+| `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) kjøres av egen trigger etter første aggregering etter 05:30 (ADR 0012) |
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
-| `usage-rollup` | hver time, via internt endepunkt | `ekko:usage-rollup` og kvotekontroll |
+| `usage-rollup` | hver time, via `ekko-task` | `ekko:usage-rollup` og kvotekontroll |
 
 **Fordeling over uka:** Ved ukentlig frekvens kjøres et prompt på ukedagen `crc32(prompt_id) % 7`. Ved månedlig frekvens kjøres det på dag `crc32(prompt_id) % 28 + 1`. Prompts med `priority = core` kan ha høyere frekvens enn resten av markedet, begrenset av pakken. Dette gir jevn belastning og jevn kostnad.
 
@@ -298,12 +299,13 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer. De lagres ikke sepa
 
 ### 7.2 Kvotekontroll før kjøring
 
-Før en `run` legges i køen, sjekkes `usage_monthly` for tenanten:
+Før en `run` legges i køen, sjekkes tenantens forbruk for måneden. Kvotekontrollen leser ferske forbrukshendelser og aktive reservasjoner mellom de timevise oppdateringene av `usage_monthly`.
 
-- Hvis planlagte kall pluss forbruk overstiger `monthly_call_quota` eller estimert kostnad overstiger `monthly_budget_usd`, legges bare `core`-prompts i køen. Resten markeres `skipped_quota`.
-- Hvis forbruket allerede har nådd taket, settes alle til `skipped_quota`.
-- Tenant-admin og plattformadmin varsles ved 80 % og 100 %.
-- Tenants med `byok_enabled` følger egne nøkler. Budsjettstoppen gjelder fortsatt, men som en innstilling tenant-admin selv kan endre.
+- Hvis planlagte kall pluss forbruk overstiger kallkvoten, legges bare `core`-prompts innenfor ledig kvote i køen. Resten markeres `skipped_quota`.
+- Det samme gjelder ved forventet overskridelse av et budsjett, for kall som belastes dette budsjettet.
+- Når kallkvoten er nådd, settes alle til `skipped_quota`. Når et budsjett er nådd, gjelder stoppen kall som belastes dette budsjettet.
+- Ved 80 % og 100 % av et tak med registrert forbruk opprettes varsel for tenant-admin og plattformadmin. T24 leverer varslene.
+- Tenant-admin kan sette et eget månedsbudsjett for kall med egne nøkler når `byok_enabled` er aktivert. Se [ADR 0013](decisions/0013-kvoter-og-forbruk.md).
 
 ### 7.3 Motoradapter-kontrakt
 
@@ -379,7 +381,7 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 | `google_ai_mode` | Google | SERP, kø | DataForSEO AI Mode-endepunkt (standardkø), der det er tilgjengelig for markedet | daglig | alle |
 | `claude_haiku` | Claude | API | Anthropic Messages API med `claude-haiku-5-5`, grunnversjonen av web search-verktøyet (uten dynamisk filtrering, `max_uses: 2`) og `user_location`. Kilder fra `web_search_result_location`-sitater. | daglig | alle |
 | `claude_sonnet` | Claude | API | Som over, med `claude-sonnet-5-5` | ukentlig | kjerne |
-| `perplexity_api` | Perplexity | API | Perplexitys API med websøk. Kilder fra `citations`/`search_results`. | ukentlig | alle |
+| `perplexity_api` | Perplexity | API | Perplexity Agent API med `perplexity/sonar` og `web_search`. Kilder fra `search_results` og `url_citation`-annotasjoner. | ukentlig | alle |
 | `chatgpt_api` | ChatGPT | API | OpenAI Responses API med `web_search` og `user_location` | av | – |
 | `gemini_api` | Gemini | API | Gemini API med Google Search-grounding. Kilder fra `groundingMetadata`. | av | – |
 
@@ -397,11 +399,29 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 **Oppsett av ny motor:** én adapterklasse, én rad i `engines`, priser i `engine_prices` og fixtures. Det skal ikke være nødvendig å endre noe annet.
 
+`perplexity_api` bruker Agent API (`/v1/agent`) etter at støtten for Sonar Chat Completions opphørte 27. september 2026. Motorens konfigurerte modell har forrang foran `PERPLEXITY_MODEL` (standard `perplexity/sonar`). Agent API får land og eventuell by via nettsøkverktøyets `user_location`. Språk settes med en kort språkinstruks i brukerinnlegget, siden Agent API mangler et språkfilter for søk. Tenantens nøkkel har forrang når den er oppgitt, ellers brukes `PERPLEXITY_API_KEY`. [Migreringsveiledning for Sonar](https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/how-to)
+
 `chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
+
+DataForSEO bruker `task_post` med normal prioritet, `tasks_ready` og `task_get/advanced`. Plattformkontoen konfigureres i `DATAFORSEO_CREDENTIALS` med formatet `login:password`. En oppgave sendes og hentes med samme leverandørkonto.
+
+Startkonfigurasjonen for DataForSEO dekker Norge og Sverige med bokmål og svensk. Leverandøren bruker `no` for Ekkos `nb`. ChatGPT LLM Scraper har landnivå. Gemini og Google bruker bykode når bynavnet kan kobles entydig til leverandørens stedskatalog, ellers brukes landkode. Google AI Overviews ber om også å laste asynkrone oversikter, som kan medføre et pristillegg. Når søkeresultatet har ordinære treff uten en AI-oversikt, registreres det som et tomt AI-svar.
+
+Adapterne leverer oppgave-ID ved innsending og `null` ved henting mens oppgaven venter hos leverandøren. T17 kobler `tasksReady()` og seks-timersregelen til de lagrede kjøringene og køen. Worker lagrer erstatnings-ID og antall innsendinger, slik at samme kjøring får høyst én ny innsending.
+
+`claude_haiku` og `claude_sonnet` bruker `engines.model_id` når den er satt, ellers modellene i tabellen. Kallet autentiseres med tenantens egen Anthropic-nøkkel når en slik nøkkel følger kjøringen, ellers med Ekkos workspace-nøkkel `ANTHROPIC_API_KEY` (12.5). Messages API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg. Kallet setter `max_tokens` til 4096.
+
+Claude-adapterne samler inn svar med `stop_reason` lik `end_turn` og tekstinnhold. `refusal`, `max_tokens` og `pause_turn` gir `anthropic_invalid_response`. En feil fra søkeverktøyet i et HTTP 200-svar gir `anthropic_web_search_failed`. Hvis verktøyet rapporterer `max_uses_exceeded`, kan adapteren fortsatt samle inn et fullført svar og kildene som allerede er sitert.
+
+`gemini_api` krever en Gemini API-nøkkel fra tenanten. Adapteren bruker motorens konfigurerte modell, med `GOOGLE_GEMINI_MODEL` som reserve (standard `gemini-3.8-flash`). Google Search-verktøyet har ingen egne felter for land, by eller språk. Adapteren sender derfor markedet som en instruks i det ene brukerinnlegget. Dette gir modellen kontekst, uten geografisk avgrensning av søkeresultatene.
+
+Ved Google Search-omdirigeringer beholdes den originale lenken i råsvaret. Til kildeklassifisering bruker adapteren en URL på domenenivå fra et gyldig vertsnavn i `web.domain` når feltet finnes, eller fra en `web.title` som består av et gyldig vertsnavn. Adapteren bruker bare metadataen fra svaret og oppretter en URL til domenets rot for klassifisering. Omdirigeringer uten oppgitt vertsnavn er ukjente og inngår bare i råsvaret. Vanlige kildelenker beholder hele URL-en. Se [Googles eksempel på grounding-svar](https://firebase.google.com/docs/ai-logic/grounding-google-search#understand-the-grounded-result).
+
+I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Adapteren verifiseres med syntetiske svar.
 
 ### 7.5 Gjentakelser og modellversjoner
 
-Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares.
+Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares. Markøren lagres i `model_changes` av `ekko:aggregate` (første svar på dagen med en annen modell-ID enn forrige svar, én per motor og dag) og leses med `MetricsService::modelChanges()` (ADR 0012).
 
 ---
 
@@ -450,7 +470,8 @@ Modellen skal returnere JSON etter dette skjemaet. Skjemaet tvinges med struktur
 **Regler for sammenstilling:**
 - **Deterministiske treff vinner** over modellen for om en kjent merkevare er nevnt.
 - **Modellen beriker** med `is_recommended`, `sentiment` og `answer_type`, og fanger opp ukjente merkevarer (`unknown`). Ukjente merkevarer som går igjen, foreslås som nye konkurrenter i grensesnittet.
-- **Sitater fra annotasjoner vinner** over sitater modellen finner i teksten. Modellen brukes kun til `source_type` og til motorer uten annotasjoner.
+- **Sitater fra annotasjoner vinner** over sitater modellen finner i teksten. Modellen brukes kun til `source_type` og til motorer uten annotasjoner. URL-ene fra annotasjonene sendes med til modellen som `sources`, slik at den kan klassifisere dem selv om de ikke står i svarteksten.
+- **Anbefaling:** en merkevare som er et eget punkt i en nummerert liste eller punktliste med alternativer, regnes som anbefalt selv uten vurderende ord, med mindre svaret fraråder eller kritiserer den. Et navn som bare står i beskrivelsen av et annet punkt, regnes ikke.
 - **Ugyldig JSON** gir ett nytt forsøk enkeltvis via vanlig Messages API. Feiler det igjen, beholdes de deterministiske resultatene og responsen markeres `extracted` med flagg `llm_failed`.
 - **Batcher følger tenant-grensen:** en batch inneholder bare svar fra én tenant (ADR 0011). Modellens `list_position` lagres bare for ukjente nevnelser. For kjente er listeposisjonen alltid den deterministiske (ADR 0010).
 - **Tomme svar** sendes ikke til modellen.
@@ -481,6 +502,8 @@ Alle metrikker beregnes for valgfri kombinasjon av merkevare, marked, motor, tem
 | AI-trafikk | Økter fra AI-tjenester (fra 10.2) |
 
 `ekko:aggregate` bygger `agg_daily` og `agg_source_daily` på nytt for gitt dato. Jobben er idempotent og kan kjøres om igjen for historiske datoer.
+
+Alle formlene ligger i `App\Metrics\MetricsService`. Varsler, dashboard, PDF, API og MCP kaller den og summerer aldri `agg_daily` selv. Detaljer om hver formel, hva n er for hver metrikk og hvordan stabilitet og kildegap regnes ut står i [ADR 0012](decisions/0012-aggregering-og-metrikker.md).
 
 ---
 
@@ -555,11 +578,11 @@ Pakker defineres av plattformadmin i `plans`. Startoppsett:
 | Standard | 3 | 2 | 50 | Basis + Claude og Perplexity | daglig (Claude Haiku), ukentlig (Claude Sonnet og Perplexity) | 50 000 |
 | Byrå | ubegrenset | ubegrenset | 100 | alle, inkludert API-motorer med egne nøkler | daglig | settes per tenant |
 
-Tallene er utgangspunkt og kan endres uten kodeendring.
+Tallene er utgangspunkt og kan endres uten kodeendring. Plattformadmin kan overstyre kallkvoten per tenant. Startbudsjetter, priser og påslag avklares i A7.
 
 ### 12.2 Forbruk
 
-Hvert eksterne kall gir én rad i `usage_events` med kostnad beregnet fra `engine_prices` som var gyldig på tidspunktet. `usage_monthly` oppdateres hver time.
+Hvert eksterne kall gir én rad i `usage_events` med kostnad beregnet fra `engine_prices` som var gyldig på tidspunktet. `usage_monthly` oppdateres hver time per UTC-måned. `calls` inkluderer alle kall. `cost_usd` summerer plattformens kostnader, og `byok_cost_usd` summerer kostnad beregnet for kall med egne nøkler.
 
 ### 12.3 Fakturagrunnlag
 
@@ -574,7 +597,7 @@ Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres ku
 
 ### 12.4 Egne API-nøkler
 
-Med `byok_enabled` legger tenant-admin inn egne nøkler per leverandør i `tenant_api_keys`. Nøklene verifiseres med et testkall ved lagring. Kall med egne nøkler logges med `billed_to = byok` og teller ikke mot plattformbudsjettet.
+Med `byok_enabled` legger tenant-admin inn egne nøkler for OpenAI, Anthropic, Google eller Perplexity i `tenant_api_keys`. Før nøkkelen lagres, verifiseres den med et autentisert oppslag av modellisten hos OpenAI, Anthropic og Google. Hos Perplexity verifiseres den med et oppslag i prosjektets [skill-liste](https://docs.perplexity.ai/api-reference/skills-list-get), begrenset til én oppføring. Kall med egne nøkler logges med `billed_to = byok` og belastes et eventuelt BYOK-budsjett. Den samme kallkvoten gjelder for begge betalingsmåter.
 
 ### 12.5 Anthropic-kreditter
 
@@ -828,7 +851,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - Priser i `europe-west1` per november 2026, uten rabattavtaler.
 - Et kall mot en motor tar i snitt 30 sekunder (venting på svar).
 - Hver worker-task kjører 8 parallelle prosesser på 1 vCPU / 1 GiB.
-- Cloud Run-jobber faktureres for hele instansens levetid, minimum ett minutt per instans. Derfor startes worker-jobben kun når det finnes arbeid, og korte periodiske oppgaver går som interne endepunkter på web-tjenesten (3.1).
+- Cloud Run-jobber faktureres for hele instansens levetid, minimum ett minutt per instans. Derfor startes worker-jobben kun når det finnes arbeid, og korte periodiske oppgaver går som interne endepunkter på web-tjenesten (3.1). Timevis forbruksoppdatering bruker oppgavejobben for å behandle tenantene i separate transaksjoner.
 - Gratiskvoten for Cloud Run gjelder per faktureringskonto. Ekko bør ha egen faktureringskonto, slik at kvoten ikke deles med andre tjenester.
 
 **Google Cloud per måned (USD):**

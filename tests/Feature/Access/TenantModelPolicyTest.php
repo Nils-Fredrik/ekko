@@ -49,6 +49,7 @@ function tenantModelRights(): array
 
         // Integrations hold credentials: admin only, also for reading.
         Models\Integration::class => $edit(POLICY_ADMINS, POLICY_ADMINS),
+        Models\TenantApiKey::class => $edit(POLICY_ADMINS, POLICY_ADMINS),
 
         // Collection and results (6.3, 6.4): written by the system, read by everyone. A manual
         // check (admin and editor) starts a run batch.
@@ -59,6 +60,7 @@ function tenantModelRights(): array
         Models\Citation::class => $system(POLICY_EVERY_ROLE),
         Models\AggDaily::class => $system(POLICY_EVERY_ROLE),
         Models\AggSourceDaily::class => $system(POLICY_EVERY_ROLE),
+        Models\ModelChange::class => $system(POLICY_EVERY_ROLE),
         Models\BotHitDaily::class => $system(POLICY_EVERY_ROLE),
         Models\AiReferralDaily::class => $system(POLICY_EVERY_ROLE),
         Models\ExtractionJob::class => $system(POLICY_NO_ROLE),

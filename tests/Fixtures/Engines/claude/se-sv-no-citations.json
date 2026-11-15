@@ -1,0 +1,16 @@
+{
+    "id": "msg_fixture_sweden",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-fixture-reported-model",
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "content": [
+        {
+            "type": "text",
+            "text": "Ett svenskt exempel utan källor.",
+            "citations": null
+        }
+    ],
+    "usage": {"input_tokens": 102, "output_tokens": 11, "server_tool_use": null}
+}

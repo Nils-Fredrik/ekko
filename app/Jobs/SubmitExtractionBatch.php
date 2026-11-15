@@ -94,6 +94,7 @@ class SubmitExtractionBatch extends TenantJob implements ShouldBeUniqueUntilProc
             $response->run->prompt->market->language ?? $response->answer_language ?? 'und',
             $catalog->aliases,
             $writer->deterministicMentions($response),
+            $response->annotationUrls(),
         ))->all();
 
         $job = ExtractionJob::query()->create([

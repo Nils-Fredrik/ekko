@@ -1,0 +1,32 @@
+{
+  "id": "resp_fixture_sweden",
+  "object": "response",
+  "model": "perplexity/sonar",
+  "status": "completed",
+  "output": [
+    {
+      "type": "search_results",
+      "queries": ["cykelleder Göteborg"],
+      "results": [
+        {"id": 1, "url": "https://example.test/goteborg", "title": "Cykelleder i Göteborg"}
+      ]
+    },
+    {
+      "type": "message",
+      "role": "assistant",
+      "status": "completed",
+      "content": [
+        {
+          "type": "output_text",
+          "text": "I Göteborg finns cykelleder längs kusten.[1]",
+          "annotations": []
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "input_tokens": 84,
+    "output_tokens": 33,
+    "tool_calls_details": {"search_web": {"invocation": 2}}
+  }
+}

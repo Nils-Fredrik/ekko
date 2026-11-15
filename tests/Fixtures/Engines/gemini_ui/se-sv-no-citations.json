@@ -1,0 +1,26 @@
+{
+  "status_code": 20000,
+  "status_message": "Ok.",
+  "tasks": [
+    {
+      "id": "11150800-0000-0000-0000-123456789abc",
+      "status_code": 20000,
+      "result": [
+        {
+          "location_code": 2752,
+          "language_code": "sv",
+          "model": "gemini-fixture",
+          "markdown": "En svensk guide till cykelvägar.",
+          "sources": null,
+          "items": [
+            {
+              "type": "gemini_text",
+              "markdown": "En svensk guide till cykelvägar.",
+              "sources": null
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
