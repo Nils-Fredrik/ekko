@@ -7,11 +7,19 @@ use App\Models\AggSourceDaily;
 use App\Models\AiReferralDaily;
 use App\Models\BotHitDaily;
 use App\Models\Competitor;
+use App\Models\Mention;
 use App\Models\ModelChange;
 use App\Models\Prompt;
+use App\Models\Response;
+use App\Models\Team;
+use Carbon\CarbonImmutable;
+use DateTimeZone;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
+use Throwable;
 
 /**
  * The only place the formulas of docs/spec.md 9 live (ADR 0012). Alerts, the dashboard, PDF reports, the REST API
@@ -126,6 +134,49 @@ final class MetricsService
     }
 
     /**
+     * The brand against its active competitors (docs/spec.md 9, 15.2 compare_competitors): for each competitor the
+     * answers that name it, its visibility (those answers ÷ the brand's answers) and its share of voice (its
+     * mentions ÷ the mentions of the brand and all active competitors, the same denominator as the brand's share
+     * of voice). Most mentioned first. Position and recommendation rate are only aggregated for the brand.
+     *
+     * @return list<array{competitor_id: int, name: string, mentions: int, visibility: Metric, share_of_voice: Metric}>
+     */
+    public function competitorComparison(MetricsFilter $filter): array
+    {
+        $competitors = Competitor::query()->where('brand_id', $filter->brandId)->where('is_active', true)->orderBy('name')->pluck('name', 'id');
+        if ($competitors->isEmpty()) {
+            return [];
+        }
+
+        $mentions = $this->dailyQuery($filter)
+            ->toBase()
+            ->crossJoin(DB::raw("jsonb_each_text(case when jsonb_typeof(agg_daily.competitor_mentions) = 'object' then agg_daily.competitor_mentions else '{}'::jsonb end) as e"))
+            ->whereIn(DB::raw('e.key'), $competitors->keys()->map(fn ($id) => (string) $id)->all())
+            ->groupBy(DB::raw('e.key'))
+            ->selectRaw('e.key as competitor_id, sum(e.value::bigint) as mentions')
+            ->pluck('mentions', 'competitor_id');
+
+        $totals = (array) ($this->totalsQuery($filter)->first() ?? []);
+        $responses = (int) ($totals['responses'] ?? 0);
+        $voices = (int) ($totals['brand_mentioned'] ?? 0) + (int) ($totals['competitor_mentions'] ?? 0);
+
+        $rows = [];
+        foreach ($competitors as $id => $name) {
+            $count = (int) ($mentions[(string) $id] ?? 0);
+            $rows[] = [
+                'competitor_id' => (int) $id,
+                'name' => (string) $name,
+                'mentions' => $count,
+                'visibility' => new Metric(Formulas::ratio($count, $responses), $responses),
+                'share_of_voice' => new Metric(Formulas::ratio($count, $voices), $voices),
+            ];
+        }
+        usort($rows, fn (array $a, array $b): int => [$b['mentions'], $a['name']] <=> [$a['mentions'], $b['name']]);
+
+        return $rows;
+    }
+
+    /**
      * Stability: for each prompt, engine and day (a round), the share of repetitions where the brand is mentioned,
      * as the mean over those cells and the distribution (share rounded to two decimals => number of cells). Only
      * cells with at least two repetitions count; with one repetition per round there is nothing to compare.
@@ -175,6 +226,28 @@ final class MetricsService
                 'share' => Formulas::ratio($row->responses_with_domain, $n),
                 'n' => $n,
             ])->all();
+    }
+
+    /**
+     * Paginated domains for the REST API, using the same counters and formulas as the dashboard.
+     *
+     * @return LengthAwarePaginator<int|string, array{domain: string, citations: int, responses_with_domain: int, share: float|null, n: int, gap_responses: int, gap_rate: float|null, gap_n: int}>
+     */
+    public function sourcesPage(MetricsFilter $filter, int $perPage): LengthAwarePaginator
+    {
+        $n = $this->sourceResponses($filter);
+        $gapN = (int) $this->dailyQuery($filter)->sum('agg_daily.competitor_only_responses');
+
+        return $this->sourceQuery($filter, 'responses_with_domain')->paginate($perPage)->through(fn (object $row) => [
+            'domain' => (string) $row->domain,
+            'citations' => (int) $row->citations,
+            'responses_with_domain' => (int) $row->responses_with_domain,
+            'share' => Formulas::ratio($row->responses_with_domain, $n),
+            'n' => $n,
+            'gap_responses' => (int) $row->gap_responses,
+            'gap_rate' => Formulas::ratio($row->gap_responses, $gapN),
+            'gap_n' => $gapN,
+        ]);
     }
 
     /**
@@ -293,6 +366,202 @@ final class MetricsService
             ->when($engineKeys !== [], fn (Builder $query) => $query->whereIn('engine_key', $engineKeys))
             ->orderBy('changed_on')->orderBy('engine_key')
             ->get();
+    }
+
+    /**
+     * Own-domain citation per round (ADR 0019): for each prompt and engine and day, the share of answers with
+     * a citation of an own domain, oldest day first. A round is the day, as for stability (ADR 0012).
+     *
+     * @return list<array{prompt_id: int, engine_key: string, date: string, citation: Metric}>
+     */
+    public function citationRounds(MetricsFilter $filter): array
+    {
+        $rows = $this->dailyQuery($filter)->toBase()
+            ->selectRaw('agg_daily.prompt_id, agg_daily.engine_key, agg_daily.date, sum(agg_daily.responses) as responses, sum(agg_daily.own_cited) as own_cited')
+            ->groupBy('agg_daily.prompt_id', 'agg_daily.engine_key', 'agg_daily.date')
+            ->orderBy('agg_daily.date')->orderBy('agg_daily.prompt_id')->orderBy('agg_daily.engine_key')
+            ->get();
+
+        return $rows->map(fn (object $row): array => [
+            'prompt_id' => (int) $row->prompt_id,
+            'engine_key' => (string) $row->engine_key,
+            'date' => substr((string) $row->date, 0, 10),
+            'citation' => new Metric(Formulas::ratio($row->own_cited, $row->responses), (int) $row->responses),
+        ])->all();
+    }
+
+    /**
+     * First-place rate of each active competitor of the brand per prompt: the share of list answers where the
+     * competitor stands first. n is the list answers of the prompt (a list answer is defined as in ADR 0012).
+     * agg_daily has no competitor positions, so this reads the mentions of the answers in the period. Only
+     * answers of runs with status extracted count, and the prompts are limited by the filter's prompt ids.
+     *
+     * @return array<int, array<int, Metric>> prompt id => competitor id => Metric
+     */
+    public function competitorFirstPlace(MetricsFilter $filter): array
+    {
+        [$start, $end] = $this->window($filter);
+        $competitorIds = Competitor::query()
+            ->where('brand_id', $filter->brandId)->where('is_active', true)
+            ->pluck('id')->map(fn ($id) => (int) $id)->all();
+        if ($competitorIds === []) {
+            return [];
+        }
+
+        $listAnswers = Response::query()
+            ->join('runs', 'runs.id', '=', 'responses.run_id')
+            ->where('runs.status', 'extracted')
+            ->when($filter->promptIds !== [], fn (Builder $q) => $q->whereIn('runs.prompt_id', $filter->promptIds))
+            ->where('responses.collected_at', '>=', $start)->where('responses.collected_at', '<', $end)
+            ->whereRaw("(responses.answer_type = 'list' or exists (select 1 from mentions m where m.response_id = responses.id and m.tenant_id = responses.tenant_id and m.list_position is not null and m.entity_type in ('brand', 'competitor')))")
+            ->toBase()
+            ->selectRaw('runs.prompt_id, count(*) as list_answers')
+            ->groupBy('runs.prompt_id')
+            ->pluck('list_answers', 'prompt_id');
+
+        $firstPlaces = Mention::query()
+            ->join('responses', 'responses.id', '=', 'mentions.response_id')
+            ->join('runs', 'runs.id', '=', 'responses.run_id')
+            ->where('runs.status', 'extracted')
+            ->where('mentions.entity_type', 'competitor')
+            ->where('mentions.list_position', 1)
+            ->whereIn('mentions.entity_id', $competitorIds)
+            ->when($filter->promptIds !== [], fn (Builder $q) => $q->whereIn('runs.prompt_id', $filter->promptIds))
+            ->where('responses.collected_at', '>=', $start)->where('responses.collected_at', '<', $end)
+            ->toBase()
+            ->selectRaw('runs.prompt_id, mentions.entity_id as competitor_id, count(distinct mentions.response_id) as first_places')
+            ->groupBy('runs.prompt_id', 'mentions.entity_id')
+            ->get();
+
+        $first = [];
+        foreach ($firstPlaces as $row) {
+            $first[(int) $row->prompt_id][(int) $row->competitor_id] = (int) $row->first_places;
+        }
+
+        $result = [];
+        foreach ($listAnswers as $promptId => $count) {
+            foreach ($competitorIds as $competitorId) {
+                $result[(int) $promptId][$competitorId] = new Metric(
+                    Formulas::ratio($first[(int) $promptId][$competitorId] ?? 0, $count),
+                    (int) $count,
+                );
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Brands the detection could not place (mentions of entity type unknown) in the answers of the filter's
+     * markets and period: the share of answers mentioning each, with n = the answers in those markets. Names
+     * are compared case-insensitively. Only answers of runs with status extracted count. Largest share first.
+     *
+     * @return list<array{key: string, name: string, metric: Metric}>
+     */
+    public function unknownBrands(MetricsFilter $filter): array
+    {
+        [$start, $end] = $this->window($filter);
+
+        $scope = fn (Builder $query): Builder => $query
+            ->where('runs.status', 'extracted')
+            ->when($filter->marketIds !== [], fn (Builder $q) => $q->whereIn('prompts.market_id', $filter->marketIds))
+            ->where('responses.collected_at', '>=', $start)->where('responses.collected_at', '<', $end);
+
+        $answers = (int) $scope(Response::query()
+            ->join('runs', 'runs.id', '=', 'responses.run_id')
+            ->join('prompts', 'prompts.id', '=', 'runs.prompt_id'))
+            ->toBase()->count('responses.id');
+        if ($answers === 0) {
+            return [];
+        }
+
+        $rows = $scope(Mention::query()
+            ->join('responses', 'responses.id', '=', 'mentions.response_id')
+            ->join('runs', 'runs.id', '=', 'responses.run_id')
+            ->join('prompts', 'prompts.id', '=', 'runs.prompt_id'))
+            ->where('mentions.entity_type', 'unknown')
+            ->whereNotNull('mentions.surface_name')
+            ->toBase()
+            ->selectRaw('lower(trim(mentions.surface_name)) as name_key, min(trim(mentions.surface_name)) as name, count(distinct mentions.response_id) as answers')
+            ->groupByRaw('lower(trim(mentions.surface_name))')
+            ->orderByDesc('answers')->orderBy('name_key')
+            ->get();
+
+        return $rows->filter(fn (object $row): bool => (string) $row->name_key !== '')->map(fn (object $row): array => [
+            'key' => (string) $row->name_key,
+            'name' => (string) $row->name,
+            'metric' => new Metric(Formulas::ratio($row->answers, $answers), $answers),
+        ])->values()->all();
+    }
+
+    /**
+     * The model id an engine answered with most often on each tenant-local day (answers with a model id, any
+     * run status). A tie goes to the model of the previous day when it is among the tied, otherwise to the
+     * smallest id, so a tie does not flip back and forth. Days without answers are left out. Providers alternate
+     * between versions during a day, so alerts compare these, not the markers of {@see modelChanges()}.
+     *
+     * @return array<string, array<string, string>> engine key => day (Y-m-d) => model id, oldest day first
+     */
+    public function dominantModels(string $from, string $to): array
+    {
+        $range = new MetricsFilter(0, $from, $to);
+        [$start, $end] = $this->window($range);
+        $timezone = $this->timezone()->getName();
+
+        $rows = Response::query()
+            ->whereNotNull('model_id_reported')
+            ->where('collected_at', '>=', $start)->where('collected_at', '<', $end)
+            ->toBase()
+            ->selectRaw('engine_key, (collected_at at time zone ?)::date as day, model_id_reported as model, count(*) as answers', [$timezone])
+            ->groupByRaw('1, 2, 3')
+            ->get();
+
+        $counts = [];
+        foreach ($rows as $row) {
+            $counts[(string) $row->engine_key][substr((string) $row->day, 0, 10)][(string) $row->model] = (int) $row->answers;
+        }
+
+        $result = [];
+        foreach ($counts as $engine => $days) {
+            ksort($days);
+            $previous = null;
+            foreach ($days as $day => $models) {
+                $top = max($models);
+                $tied = array_keys(array_filter($models, fn (int $count): bool => $count === $top));
+                sort($tied, SORT_STRING);
+                $previous = $previous !== null && in_array($previous, $tied, true) ? $previous : $tied[0];
+                $result[$engine][$day] = $previous;
+            }
+        }
+        ksort($result);
+
+        return $result;
+    }
+
+    /**
+     * The UTC range [start, end) of the filter's tenant-local days.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    private function window(MetricsFilter $filter): array
+    {
+        $timezone = $this->timezone();
+
+        return [
+            CarbonImmutable::createFromFormat('!Y-m-d', $filter->from, $timezone)->startOfDay()->utc(),
+            CarbonImmutable::createFromFormat('!Y-m-d', $filter->to, $timezone)->addDay()->startOfDay()->utc(),
+        ];
+    }
+
+    private function timezone(): DateTimeZone
+    {
+        $name = Team::query()->whereKey(current_tenant_id())->value('timezone');
+
+        try {
+            return new DateTimeZone(is_string($name) && $name !== '' ? $name : 'UTC');
+        } catch (Throwable) {
+            return new DateTimeZone('UTC');
+        }
     }
 
     private function competitorMentions(MetricsFilter $filter, int $competitorId): int

@@ -124,7 +124,7 @@ Stakken følger Varde. Agentene har lesetilgang til Varde-repoet (https://github
 | Grafer | `vue-chartjs` med Chart.js, fargesatt fra designtokens |
 | Database | PostgreSQL 16 |
 | Kø og cache | Laravel `database`-driver |
-| MCP | `laravel/mcp` med OAuth via Laravel Passport, samme mønster som Varde (`Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`) |
+| MCP | `laravel/mcp` med egen OAuth 2.1-server og Sanctum-nøkler, samme mønster som Varde (`Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`). Passport kan ikke brukes sammen med Sanctum på samme `User` ([ADR 0016](decisions/0016-mcp-server-og-oauth.md)) |
 | Innlogging | Jetstream (e-post og passord, 2FA) og Socialite (Google) |
 | PDF | `spatie/laravel-pdf` med Chromium i worker-imaget |
 | Revisjonslogg | `spatie/laravel-activitylog` |
@@ -147,7 +147,7 @@ Varde-repoet er kun referanse. Agentene leser og kopierer mønstre derfra inn i 
 | Layout og fellesskomponenter: `AppLayout`, toppmeny, team-velger, temabytte, språkvelger, `BottomSheet`, `DialogModal` | Samme oppbygging og oppførsel |
 | `Pages/Auth/Login.vue` | Samme innloggingsside |
 | Oppsett av Inertia, Ziggy og `laravel-vue-i18n` (app-inngangen og en språkfil) | Samme oppsett for ruting og oversettelser |
-| `Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`, MCP-serverklassen, ett eksempel på et MCP-tool og Passport-konfigurasjonen | Samme MCP- og OAuth-mønster (15.2) |
+| `Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`, MCP-serverklassen, ett eksempel på et MCP-tool og OAuth-kontrolleren | Samme MCP- og OAuth-mønster (15.2) |
 | `Dockerfile` og eventuelle Cloud Run- og GitHub Actions-filer | Samme byggeløp og kjøremiljø på Cloud Run (T10) |
 
 Ingen miljøfiler, hemmeligheter eller kundedata kopieres fra Varde.
@@ -271,10 +271,11 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 | `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
 | `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `byok_cost_usd`, `byok_budget_usd`, `quota_alerted_threshold`, `status` (ok, warning, capped) |
 | `alert_rules` | `tenant_id`, `brand_id`, `type`, `threshold`, `channels` (jsonb), `is_active` |
-| `alerts` | `tenant_id`, `alert_rule_id`, `triggered_at`, `payload` (jsonb), `delivered_at`, `acknowledged_by` |
+| `alerts` | `tenant_id`, `alert_rule_id`, `subject`, `triggered_at`, `payload` (jsonb), `digest_date`, `deliveries` (jsonb, kvittering per kanal), `delivered_at`, `acknowledged_by`, `acknowledged_at` |
+| `alert_evaluations` | `tenant_id`, `local_date`, `evaluated_at` (én rad per tenant og lokal dag, unik; gjør at evalueringen kjører én gang per døgn) |
 | `report_schedules` | `tenant_id`, `brand_id`, `cadence` (weekly, monthly), `recipients` (jsonb), `locale`, `branding` (tenant, partner) |
 | `reports` | `tenant_id`, `report_schedule_id`, `period_start`, `period_end`, `pdf_uri`, `sent_at` |
-| `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `status` |
+| `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `last_failed_on`, `status` |
 | `activity_log` | fra spatie/laravel-activitylog, med `tenant_id` |
 | `model_changes` | `tenant_id`, `engine_key`, `changed_on`, `from_model`, `to_model`, `changed_at` (modellbytte-markører, 7.5) |
 
@@ -288,7 +289,8 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 |---|---|---|
 | `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker` |
 | `extraction-poll` | hvert 15. minutt, via internt endepunkt | Sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
-| `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) kjøres av egen trigger etter første aggregering etter 05:30 (ADR 0012) |
+| `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) har egen trigger, `alerts` under (ADR 0012, ADR 0019) |
+| `alerts` | hver time, kvart over | `ekko:evaluate-alerts --sync`. Hver tenant evalueres én gang per lokal dag, ved første kjøring etter 05:30 i tenantens tidssone, og kjøringen leverer døgnmeldingen. Senere kjøringer samme dag prøver bare feilede kanaler på nytt. Kvotevarselet ved 100 % sendes av første kjøring etter at det oppstår, uansett tid på døgnet (ADR 0019) |
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
 | `usage-rollup` | hver time, via `ekko-task` | `ekko:usage-rollup` og kvotekontroll |
@@ -525,11 +527,13 @@ Integrasjonen `clickhouse_logs` per merkevare lagrer tilkobling (vert, database,
 
 Listen over user-agents vedlikeholdes i konfigurasjon, ikke i kode. Spørringene skal følge skjemaet som er dokumentert i skillen `clickhouse-logs-query` for Maksimer-loggene.
 
+ClickHouse-synken registrerer feildager i tenantens tidssone og oppretter `integration_error` etter to påfølgende feildager (11.1). Vellykket synk setter `status = synced` og nullstiller feilrekken; feil bevarer tidligere aggregater og `last_sync_at`. Se [ADR 0014](decisions/0014-botloggimport.md).
+
 Tenants uten ClickHouse kan i stedet laste opp loggfiler (nginx/Apache combined-format, gz) via grensesnittet. Filene parses av en jobb.
 
 ### 10.2 AI-trafikk fra GA4
 
-Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto som kunden gir lesetilgang. `ekko:sync-ga4` henter `sessions`, `engagedSessions` og `conversions` per dag der `sessionSource` matcher `chatgpt.com`, `chat.openai.com`, `perplexity.ai`, `gemini.google.com`, `copilot.microsoft.com` og `claude.ai`. Listen ligger i konfigurasjon.
+Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto med lesetilgang til kundens property. `ekko:sync-ga4` henter `sessions`, `engagedSessions` og `keyEvents` per dag der `sessionSource` matcher `chatgpt.com`, `chat.openai.com`, `perplexity.ai`, `gemini.google.com`, `copilot.microsoft.com` og `claude.ai`. Listen ligger i `config/ga4.php`. Google har erstattet API-metrikken `conversions` med `keyEvents`. Ekko lagrer den i `ai_referrals_daily.conversions`. Se [ADR 0015](decisions/0015-ga4-synk.md) for oppsett og synkronisering.
 
 ---
 
@@ -548,6 +552,20 @@ Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto som kunden
 | `integration_error` | Synk mot ClickHouse eller GA4 feiler to dager på rad | – |
 
 Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like varsler samles til én melding per tenant per døgn.
+
+**Evaluering og levering (T24, [ADR 0019](decisions/0019-varsler.md)):**
+
+- Terskler står i `alert_rules.threshold`: prosentpoeng for `visibility_drop`, prosent for `competitor_takeover` og `new_competitor`. En regel opprettes med standardverdiene fra `config/ekko.php` første gang typen evalueres, og kan endres per tenant.
+- Sammenligningene bruker de siste sju dagene som slutter i går mot de sju foregående, i tenantens tidssone. Tallene hentes fra `MetricsService`.
+- `visibility_drop` krever n ≥ 30 begge uker. `competitor_takeover` regnes per kjerneprompt og krever minst 5 listesvar begge uker. `new_competitor` krever minst 30 svar i markedet.
+- `citation_lost` sammenligner siste runde (dag) med forrige runde med svar, per kjerneprompt og motor.
+- `model_change` varsler bare når motorens dominerende modell-ID for en dag er en annen enn dominerende modell-ID forrige dag med svar. Markørene i `model_changes` brukes ikke, siden leverandører veksler mellom versjoner i løpet av en dag. Karensen gjelder motoren, så et nytt modellbytte for samme motor innen karensperioden varsles ikke.
+- `quota` og `integration_error` opprettes av kvoterollupen (7.2) og av synkene (10.1, 10.2) når tilstanden oppstår. T24 leverer dem med de andre.
+- Samme tema (marked og motor, prompt og konkurrent, …) varsles ikke igjen innen karensperioden (7 dager, 30 for `new_competitor`).
+- Evalueringen venter til kl. 12:00 så lenge kjøringer som er planlagt i går, ikke er ferdig uttrukket, og regnes bare for aktive merkevarer, markeder og kjerneprompts. En regel som er slått av, gir ingen varsler og ingen levering.
+- **Døgnmelding:** alle varsler fra de siste tre dagene som ikke har vært i en melding før, går ut sammen i én Slack-melding og én e-post per mottaker per tenant og lokal dag. Varsler som oppstår senere på dagen venter til neste døgn. Unntaket er kvotevarselet ved 100 %: kjøringene stopper da, så det sendes med en gang (innen et kvarter, ved neste timekjøring) som en egen melding.
+- **Kvittering:** hver kanal har en kvittering på varselet (`deliveries`: status, forsøk, tidspunkt). Meldingene sendes utenfor databasetransaksjon og hver kvittering lagres straks. Feilede kanaler prøves på nytt hver time samme dag, høyst tre forsøk, og settes til oppgitt når dagen er over. `delivered_at` settes når ingen kanal venter lenger. En tenant-admin kan i tillegg kvittere for at varselet er sett (`POST /alerts/{alert}/acknowledge`, `acknowledged_by` og `acknowledged_at`).
+- E-post går til tenantens eier og admin, og til partnerrådgivere i partner-tenanten. `quota` går også til plattformadmin.
 
 ### 11.2 Rapporter
 
@@ -764,12 +782,23 @@ Ekko skal se ut og oppføre seg som Varde og Borg. Tokenene under er hentet fra 
 | GET | `/api/v1/alerts` | read |
 | GET | `/api/v1/usage?month=` | read |
 
-Rate limit: 60 forespørsler per minutt per token.
+Rate limit: 60 forespørsler per minutt per token. Alle v1-ruter deler telleren. `429` inkluderer `Retry-After`.
+
+Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-api-token-og-kontrakt.md) beskriver tenantbinding og avgrensninger:
+
+- Jetstream oppretter personlige tokens med uforanderlig tenantbinding. Kun `read` og `write` kan redigeres. Eksisterende tokens uten tenantbinding må erstattes; de gis ikke tilgang automatisk. Nettlesersesjon alene godtas ikke i v1.
+- Brukerens medlemskap/partnertilgang, tenantstatus, verifisert e-post og krav til tofaktor kontrolleres på hvert kall. Rettigheten er snittet av tokenets ability og brukerens nåværende rolle. Partnerens token får bare tilgang til den bundne tenanten, også i rå SQL.
+- Samlinger bruker `page` (standard 1, maks 1 000 000) og `per_page` (standard 50, maks 100). Ressurssamlinger returnerer `data`, `links`, `meta`. Kilder bruker paginatorens `data`, `current_page`, `last_page`, `per_page`, `total` og lenker; metrikkserien bruker samme format under `data.series`.
+- Datoer er inklusive lokale kalenderdager i tenantens tidssone. Standardperiode er siste 28 dager til og med i dag; maks 366 dager. `group_by` er `day` (standard), `week`, `month`, `market`, `engine`, `prompt`, `topic`, `intent` eller `funnel_stage`. Alle metrikker hentes fra `MetricsService` med `value`, `n` og `low_sample`.
+- PATCH og DELETE sender promptens `id` i JSON-body på samlingsruten. POST krever `market_id`, `text`, `intent` og `funnel_stage`. Et marked kan ikke endres med PATCH. Tema, marked og prompt må tilhøre merkevaren; fremmede ID-er gir 404. Pakkegrensen gjelder aktive prompts og håndheves ved opprettelse og reaktivering. Inaktive prompts beholder historikken uten å bruke plasser. Markedet låses før prompten, i samme rekkefølge som MCP; duplikatsjekken håndheves ved opprettelse og tekstendring. DELETE sletter prompten med databasens kaskader; bruk `is_active: false` for å beholde historikken.
+- `responses` gir svartekst, omtaler og kilder, men ingen lagringsadresser eller motorens råsvar. `usage` viser valgt måned (`YYYY-MM`, standard inneværende lokale måned), eller `data: null` når forbruk ikke finnes. Beløp serialiseres som desimalstrenger.
+- Feil returneres som JSON: 401 (mangler/ugyldig token), 403 (tilgang), 404 (ukjent eller fremmed ressurs), 422 (ugyldige felt eller pakkegrense) og 429 (rate limit).
 
 ### 15.2 MCP-server
 
 - **Endepunkt:** `/mcp`, bygget med `laravel/mcp`.
-- **Autentisering:** OAuth 2.1 via Passport, med samtykkeside som i Varde.
+- **Autentisering:** OAuth 2.1 med egen autorisasjonsserver (dynamisk klientregistrering, PKCE, refresh-nøkler som byttes), med samtykkeside og tilkoblingsoversikt (`/claude`) som i Varde. Passport ble valgt bort fordi det ikke kan brukes sammen med Sanctum på samme `User` ([ADR 0016](decisions/0016-mcp-server-og-oauth.md)).
+- **Tenant og skrivetilgang:** brukeren velger tenant og om Claude kan gjøre endringer på samtykkesiden. Verktøy som endrer noe, vises bare når tilkoblingen tillater det.
 - **Tilgang:** tokenet bærer brukerens rettigheter og valgt tenant. Partner-rådgivere kan angi `tenant` som parameter for kunde-tenants de har tilgang til.
 - **Verktøybeskrivelser:** norsk, som i Varde. Navnene er på engelsk i snake_case.
 
@@ -778,14 +807,14 @@ Rate limit: 60 forespørsler per minutt per token.
 | `whoami` | Bruker, tenants og roller |
 | `list_brands` | Merkevarer med markeder og motorer |
 | `get_visibility` | Metrikker for merkevare, marked, motor, tema og periode, med n |
-| `compare_competitors` | Share of voice, posisjon og anbefalingsrate mot konkurrenter |
+| `compare_competitors` | Share of voice, posisjon og anbefalingsrate mot konkurrenter (posisjon og anbefalingsrate foreløpig bare for merkevaren, ADR 0016) |
 | `get_prompt_results` | Resultater per prompt, sortert etter endring |
 | `get_responses` | Svartekster for prompt og motor i periode, med nevnelser og kilder |
 | `get_sources` | Siterte domener, kildeandel og kildegap |
 | `get_crawler_activity` | AI-robottreff og AI-trafikk |
 | `list_alerts` | Åpne og nylige varsler |
 | `get_usage` | Forbruk mot kvote og budsjett |
-| `propose_prompts` | Forslag til nye prompts for et tema (skriver ingenting) |
+| `propose_prompts` | Grunnlag for forslag til nye prompts for et tema: promptene som finnes, dekning og plass i pakken. Claude lager forslagene (skriver ingenting) |
 | `upsert_prompts` | Legger til eller endrer prompts (krever skriverett, logges) |
 
 Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Store resultater pagineres med `cursor`.
@@ -1256,7 +1285,7 @@ Endepunktene i 15.1 med ressurser, paginering og rate limit, samt OpenAPI-beskri
 - Isolasjonstestene dekker alle endepunkter.
 
 ### T34 – MCP-server
-`laravel/mcp` med Passport OAuth, samtykkeside og tilkoblingsoversikt (som Varde) og verktøyene i 15.2.
+`laravel/mcp` med egen OAuth-server (ADR 0016), samtykkeside og tilkoblingsoversikt (som Varde) og verktøyene i 15.2.
 - Verifisert tilkobling fra Claude med OAuth.
 - Partner kan velge kunde-tenant.
 - Skrivende verktøy logges.

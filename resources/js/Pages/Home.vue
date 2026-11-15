@@ -9,6 +9,7 @@ defineProps({
     alerts: { type: Array, required: true },
     runs: { type: Array, required: true },
     usage: { type: Object, default: null },
+    botLogUploadsUrl: { type: String, default: null },
 });
 
 function when(value) {
@@ -30,6 +31,10 @@ function when(value) {
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
                 <p class="text-sm text-shell-text/70">{{ $t('app.dashboard.period_days', { days: period.days }) }}</p>
+
+                <Link v-if="botLogUploadsUrl" :href="botLogUploadsUrl" class="text-sm text-shell-accent underline">
+                    {{ $t('bot_logs.title') }}
+                </Link>
 
                 <section class="grid gap-4 md:grid-cols-2">
                     <p v-if="brands.length === 0" class="text-sm text-ink-soft">{{ $t('app.dashboard.no_brands') }}</p>
