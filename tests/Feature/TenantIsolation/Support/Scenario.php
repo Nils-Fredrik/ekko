@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\TenantIsolation\Support;
 
+use App\Models\McpConnection;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
+use Tests\Support\Mcp\McpTestClient;
 
 /**
  * Two tenants. The tests act as users of tenant A and must never see or change anything in tenant
@@ -82,6 +84,9 @@ final class Scenario
             'abilities' => ['read'],
         ]);
 
+        // A Claude connection in B (ADR 0016), made up front so it is part of B's snapshot.
+        $s->mcpConnectionOf($s->ownerB, $s->tenantB);
+
         $s->adminA = $s->adminA->fresh();
 
         return $s;
@@ -103,6 +108,7 @@ final class Scenario
             'owner' => $this->ownerB->fresh()?->only(['id', 'name', 'email', 'current_team_id']),
             'member' => $this->memberB->fresh()?->only(['id', 'name', 'email', 'current_team_id']),
             'tokens' => PersonalAccessToken::query()->where('tokenable_id', $this->ownerB->id)->orderBy('id')->get(['id', 'name', 'abilities'])->toArray(),
+            'mcp_connections' => McpConnection::query()->where('user_id', $this->ownerB->id)->orderBy('id')->get(['id', 'revoked_at', 'access_token_id'])->toArray(),
         ];
     }
 
@@ -132,6 +138,21 @@ final class Scenario
     public function invitationInA(): TeamInvitation
     {
         return $this->tenantA->teamInvitations()->create(['email' => 'invited-a@example.test', 'role' => 'reader']);
+    }
+
+    /**
+     * A Claude connection of the user to the tenant (ADR 0016), for the connection routes. Made once per user and
+     * tenant, so building a request does not change the tenant.
+     */
+    public function mcpConnectionOf(User $user, Team $tenant): McpConnection
+    {
+        $existing = McpConnection::query()->where('user_id', $user->id)->where('team_id', $tenant->id)->whereNull('revoked_at')->first();
+        if ($existing !== null) {
+            return $existing;
+        }
+        McpTestClient::connect($user, $tenant);
+
+        return McpConnection::query()->where('user_id', $user->id)->latest('id')->firstOrFail();
     }
 
     public function userWithRole(string $role): User
