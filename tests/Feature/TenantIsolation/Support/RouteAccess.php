@@ -47,6 +47,12 @@ final class RouteAccess
         public readonly bool $signed = false,
     ) {}
 
+    /** Google-signed Scheduler OIDC only; covered by Scheduling/SchedulerAuthenticationTest. */
+    public static function service(): self
+    {
+        return new self('service');
+    }
+
     public static function public(): self
     {
         return new self(self::PUBLIC);

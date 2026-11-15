@@ -62,6 +62,7 @@ foreach (['brands', 'alerts', 'usage'] as $resource) {
 }
 
 return [
+    'internal.extraction-poll' => RouteAccess::service(),
     ...$apiEntries,
     // Public and system routes.
     'home' => RouteAccess::public(),
