@@ -36,6 +36,9 @@ Thumbs.db
 *.tfvars.json
 crash.log
 
+# Untrusted review inputs are temporary data, never source files.
+/.review/
+
 __pycache__/
 /performance-result.json
 

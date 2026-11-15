@@ -53,6 +53,11 @@ final class AuditLog
         $this->record($tenant, 'member.removed', $by, $member, ['role' => $role]);
     }
 
+    public function billingMarkupChanged(User $by, Team $tenant, ?string $previous): void
+    {
+        $this->record($tenant, 'billing.markup_changed', $by, null, ['from' => $previous, 'to' => $tenant->billing_markup_percent]);
+    }
+
     public function byokBudgetChanged(User $by, Team $tenant, ?string $previous): void
     {
         $this->record($tenant, 'byok.budget_changed', $by, null, [
