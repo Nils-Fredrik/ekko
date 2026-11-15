@@ -10,8 +10,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
+ * @property int $alert_rule_id
+ * @property string|null $subject
  * @property CarbonInterface $triggered_at
+ * @property array<string, mixed> $payload
+ * @property CarbonInterface|null $digest_date
+ * @property array<string, mixed>|null $deliveries
  * @property CarbonInterface|null $delivered_at
+ * @property int|null $acknowledged_by
+ * @property CarbonInterface|null $acknowledged_at
  */
 class Alert extends Model
 {
@@ -23,10 +30,14 @@ class Alert extends Model
     /** @var list<string> */
     protected $fillable = [
         'alert_rule_id',
+        'subject',
         'triggered_at',
         'payload',
+        'digest_date',
+        'deliveries',
         'delivered_at',
         'acknowledged_by',
+        'acknowledged_at',
     ];
 
     /** @return BelongsTo<AlertRule, $this> */
@@ -47,7 +58,10 @@ class Alert extends Model
         return [
             'triggered_at' => 'datetime',
             'payload' => 'array',
+            'digest_date' => 'date',
+            'deliveries' => 'array',
             'delivered_at' => 'datetime',
+            'acknowledged_at' => 'datetime',
         ];
     }
 }
