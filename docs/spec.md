@@ -295,6 +295,8 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 
 **Fordeling over uka:** Ved ukentlig frekvens kjøres et prompt på ukedagen `crc32(prompt_id) % 7`. Ved månedlig frekvens kjøres det på dag `crc32(prompt_id) % 28 + 1`. Prompts med `priority = core` kan ha høyere frekvens enn resten av markedet, begrenset av pakken. Dette gir jevn belastning og jevn kostnad.
 
+Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-autentisering står i [ADR 0020](decisions/0020-dispatch-og-worker.md). Køoppgaver som fortsatt venter seks timer etter den ene nye innsendingen, avsluttes som feilet. Produksjonsstart verifiseres med T10 etter bootstrap.
+
 **Rettferdig kø:** Dispatcheren legger jobbene i køen flettet per tenant (rundgang), slik at én stor tenant ikke blokkerer andre.
 
 ### 7.2 Kvotekontroll før kjøring

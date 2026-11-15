@@ -25,6 +25,9 @@ locals {
     SESSION_SECURE_COOKIE = "true"
     SESSION_SAME_SITE     = "lax"
     LOG_CHANNEL           = "stderr"
+    GOOGLE_CLOUD_PROJECT  = var.project_id
+    GOOGLE_CLOUD_REGION   = var.region
+    EKKO_START_WORKER     = "true"
     EKKO_RAW_BUCKET       = google_storage_bucket.raw.name
     EKKO_REPORTS_BUCKET   = google_storage_bucket.reports.name
   }
@@ -61,7 +64,7 @@ resource "google_cloud_run_v2_service" "web" {
       image = var.image
       resources { limits = { cpu = "1", memory = "1Gi" } }
       dynamic "env" {
-        for_each = merge(local.common_env, { DB_USERNAME = var.app_db_user, DB_ADMIN_USERNAME = var.admin_db_user, EKKO_SCHEDULER_SERVICE_ACCOUNT = google_service_account.component["scheduler"].email })
+        for_each = merge(local.common_env, { DB_USERNAME = var.app_db_user, DB_ADMIN_USERNAME = var.admin_db_user, EKKO_SCHEDULER_SERVICE_ACCOUNT = google_service_account.component["scheduler"].email, EKKO_SCHEDULER_AUDIENCE = var.app_url })
         content {
           name  = env.key
           value = env.value
@@ -203,4 +206,20 @@ resource "google_cloud_run_v2_job_iam_member" "scheduler_task" {
   name     = google_cloud_run_v2_job.job["task"].name
   role     = "roles/run.jobsExecutorWithOverrides"
   member   = "serviceAccount:${google_service_account.component["scheduler"].email}"
+}
+
+# Read executions before starting a new worker. The executor role alone cannot list them.
+resource "google_project_iam_custom_role" "worker_execution_reader" {
+  role_id     = "ekkoWorkerExecutionReader"
+  title       = "Ekko worker execution reader"
+  permissions = ["run.executions.list"]
+}
+
+resource "google_cloud_run_v2_job_iam_member" "worker_execution_reader" {
+  for_each = var.enable_workloads ? toset(["dispatch", "web"]) : toset([])
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_job.job["worker"].name
+  role     = google_project_iam_custom_role.worker_execution_reader.name
+  member   = "serviceAccount:${google_service_account.component[each.key].email}"
 }

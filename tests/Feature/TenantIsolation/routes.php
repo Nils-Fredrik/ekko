@@ -25,6 +25,7 @@ $teamA = fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id]];
 $tenantRoles = ['owner', 'admin', 'partner_advisor', 'editor', 'reader'];
 
 return [
+    'internal.extraction-poll' => RouteAccess::service(),
     // Public and system routes.
     'home' => RouteAccess::public(),
     // Sets the caller's own language (session, and the user row when signed in). No tenant data.

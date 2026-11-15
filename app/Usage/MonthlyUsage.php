@@ -36,6 +36,7 @@ final class MonthlyUsage
 
         if ($includeReservations) {
             $events->unionAll(RunReservations::active($at)
+                ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('usage_events')->whereColumn('usage_events.collection_attempt_token', 'runs.quota_reservation_token'))
                 ->where('quota_reserved_at', '>=', $month)
                 ->where('quota_reserved_at', '<', $month->addMonth())
                 ->selectRaw('1 AS calls, quota_reserved_cost_usd AS cost_usd, quota_reserved_billed_to AS billed_to')
