@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Alert;
 use App\Models\Brand;
+use App\Models\Market;
+use App\Models\Prompt;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
 use Tests\Feature\TenantIsolation\Support\RouteAccess;
@@ -25,7 +28,41 @@ $teamB = fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id]];
 $teamA = fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id]];
 $tenantRoles = ['owner', 'admin', 'partner_advisor', 'editor', 'reader'];
 
+$apiResource = function (Scenario $s, bool $foreign, string $action = 'read'): array {
+    return app(TenantContext::class)->run($foreign ? $s->tenantB->id : $s->tenantA->id, function () use ($action) {
+        $brand = Brand::factory()->create();
+        $market = Market::factory()->create(['brand_id' => $brand->id]);
+        $data = match ($action) {
+            'store' => ['market_id' => $market->id, 'text' => 'A synthetic question?', 'intent' => 'category', 'funnel_stage' => 'awareness'],
+            'update', 'destroy' => ['id' => Prompt::factory()->create(['market_id' => $market->id])->id, 'text' => 'Updated question?'],
+            default => [],
+        };
+
+        return ['params' => ['brand' => $brand->id], 'data' => $data];
+    });
+};
+$apiEntries = [];
+foreach (['metrics', 'prompts', 'responses', 'sources', 'competitors'] as $resource) {
+    $apiEntries['api.v1.'.$resource.'.index'] = RouteAccess::tenant(
+        foreign: fn (Scenario $s) => $apiResource($s, true),
+        own: fn (Scenario $s) => $apiResource($s, false),
+    );
+}
+foreach (['store', 'update', 'destroy'] as $action) {
+    $apiEntries['api.v1.prompts.'.$action] = RouteAccess::tenant(
+        foreign: fn (Scenario $s) => $apiResource($s, true, $action),
+        own: fn (Scenario $s) => $apiResource($s, false, $action),
+        deniedRoles: ['reader'],
+    );
+}
+// No resource parameter: the token determines the tenant, like the dashboard list. ApiIsolationTest
+// verifies the collection contents and raw RLS against another tenant and a partner's client.
+foreach (['brands', 'alerts', 'usage'] as $resource) {
+    $apiEntries['api.v1.'.$resource.'.index'] = RouteAccess::user(own: fn () => []);
+}
+
 return [
+    ...$apiEntries,
     // Public and system routes.
     'home' => RouteAccess::public(),
     // Sets the caller's own language (session, and the user row when signed in). No tenant data.
@@ -70,6 +107,26 @@ return [
 
             return ['params' => ['brand' => $id]];
         },
+    ),
+    // Acknowledging an alert is the tenant admin's (alert rights, docs/spec.md 5.2). Addressed by id.
+    'alerts.acknowledge' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantB->id,
+                fn () => Alert::factory()->create()->id,
+            );
+
+            return ['params' => ['alert' => $id]];
+        },
+        own: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantA->id,
+                fn () => Alert::factory()->create()->id,
+            );
+
+            return ['params' => ['alert' => $id]];
+        },
+        deniedRoles: ['editor', 'reader'],
     ),
     'GET api/user' => RouteAccess::user(),
     'profile.show' => RouteAccess::user(),
