@@ -1,6 +1,5 @@
 import { computed } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
-import { loadLanguageAsync } from 'laravel-vue-i18n';
 
 const BCP47 = { nb: 'nb-NO', sv: 'sv-SE', en: 'en-GB' };
 
@@ -15,10 +14,6 @@ export function useLocale() {
             { locale: code },
             {
                 preserveScroll: true,
-                onSuccess: () => {
-                    document.documentElement.lang = code;
-                    loadLanguageAsync(code);
-                },
             },
         );
 
