@@ -24,18 +24,31 @@ const text = computed(() => {
     return new Intl.NumberFormat(locale.value, { maximumFractionDigits: 1 }).format(props.metric.value);
 });
 
-const change = computed(() => {
+const points = computed(() => {
     if (props.kind !== 'rate' || props.previous?.value == null || props.metric.value == null) {
         return null;
     }
 
-    const points = (props.metric.value - props.previous.value) * 100;
-    const formatted = new Intl.NumberFormat(locale.value, {
+    return (props.metric.value - props.previous.value) * 100;
+});
+
+const change = computed(() => {
+    if (points.value === null) {
+        return null;
+    }
+
+    return new Intl.NumberFormat(locale.value, {
         maximumFractionDigits: 1,
         signDisplay: 'exceptZero',
-    }).format(points);
+    }).format(points.value);
+});
 
-    return formatted;
+const changeClass = computed(() => {
+    if (points.value === null || points.value === 0) {
+        return 'text-ink-soft';
+    }
+
+    return points.value > 0 ? 'text-success' : 'text-error';
 });
 </script>
 
@@ -46,7 +59,7 @@ const change = computed(() => {
     >
         <span class="text-2xl font-medium tracking-tight">{{ text ?? $t('app.dashboard.empty') }}</span>
         <span class="ms-2 text-xs text-ink-soft">{{ $t('app.dashboard.n', { n: metric.n }) }}</span>
-        <span v-if="change" class="ms-2 text-xs text-ink-soft">
+        <span v-if="change" class="ms-2 text-xs" :class="changeClass">
             {{ $t('app.dashboard.change_points', { change }) }}
         </span>
     </span>

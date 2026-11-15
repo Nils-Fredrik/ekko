@@ -1,5 +1,6 @@
 <script setup>
 import { Chart } from 'chart.js/auto';
+import { trans } from 'laravel-vue-i18n';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = defineProps({
@@ -11,6 +12,12 @@ let chart;
 
 function token(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+function colorFor(point) {
+    const color = token('--color-primary');
+
+    return point?.visibility.low_sample ? `${color}59` : color;
 }
 
 function render() {
@@ -29,7 +36,11 @@ function render() {
                     borderColor: token('--color-primary'),
                     backgroundColor: token('--color-primary'),
                     borderWidth: 2,
-                    pointRadius: 0,
+                    pointRadius: props.points.map((point) => (point.visibility.low_sample ? 3 : 0)),
+                    pointBackgroundColor: props.points.map((point) => colorFor(point)),
+                    segment: {
+                        borderColor: (context) => colorFor(props.points[context.p0DataIndex]),
+                    },
                     tension: 0,
                     spanGaps: false,
                 },
@@ -37,7 +48,28 @@ function render() {
         },
         options: {
             animation: false,
-            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    displayColors: false,
+                    callbacks: {
+                        label(context) {
+                            const point = props.points[context.dataIndex];
+                            const value = point?.visibility.value;
+                            const formatted =
+                                value === null || value === undefined
+                                    ? trans('app.dashboard.empty')
+                                    : new Intl.NumberFormat(document.documentElement.lang || 'nb', {
+                                          style: 'percent',
+                                          maximumFractionDigits: 1,
+                                      }).format(value);
+
+                            return `${formatted} · ${trans('app.dashboard.n', { n: point?.visibility.n ?? 0 })}`;
+                        },
+                    },
+                },
+            },
             scales: {
                 x: {
                     grid: { color: token('--color-line-soft') },

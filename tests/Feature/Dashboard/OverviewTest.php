@@ -5,14 +5,17 @@ use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\Engine;
+use App\Models\Market;
 use App\Models\MarketEngine;
 use App\Models\ModelChange;
 use App\Models\RunBatch;
 use App\Models\Team;
+use App\Models\Topic;
 use App\Models\UsageMonthly;
 use App\Models\User;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Metrics\MetricsWorld;
 
 test('the overview shows the tenant brands with visibility and n, and nothing from another tenant', function () {
@@ -128,4 +131,80 @@ test('a brand of another tenant is not reachable', function () {
 test('guests are sent to the login page', function () {
     $this->get('/dashboard')->assertRedirect();
     $this->get('/brands')->assertRedirect();
+});
+
+test('the brand list shows the translated status and markets, and hides other tenants', function () {
+    $world = MetricsWorld::create();
+    $world->market->update(['location_label' => 'Norge']);
+    app(TenantContext::class)->run(
+        Team::factory()->tenant()->create()->id,
+        fn () => Brand::factory()->create(['name' => 'Hemmeligmerke']),
+    );
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)->get('/brands')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Brands/Index')
+            ->where('brands', fn ($brands) => collect($brands)->pluck('name')->all() === ['Fjordkaffe'])
+            ->where('brands.0.status', 'Aktiv')
+            ->where('brands.0.markets.0.label', 'Norge'));
+});
+
+test('a market or topic from another brand is ignored', function () {
+    $world = MetricsWorld::create();
+    $today = CarbonImmutable::now('Europe/Oslo')->toDateString();
+    AggDaily::factory()->create([
+        'market_id' => $world->market->id,
+        'engine_key' => $world->engine->key,
+        'prompt_id' => $world->p1->id,
+        'date' => $today,
+        'responses' => 20,
+        'brand_mentioned' => 10,
+    ]);
+    $foreign = app(TenantContext::class)->run($world->tenant->id, function () {
+        $brand = Brand::factory()->create();
+
+        return [
+            'market' => Market::factory()->for($brand)->create()->id,
+            'topic' => Topic::factory()->create(['brand_id' => $brand->id])->id,
+        ];
+    });
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)
+        ->get('/brands/'.$world->brand->id.'?market='.$foreign['market'].'&topic='.$foreign['topic'])
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('summary.visibility.value', 0.5)
+            ->where('summary.visibility.n', 20)
+            ->where('filters.market', null)
+            ->where('filters.topic', null));
+});
+
+test('the period follows the tenant being acted as', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-15 12:00:00', 'UTC'));
+
+    try {
+        $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
+        DB::table('teams')->where('id', $admin->current_team_id)->update(['timezone' => 'America/Los_Angeles']);
+        $tenant = Team::factory()->tenant()->create();
+        DB::table('teams')->where('id', $tenant->id)->update(['timezone' => 'Pacific/Auckland']);
+        app(TenantContext::class)->run($tenant->id, fn () => Brand::factory()->create());
+
+        $this->actingAs($admin)->withSession([
+            'acting_as' => [
+                'admin_id' => $admin->id,
+                'tenant_id' => $tenant->id,
+                'reason' => 'Support case 4711',
+                'started_at' => now()->toIso8601String(),
+            ],
+        ])->get('/dashboard')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('period.to', '2026-11-16'));
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
 });

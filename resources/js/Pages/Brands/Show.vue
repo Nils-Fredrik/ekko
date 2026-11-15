@@ -55,6 +55,17 @@ function when(value) {
         new Date(value),
     );
 }
+
+function shareText(share) {
+    if (share === null || share === undefined) {
+        return null;
+    }
+
+    return new Intl.NumberFormat(document.documentElement.lang || 'nb', {
+        style: 'percent',
+        maximumFractionDigits: 1,
+    }).format(share);
+}
 </script>
 
 <template>
@@ -125,7 +136,9 @@ function when(value) {
                             @change="apply"
                         >
                             <option value="">{{ $t('app.dashboard.all_intents') }}</option>
-                            <option v-for="item in options.intents" :key="item" :value="item">{{ item }}</option>
+                            <option v-for="item in options.intents" :key="item.value" :value="item.value">
+                                {{ item.label }}
+                            </option>
                         </select>
                     </label>
                 </div>
@@ -166,8 +179,9 @@ function when(value) {
                         <template v-else>
                             <VoiceChart class="mt-4" :parts="voice" />
                             <ul class="mt-3 flex flex-col gap-1 text-xs text-ink-soft">
-                                <li v-for="part in voice" :key="part.id">
-                                    {{ part.name }} · {{ $t('app.dashboard.n', { n: part.n }) }}
+                                <li v-for="part in voice" :key="part.id" :class="part.low_sample ? 'opacity-40' : ''">
+                                    {{ part.name }} · {{ shareText(part.share) ?? $t('app.dashboard.empty') }} ·
+                                    {{ $t('app.dashboard.n', { n: part.n }) }}
                                 </li>
                             </ul>
                         </template>
@@ -192,7 +206,7 @@ function when(value) {
                         {{ $t('app.dashboard.no_model_changes') }}
                     </p>
                     <ul v-else class="mt-3 flex flex-col gap-2 text-sm">
-                        <li v-for="change in modelChanges" :key="`${change.engine}-${change.changed_on}`">
+                        <li v-for="change in modelChanges" :key="`${change.engine_key}-${change.changed_on}`">
                             {{
                                 $t('app.dashboard.model_change', {
                                     engine: change.engine,
@@ -246,7 +260,9 @@ function when(value) {
                     {{ $t('app.dashboard.intent') }}
                     <select v-model="intent" class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink">
                         <option value="">{{ $t('app.dashboard.all_intents') }}</option>
-                        <option v-for="item in options.intents" :key="item" :value="item">{{ item }}</option>
+                        <option v-for="item in options.intents" :key="item.value" :value="item.value">
+                            {{ item.label }}
+                        </option>
                     </select>
                 </label>
                 <button

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
 use App\Metrics\MetricsService;
 use App\Models\Alert;
@@ -10,7 +11,6 @@ use App\Models\RunBatch;
 use App\Models\UsageMonthly;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -21,9 +21,9 @@ use Inertia\Response;
  */
 class HomeController extends Controller
 {
-    public function __invoke(Request $request, MetricsService $metrics): Response
+    public function __invoke(MetricsService $metrics): Response
     {
-        $period = DashboardPeriod::forUser($request->user(), 28);
+        $period = DashboardPeriod::forCurrentTenant(28);
 
         // A signed-in user without a current tenant (a personal team, or none) still reaches the
         // overview. It is empty until they are in a tenant. A role inside a tenant that may not
@@ -47,7 +47,7 @@ class HomeController extends Controller
             return [
                 'id' => $brand->id,
                 'name' => $brand->name,
-                'status' => $brand->status,
+                'status' => DashboardLabels::status($brand->status),
                 'markets' => $brand->markets->map(fn ($market) => $market->location_label ?: strtoupper($market->country))->all(),
                 'visibility' => $current->toArray(),
                 'previous_visibility' => $previous->toArray(),
@@ -76,7 +76,7 @@ class HomeController extends Controller
             ->map(fn (Alert $alert) => [
                 'id' => $alert->id,
                 'brand' => $alert->alertRule->brand->name,
-                'type' => $alert->alertRule->type,
+                'type' => DashboardLabels::alertType($alert->alertRule->type),
                 'triggered_at' => $alert->triggered_at->toIso8601String(),
             ])->all();
     }
@@ -89,7 +89,6 @@ class HomeController extends Controller
         return RunBatch::query()
             ->with('market.brand')
             ->where('scheduled_for', '>=', CarbonImmutable::now())
-            ->where('status', '!=', 'completed')
             ->orderBy('scheduled_for')
             ->limit(5)
             ->get()

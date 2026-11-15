@@ -4,7 +4,7 @@ namespace App\Dashboard;
 
 use App\Metrics\MetricsFilter;
 use App\Models\Team;
-use App\Models\User;
+use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 
 /**
@@ -25,9 +25,9 @@ final class DashboardPeriod
         public readonly string $previousTo,
     ) {}
 
-    public static function forUser(?User $user, int $days): self
+    public static function forCurrentTenant(int $days): self
     {
-        return self::endingToday($days, self::timezone($user));
+        return self::endingToday($days, self::timezone());
     }
 
     public static function endingToday(int $days, string $timezone): self
@@ -70,15 +70,19 @@ final class DashboardPeriod
         );
     }
 
-    private static function timezone(?User $user): string
+    /**
+     * The tenant in the context, including a platform admin acting as a tenant. The stored
+     * current_team_id is the admin's own team and is the wrong clock for that session.
+     */
+    private static function timezone(): string
     {
-        $teamId = $user?->current_team_id;
+        $tenantId = app(TenantContext::class)->id();
 
-        if (! is_int($teamId)) {
+        if (! is_int($tenantId)) {
             return 'Europe/Oslo';
         }
 
-        $timezone = Team::query()->whereKey($teamId)->value('timezone');
+        $timezone = Team::query()->whereKey($tenantId)->value('timezone');
 
         return is_string($timezone) && $timezone !== '' ? $timezone : 'Europe/Oslo';
     }

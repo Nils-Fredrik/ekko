@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
@@ -33,7 +34,7 @@ class BrandController extends Controller
         $brands = Brand::query()->with('markets')->orderBy('name')->get()->map(fn (Brand $brand) => [
             'id' => $brand->id,
             'name' => $brand->name,
-            'status' => $brand->status,
+            'status' => DashboardLabels::status($brand->status),
             'markets' => $brand->markets->map(fn ($market) => [
                 'id' => $market->id,
                 'label' => $market->location_label ?: strtoupper($market->country),
@@ -57,7 +58,7 @@ class BrandController extends Controller
         ]);
 
         $brand->load(['markets', 'topics', 'competitors']);
-        $period = DashboardPeriod::forUser($request->user(), (int) ($validated['days'] ?? 28));
+        $period = DashboardPeriod::forCurrentTenant((int) ($validated['days'] ?? 28));
         $selection = $this->selection($brand, $validated);
         $filter = $period->filter($brand->id, ...$selection);
         $previous = $period->filter($brand->id, ...$selection, previous: true);
@@ -67,7 +68,7 @@ class BrandController extends Controller
             'brand' => [
                 'id' => $brand->id,
                 'name' => $brand->name,
-                'status' => $brand->status,
+                'status' => DashboardLabels::status($brand->status),
             ],
             'period' => [
                 'days' => $period->days,
@@ -91,13 +92,7 @@ class BrandController extends Controller
             ], $metrics->series($filter)),
             'voice' => $this->voice($metrics, $filter, $brand),
             'engines' => $this->engines($metrics, $filter),
-            'modelChanges' => $metrics->modelChanges($period->from, $period->to, $selection['engineKeys'])
-                ->map(fn ($change) => [
-                    'engine' => $change->engine_key,
-                    'changed_on' => $change->changed_on->toDateString(),
-                    'from_model' => $change->from_model,
-                    'to_model' => $change->to_model,
-                ])->all(),
+            'modelChanges' => $this->modelChanges($metrics, $period, $selection['engineKeys']),
         ]);
     }
 
@@ -149,12 +144,13 @@ class BrandController extends Controller
     }
 
     /**
-     * @return array{markets: list<array{id: int, label: string}>, engines: list<array{key: string, name: string}>, topics: list<array{id: int, name: string}>, intents: list<string>}
+     * @return array{markets: list<array{id: int, label: string}>, engines: list<array{key: string, name: string}>, topics: list<array{id: int, name: string}>, intents: list<array{value: string, label: string}>}
      */
     private function options(Brand $brand): array
     {
         $marketIds = $brand->markets->pluck('id');
         $engineKeys = MarketEngine::query()->whereIn('market_id', $marketIds)->distinct()->orderBy('engine_key')->pluck('engine_key');
+        $engineLabels = DashboardLabels::engines($engineKeys->all());
 
         return [
             'markets' => $brand->markets->map(fn ($market) => [
@@ -163,7 +159,7 @@ class BrandController extends Controller
             ])->values()->all(),
             'engines' => $engineKeys->map(fn ($key) => [
                 'key' => $key,
-                'name' => $key,
+                'name' => $engineLabels[$key] ?? DashboardLabels::engine($key),
             ])->all(),
             'topics' => $brand->topics->map(fn ($topic) => ['id' => $topic->id, 'name' => $topic->name])->values()->all(),
             'intents' => Prompt::query()
@@ -172,6 +168,7 @@ class BrandController extends Controller
                 ->distinct()
                 ->orderBy('intent')
                 ->pluck('intent')
+                ->map(fn ($intent) => ['value' => $intent, 'label' => DashboardLabels::intent($intent)])
                 ->all(),
         ];
     }
@@ -195,12 +192,31 @@ class BrandController extends Controller
     private function engines(MetricsService $metrics, MetricsFilter $filter): array
     {
         $rows = $metrics->breakdown($filter, 'engine');
+        $labels = DashboardLabels::engines(array_keys($rows));
 
         return array_map(fn (string $key, MetricsSummary $summary) => [
             'key' => $key,
-            'name' => $key,
+            'name' => $labels[$key] ?? DashboardLabels::engine($key),
             'visibility' => $summary->visibility->toArray(),
             'share_of_voice' => $summary->shareOfVoice->toArray(),
         ], array_keys($rows), array_values($rows));
+    }
+
+    /**
+     * @param  list<string>  $engineKeys
+     * @return list<array{engine_key: string, engine: string, changed_on: string, from_model: string, to_model: string}>
+     */
+    private function modelChanges(MetricsService $metrics, DashboardPeriod $period, array $engineKeys): array
+    {
+        $changes = $metrics->modelChanges($period->from, $period->to, $engineKeys);
+        $labels = DashboardLabels::engines($changes->pluck('engine_key')->all());
+
+        return $changes->map(fn ($change) => [
+            'engine_key' => $change->engine_key,
+            'engine' => $labels[$change->engine_key] ?? DashboardLabels::engine($change->engine_key),
+            'changed_on' => $change->changed_on->toDateString(),
+            'from_model' => $change->from_model,
+            'to_model' => $change->to_model,
+        ])->all();
     }
 }
