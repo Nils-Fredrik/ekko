@@ -73,7 +73,9 @@ class GetPromptResults extends EkkoTool
                 'visibility_change' => $change,
             ];
         }
-        usort($rows, fn (array $a, array $b): int => [abs($b['visibility_change'] ?? -1), $a['prompt_id']] <=> [abs($a['visibility_change'] ?? -1), $b['prompt_id']]);
+        // Largest measured change first; prompts with figures in only one period (new or stopped) last.
+        usort($rows, fn (array $a, array $b): int => [$a['visibility_change'] === null, $b['visibility_change'] === null ? 0 : abs($b['visibility_change']), $a['prompt_id']]
+            <=> [$b['visibility_change'] === null, $a['visibility_change'] === null ? 0 : abs($a['visibility_change']), $b['prompt_id']]);
         $page = $this->page($rows, $request);
 
         return new ToolResult(

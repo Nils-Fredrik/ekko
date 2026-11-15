@@ -273,3 +273,39 @@ test('a market already over the plan limit can still be edited, but not grow', f
         ->and($this->w->p2->fresh()->is_active)->toBeFalse()
         ->and($grow['text'])->toBe(__('mcp.errors.plan_limit', ['limit' => 1]));
 });
+
+test('get_prompt_results puts measured changes first and prompts without a comparison last', function () {
+    $previous = now('Europe/Oslo')->subDays(40)->format('Y-m-d');
+    app(TenantContext::class)->run($this->w->tenant->id, function () use ($previous) {
+        // p1: 60 % now (beforeEach) against 50 % in the previous period. p2: only in the current period.
+        AggDaily::factory()->create([
+            'brand_id' => $this->w->brand->id, 'market_id' => $this->w->market->id, 'engine_key' => $this->w->engine->key,
+            'prompt_id' => $this->w->p1->id, 'date' => $previous, 'responses' => 10, 'brand_mentioned' => 5,
+        ]);
+        AggDaily::factory()->create([
+            'brand_id' => $this->w->brand->id, 'market_id' => $this->w->market->id, 'engine_key' => $this->w->engine->key,
+            'prompt_id' => $this->w->p2->id, 'date' => $this->day, 'responses' => 10, 'brand_mentioned' => 1,
+        ]);
+    });
+
+    $result = McpTestClient::call($this, adminToken($this), 'get_prompt_results', ['brand' => $this->w->brand->id]);
+
+    expect(array_column($result['data']['prompts'], 'prompt_id'))->toBe([$this->w->p1->id, $this->w->p2->id])
+        ->and($result['data']['prompts'][0]['visibility_change'])->toEqualWithDelta(0.1, 0.0001)
+        ->and($result['data']['prompts'][1]['visibility_change'])->toBeNull();
+});
+
+test('get_usage separates platform cost from costs on the tenant\'s own keys', function () {
+    app(TenantContext::class)->run($this->w->tenant->id, function () {
+        UsageEvent::factory()->create(['occurred_at' => now(), 'kind' => 'engine_call', 'engine_key' => $this->w->engine->key, 'calls' => 2, 'cost_usd' => 1.5, 'billed_to' => 'platform']);
+        UsageEvent::factory()->create(['occurred_at' => now(), 'kind' => 'engine_call', 'engine_key' => $this->w->engine->key, 'calls' => 3, 'cost_usd' => 4, 'billed_to' => 'byok']);
+    });
+
+    $result = McpTestClient::call($this, adminToken($this), 'get_usage');
+
+    expect($result['isError'])->toBeFalse($result['raw'])
+        ->and($result['data']['calls'])->toBe(5)
+        ->and($result['data']['platform_cost_usd'])->toEqual(1.5)
+        ->and($result['data']['byok_cost_usd'])->toEqual(4.0)
+        ->and($result['data']['month'])->toBe(now('UTC')->format('Y-m'));
+});
