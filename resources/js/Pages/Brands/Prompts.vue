@@ -112,6 +112,12 @@ function importCsv(event) {
                 <ul v-if="importResult?.errors?.length" class="text-sm text-error">
                     <li v-for="(error, index) in importResult.errors" :key="index">{{ error }}</li>
                 </ul>
+                <ul
+                    v-if="importResult?.warnings?.length"
+                    class="border-s-4 border-warning ps-3 text-sm text-shell-text"
+                >
+                    <li v-for="(warning, index) in importResult.warnings" :key="index">{{ warning }}</li>
+                </ul>
                 <p v-if="personalData" class="border-s-4 border-warning ps-3 text-sm text-shell-text">
                     {{ $t('app.library.personal_data') }}
                 </p>

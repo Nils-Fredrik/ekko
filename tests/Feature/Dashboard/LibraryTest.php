@@ -194,6 +194,22 @@ test('inline saves report duplicate text, and another brand in the tenant is not
         ->assertNotFound();
 });
 
+test('csv import shows a personal-data warning for the imported row', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\nSkriv til ola@example.test,NO\n"])
+        ->assertRedirect();
+
+    $this->actingAs($owner)->get(route('brands.prompts.index', $world->brand))
+        ->assertInertia(fn ($page) => $page->where(
+            'importResult.warnings.0',
+            __('app.library.personal_data_row', ['row' => 2]),
+        ));
+});
+
 test('reactivation and csv import count only active prompts against the plan', function () {
     $world = MetricsWorld::create();
     $world->tenant->forceFill(['plan_id' => Plan::factory()->create(['max_prompts_per_market' => 1])->id])->save();
