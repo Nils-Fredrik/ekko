@@ -57,7 +57,7 @@ test('monthly CSV reconciles exact usage, groups partner clients and excludes BY
         ->and($rows[0]['tenant_id'])->toBe((string) $client->id)
         ->and($rows[0]['plan'])->toBe('Fixture plan')->and($rows[0]['calls'])->toBe('7')
         ->and($rows[0]['platform_cost_usd'])->toBe('10.60000006')->and($rows[0]['byok_cost_usd'])->toBe('90.00000000')
-        ->and($rows[0]['cost_chatgpt_api_usd'])->toBe('10.30000003')->and($rows[0]['cost_other_usd'])->toBe('0.30000003')
+        ->and($rows[0]['cost_chatgpt_api_usd'])->toBe('10.30000003')->and($rows[0]['unassigned_cost_usd'])->toBe('0.30000003')
         ->and($rows[0]['invoice_total_usd'])->toBe('13.25')->and($rows[1]['invoice_total_usd'])->toBe('2.00')
         ->and($rows[2]['invoice_total_usd'])->toBe('3.30');
     $statement = app(BillingStatement::class);
@@ -72,6 +72,7 @@ test('missing markup is visible in preview and blocks CSV until an admin explici
     $this->actingAs($admin)->get('/admin/billing?month=2026-10')->assertInertia(fn (Assert $page) => $page->component('Admin/Billing')->has('rows', 1)->where('rows.0.invoice_total_usd', null));
     $this->getJson('/admin/billing/export?month=2026-10')->assertUnprocessable()->assertJsonValidationErrors('month');
     $this->from('/admin/billing?month=2026-10')->put('/admin/billing/'.$tenant->id.'/markup', ['markup_percent' => '0'])->assertRedirect('/admin/billing?month=2026-10');
+    $this->put('/admin/billing/'.$tenant->id.'/markup', ['markup_percent' => '0.0000'])->assertRedirect();
     expect($tenant->refresh()->billing_markup_percent)->toBe('0.0000')->and($tenant->toArray())->not->toHaveKey('billing_markup_percent');
     app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], fn () => expect(DB::table('activity_log')->where('event', 'billing.markup_changed')->count())->toBe(1)));
     $this->get('/admin/billing/export?month=2026-10')->assertOk();

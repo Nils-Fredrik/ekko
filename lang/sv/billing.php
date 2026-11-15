@@ -22,6 +22,7 @@ return [
     'missing_markup' => 'Ange påslag för alla rader före export. Ett tomt fält betyder ej fastställt; 0 är ett uttryckligt påslag på noll procent.',
     'invalid_month' => 'Välj en giltig månad i formatet ÅÅÅÅ-MM.',
     'csv' => [
+        'unassigned_cost_usd' => 'unassigned_cost_usd',
         'month' => 'month',
         'account_id' => 'account_id',
         'account_name' => 'account_name',

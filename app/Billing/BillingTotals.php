@@ -11,7 +11,7 @@ final class BillingTotals
 {
     /**
      * @param  iterable<array{engine_key: string|null, calls: int, cost_usd: string, billed_to: string}>  $events
-     * @return array{calls: int, platform_cost_usd: string, byok_cost_usd: string, engine_costs_usd: array<string, string>, markup_percent: string|null, markup_usd: string|null, invoice_total_usd: string|null}
+     * @return array{calls: int, platform_cost_usd: string, byok_cost_usd: string, unassigned_cost_usd: string, engine_costs_usd: array<string, string>, markup_percent: string|null, markup_usd: string|null, invoice_total_usd: string|null}
      */
     public static function summarize(iterable $events, ?string $markupPercent): array
     {
@@ -22,6 +22,7 @@ final class BillingTotals
         $platform = BigDecimal::zero();
         $byok = BigDecimal::zero();
         $engines = [];
+        $unassigned = BigDecimal::zero();
         $calls = 0;
         foreach ($events as $event) {
             $cost = BigDecimal::of($event['cost_usd']);
@@ -33,8 +34,12 @@ final class BillingTotals
                 $byok = $byok->plus($cost);
             } elseif ($event['billed_to'] === 'platform') {
                 $platform = $platform->plus($cost);
-                $key = $event['engine_key'] ?? 'other';
-                $engines[$key] = ($engines[$key] ?? BigDecimal::zero())->plus($cost);
+                $key = $event['engine_key'];
+                if ($key === null) {
+                    $unassigned = $unassigned->plus($cost);
+                } else {
+                    $engines[$key] = ($engines[$key] ?? BigDecimal::zero())->plus($cost);
+                }
             } else {
                 throw new InvalidArgumentException('Unknown billing account.');
             }
@@ -46,6 +51,7 @@ final class BillingTotals
             'calls' => $calls,
             'platform_cost_usd' => (string) $platform->toScale(8),
             'byok_cost_usd' => (string) $byok->toScale(8),
+            'unassigned_cost_usd' => (string) $unassigned->toScale(8),
             'engine_costs_usd' => array_map(fn (BigDecimal $amount) => (string) $amount->toScale(8), $engines),
             // Unknown A7 settings must not silently become a zero-percent invoice.
             'markup_percent' => $markup === null ? null : (string) $markup,

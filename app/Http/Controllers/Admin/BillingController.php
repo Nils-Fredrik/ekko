@@ -40,10 +40,14 @@ final class BillingController
         Gate::allowIf($request->user()?->is_platform_admin === true);
         abort_if($team->personal_team, 404);
         $data = $request->validate(['markup_percent' => ['present', 'nullable', 'numeric', 'decimal:0,4', 'min:0', 'max:99999.9999']]);
+        // ApplyTenantRls wraps this route in a transaction, so the row lock lasts through audit.
         $team = Team::query()->lockForUpdate()->findOrFail($team->id);
         $previous = $team->billing_markup_percent;
-        $team->forceFill(['billing_markup_percent' => $data['markup_percent']])->save();
-        $audit->billingMarkupChanged($request->user(), $team, $previous);
+        $team->forceFill(['billing_markup_percent' => $data['markup_percent']]);
+        if ($previous !== $team->billing_markup_percent) {
+            $team->save();
+            $audit->billingMarkupChanged($request->user(), $team, $previous);
+        }
 
         return back(303);
     }

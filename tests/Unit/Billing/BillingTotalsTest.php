@@ -13,7 +13,8 @@ test('billing reconciles all usage but invoices platform costs with exact decima
         'calls' => 7,
         'platform_cost_usd' => '0.31000003',
         'byok_cost_usd' => '99.00000000',
-        'engine_costs_usd' => ['claude_haiku' => '0.30000003', 'other' => '0.01000000'],
+        'unassigned_cost_usd' => '0.01000000',
+        'engine_costs_usd' => ['claude_haiku' => '0.30000003'],
         'markup_percent' => '25',
         'markup_usd' => '0.07750001',
         'invoice_total_usd' => '0.39',
@@ -30,4 +31,14 @@ test('missing markup remains incomplete while explicit zero is a valid configure
 test('invoice rounding happens once after exact markup calculation', function () {
     $events = [['engine_key' => 'test', 'calls' => 1, 'cost_usd' => '0.00499999', 'billed_to' => 'platform']];
     expect(BillingTotals::summarize($events, '0.00012')['invoice_total_usd'])->toBe('0.00');
+});
+
+test('a real engine named other remains separate from unassigned usage', function () {
+    $totals = BillingTotals::summarize([
+        ['engine_key' => 'other', 'calls' => 1, 'cost_usd' => '2', 'billed_to' => 'platform'],
+        ['engine_key' => null, 'calls' => 1, 'cost_usd' => '3', 'billed_to' => 'platform'],
+    ], '0');
+    expect($totals['engine_costs_usd'])->toBe(['other' => '2.00000000'])
+        ->and($totals['unassigned_cost_usd'])->toBe('3.00000000')
+        ->and($totals['invoice_total_usd'])->toBe('5.00');
 });

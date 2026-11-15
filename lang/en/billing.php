@@ -22,6 +22,7 @@ return [
     'missing_markup' => 'Set a markup for every line before exporting. An empty field means undecided; 0 explicitly sets zero percent.',
     'invalid_month' => 'Select a valid month in YYYY-MM format.',
     'csv' => [
+        'unassigned_cost_usd' => 'unassigned_cost_usd',
         'month' => 'month',
         'account_id' => 'account_id',
         'account_name' => 'account_name',
