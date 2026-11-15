@@ -26,4 +26,5 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0016](0016-mcp-server-og-oauth.md) | MCP-server med egen OAuth-server, tenantvalg og skrivetilgang | Akseptert |
 | [0017](0017-rest-api-token-og-kontrakt.md) | REST-API: tenantbundne tokens og avgrenset kontrakt | Foreslått |
 | [0019](0019-varsler.md) | Varsler: evaluering, døgnmelding, levering og kvittering | Foreslått |
+| [0020](0020-dispatch-og-worker.md) | Varig dispatch, køleverandører og worker | Foreslått |
 | [0021](0021-fakturagrunnlag.md) | Månedlig fakturagrunnlag, partnerlinjer og eksplisitt påslag | Foreslått |

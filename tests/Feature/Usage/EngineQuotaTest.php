@@ -17,6 +17,8 @@ use App\Models\Team;
 use App\Models\UsageEvent;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
+use App\Usage\MonthlyUsage;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\DB;
@@ -216,4 +218,37 @@ test('a disconnected worker retains its reservation until the grace period expir
     });
 
     Http::assertSentCount(1);
+});
+
+test('known billable usage survives a storage failure and a new provider attempt is charged separately', function () {
+    Http::preventStrayRequests()->fake(['https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'no-nb'))]);
+    $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['monthly_call_quota' => 2]))->create();
+    $engine = quotaEngine();
+    $raw = Mockery::mock(RawResponseStore::class);
+    $writes = 0;
+    $raw->expects('put')->twice()->andReturnUsing(function () use (&$writes, $tenant): string {
+        $writes++;
+        app(TenantRls::class)->run([$tenant->id], function () use ($tenant, $writes): void {
+            // A charged attempt must not also count as an outstanding quota reservation.
+            expect(app(MonthlyUsage::class)->forAdmission($tenant, CarbonImmutable::now())->calls)->toBe($writes);
+        });
+        if ($writes === 1) {
+            throw new RuntimeException('fixture_storage_failure');
+        }
+
+        return 'gs://fixture/retry.json';
+    });
+    app()->instance(RawResponseStore::class, $raw);
+    app(TenantContext::class)->run($tenant->id, function () use ($tenant, $engine): void {
+        $rls = app(TenantRls::class);
+        [$run] = $rls->run([$tenant->id], fn () => quotaRuns($engine));
+        $collector = app(EngineCollector::class);
+        expect(fn () => $collector->collect($run->id, 'synthetic-key'))->toThrow(RuntimeException::class, 'fixture_storage_failure');
+        $rls->run([$tenant->id], fn () => expect(UsageEvent::query()->count())->toBe(1));
+        $collector->collect($run->id, 'synthetic-key');
+        $rls->run([$tenant->id], function () use ($run): void {
+            expect(UsageEvent::query()->count())->toBe(2)->and($run->refresh()->attempts)->toBe(2)->and($run->response()->count())->toBe(1);
+        });
+    });
+    Http::assertSentCount(2);
 });
