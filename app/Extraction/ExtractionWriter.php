@@ -2,7 +2,6 @@
 
 namespace App\Extraction;
 
-use App\AnthropicBudget\Account;
 use App\Detection\DetectedMention;
 use App\Detection\DetectionCatalog;
 use App\Detection\DeterministicDetector;
@@ -119,6 +118,7 @@ final class ExtractionWriter
 
             UsageEvent::query()->create([
                 'run_id' => $response->run_id,
+                'anthropic_operation' => $outcome->budgetOperation,
                 'kind' => 'extraction',
                 'occurred_at' => CarbonImmutable::now('UTC'),
                 'calls' => 1,
@@ -128,7 +128,6 @@ final class ExtractionWriter
                 'cost_usd' => $this->cost->of($outcome),
                 'billed_to' => 'platform',
             ]);
-            app(Account::class)->settle('extract:r'.$response->id);
         }
     }
 

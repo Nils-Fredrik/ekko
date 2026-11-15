@@ -30,14 +30,23 @@ final class Dispatcher
 {
     public int $failures = 0;
 
+    private bool $budgetPlanned = false;
+
     public function __construct(private TenantContext $context, private TenantRls $rls, private EnginePricing $prices, private TenantApiKeys $keys, private MonthlyUsage $usage, private QuotaGuard $quota) {}
 
     /** Planning is idempotent per tenant-local date; enqueue and marker commit together in PostgreSQL. */
     public function dispatch(CarbonImmutable $now, bool $plan = true): int
     {
         $this->failures = 0;
+        $this->budgetPlanned = false;
         if ($plan) {
-            app(Planner::class)->plan($now);
+            try {
+                app(Planner::class)->plan($now);
+                $this->budgetPlanned = true;
+            } catch (Throwable $failure) {
+                $this->failures++;
+                Log::error('Anthropic budget planning failed; dispatching without additions.', ['error_type' => $failure::class]);
+            }
         }
         if (config('queue.connections.database.connection') !== null && config('queue.connections.database.connection') !== config('database.default')) {
             throw new RuntimeException('queue_must_share_tenant_connection');
@@ -122,7 +131,7 @@ final class Dispatcher
         $day = $now->setTimezone($tenant->timezone)->startOfDay();
         $candidates = [];
         $budget = app(Account::class);
-        $additions = $budget->configured() ? (AnthropicBudgetPlan::query()->where('day', $now->utc()->toDateString())->first()->additions ?? []) : [];
+        $additions = $this->budgetPlanned && $budget->configured() ? (AnthropicBudgetPlan::query()->where('day', $now->utc()->toDateString())->first()->additions ?? []) : [];
         foreach (Market::query()->where('is_active', true)->whereHas('brand', fn ($q) => $q->where('status', 'active'))->with(['marketEngines.engine', 'prompts' => fn ($q) => $q->where('is_active', true)->orderByRaw("CASE WHEN priority = 'core' THEN 0 ELSE 1 END")->orderBy('id')])->orderBy('id')->get() as $market) {
             $batch = RunBatch::query()->firstOrCreate(['market_id' => $market->id, 'dispatch_date' => $day->toDateString()], ['scheduled_for' => $day->utc(), 'status' => 'queued']);
             if (! $batch->wasRecentlyCreated) {
@@ -141,7 +150,7 @@ final class Dispatcher
                         $frequency = 'weekly';
                     }
                     $extra = array_values(array_filter($additions, fn ($item) => $item['prompt'] === $prompt->id && $item['engine'] === $key));
-                    $dailyExtra = count(array_filter($extra, fn ($item) => $item['kind'] === 'sonnet_daily')) > 0;
+                    $dailyExtra = $setting->frequency === 'daily' && $plan->maxFrequencyForEngine($key) === 'daily' && count(array_filter($extra, fn ($item) => $item['kind'] === 'sonnet_daily')) > 0;
                     if (! PromptSchedule::due($prompt->id, $frequency, $day) && ! $dailyExtra) {
                         continue;
                     }

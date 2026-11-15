@@ -4,6 +4,7 @@ namespace App\AnthropicBudget;
 
 use App\Engines\EnginePricing;
 use App\Engines\EngineResult;
+use App\Models\UsageEvent;
 use Carbon\CarbonImmutable;
 
 final class Estimator
@@ -17,12 +18,21 @@ final class Estimator
         )));
     }
 
-    public function extraction(int $inputBytes = 12000, bool $batch = true): int
+    public function expectedExtraction(CarbonImmutable $at): int
+    {
+        $mean = UsageEvent::query()->where('kind', 'extraction')->where('billed_to', 'platform')
+            ->where('occurred_at', '>=', $at->subDays(14))->where('occurred_at', '<', $at)
+            ->selectRaw('sum(cost_usd) / nullif(sum(calls), 0) AS mean')->value('mean');
+
+        return $mean === null ? $this->extraction(3000, true, 800) : Money::units((string) $mean);
+    }
+
+    public function extraction(int $inputBytes = 12000, bool $batch = true, ?int $outputTokens = null): int
     {
         // One token per byte is deliberately conservative for mixed-language input.
         $input = Money::units((string) config('ekko.anthropic.extraction.input_usd_per_mtok'));
         $output = Money::units((string) config('ekko.anthropic.extraction.output_usd_per_mtok'));
-        $cost = (int) ceil(($input * $inputBytes + $output * (int) config('ekko.anthropic.extraction.max_tokens')) / 1_000_000);
+        $cost = (int) ceil(($input * $inputBytes + $output * ($outputTokens ?? (int) config('ekko.anthropic.extraction.max_tokens'))) / 1_000_000);
 
         return $batch ? (int) ceil($cost * (float) config('ekko.anthropic.extraction.batch_price_factor')) : $cost;
     }

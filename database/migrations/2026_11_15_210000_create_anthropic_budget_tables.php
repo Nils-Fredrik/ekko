@@ -12,6 +12,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::table('usage_events', fn (Blueprint $table) => $table->string('anthropic_operation')->nullable());
         // Platform-wide account state, without tenant content or credentials (ADR 0023).
         Schema::create('anthropic_budget_cycles', function (Blueprint $table): void {
             $table->date('cycle_start')->primary();
@@ -20,17 +21,21 @@ return new class extends Migration
             $table->timestampTz('planned_at')->nullable();
         });
         Schema::create('anthropic_credit_spend', function (Blueprint $table): void {
-            $table->unsignedBigInteger('usage_event_id')->primary();
+            $table->string('entry')->primary();
             $table->timestampTz('occurred_at')->index();
             $table->decimal('cost_usd', 16, 8);
         });
         app(TenantRls::class)->run(Team::query()->pluck('id')->all(), function (): void {
-            DB::statement("INSERT INTO anthropic_credit_spend (usage_event_id, occurred_at, cost_usd) SELECT id, occurred_at, cost_usd FROM usage_events WHERE billed_to = 'platform' AND (engine_key IN ('claude_haiku', 'claude_sonnet') OR kind IN ('extraction', 'onboarding'))");
+            DB::statement("INSERT INTO anthropic_credit_spend (entry, occurred_at, cost_usd) SELECT 'usage:' || id, occurred_at, cost_usd FROM usage_events WHERE billed_to = 'platform' AND (engine_key IN ('claude_haiku', 'claude_sonnet') OR kind IN ('extraction', 'onboarding'))");
         });
         Schema::create('anthropic_budget_holds', function (Blueprint $table): void {
             $table->string('operation');
             $table->date('cycle_start');
             $table->primary(['cycle_start', 'operation']);
+            $table->timestampTz('settled_at')->nullable();
+            $table->string('provider_batch_id')->nullable();
+            $table->string('custom_id')->nullable();
+            $table->index(['provider_batch_id', 'custom_id']);
             $table->decimal('cost_usd', 16, 8);
         });
         Schema::create('anthropic_budget_plans', function (Blueprint $table): void {
@@ -58,6 +63,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        Schema::table('usage_events', fn (Blueprint $table) => $table->dropColumn('anthropic_operation'));
         TenantSchema::disableRowLevelSecurity('anthropic_budget_plans');
         Schema::dropIfExists('anthropic_budget_plans');
         Schema::dropIfExists('anthropic_budget_holds');

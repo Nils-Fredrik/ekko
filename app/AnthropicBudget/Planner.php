@@ -33,6 +33,9 @@ final class Planner
             $cycle = $this->account->cycle($now);
             $days = $cycle->daysLeft($now);
             $day = $now->utc()->toDateString();
+            if (DB::table('anthropic_budget_cycles')->where('cycle_start', $cycle->start->toDateString())->whereDate('planned_at', $day)->exists()) {
+                return;
+            }
             $baseline = 0;
             $offers = [];
             $tenants = Team::query()->where('personal_team', false)->where('status', TenantStatus::Active->value)->with('plan')->orderBy('id')->get();
@@ -44,8 +47,8 @@ final class Planner
             // Rotate ties daily across tenants. Variance has priority only within the repetition tier.
             usort($offers, fn ($a, $b) => ($a['tier'] <=> $b['tier']) ?: ($b['variance'] <=> $a['variance']) ?: ($a['repetition'] <=> $b['repetition']) ?: (strcmp(hash('sha256', $day.$a['key']), hash('sha256', $day.$b['key']))));
             $spent = $this->account->spent($cycle);
-            $held = Money::units((string) DB::table('anthropic_budget_holds')->where('cycle_start', $cycle->start->toDateString())->sum('cost_usd'));
-            $forecast = app(Allocator::class)->allocate($this->account->pool(), $spent + $held, $baseline, $days, $offers, $this->account->exhausted($cycle));
+            $held = Money::units((string) DB::table('anthropic_budget_holds')->where('cycle_start', $cycle->start->toDateString())->whereNull('settled_at')->sum('cost_usd'));
+            $forecast = app(Allocator::class)->allocate($this->account->pool(), $spent, $baseline, $days, $offers, $this->account->exhausted($cycle), $held);
             foreach ($tenants as $tenant) {
                 $additions = array_values(array_filter($forecast['additions'], fn ($offer) => $offer['tenant'] === $tenant->id));
                 $this->context->run($tenant->id, fn () => $this->rls->run([$tenant->id], function () use ($additions, $day, $cycle): void {
@@ -79,6 +82,7 @@ final class Planner
         if ($plan === null) {
             return compact('baseline', 'offers');
         }
+        $extractionCost = $this->estimator->expectedExtraction($now);
         $local = $now->setTimezone($tenant->timezone)->startOfDay();
         foreach (Market::query()->where('is_active', true)->whereHas('brand', fn ($q) => $q->where('status', 'active'))->with(['marketEngines.engine', 'prompts' => fn ($q) => $q->where('is_active', true)])->get() as $market) {
             $sonnet = $market->marketEngines->firstWhere('engine_key', 'claude_sonnet');
@@ -101,7 +105,7 @@ final class Planner
                         $frequency = 'weekly';
                     }
                     $repetitions = min(3, $setting->repetitions, $plan->max_repetitions);
-                    $cost = $this->estimator->extraction();
+                    $cost = $extractionCost;
                     if ($claude) {
                         $cost += $this->estimator->engine($key, $now);
                     }
@@ -115,7 +119,7 @@ final class Planner
                     }
                     $offer = ['key' => $tenant->id.':'.$prompt->id.':'.$key, 'tenant' => $tenant->id, 'prompt' => $prompt->id, 'engine' => $key, 'cost' => $cost, 'repetition' => 1, 'variance' => 0.0];
                     $due = PromptSchedule::due($prompt->id, $frequency, $local);
-                    if ($key === 'claude_sonnet' && $core && ! $due && $plan->maxFrequencyForEngine($key) === 'daily') {
+                    if ($key === 'claude_sonnet' && $setting->frequency === 'daily' && $core && ! $due && $plan->maxFrequencyForEngine($key) === 'daily') {
                         $offers[] = array_replace($offer, ['kind' => 'sonnet_daily', 'tier' => 1, 'cost' => $cost * $repetitions]);
                     }
                     if (! $due || $repetitions >= min(3, $plan->max_repetitions)) {

@@ -13,5 +13,6 @@ final class ExtractionOutcome
         public readonly int $outputTokens,
         public readonly bool $viaBatch,
         public readonly ?string $errorType = null,
+        public readonly ?string $budgetOperation = null,
     ) {}
 }

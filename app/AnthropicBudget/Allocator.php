@@ -15,13 +15,13 @@ final class Allocator
      * @param  list<TOffer>  $offers
      * @return array{spent: int, forecast: int, buffer: int, available: int, reduced: bool, additions: list<TOffer>}
      */
-    public function allocate(int $pool, int $spent, int $baselineRemaining, int $daysLeft, array $offers, bool $exhausted = false): array
+    public function allocate(int $pool, int $spent, int $baselineRemaining, int $daysLeft, array $offers, bool $exhausted = false, int $held = 0): array
     {
         if (min($pool, $spent, $baselineRemaining) < 0 || $daysLeft < 1) {
             throw new InvalidArgumentException('Invalid budget forecast.');
         }
         $buffer = $daysLeft > 3 ? intdiv($baselineRemaining + 9, 10) : 0;
-        $forecast = $spent + $baselineRemaining + $buffer;
+        $forecast = $spent + $held + $baselineRemaining + $buffer;
         $available = max(0, $pool - $forecast);
         $reduced = $exhausted || $spent >= intdiv($pool * 95, 100);
         $daily = intdiv($available, $daysLeft);

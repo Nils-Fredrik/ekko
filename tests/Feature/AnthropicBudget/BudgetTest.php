@@ -1,18 +1,15 @@
 <?php
 
 use App\AnthropicBudget\Account;
-use App\AnthropicBudget\BudgetedExtractionClient;
-use App\AnthropicBudget\CreditExhausted;
-use App\AnthropicBudget\Estimator;
 use App\AnthropicBudget\Money;
+use App\AnthropicBudget\Planner;
 use App\Engines\Adapters\ClaudeHaikuAdapter;
+use App\Engines\EngineCallFailed;
 use App\Engines\EngineCollector;
 use App\Engines\EngineRequest;
 use App\Engines\RawResponseStore;
-use App\Extraction\AnthropicExtractionClient;
-use App\Extraction\ExtractionRequest;
-use App\Jobs\SubmitExtractionBatch;
 use App\Models\AnthropicBudgetPlan;
+use App\Models\AnthropicInsightAllocation;
 use App\Models\Engine;
 use App\Models\EnginePrice;
 use App\Models\Market;
@@ -31,7 +28,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\Support\Engines\EngineFixtures;
-use Tests\Support\Extraction\FakeHttpClient;
 
 function inAnthropicTenant(Team $tenant, callable $callback): mixed
 {
@@ -82,54 +78,35 @@ test('the provider credit error changes only the platform account and contains n
     Http::assertSentCount(2);
 });
 
-test('planning feeds additional Sonnet calls into idempotent dispatch and isolates tenant plans', function () {
+test('planning respects the selected Sonnet frequency and isolates idempotent tenant plans', function (string $frequency, bool $additional) {
     $engine = Engine::factory()->create(['key' => 'claude_sonnet', 'provider' => 'anthropic', 'is_enabled' => true]);
     EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subYear(), 'price_per_call_usd' => '0.02']);
     $plan = Plan::factory()->create(['allowed_engines' => ['claude_sonnet'], 'max_repetitions' => 3]);
     $tenant = Team::factory()->tenant()->withPlan($plan)->create();
-    $prompt = inAnthropicTenant($tenant, function () use ($engine) {
+    $prompt = inAnthropicTenant($tenant, function () use ($engine, $frequency) {
         $market = Market::factory()->create(['is_active' => true]);
         $market->brand->update(['status' => 'active']);
-        MarketEngine::factory()->for($market)->for($engine)->create(['frequency' => 'weekly', 'repetitions' => 1]);
+        MarketEngine::factory()->for($market)->for($engine)->create(['frequency' => $frequency, 'repetitions' => 1]);
 
         return Prompt::factory()->for($market)->create(['is_active' => true, 'priority' => 'core']);
     });
-    while (PromptSchedule::due($prompt->id, 'weekly', CarbonImmutable::now()->setTimezone($tenant->timezone))) {
+    while (PromptSchedule::due($prompt->id, 'weekly', CarbonImmutable::now()->setTimezone($tenant->timezone)) || PromptSchedule::due($prompt->id, 'monthly', CarbonImmutable::now()->setTimezone($tenant->timezone))) {
         $this->travel(1)->days();
     }
-    expect(app(Dispatcher::class)->dispatch(CarbonImmutable::now('UTC')))->toBe(1);
+    expect(app(Dispatcher::class)->dispatch(CarbonImmutable::now('UTC')))->toBe($additional ? 1 : 0);
     expect(app(Dispatcher::class)->dispatch(CarbonImmutable::now('UTC')))->toBe(0);
-    inAnthropicTenant($tenant, function () {
-        expect(Run::query()->count())->toBe(1)->and(Run::query()->sole()->engine_key)->toBe('claude_sonnet')
+    inAnthropicTenant($tenant, function () use ($additional) {
+        expect(Run::query()->count())->toBe($additional ? 1 : 0)
             ->and(AnthropicBudgetPlan::query()->count())->toBe(1);
     });
     $other = Team::factory()->tenant()->create();
     inAnthropicTenant($other, fn () => expect(AnthropicBudgetPlan::query()->count())->toBe(0));
-});
+})->with([['daily', true], ['weekly', false], ['monthly', false]]);
 
 test('admin usage is available only to the platform admin and has translated budget state', function () {
     $user = User::factory()->platformAdmin()->withPersonalTeam()->withTwoFactor()->create();
     $this->actingAs($user)->get(route('admin.usage'))->assertOk()->assertInertia(fn (Assert $page) => $page->component('Admin/Usage')->where('anthropic.pool_usd', '100.00000000'));
     $this->actingAs(User::factory()->withPersonalTeam()->create())->get(route('admin.usage'))->assertForbidden();
-});
-
-test('pending extraction reserves the shared account and a credit rejection survives the job rollback', function () {
-    config(['services.anthropic.key' => 'synthetic-key']);
-    $http = new FakeHttpClient(['POST /v1/messages/batches' => [200, FakeHttpClient::batch('in_progress')]]);
-    $inner = AnthropicExtractionClient::fromConfig($http);
-    $client = new BudgetedExtractionClient($inner, app(Account::class), app(Estimator::class));
-    expect($client->createBatch([new ExtractionRequest('r1', 'System', 'Synthetic answer')]))->toBe('msgbatch_1');
-    expect(DB::table('anthropic_budget_holds')->where('operation', 'extract:r1')->exists())->toBeTrue();
-    config(['ekko.anthropic.monthly_pool_usd' => '0.0001']);
-    expect(fn () => $client->createBatch([new ExtractionRequest('r2', 'System', 'Synthetic answer')]))->toThrow('anthropic_budget_unavailable');
-    expect($http->requests)->toHaveCount(1);
-    config(['ekko.anthropic.monthly_pool_usd' => '100']);
-    $failedHttp = new FakeHttpClient(['POST /v1/messages/batches' => [400, json_encode(['type' => 'error', 'error' => ['type' => 'invalid_request_error', 'message' => 'Your credit balance is too low to access the Anthropic API.']], JSON_THROW_ON_ERROR)]]);
-    $failed = new BudgetedExtractionClient(AnthropicExtractionClient::fromConfig($failedHttp), app(Account::class), app(Estimator::class));
-    expect(fn () => DB::transaction(fn () => $failed->createBatch([new ExtractionRequest('r3', 'System', 'Synthetic answer')])))->toThrow(CreditExhausted::class);
-    expect(app(Account::class)->summary()['exhausted'])->toBeFalse();
-    (new SubmitExtractionBatch(1))->failed(new CreditExhausted);
-    expect(app(Account::class)->summary()['exhausted'])->toBeTrue();
 });
 
 test('reduced mode skips standard prompts before HTTP while a core Haiku run settles real usage', function () {
@@ -156,5 +133,97 @@ test('reduced mode skips standard prompts before HTTP while a core Haiku run set
     });
     Http::assertSentCount(1);
     inAnthropicTenant($tenant, fn () => expect($standard->fresh()->status)->toBe('skipped_quota')->and($core->fresh()->status)->toBe('collected'));
-    expect(DB::table('anthropic_budget_holds')->count())->toBe(0)->and(app(Account::class)->summary()['spent_usd'])->toBe('95.02000000');
+    expect(DB::table('anthropic_budget_holds')->whereNull('settled_at')->count())->toBe(0)->and(app(Account::class)->summary()['spent_usd'])->toBe('95.02000000');
 });
+
+test('the real planner and shared account consume a full thirty-day allocation for twelve synthetic brands', function () {
+    config(['ekko.anthropic.monthly_pool_usd' => '500']);
+    $haiku = Engine::factory()->create(['key' => 'claude_haiku', 'provider' => 'anthropic', 'is_enabled' => true]);
+    $sonnet = Engine::factory()->create(['key' => 'claude_sonnet', 'provider' => 'anthropic', 'is_enabled' => true]);
+    foreach ([[$haiku, '0.02'], [$sonnet, '0.04']] as [$engine, $cost]) {
+        EnginePrice::factory()->for($engine)->create(['valid_from' => '2026-01-01', 'price_per_call_usd' => $cost]);
+    }
+    $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['allowed_engines' => ['claude_haiku', 'claude_sonnet'], 'monthly_call_quota' => null]))->create(['timezone' => 'UTC']);
+    $prompts = inAnthropicTenant($tenant, function () use ($haiku, $sonnet) {
+        foreach (range(1, 12) as $brand) {
+            $market = Market::factory()->create(['is_active' => true]);
+            $market->brand->update(['status' => 'active']);
+            MarketEngine::factory()->for($market)->for($haiku)->create(['frequency' => 'daily', 'repetitions' => 1]);
+            MarketEngine::factory()->for($market)->for($sonnet)->create(['frequency' => 'daily', 'prompt_scope' => 'core', 'repetitions' => 1]);
+            Prompt::factory()->for($market)->count(30)->create(['is_active' => true, 'priority' => 'core']);
+        }
+
+        return Prompt::query()->pluck('id')->all();
+    });
+    $account = app(Account::class);
+    foreach (range(0, 29) as $day) {
+        $now = CarbonImmutable::parse('2026-11-15T01:00:00Z')->addDays($day);
+        $this->travelTo($now);
+        app(Planner::class)->plan($now);
+        inAnthropicTenant($tenant, function () use ($account, $prompts, $now, $day) {
+            $extras = AnthropicBudgetPlan::query()->where('day', $now->toDateString())->sole()->additions;
+            $sonnetCalls = count(array_filter($prompts, fn ($id) => PromptSchedule::due($id, 'weekly', $now))) + count(array_filter($extras, fn ($offer) => $offer['kind'] === 'sonnet_daily'));
+            foreach ([['claude_haiku', 360, '0.02', true], ['claude_sonnet', $sonnetCalls, '0.04', false]] as [$engine, $calls, $price, $core]) {
+                if ($calls === 0) {
+                    continue;
+                }
+                $cost = Money::units($price) * $calls;
+                $extraction = Money::units('0.00035') * $calls;
+                $operation = 'simulation:'.$engine.':'.$day;
+                if (! $account->reserve($operation, $cost + $extraction, $core)) {
+                    continue;
+                }
+                UsageEvent::factory()->create(['kind' => 'engine_call', 'engine_key' => $engine, 'calls' => $calls, 'cost_usd' => Money::usd($cost), 'billed_to' => 'platform', 'occurred_at' => $now]);
+                UsageEvent::factory()->create(['kind' => 'extraction', 'engine_key' => null, 'calls' => $calls, 'cost_usd' => Money::usd($extraction), 'billed_to' => 'platform', 'occurred_at' => $now]);
+                $account->settle($operation);
+            }
+            foreach (AnthropicInsightAllocation::query()->whereNull('consumed_at')->get() as $insight) {
+                UsageEvent::factory()->create(['kind' => 'pdf', 'engine_key' => 'claude_sonnet', 'cost_usd' => $insight->cost_usd, 'billed_to' => 'platform', 'occurred_at' => $now]);
+                $insight->update(['consumed_at' => $now]);
+                $account->settle('insight:'.$insight->brand_id.':'.$insight->cycle_start->toDateString());
+            }
+        });
+        expect($account->spent($account->cycle()))->toBeLessThanOrEqual(Money::units('500'));
+    }
+    $used = $account->spent($account->cycle());
+    expect($used)->toBeGreaterThanOrEqual(Money::units('450'))->toBeLessThanOrEqual(Money::units('500'));
+});
+
+test('a failed credit plan does not stop other providers from being dispatched', function () {
+    config(['ekko.anthropic.monthly_pool_usd' => 'invalid-configuration']);
+    $engine = Engine::factory()->create(['key' => 'chatgpt_api', 'provider' => 'openai', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subYear()]);
+    $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['allowed_engines' => ['chatgpt_api']]))->create();
+    inAnthropicTenant($tenant, function () use ($engine) {
+        $market = Market::factory()->create(['is_active' => true]);
+        $market->brand->update(['status' => 'active']);
+        MarketEngine::factory()->for($market)->for($engine)->create(['frequency' => 'daily']);
+        Prompt::factory()->for($market)->create(['is_active' => true]);
+    });
+    $dispatcher = app(Dispatcher::class);
+    expect($dispatcher->dispatch(CarbonImmutable::now('UTC')))->toBe(1)->and($dispatcher->failures)->toBe(1);
+});
+
+test('known collection rejection releases capacity while unknown transport failure retains it', function (bool $known) {
+    $engine = Engine::factory()->create(['key' => 'claude_haiku', 'provider' => 'anthropic', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subYear(), 'price_per_call_usd' => '0.02']);
+    $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['allowed_engines' => ['claude_haiku']]))->create();
+    $run = inAnthropicTenant($tenant, function () use ($engine) {
+        $run = Run::factory()->for($engine)->create();
+        $run->prompt->update(['priority' => 'core']);
+
+        return $run;
+    });
+    config(['services.anthropic.key' => 'synthetic-key']);
+    Http::preventStrayRequests()->fake(['api.anthropic.com/*' => $known ? Http::response(['error' => ['type' => 'authentication_error']], 401) : Http::failedConnection()]);
+    $raw = Mockery::mock(RawResponseStore::class);
+    $raw->shouldNotReceive('put');
+    app()->instance(RawResponseStore::class, $raw);
+    try {
+        app(TenantContext::class)->run($tenant->id, fn () => app(EngineCollector::class)->collect($run->id));
+        $this->fail('A failed provider response must not succeed');
+    } catch (EngineCallFailed $failure) {
+        expect($failure->errorCode)->toBe($known ? 'anthropic_http_401' : 'anthropic_connection_failed');
+    }
+    expect(DB::table('anthropic_budget_holds')->whereNull('settled_at')->count())->toBe($known ? 0 : 1);
+})->with([true, false]);

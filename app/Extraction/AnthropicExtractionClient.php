@@ -58,7 +58,7 @@ final class AnthropicExtractionClient implements ExtractionClient
                 yield $this->outcome($row->customID, $result->message, true);
             } else {
                 if ($result instanceof MessageBatchErroredResult && str_contains(strtolower($result->error->error->message), 'credit balance is too low')) {
-                    app(Account::class)->markExhausted();
+                    Account::independent()->markExhausted();
                 }
                 $type = $result instanceof MessageBatchErroredResult ? $result->error->error->type : $result->type;
                 yield new ExtractionOutcome($row->customID, false, null, 0, 0, true, $type);

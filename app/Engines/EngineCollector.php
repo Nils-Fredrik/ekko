@@ -88,6 +88,12 @@ final readonly class EngineCollector
                     fn () => $this->settle($runId, $reservation, $result, $collectedAt, $rawUri),
                 );
             } catch (Throwable $failure) {
+                if ($failure instanceof EngineCallFailed && (preg_match('/^anthropic_http_[45][0-9]{2}$/', $failure->errorCode) || in_array($failure->errorCode, ['anthropic_credits_exhausted', 'anthropic_missing_api_key'], true))) {
+                    $this->rls->run([$tenantId], function () use ($runId): void {
+                        $attempt = Run::query()->whereKey($runId)->value('attempts');
+                        app(Account::class)->settle('run:'.$runId.':'.$attempt);
+                    });
+                }
                 try {
                     $this->rls->run([$tenantId], fn () => $this->reservations->releaseIfOwned($runId, $reservation->token));
                 } catch (Throwable $releaseFailure) {

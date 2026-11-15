@@ -11,7 +11,7 @@ final class AnthropicSpendObserver
     public function created(UsageEvent $event): void
     {
         if ($event->billed_to === 'platform' && (in_array($event->engine_key, ['claude_haiku', 'claude_sonnet'], true) || in_array($event->kind, ['extraction', 'onboarding'], true))) {
-            DB::table('anthropic_credit_spend')->insertOrIgnore(['usage_event_id' => $event->id, 'occurred_at' => $event->occurred_at, 'cost_usd' => $event->cost_usd]);
+            DB::table('anthropic_credit_spend')->insertOrIgnore(['entry' => $event->anthropic_operation ?? 'usage:'.$event->id, 'occurred_at' => $event->occurred_at, 'cost_usd' => $event->cost_usd]);
         }
     }
 }
