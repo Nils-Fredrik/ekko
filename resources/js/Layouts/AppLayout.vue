@@ -300,6 +300,14 @@ const logout = () => {
                     >
                         {{ $t('Team Settings') }}
                     </Link>
+                    <Link
+                        v-if="$page.props.jetstream.canCreateTeams"
+                        :href="route('teams.create')"
+                        class="block rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('Create New Team') }}
+                    </Link>
                 </div>
 
                 <div class="border-t border-line-soft py-3">
