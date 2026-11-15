@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Engines\EngineRegistry;
+use App\Engines\GcsRawResponseStore;
+use App\Engines\RawResponseStore;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
@@ -18,6 +21,8 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(TenantContext::class);
         $this->app->scoped(ActingAs::class);
         $this->app->scoped(TenantAccess::class);
+        $this->app->scoped(EngineRegistry::class, EngineRegistry::discover(...));
+        $this->app->bind(RawResponseStore::class, GcsRawResponseStore::class);
     }
 
     /**

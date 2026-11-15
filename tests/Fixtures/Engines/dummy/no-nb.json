@@ -1,0 +1,18 @@
+{
+    "answer": "Eksempelmerket har en modell for dette behovet.",
+    "model": "dummy-1",
+    "usage": {
+        "input_tokens": 120,
+        "output_tokens": 50,
+        "search_calls": 2
+    },
+    "sources": [
+        {
+            "url": "https://example.test/model",
+            "title": "Eksempel",
+            "rank": 1,
+            "from_annotation": true
+        }
+    ],
+    "provider_trace": "synthetic"
+}
