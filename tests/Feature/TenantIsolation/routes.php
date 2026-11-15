@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Alert;
 use App\Models\Brand;
 use App\Models\Market;
 use App\Models\Prompt;
@@ -156,6 +157,26 @@ return [
             return ['data' => ['market_id' => $id, 'engines' => [['engine_key' => 'chatgpt_ui', 'frequency' => 'daily']]]];
         },
         own: fn (Scenario $s) => ['data' => ['prompt_count' => 10, 'engines' => [['engine_key' => 'chatgpt_ui', 'frequency' => 'daily']]]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    // Acknowledging an alert is the tenant admin's (alert rights, docs/spec.md 5.2). Addressed by id.
+    'alerts.acknowledge' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantB->id,
+                fn () => Alert::factory()->create()->id,
+            );
+
+            return ['params' => ['alert' => $id]];
+        },
+        own: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantA->id,
+                fn () => Alert::factory()->create()->id,
+            );
+
+            return ['params' => ['alert' => $id]];
+        },
         deniedRoles: ['editor', 'reader'],
     ),
     'GET api/user' => RouteAccess::user(),

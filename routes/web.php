@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ActingAsController;
+use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\BotLogUploadController;
 use App\Http\Controllers\BrandController;
@@ -29,6 +30,10 @@ Route::middleware([
     Route::get('/dashboard', HomeController::class)->name('dashboard');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+    Route::post('/alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
+
+    Route::get('/teams/{team}/bot-log-uploads', [BotLogUploadController::class, 'index'])->name('bot-log-uploads.index');
+    Route::post('/brands/{brand}/bot-log-uploads', [BotLogUploadController::class, 'store'])->name('bot-log-uploads.store');
 
     // The onboarding wizard's backend (docs/spec.md 13, ADR 0018): proposals as JSON, nothing is saved.
     Route::prefix('onboarding')->name('onboarding.')->group(function () {
@@ -43,8 +48,6 @@ Route::middleware([
     Route::post('/brands/{brand}/market-proposals', [OnboardingController::class, 'storeMarketAnalysis'])
         ->middleware('throttle:onboarding')
         ->name('brands.market-proposals.store');
-    Route::get('/teams/{team}/bot-log-uploads', [BotLogUploadController::class, 'index'])->name('bot-log-uploads.index');
-    Route::post('/brands/{brand}/bot-log-uploads', [BotLogUploadController::class, 'store'])->name('bot-log-uploads.store');
 
     // Platform admin: act as a tenant (docs/spec.md 5.2). Starting needs a confirmed password.
     Route::post('/admin/acting-as/{team}', [ActingAsController::class, 'store'])
