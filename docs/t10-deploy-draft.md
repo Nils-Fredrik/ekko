@@ -18,7 +18,12 @@ to be implemented as those flows become available.
 Before enabling the workflow, validate both Docker targets and their runtime
 commands in a container environment. Review and apply Terraform separately,
 verify the WIF identity and all scoped permissions in an isolated GCP project,
-and set `GCP_WORKLOAD_IDENTITY_PROVIDER` from its output. Bootstrap secret
+and set `GCP_WORKLOAD_IDENTITY_PROVIDER` from its output. The WIF condition
+requires the ordinary `.github/workflows/ci.yml` workflow on `main` via
+`workflow_ref`. If deployment is moved to a reusable workflow, revisit the
+condition and test the `job_workflow_ref` claim before enabling it. See the
+[GitHub OIDC claim reference](https://docs.github.com/en/actions/reference/security/oidc)
+and [reusable workflow guidance](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-with-reusable-workflows). Bootstrap secret
 versions, database users, initial images, public access and workloads according
 to `infra/terraform/README.md`. Pin traffic to tested revisions before any
 infrastructure update; the preflight rejects LATEST, missing and partial traffic
@@ -37,7 +42,4 @@ is still required. There has been no live deployment, real GCP plan, image build
 or production traffic test in this branch. Worker updates can fail after web
 promotion; recovery for this partial state must be exercised before activation.
 
-For a reviewed rollback after activation, identify a previously verified,
-backward-compatible revision and use `PROJECT_ID=... REGION=... scripts/rollback-traffic.sh ekko-web-REVISION`.
-This moves web traffic only; it does not roll back database migrations or job
-images. Determine and restore those separately when necessary.
+See `docs/runbook.md` for the reviewed traffic rollback procedure.

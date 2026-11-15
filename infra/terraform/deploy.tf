@@ -1,4 +1,4 @@
-# GitHub can impersonate CI only from the protected main branch of this repository.
+# GitHub can impersonate CI only from the designated main-branch workflow.
 resource "google_iam_workload_identity_pool" "github" {
   workload_identity_pool_id = "ekko-github"
   display_name              = "Ekko GitHub Actions"
@@ -12,7 +12,7 @@ resource "google_iam_workload_identity_pool_provider" "github" {
     "google.subject"          = "assertion.sub"
     "attribute.repository_id" = "assertion.repository_id"
   }
-  attribute_condition = "assertion.repository_id == '1456601992' && assertion.repository_owner_id == '1542112' && assertion.ref == 'refs/heads/main' && assertion.event_name == 'push'"
+  attribute_condition = "assertion.repository_id == '1456601992' && assertion.repository_owner_id == '1542112' && assertion.ref == 'refs/heads/main' && assertion.event_name == 'push' && assertion.workflow_ref == 'Nils-Fredrik/ekko/.github/workflows/ci.yml@refs/heads/main'"
   oidc { issuer_uri = "https://token.actions.githubusercontent.com" }
 }
 
