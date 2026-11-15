@@ -10,7 +10,7 @@ const save = () => form.put(route('admin.billing.markup', props.tenantId), { pre
 </script>
 
 <template>
-    <form class="min-w-48" @submit.prevent="save">
+    <form class="relative min-w-48" @submit.prevent="save">
         <label :for="`markup-${tenantId}`" class="sr-only">{{ $t('billing.markup_for', { name }) }}</label>
         <div class="flex items-center gap-2">
             <TextInput
