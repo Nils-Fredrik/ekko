@@ -17,8 +17,10 @@ return [
     | client puts in the header itself come before it and are never used. Without this every client behind
     | Cloud Run would share one address and one rate-limit bucket (T39-F3).
     |
-    | Only set "*" where every request passes a proxy that appends the client's address. A load balancer in
-    | front of Cloud Run adds a hop, and then its addresses must be listed here instead (docs/runbook.md).
+    | Only set "*" where every request passes exactly one proxy that appends the client's address. A load
+    | balancer in front of Cloud Run adds a hop: then every hop that appends an address must be listed, both
+    | the connecting address (Cloud Run's internal front, often 169.254.0.0/16) and the load balancer's
+    | addresses. Listing only the load balancer leaves the connecting address untrusted (docs/runbook.md).
     |
     */
 
