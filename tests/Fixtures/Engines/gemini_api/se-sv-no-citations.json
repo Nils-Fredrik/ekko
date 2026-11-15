@@ -1,0 +1,19 @@
+{
+    "candidates": [
+        {
+            "content": {
+                "parts": [{"text": "Ett svenskt exempel utan källor."}],
+                "role": "model"
+            },
+            "finishReason": "STOP",
+            "index": 0
+        }
+    ],
+    "usageMetadata": {
+        "promptTokenCount": 29,
+        "candidatesTokenCount": 10,
+        "totalTokenCount": 39
+    },
+    "modelVersion": "gemini-3.8-flash",
+    "responseId": "fixture-se-sv"
+}

@@ -406,6 +406,12 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 Claude-adapterne samler inn svar med `stop_reason` lik `end_turn` og tekstinnhold. `refusal`, `max_tokens` og `pause_turn` gir `anthropic_invalid_response`. En feil fra søkeverktøyet i et HTTP 200-svar gir `anthropic_web_search_failed`. Hvis verktøyet rapporterer `max_uses_exceeded`, kan adapteren fortsatt samle inn et fullført svar og kildene som allerede er sitert.
 
+`gemini_api` krever en Gemini API-nøkkel fra tenanten. Adapteren bruker motorens konfigurerte modell, med `GOOGLE_GEMINI_MODEL` som reserve (standard `gemini-3.8-flash`). Google Search-verktøyet har ingen egne felter for land, by eller språk. Adapteren sender derfor markedet som en instruks i det ene brukerinnlegget. Dette gir modellen kontekst, uten geografisk avgrensning av søkeresultatene.
+
+Ved Google Search-omdirigeringer beholdes den originale lenken i råsvaret. Til kildeklassifisering bruker adapteren en URL på domenenivå fra et gyldig vertsnavn i `web.domain` når feltet finnes, eller fra en `web.title` som består av et gyldig vertsnavn. Adapteren bruker bare metadataen fra svaret og oppretter en URL til domenets rot for klassifisering. Omdirigeringer uten oppgitt vertsnavn er ukjente og inngår bare i råsvaret. Vanlige kildelenker beholder hele URL-en. Se [Googles eksempel på grounding-svar](https://firebase.google.com/docs/ai-logic/grounding-google-search#understand-the-grounded-result).
+
+I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Adapteren verifiseres med syntetiske svar.
+
 ### 7.5 Gjentakelser og modellversjoner
 
 Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares. Markøren lagres i `model_changes` av `ekko:aggregate` (første svar på dagen med en annen modell-ID enn forrige svar, én per motor og dag) og leses med `MetricsService::modelChanges()` (ADR 0012).
