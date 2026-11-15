@@ -77,6 +77,8 @@ final readonly class EngineCollector
             try {
                 $result = $reservation->adapter->collect($reservation->request);
                 $collectedAt = CarbonImmutable::now('UTC');
+                // Commit known billable usage before storage: a storage failure does not undo the provider call.
+                $this->rls->run([$tenantId], fn () => $this->recordUsage($runId, $reservation, $result));
                 $rawUri = $this->rawResponses->put($tenantId, $runId, $collectedAt, $result->raw);
 
                 return $this->rls->run(
@@ -135,6 +137,8 @@ final readonly class EngineCollector
             return null;
         }
 
+        $run->update(['status' => 'running', 'attempts' => $run->attempts + 1, 'started_at' => $run->started_at ?? $occurredAt]);
+
         return new ReservedEngineRun(
             token: $this->reservations->reserve($run, $planned, $occurredAt),
             occurredAt: $occurredAt,
@@ -150,6 +154,23 @@ final readonly class EngineCollector
                 apiKey: $apiKey,
             ),
         );
+    }
+
+    private function recordUsage(int $runId, ReservedEngineRun $reservation, EngineResult $result): void
+    {
+        $run = Run::query()->lockForUpdate()->findOrFail($runId);
+        if ($run->quota_reservation_token !== $reservation->token) {
+            throw new EngineCallFailed('run_reservation_lost');
+        }
+        UsageEvent::query()->create([
+            'collection_attempt_token' => $reservation->token,
+            'run_id' => $run->id, 'engine_key' => $run->engine_key, 'kind' => 'engine_call',
+            'occurred_at' => $reservation->occurredAt, 'calls' => 1,
+            'input_tokens' => $result->inputTokens, 'output_tokens' => $result->outputTokens,
+            'search_calls' => $result->searchCalls,
+            'cost_usd' => $this->pricing->cost($reservation->price, $result),
+            'billed_to' => $reservation->billingAccount->value,
+        ]);
     }
 
     private function settle(
@@ -179,13 +200,7 @@ final readonly class EngineCollector
             'collected_at' => $collectedAt,
         ]);
 
-        UsageEvent::query()->create($payload + [
-            'run_id' => $run->id,
-            'kind' => 'engine_call',
-            'occurred_at' => $reservation->occurredAt,
-            'calls' => 1,
-            'billed_to' => $reservation->billingAccount->value,
-        ]);
+        app(ResponseAnnotations::class)->store($response, $result);
 
         $run->fill([
             'status' => 'collected',

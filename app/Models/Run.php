@@ -11,6 +11,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
+ * @property CarbonImmutable|null $enqueued_at
+ * @property CarbonImmutable|null $provider_submitted_at
+ * @property CarbonImmutable|null $next_poll_at
+ * @property string|null $provider_api_key
+ * @property string|null $provider_billed_to
+ * @property string|null $provider_task_id
+ * @property int $provider_submissions
+ * @property int|null $provider_price_id
  * @property string|null $quota_reservation_token
  * @property CarbonImmutable|null $quota_reserved_at
  */
@@ -36,6 +44,7 @@ class Run extends Model
 
     /** @var list<string> */
     protected $hidden = [
+        'provider_api_key',
         'quota_reservation_token',
         'quota_reserved_at',
         'quota_reserved_cost_usd',
@@ -70,6 +79,10 @@ class Run extends Model
     protected function casts(): array
     {
         return [
+            'provider_api_key' => 'encrypted',
+            'enqueued_at' => 'immutable_datetime',
+            'provider_submitted_at' => 'immutable_datetime',
+            'next_poll_at' => 'immutable_datetime',
             'started_at' => 'datetime',
             'finished_at' => 'datetime',
             'quota_reserved_at' => 'immutable_datetime',

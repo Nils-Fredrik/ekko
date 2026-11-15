@@ -17,6 +17,7 @@ class UsageEvent extends Model
 
     /** @var list<string> */
     protected $fillable = [
+        'collection_attempt_token',
         'occurred_at',
         'kind',
         'engine_key',
