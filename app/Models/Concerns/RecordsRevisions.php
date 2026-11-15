@@ -5,6 +5,7 @@ namespace App\Models\Concerns;
 use App\Tenancy\AuditLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use LogicException;
 use Spatie\Activitylog\Models\Concerns\LogsActivity;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -46,17 +47,29 @@ trait RecordsRevisions
             ->dontLogEmptyChanges();
     }
 
+    /**
+     * Fails closed: if the changes come in a shape this does not know (another cast or package
+     * version), nothing is written rather than a secret in clear text.
+     */
     public function beforeActivityLogged(Model $activity, string $eventName): void
     {
         $masked = $this->maskedRevisionAttributes();
         $changes = $activity->getAttribute('attribute_changes');
 
-        // Cast to a collection of "attributes" and "old", each an array of attribute => value.
-        if ($masked === [] || ! $changes instanceof Collection) {
+        if ($masked === [] || $changes === null) {
             return;
         }
 
-        $changes = $changes->map(function (mixed $values) use ($masked): mixed {
+        if (is_array($changes)) {
+            $changes = new Collection($changes);
+        }
+
+        if (! $changes instanceof Collection) {
+            throw new LogicException('Unexpected attribute_changes type '.get_debug_type($changes).' on '.static::class.'; refusing to log unmasked values.');
+        }
+
+        // "attributes" and "old", each an array of attribute => value.
+        $activity->setAttribute('attribute_changes', $changes->map(function (mixed $values) use ($masked): mixed {
             if (! is_array($values)) {
                 return $values;
             }
@@ -68,8 +81,6 @@ trait RecordsRevisions
             }
 
             return $values;
-        });
-
-        $activity->setAttribute('attribute_changes', $changes);
+        }));
     }
 }

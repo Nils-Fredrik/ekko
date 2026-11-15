@@ -31,12 +31,20 @@ class UpdateTeamMemberRole extends JetstreamUpdateTeamMemberRole
 
         Gate::forUser($user)->authorize('assignRole', [$team, $role]);
 
+        // The member id comes from the route. Someone outside the tenant has no role to change, and
+        // the revision log must not record a change that did not happen.
         $previous = $team->users()->wherePivot('user_id', $teamMemberId)->value('team_user.role');
+        abort_if($previous === null, 404);
+
+        $member = Jetstream::findUserByIdOrFail($teamMemberId);
+
+        if ($previous === $role) {
+            return;
+        }
 
         $team->users()->updateExistingPivot($teamMemberId, ['role' => $role]);
 
-        $member = Jetstream::findUserByIdOrFail($teamMemberId);
-        app(AuditLog::class)->memberRoleChanged($user, $team, $member, $previous, $role);
+        app(AuditLog::class)->memberRoleChanged($user, $team, $member, (string) $previous, $role);
 
         TeamMemberUpdated::dispatch($team->fresh(), $member);
     }

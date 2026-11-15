@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Activity;
 use App\Models\Integration;
 use App\Models\Prompt;
 use App\Models\Team;
@@ -152,4 +153,55 @@ test('the audit write does not change the tenant context of the request', functi
 
     expect(app(TenantContext::class)->id())->toBe($other->id)
         ->and(auditEntries('acting_as.started')[0]->tenant_id)->toBe($this->tenant->id);
+});
+
+test('a role change for someone outside the tenant is refused and not recorded', function () {
+    $admin = User::factory()->create();
+    $this->tenant->users()->attach($admin, ['role' => 'admin']);
+    $admin->switchTeam($this->tenant);
+    $stranger = User::factory()->create();
+
+    $this->actingAs($admin)->put("/teams/{$this->tenant->id}/members/{$stranger->id}", ['role' => 'editor'])
+        ->assertNotFound();
+
+    expect(auditEntries('member.role_changed'))->toBe([])
+        ->and($this->tenant->fresh()->hasUser($stranger))->toBeFalse();
+});
+
+test('setting the role a member already has records nothing', function () {
+    $admin = User::factory()->create();
+    $this->tenant->users()->attach($admin, ['role' => 'admin']);
+    $member = User::factory()->create();
+    $this->tenant->users()->attach($member, ['role' => 'editor']);
+    $admin->switchTeam($this->tenant);
+
+    $this->actingAs($admin)->put("/teams/{$this->tenant->id}/members/{$member->id}", ['role' => 'editor'])
+        ->assertSessionHasNoErrors();
+
+    expect(auditEntries('member.role_changed'))->toBe([]);
+});
+
+test('masking fails closed when the changes have an unknown shape', function () {
+    $activityWith = fn (mixed $changes) => new class($changes) extends Activity
+    {
+        public function __construct(private mixed $fakeChanges = null)
+        {
+            parent::__construct();
+        }
+
+        public function getAttribute($key): mixed
+        {
+            return $key === 'attribute_changes' ? $this->fakeChanges : parent::getAttribute($key);
+        }
+    };
+
+    // A plain array is masked like the collection the cast gives today.
+    $array = $activityWith(['attributes' => ['text' => 'secret text', 'priority' => 'core']]);
+    (new Prompt)->beforeActivityLogged($array, 'updated');
+
+    expect($array->getAttributes()['attribute_changes'])->toContain('[changed]')->not->toContain('secret text');
+
+    // Anything else is refused rather than written unmasked.
+    expect(fn () => (new Prompt)->beforeActivityLogged($activityWith('secret text'), 'updated'))
+        ->toThrow(LogicException::class);
 });
