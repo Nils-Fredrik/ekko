@@ -37,7 +37,7 @@ final class AuditLog
         $this->record($tenant, 'acting_as.stopped', $admin, null, []);
     }
 
-    public function memberAdded(?User $by, Team $tenant, User $member, string $role): void
+    public function memberAdded(?User $by, Team $tenant, User $member, ?string $role): void
     {
         $this->record($tenant, 'member.added', $by, $member, ['role' => $role]);
     }
@@ -67,11 +67,12 @@ final class AuditLog
             $logger->log($event);
         }));
 
+        // The properties first, so none of them can overwrite the ids.
         Log::info($event, [
+            ...$properties,
             'user_id' => $causer?->id,
             'tenant_id' => $tenant->id,
             'subject_user_id' => $subject?->getKey(),
-            ...$properties,
         ]);
     }
 }
