@@ -120,3 +120,22 @@ it('rejects unsafe table names and unapproved endpoints before making an HTTP re
     $this->artisan('ekko:sync-bot-hits')->assertExitCode(1);
     Http::assertNothingSent();
 });
+
+it('discards results when the connection configuration changes during the fetch', function () {
+    $team = Team::factory()->tenant()->create();
+    $integration = clickHouseIntegration($team, 'site.example.test');
+    Http::fake(['https://clickhouse.example.test:8443*' => function () use ($integration) {
+        $changed = [...$integration->config, 'table' => 'replacement'];
+        Integration::query()->findOrFail($integration->id)->update(['config' => $changed]);
+
+        return Http::response(file_get_contents(base_path('tests/Fixtures/bot-logs/clickhouse.jsonl')));
+    }]);
+
+    $this->artisan('ekko:sync-bot-hits')->assertSuccessful();
+
+    app(TenantContext::class)->run($team->id, function () use ($integration) {
+        expect($integration->refresh()->status)->toBe('pending')
+            ->and($integration->last_sync_at)->toBeNull()
+            ->and(BotHitDaily::query()->exists())->toBeFalse();
+    });
+});

@@ -66,14 +66,13 @@ final class SyncBotHits extends Command
             return true;
         }
 
-        $brand = Brand::query()->lockForUpdate()->find($integration->brand_id);
-        $integration = Integration::query()->where('type', 'clickhouse_logs')->lockForUpdate()->find($id);
-        if ($brand === null || $integration === null) {
+        $brand = Brand::query()->find($integration->brand_id);
+        if ($brand === null) {
             return true;
         }
 
+        $domains = BrandLogDomains::for($brand);
         try {
-            $domains = BrandLogDomains::for($brand);
             if ($domains === []) {
                 throw new ClickHouseSyncFailed('The brand has no registered domain.');
             }
@@ -81,13 +80,27 @@ final class SyncBotHits extends Command
             $settings = $integration->getAttribute('config');
             $rows = $clickHouse->forDay($settings, $date, $domains, config()->array('ekko.bot_logs.bots'));
         } catch (ClickHouseSyncFailed|DecryptException) {
-            $integration->update(['status' => 'error']);
+            $rows = null;
+        }
+
+        // Take the write locks after the network call. Concurrent edits may invalidate this snapshot.
+        $lockedBrand = Brand::query()->lockForUpdate()->find($brand->id);
+        $lockedIntegration = Integration::query()->where('type', 'clickhouse_logs')->lockForUpdate()->find($id);
+        if ($lockedBrand === null || $lockedIntegration === null
+            || $lockedIntegration->brand_id !== $brand->id
+            || $lockedIntegration->getRawOriginal('config') !== $integration->getRawOriginal('config')
+            || BrandLogDomains::for($lockedBrand) != $domains) {
+            return true;
+        }
+
+        if ($rows === null) {
+            $lockedIntegration->update(['status' => 'error']);
 
             return false;
         }
 
-        $hits->replace($brand, [$date->toDateString()], $rows);
-        $integration->update(['status' => 'active', 'last_sync_at' => now()]);
+        $hits->replace($lockedBrand, [$date->toDateString()], $rows);
+        $lockedIntegration->update(['status' => 'active', 'last_sync_at' => now()]);
 
         return true;
     }

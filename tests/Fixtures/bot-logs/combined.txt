@@ -1,6 +1,6 @@
 192.0.2.5 - - [14/Nov/2026:00:30:00 +0100] "GET /from-previous-day HTTP/1.1" 200 11 "-" "GPTBot/1.2"
-192.0.2.5 - - [14/Nov/2026:01:30:00 +0100] "GET /shop?tracking=dummy HTTP/1.1" 200 11 "-" "gptbot/1.2"
-2001:db8::2 - - [14/Nov/2026:01:31:00 +0100] "HEAD /shop?tracking=another HTTP/2.0" 301 0 "-" "GPTBot/1.2"
+192.0.2.5 - - [14/Nov/2026:01:30:00 +0100] "GET /shop?tracking=dummy HTTP/1.1" 200 11 "https://referrer.example.test/\"sample\"" "gptbot/1.2 \"preview\""
+2001:db8::2 - - [14/Nov/2026:01:31:00 +0100] "HEAD /shop?tracking=another HTTP/2.0" 301 0 "https://referrer.example.test/\x22sample" "GPTBot/1.2 \x22preview\x5C"
 192.0.2.8 - - [14/Nov/2026:01:31:00 +0100] "GET /help HTTP/1.1" 404 12 "-" "GPTBot/1.2"
 192.0.2.9 - - [14/Nov/2026:01:31:00 +0100] "GET https://site.example.test/ HTTP/1.1" 200 12 "-" "Mozilla/5.0 (compatible; Claude-SearchBot/1.0)"
 192.0.2.9 - - [14/Nov/2026:01:31:00 +0100] "GET https://elsewhere.example.test/ HTTP/1.1" 200 12 "-" "GPTBot"

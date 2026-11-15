@@ -9,7 +9,7 @@ use DateTimeZone;
 final class CombinedAccessLog
 {
     private const LINE = <<<'REGEX'
-        ~\A\S+ \S+ \S+ \[(?<timestamp>[^\]]+)\] "[A-Z]+ (?<target>[^"\s]+)(?: HTTP/[0-9.]+)?" \d{3} (?:\d+|-) "(?:[^"\\\\]|\\\\.)*" "(?<agent>(?:[^"\\\\]|\\\\.)*)"\h*\z~D
+        ~\A\S+ \S+ \S+ \[(?<timestamp>[^\]]+)\] "[A-Z]+ (?<target>[^"\s]+)(?: HTTP/[0-9.]+)?" \d{3} (?:\d+|-) "(?:[^"\\]|\\.)*" "(?<agent>(?:[^"\\]|\\.)*)"\h*\z~D
         REGEX;
 
     /**
