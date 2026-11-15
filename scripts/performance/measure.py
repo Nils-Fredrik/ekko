@@ -118,8 +118,8 @@ def main():
                     n = props['summary']['visibility']['n']
                 if n != min(days, props['period']['days']) * prompts * 18:
                     raise ValueError('Metrics do not contain the expected fixture volume')
-            elif not isinstance(json.loads(body).get('data', {}).get('summary', {}).get('visibility', {}).get('n'), int):
-                raise ValueError('Invalid metrics contract')
+            elif json.loads(body).get('data', {}).get('summary', {}).get('visibility', {}).get('n') != min(days, 28) * prompts * 18:
+                raise ValueError('API metrics do not contain the expected fixture volume')
             if number >= args.warmup:
                 durations.append(elapsed)
             if component is None:
