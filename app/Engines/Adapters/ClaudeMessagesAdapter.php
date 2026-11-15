@@ -99,7 +99,8 @@ abstract class ClaudeMessagesAdapter implements EngineAdapter
             throw new EngineCallFailed('anthropic_invalid_response');
         }
 
-        $parts = [];
+        $text = '';
+        $separator = '';
         $citations = [];
 
         foreach ($content as $block) {
@@ -114,12 +115,13 @@ abstract class ClaudeMessagesAdapter implements EngineAdapter
             }
 
             if (($block['type'] ?? null) === 'text' && is_string($block['text'] ?? null)) {
-                $parts[] = $block['text'];
+                $text .= $separator.$block['text'];
+                $separator = '';
                 $citations = $this->collectCitations($block['citations'] ?? [], $citations);
+            } elseif ($text !== '') {
+                $separator = "\n\n";
             }
         }
-
-        $text = implode('', $parts);
 
         if (trim($text) === '') {
             throw new EngineCallFailed('anthropic_invalid_response');

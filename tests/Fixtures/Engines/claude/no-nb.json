@@ -7,6 +7,11 @@
     "stop_sequence": null,
     "content": [
         {
+            "type": "text",
+            "text": "Jeg søker etter Oslo",
+            "citations": null
+        },
+        {
             "type": "server_tool_use",
             "id": "srvtoolu_fixture_1",
             "name": "web_search",
@@ -38,7 +43,7 @@
         },
         {
             "type": "text",
-            "text": "Et norsk eksempel. ",
+            "text": "Oslo er et norsk eksempel",
             "citations": [
                 {
                     "type": "web_search_result_location",
@@ -51,7 +56,7 @@
         },
         {
             "type": "text",
-            "text": "Et annet eksempel.",
+            "text": ". Her er et annet eksempel.",
             "citations": [
                 {
                     "type": "web_search_result_location",

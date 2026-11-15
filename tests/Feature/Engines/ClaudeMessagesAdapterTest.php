@@ -82,7 +82,7 @@ it('collects a fresh localized Messages request and preserves provider annotatio
         ->and($result->outputTokens)->toBe($raw['usage']['output_tokens']);
 })->with('claude engines')->with([
     'Norwegian with citations' => [
-        'no-nb', 'NO', 'nb', 'Oslo', 'Vis et eksempel.', null, 'Et norsk eksempel. Et annet eksempel.', 2, [
+        'no-nb', 'NO', 'nb', 'Oslo', 'Vis et eksempel.', null, "Jeg søker etter Oslo\n\nOslo er et norsk eksempel. Her er et annet eksempel.", 2, [
             ['url' => 'https://example.test/oslo', 'title' => 'Oslo', 'rank' => 1, 'from_annotation' => true],
             ['url' => 'https://example.test/norge', 'title' => 'Norge', 'rank' => 2, 'from_annotation' => true],
         ],
@@ -178,7 +178,9 @@ it('rejects an empty or unfinished response', function (string $stopReason, arra
         ->toThrow(EngineCallFailed::class, 'anthropic_invalid_response');
 })->with([
     'empty' => ['end_turn', []],
-    'unfinished' => ['pause_turn', [['type' => 'text', 'text' => 'Synthetic preamble.']]],
+    'paused' => ['pause_turn', [['type' => 'text', 'text' => 'Synthetic preamble.']]],
+    'truncated' => ['max_tokens', [['type' => 'text', 'text' => 'Synthetic partial answer.']]],
+    'refused' => ['refusal', [['type' => 'text', 'text' => 'Synthetic refusal.']]],
 ]);
 
 it('distinguishes a search failure from reaching the search cap inside an HTTP success', function (
