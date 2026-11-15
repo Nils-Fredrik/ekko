@@ -24,6 +24,7 @@ class RunBatch extends Model
     /** @var list<string> */
     protected $fillable = [
         'market_id',
+        'dispatch_date',
         'scheduled_for',
         'status',
         'planned_runs',

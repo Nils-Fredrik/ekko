@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Alert;
 use App\Models\Brand;
 use App\Models\Market;
 use App\Models\Prompt;
@@ -61,6 +62,7 @@ foreach (['brands', 'alerts', 'usage'] as $resource) {
 }
 
 return [
+    'internal.extraction-poll' => RouteAccess::service(),
     ...$apiEntries,
     // Public and system routes.
     'home' => RouteAccess::public(),
@@ -106,6 +108,26 @@ return [
 
             return ['params' => ['brand' => $id]];
         },
+    ),
+    // Acknowledging an alert is the tenant admin's (alert rights, docs/spec.md 5.2). Addressed by id.
+    'alerts.acknowledge' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantB->id,
+                fn () => Alert::factory()->create()->id,
+            );
+
+            return ['params' => ['alert' => $id]];
+        },
+        own: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantA->id,
+                fn () => Alert::factory()->create()->id,
+            );
+
+            return ['params' => ['alert' => $id]];
+        },
+        deniedRoles: ['editor', 'reader'],
     ),
     'GET api/user' => RouteAccess::user(),
     'profile.show' => RouteAccess::user(),

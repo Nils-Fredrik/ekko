@@ -100,6 +100,9 @@ jobs:
       - name: Pest, including the tenant isolation suite
         run: composer test
 
+      - name: Performance measurement contract
+        run: python3 -m unittest discover -s tests/performance -v
+
       - name: Install browser for real login and dashboard checks
         run: npx playwright install --with-deps chromium
 

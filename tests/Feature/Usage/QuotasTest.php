@@ -114,6 +114,7 @@ test('hourly rollup emits each threshold once per UTC month and keeps tenant led
         expect($usage->cost_usd)->toBe('1.00010000')
             ->and($usage->status)->toBe('capped')
             ->and(Alert::query()->orderBy('id')->get()->pluck('payload.threshold_percent')->all())->toBe([80, 100])
+            ->and(Alert::query()->orderBy('id')->get()->pluck('payload.urgent')->all())->toBe([false, true])
             ->and(Alert::query()->firstOrFail()->payload['recipient_roles'])->toBe(['tenant_admin', 'platform_admin']);
     });
 
