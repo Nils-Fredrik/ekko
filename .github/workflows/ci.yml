@@ -99,6 +99,12 @@ jobs:
       - name: Pest, including the tenant isolation suite
         run: composer test
 
+      - name: Install browser for real login and dashboard checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser login and dashboard (isolated test database)
+        run: npm run test:browser
+
   image:
     name: container build
     runs-on: ubuntu-latest
@@ -121,5 +127,10 @@ jobs:
           context: .
           target: jobs
           push: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
       - name: Verify failed smoke test keeps traffic unchanged
         run: bash tests/deploy/test-deploy.sh

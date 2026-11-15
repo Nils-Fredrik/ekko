@@ -1,45 +1,29 @@
-# T10 deployment draft: not ready to merge
+# T10 – gjenstående produksjonsvalidering
 
-The deploy job is an inactive fragment under `docs/examples/`; GitHub Actions
-will not run it. Do not activate it, apply the Terraform, or treat this branch
-as production-ready. `scripts/smoke.sh` always fails deliberately, even if its
-placeholder HTTP checks return 200. This fail-closed guard must be replaced by
-real authenticated checks, not removed as a shortcut.
+PR #31 er fortsatt et utkast. CI bygger web- og jobbimage, kjører alle kodekontroller og Chromium-testene for innlogging og dashboard. `docs/examples/deploy-workflow.yml.example` er fortsatt inaktiv. Avvik og gjenstående akseptkriterier står i spec 17.2 og på Board task:35.
 
-The login page and placeholder dashboard exist, but T26 must provide the real
-dashboard; T33 and T34 must provide the API and MCP interfaces. The smoke
-contract must log in and verify the dashboard and representative API and MCP
-responses on the tagged revision. Merely accepting a redirect, a 404, or an
-unrelated HTTP 200 is not sufficient. Select an appropriately restricted test
-identity and a safe credential provisioning mechanism before enabling deploy.
-The specified browser tests for login, onboarding, and dashboard also remain
-to be implemented as those flows become available.
+## Røyktestkontrakt
 
-Before enabling the workflow, validate both Docker targets and their runtime
-commands in a container environment. Review and apply Terraform separately,
-verify the WIF identity and all scoped permissions in an isolated GCP project,
-and set `GCP_WORKLOAD_IDENTITY_PROVIDER` from its output. The WIF condition
-requires the ordinary `.github/workflows/ci.yml` workflow on `main` via
-`workflow_ref`. If deployment is moved to a reusable workflow, revisit the
-condition and test the `job_workflow_ref` claim before enabling it. See the
-[GitHub OIDC claim reference](https://docs.github.com/en/actions/reference/security/oidc)
-and [reusable workflow guidance](https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-with-reusable-workflows). Bootstrap secret
-versions, database users, initial images, public access and workloads according
-to `infra/terraform/README.md`. Pin traffic to tested revisions before any
-infrastructure update; the preflight rejects LATEST, missing and partial traffic
-allocations. Validate Cloud SQL backup completion, the candidate tag URL and
-migration execution in that isolated environment. Production migrations must
-remain backward compatible: a smoke failure retains old web traffic but occurs
-after migration.
+`scripts/smoke.sh URL` kjører Playwright/Chromium mot kandidatens opprinnelse. Den krever:
 
-`bash tests/deploy/test-deploy.sh` uses mocked commands to check unpinned
-traffic and backup failures stop before mutation, an intentionally failing
-smoke test never invokes traffic promotion or worker update, the success path
-orders backup, migration, promotion and jobs, and rollback targets an explicit
-revision. It does not prove Cloud Run behavior. A deliberately failing real
-revision in an isolated non-production service, followed by traffic inspection,
-is still required. There has been no live deployment, real GCP plan, image build
-or production traffic test in this branch. Worker updates can fail after web
-promotion; recovery for this partial state must be exercised before activation.
+- `SMOKE_EMAIL` og `SMOKE_PASSWORD`: en verifisert, syntetisk lesebruker i en egen testtenant, uten partner- eller plattformadminrettigheter.
+- `SMOKE_TENANT_ID` og `SMOKE_BRAND_ID`: valgt tenant og merkevare med syntetiske data som skal finnes i dashboardet.
+- `SMOKE_REST_TOKEN`: et personlig, tenantbundet token med bare `read`, opprettet etter T33.
+- `SMOKE_MCP_CLIENT_ID`: en bootstrap-registrert offentlig MCP-klient med callback `http://127.0.0.1:8765/callback`.
 
-See `docs/runbook.md` for the reviewed traffic rollback procedure.
+Brukernavn/passord/token hentes fra CI-hemmeligheter, aldri argumenter eller repo. Testen logger bare bestått eller navnet på feilet trinn. Ingen trace, skjermbilder, cookie-filer eller responsinnhold lagres. Nettleseren blokkerer andre opprinnelser. REST/MCP bruker separat HTTP-kontekst uten innloggingscookies og følger ikke redirects.
+
+Testen logger inn gjennom den ekte Vue-siden, kontrollerer synlig merkevare og Inertia-data i dashboardet, henter REST-metrikker og krever 401 uten token. Den gjennomfører OAuth authorization code med PKCE og lesesamtykke for testtenanten, initialize, whoami og tools/list. Koden sendes aldri til callback-adressen. MCP-tilkoblingen tilbakekalles i finally. Dersom prosessen termineres før opprydding, må operatøren tilbakekalle testtilkoblingen på `/claude`; access-token varer én time.
+
+Installer Node-avhengigheter og Chromium før kjøring (`npm ci`, `npx playwright install --with-deps chromium`). Manglende konfigurasjon, redirect, HTTP-feil, feil tenant, ugyldig kontrakt eller feil ved tilbakekall stopper utrulling.
+
+## Før aktivering
+
+1. Integrer og kryssreview T33 og T34. T26 er integrert. Legg til veivisertest etter T25/T29.
+2. Verifiser begge container-targets og runtime-kommandoer. Bootstrap SQL-brukere, secret-versjoner, første images og Cloud Run etter Terraform-runbooken. Bekreft at gammel webtrafikk er låst til en konkret revisjon, aldri LATEST.
+3. Verifiser IAM/WIF i isolert miljø. Betingelsen er låst til `.github/workflows/ci.yml` på `main` og push. Sett `GCP_WORKLOAD_IDENTITY_PROVIDER` fra verifisert Terraform-output.
+4. Opprett testtenant, lesebruker, token og MCP-klient. Legg konfigurasjon i GitHub-hemmeligheter/variabler. Kjør full smoke på kjent god kandidat.
+5. Rull ut en bevisst feilende revisjon uten trafikk i isolert Cloud Run. Dokumenter før/etter-fordeling av trafikk, revisjons-ID og feilet smoke. Test også feil ved jobboppdatering etter webpromotering og prosedyren for tilbakeføring.
+6. Aktiver workflowen først når bevisene foreligger. Eieren merger etter godkjent kryssreview og grønn CI.
+
+`tests/deploy/test-deploy.sh` tester kommandoenes rekkefølge og feilveier med mocks. Det er ikke bevis på Cloud Run-oppførsel. Ingen produksjonsressurser eller trafikk er endret i dette arbeidet. Se `docs/runbook.md` for tilbakeføring.

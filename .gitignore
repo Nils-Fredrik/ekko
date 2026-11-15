@@ -35,3 +35,6 @@ Thumbs.db
 *.tfvars
 *.tfvars.json
 crash.log
+
+/test-results/
+/playwright-report/

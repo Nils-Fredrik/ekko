@@ -29,9 +29,8 @@ cat > "$tmp/deploy/smoke.sh" <<'MOCK'
 MOCK
 chmod +x "$tmp/deploy/deploy.sh" "$tmp/deploy/smoke.sh"
 export PATH="$tmp:$PATH" CALLS="$tmp/calls" WEB_IMAGE=web JOB_IMAGE=jobs PROJECT_ID=test REGION=test REVISION_SUFFIX=test
-# Even four HTTP 200 responses must not satisfy the unfinished real contract.
-if "$root/scripts/smoke.sh" https://candidate.invalid; then echo 'Incomplete smoke contract accepted' >&2; exit 1; fi
-if REDIRECT_SMOKE=1 "$root/scripts/smoke.sh" https://candidate.invalid; then echo 'Redirect accepted by smoke test' >&2; exit 1; fi
+# Missing smoke credentials must never succeed, including before a browser is launched.
+if env -u SMOKE_EMAIL "$root/scripts/smoke.sh" https://candidate.invalid; then echo 'Missing credentials accepted' >&2; exit 1; fi
 : > "$CALLS"
 if UNPINNED=1 "$tmp/deploy/deploy.sh"; then echo 'Unpinned traffic accepted' >&2; exit 1; fi
 if grep -q 'sql backups create' "$CALLS"; then echo 'Preflight ran a backup' >&2; exit 1; fi

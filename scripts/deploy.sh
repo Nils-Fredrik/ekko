@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Draft only. The smoke test and live GCP behavior must be completed and verified
+# Draft only. Integrated smoke and live GCP behavior must be verified
 # before this script is connected to an active deployment workflow.
 set -euo pipefail
 : "${WEB_IMAGE:?}" "${JOB_IMAGE:?}" "${PROJECT_ID:?}" "${REGION:?}" "${REVISION_SUFFIX:?}"

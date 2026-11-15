@@ -23,6 +23,12 @@
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ekko-ci@ekko-514612.iam.gserviceaccount.com
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
       - uses: google-github-actions/setup-gcloud@v2
       - run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
       - uses: docker/setup-buildx-action@v3
@@ -42,6 +48,12 @@
           tags: ${{ env.JOB_TAG }}
       - name: Deploy candidate and promote after smoke test
         env:
+          SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
+          SMOKE_PASSWORD: ${{ secrets.SMOKE_PASSWORD }}
+          SMOKE_REST_TOKEN: ${{ secrets.SMOKE_REST_TOKEN }}
+          SMOKE_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
+          SMOKE_BRAND_ID: ${{ vars.SMOKE_BRAND_ID }}
+          SMOKE_MCP_CLIENT_ID: ${{ vars.SMOKE_MCP_CLIENT_ID }}
           WEB_IMAGE: europe-west1-docker.pkg.dev/ekko-514612/ekko/web@${{ steps.web.outputs.digest }}
           JOB_IMAGE: europe-west1-docker.pkg.dev/ekko-514612/ekko/jobs@${{ steps.jobs.outputs.digest }}
         run: scripts/deploy.sh

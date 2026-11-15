@@ -841,6 +841,11 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   4. Røyktest mot revisjonsadressen: innlogging, dashboard, API og MCP svarer uten feil.
   5. Består testen, flyttes all trafikk til ny revisjon, og jobbene oppdateres til nytt image. Feiler den, beholder forrige revisjon trafikken og deployen stopper.
 - **Tilbakerulling:** trafikken flyttes tilbake til forrige revisjon med én kommando, dokumentert i `docs/runbook.md`.
+
+**Midlertidig statusavvik i T10 (PR #31):** Containerbygg, deployrekkefølge og tilbakeføring er implementert, men automatisk produksjonsutrulling er fortsatt et inaktivt workflow-eksempel. Akseptkriteriet er ikke ferdig. Den autentiserte røyktesten bruker en syntetisk lesebruker, faktisk innlogging og rendret dashboard, REST-metrikker og OAuth/PKCE med MCP initialize/whoami. Den krever T33 og T34 i samme kandidatimage samt ferdig bootstrap av tjenester, IAM/WIF og testidentitet. Røyktesten skriver ingen svartekster eller hemmeligheter til logger og tilbakekaller sin midlertidige MCP-tilkobling.
+
+CI kjører nå Chromium-tester av avvist/gyldig innlogging og tenantens dashboard. Veivisertesten gjenstår til T25/T29 er integrert. Verken lokal HTTP-/nettlesertest eller mocktesten erstatter akseptkriteriet om en bevisst feilende revisjon mot ekte Cloud Run. Automatisk utrulling aktiveres først etter denne kontrollen og testen av delvis feilet jobboppdatering. T10 forblir åpen og PR-en utkast inntil dette er gjennomført; kravene over er uendret.
+
 - **Migreringer** skal være bakoverkompatible (først legge til, deretter fjerne i en senere utrulling), slik at forrige revisjon fungerer mot ny database ved tilbakerulling.
 - **Ny funksjonalitet** som skal prøves på egne tenants først, skrus av og på med funksjonsflagg per tenant (Laravel Pennant).
 - **Infrastruktur:** all GCP-infrastruktur ligger i `infra/terraform`. Endringer i infrastruktur går også via PR.

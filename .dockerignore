@@ -46,3 +46,7 @@ phpunit.xml
 phpstan.neon
 pint.json
 eslint.config.js
+
+test-results
+playwright-report
+playwright.config.mjs
