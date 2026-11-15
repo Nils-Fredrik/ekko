@@ -53,6 +53,14 @@ final class AuditLog
         $this->record($tenant, 'member.removed', $by, $member, ['role' => $role]);
     }
 
+    public function byokBudgetChanged(User $by, Team $tenant, ?string $previous): void
+    {
+        $this->record($tenant, 'byok.budget_changed', $by, null, [
+            'from' => $previous,
+            'to' => $tenant->monthly_byok_budget_usd,
+        ]);
+    }
+
     /**
      * @param  array<string, mixed>  $properties  No secrets, answer texts or prompt texts.
      */

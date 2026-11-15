@@ -20,3 +20,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0010](0010-deterministisk-gjenkjenning.md) | Deterministisk gjenkjenning: normalisering, ordgrenser, lister og regex-sikkerhet | Akseptert |
 | [0011](0011-modellbasert-uttrekk.md) | Modellbasert uttrekk: batcher per tenant, strukturert utdata, sammenstilling og evaluering | Akseptert |
 | [0012](0012-aggregering-og-metrikker.md) | Aggregering og metrikker: dagsaggregat, MetricsService og modellbytte-markører | Akseptert |
+| [0013](0013-kvoter-og-forbruk.md) | Kallkvote, budsjetter og forbruksoppdatering | Foreslått |
