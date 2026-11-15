@@ -1,13 +1,17 @@
 <?php
 
 use App\Models\Alert;
+use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\Market;
 use App\Models\Prompt;
+use App\Models\Report;
+use App\Models\ReportSchedule;
 use App\Models\Topic;
 use App\Onboarding\AnalysisStore;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\Feature\TenantIsolation\Support\RouteAccess;
 use Tests\Feature\TenantIsolation\Support\Scenario;
 use Tests\Support\Onboarding\OnboardingFakes;
@@ -30,6 +34,12 @@ use Tests\Support\Onboarding\OnboardingFakes;
 $teamB = fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id]];
 $teamA = fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id]];
 $tenantRoles = ['owner', 'admin', 'partner_advisor', 'editor', 'reader'];
+$brandOf = function (Scenario $s, bool $foreign): int {
+    return app(TenantContext::class)->run(
+        ($foreign ? $s->tenantB : $s->tenantA)->id,
+        fn () => Brand::factory()->create()->id,
+    );
+};
 
 $apiResource = function (Scenario $s, bool $foreign, string $action = 'read'): array {
     return app(TenantContext::class)->run($foreign ? $s->tenantB->id : $s->tenantA->id, function () use ($action) {
@@ -115,6 +125,77 @@ return [
             return ['params' => ['brand' => $id]];
         },
     ),
+    'brands.settings' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
+    ),
+    'brands.settings.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)], 'data' => ['name' => 'Other']],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)], 'data' => ['name' => 'Renamed']],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'alerts.index' => RouteAccess::user(),
+    'alerts.rules.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['data' => ['brand_id' => $brandOf($s, true), 'type' => 'quota', 'is_active' => true]],
+        own: fn (Scenario $s) => ['data' => ['brand_id' => $brandOf($s, false), 'type' => 'quota', 'is_active' => true]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'alerts.rules.update' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => AlertRule::factory()->create()->id);
+
+            return ['params' => ['alertRule' => $id], 'data' => ['is_active' => false]];
+        },
+        own: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantA->id, fn () => AlertRule::factory()->create()->id);
+
+            return ['params' => ['alertRule' => $id], 'data' => ['threshold' => '5', 'is_active' => true]];
+        },
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'reports.index' => RouteAccess::user(),
+    'reports.schedules.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['data' => [
+            'brand_id' => $brandOf($s, true), 'cadence' => 'weekly', 'recipients' => ['reports@example.test'], 'locale' => 'nb', 'branding' => 'tenant',
+        ]],
+        own: fn (Scenario $s) => ['data' => [
+            'brand_id' => $brandOf($s, false), 'cadence' => 'weekly', 'recipients' => ['reports@example.test'], 'locale' => 'nb', 'branding' => 'tenant',
+        ]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'reports.schedules.update' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => ReportSchedule::factory()->create()->id);
+
+            return ['params' => ['schedule' => $id], 'data' => ['cadence' => 'monthly', 'recipients' => ['reports@example.test'], 'locale' => 'nb', 'branding' => 'tenant']];
+        },
+        own: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantA->id, fn () => ReportSchedule::factory()->create()->id);
+
+            return ['params' => ['schedule' => $id], 'data' => ['cadence' => 'monthly', 'recipients' => ['reports@example.test'], 'locale' => 'sv', 'branding' => 'partner']];
+        },
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'reports.download' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => Report::factory()->create()->id);
+
+            return ['params' => ['report' => $id]];
+        },
+        own: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantA->id, function () {
+                $report = Report::factory()->create();
+                $path = 'reports/'.$report->getAttribute('tenant_id').'/'.$report->id.'.pdf';
+                $report->forceFill(['pdf_uri' => $path])->save();
+                Storage::disk('local')->put($path, "%PDF-1.4\n");
+
+                return $report->id;
+            });
+
+            return ['params' => ['report' => $id]];
+        },
+    ),
+    'usage.index' => RouteAccess::user(own: fn () => [], deniedRoles: ['editor', 'reader']),
     // The onboarding wizard (ADR 0018). Proposals are JSON and nothing is saved. Starting a brand analysis has no
     // resource id: it creates a proposal in the signed-in tenant only (OnboardingTest covers the roles without
     // brands.manage, and that nothing is written to tenant B). The model, DNS and HTTP are fakes in the register.
@@ -249,6 +330,26 @@ return [
         own: fn (Scenario $s) => ['data' => ['team_id' => $s->tenantA->id]],
     ),
     'teams.show' => RouteAccess::tenant(foreign: $teamB, own: $teamA),
+    'teams.slack.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id], 'data' => ['webhook_url' => 'https://hooks.slack.com/services/T000/B000/xxx']],
+        own: fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id], 'data' => ['webhook_url' => 'https://hooks.slack.com/services/T000/B000/xxx']],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'teams.branding.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id], 'data' => ['primary' => '#112233']],
+        own: fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id], 'data' => ['primary' => '#112233']],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'teams.api-keys.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id]],
+        own: fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'teams.byok-budget.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id]],
+        own: fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id]],
+        deniedRoles: ['editor', 'reader'],
+    ),
     'teams.update' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id], 'data' => ['name' => 'Renamed']],
         own: fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id], 'data' => ['name' => 'Renamed']],

@@ -5,11 +5,13 @@ namespace App\Models;
 use App\Engines\Credentials\ApiKeyProvider;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\RecordsRevisions;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * @property ApiKeyProvider $provider
  * @property string $key
+ * @property CarbonInterface|null $last_verified_at
  */
 class TenantApiKey extends Model
 {

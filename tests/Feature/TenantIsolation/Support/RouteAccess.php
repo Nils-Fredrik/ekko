@@ -63,9 +63,12 @@ final class RouteAccess
         return new self(self::GUEST);
     }
 
-    public static function user(?Closure $foreign = null, ?Closure $own = null): self
+    /**
+     * @param  list<string>  $deniedRoles
+     */
+    public static function user(?Closure $foreign = null, ?Closure $own = null, array $deniedRoles = []): self
     {
-        return new self(self::USER, foreign: $foreign, own: $own);
+        return new self(self::USER, foreign: $foreign, own: $own, deniedRoles: $deniedRoles);
     }
 
     /**

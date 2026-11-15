@@ -67,6 +67,23 @@ final class AuditLog
     }
 
     /**
+     * The Slack webhook was set or cleared. The address itself is a secret and is not recorded.
+     */
+    public function slackWebhookChanged(User $by, Team $tenant): void
+    {
+        $this->record($tenant, 'slack.webhook_changed', $by, null, []);
+    }
+
+    public function reportBrandingChanged(User $by, Team $tenant): void
+    {
+        $primary = $tenant->branding['primary'] ?? null;
+
+        $this->record($tenant, 'reports.branding_changed', $by, null, [
+            'primary' => is_string($primary) ? $primary : null,
+        ]);
+    }
+
+    /**
      * A change made through the Claude connection (MCP, docs/spec.md 15.2). The changed rows also have their own
      * revisions (RecordsRevisions); this entry says that Claude made them, with which tool and connection.
      *
