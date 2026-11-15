@@ -51,6 +51,7 @@ function tenantModelRights(): array
         // Integrations hold credentials: admin only, also for reading.
         Models\Integration::class => $edit(POLICY_ADMINS, POLICY_ADMINS),
         Models\TenantApiKey::class => $edit(POLICY_ADMINS, POLICY_ADMINS),
+        Models\BotLogUpload::class => ['read' => POLICY_ADMINS, 'create' => POLICY_ADMINS, 'change' => POLICY_NO_ROLE],
 
         // Collection and results (6.3, 6.4): written by the system, read by everyone. A manual
         // check (admin and editor) starts a run batch.

@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\TenantIsolation\Support;
 
+use App\Models\Brand;
 use App\Models\McpConnection;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Tenancy\TenantContext;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\PersonalAccessToken;
 use Tests\Support\Mcp\McpTestClient;
@@ -138,6 +140,14 @@ final class Scenario
     public function invitationInA(): TeamInvitation
     {
         return $this->tenantA->teamInvitations()->create(['email' => 'invited-a@example.test', 'role' => 'reader']);
+    }
+
+    public function brandIn(Team $tenant): Brand
+    {
+        return app(TenantContext::class)->run($tenant->id, fn () => Brand::query()->firstOrCreate(['slug' => 'bot-logs-isolation'], [
+            'name' => $tenant->is($this->tenantB) ? $this->marker : 'Tenant A Brand',
+            'primary_domain' => 'site.example.test',
+        ]));
     }
 
     /**

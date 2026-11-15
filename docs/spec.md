@@ -275,7 +275,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 | `alert_evaluations` | `tenant_id`, `local_date`, `evaluated_at` (én rad per tenant og lokal dag, unik; gjør at evalueringen kjører én gang per døgn) |
 | `report_schedules` | `tenant_id`, `brand_id`, `cadence` (weekly, monthly), `recipients` (jsonb), `locale`, `branding` (tenant, partner) |
 | `reports` | `tenant_id`, `report_schedule_id`, `period_start`, `period_end`, `pdf_uri`, `sent_at` |
-| `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `status` |
+| `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `last_failed_on`, `status` |
 | `activity_log` | fra spatie/laravel-activitylog, med `tenant_id` |
 | `model_changes` | `tenant_id`, `engine_key`, `changed_on`, `from_model`, `to_model`, `changed_at` (modellbytte-markører, 7.5) |
 
@@ -527,11 +527,13 @@ Integrasjonen `clickhouse_logs` per merkevare lagrer tilkobling (vert, database,
 
 Listen over user-agents vedlikeholdes i konfigurasjon, ikke i kode. Spørringene skal følge skjemaet som er dokumentert i skillen `clickhouse-logs-query` for Maksimer-loggene.
 
+ClickHouse-synken registrerer feildager i tenantens tidssone og oppretter `integration_error` etter to påfølgende feildager (11.1). Vellykket synk setter `status = synced` og nullstiller feilrekken; feil bevarer tidligere aggregater og `last_sync_at`. Se [ADR 0014](decisions/0014-botloggimport.md).
+
 Tenants uten ClickHouse kan i stedet laste opp loggfiler (nginx/Apache combined-format, gz) via grensesnittet. Filene parses av en jobb.
 
 ### 10.2 AI-trafikk fra GA4
 
-Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto som kunden gir lesetilgang. `ekko:sync-ga4` henter `sessions`, `engagedSessions` og `conversions` per dag der `sessionSource` matcher `chatgpt.com`, `chat.openai.com`, `perplexity.ai`, `gemini.google.com`, `copilot.microsoft.com` og `claude.ai`. Listen ligger i konfigurasjon.
+Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto med lesetilgang til kundens property. `ekko:sync-ga4` henter `sessions`, `engagedSessions` og `keyEvents` per dag der `sessionSource` matcher `chatgpt.com`, `chat.openai.com`, `perplexity.ai`, `gemini.google.com`, `copilot.microsoft.com` og `claude.ai`. Listen ligger i `config/ga4.php`. Google har erstattet API-metrikken `conversions` med `keyEvents`. Ekko lagrer den i `ai_referrals_daily.conversions`. Se [ADR 0015](decisions/0015-ga4-synk.md) for oppsett og synkronisering.
 
 ---
 
