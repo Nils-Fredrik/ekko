@@ -17,3 +17,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0007](0007-terraform-oppstart-og-deploy.md) | Terraform, databasebrukere og deployansvar | Akseptert |
 | [0008](0008-innlogging-og-invitasjoner.md) | Innlogging med Google, invitasjoner og tofaktor | Akseptert |
 | [0009](0009-policyer-og-revisjonslogg.md) | Policyer for tenant-eide modeller og revisjonslogg | Akseptert |
+| [0010](0010-deterministisk-gjenkjenning.md) | Deterministisk gjenkjenning: normalisering, ordgrenser, lister og regex-sikkerhet | Akseptert |

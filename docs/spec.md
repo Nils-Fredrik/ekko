@@ -414,6 +414,8 @@ Kjøres synkront i workeren rett etter innsamling.
 - **Listeposisjon:** nummererte og punktvise lister tolkes. Posisjon er listeelementets nummer (1-basert) der merkevaren først forekommer.
 - **Sitater:** normaliseres ved å fjerne sporingsparametre (`utm_*`, `gclid`, `fbclid`, `srsltid`), skråstrek på slutten og `www.`. Eierskap avgjøres mot `brand_domains` og `competitor_domains`.
 
+Detaljene (folding av ö/ø og ä/æ, ordgrenser og genitiv-s, listeregler, regex-sikkerhet og eierskap) står i [ADR 0010](decisions/0010-deterministisk-gjenkjenning.md).
+
 ### 8.2 Modellbasert uttrekk (andre ledd)
 
 Svar med status `collected` sendes i batch til Anthropic Message Batches med modellen **Claude Haiku 5.5** (`claude-haiku-5-5`), maks 100 svar per batch. Modellen får:
