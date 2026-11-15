@@ -397,7 +397,7 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 **Oppsett av ny motor:** én adapterklasse, én rad i `engines`, priser i `engine_prices` og fixtures. Det skal ikke være nødvendig å endre noe annet.
 
-`chatgpt_api` bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
+`chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
 
 ### 7.5 Gjentakelser og modellversjoner
 

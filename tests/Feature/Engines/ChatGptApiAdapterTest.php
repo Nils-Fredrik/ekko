@@ -12,7 +12,7 @@ use Illuminate\Support\Sleep;
 use Tests\Support\Engines\EngineFixtures;
 
 beforeEach(function () {
-    config(['engines.chatgpt_api.api_key' => 'fixture-platform', 'engines.chatgpt_api.model' => 'gpt-5-mini']);
+    config(['engines.chatgpt_api.model' => 'gpt-5-mini']);
     Http::preventStrayRequests();
     Sleep::fake();
 });
@@ -27,7 +27,7 @@ it('collects a fresh localized Responses request and preserves provider annotati
     string $language,
     string $city,
     string $prompt,
-    ?string $byok,
+    string $byok,
 ) {
     $raw = EngineFixtures::load('chatgpt_api', $fixtureName);
     Http::fake(['https://api.openai.com/v1/responses' => Http::response($raw)]);
@@ -43,7 +43,7 @@ it('collects a fresh localized Responses request and preserves provider annotati
 
     Http::assertSentCount(1);
     Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
-        && $request->hasHeader('Authorization', 'Bearer '.($byok ?? 'fixture-platform'))
+        && $request->hasHeader('Authorization', 'Bearer '.$byok)
         && $request->data() === [
             'model' => 'gpt-5-mini-2025-08-07',
             'input' => $prompt."\n\nRespond in the language identified by the BCP 47 tag {$language}.",
@@ -72,11 +72,12 @@ it('collects a fresh localized Responses request and preserves provider annotati
             ->and($result->citations)->toBe([]);
     }
 })->with([
-    'Norwegian / platform' => ['no-nb', 'NO', 'nb', 'Oslo', 'Vis et eksempel.', null],
-    'Swedish / BYOK / no citations' => ['se-sv-no-citations', 'SE', 'sv', 'Göteborg', 'Visa ett exempel.', 'fixture-byok'],
+    'Norwegian / citations' => ['no-nb', 'NO', 'nb', 'Oslo', 'Vis et eksempel.', 'fixture-norway'],
+    'Swedish / no citations' => ['se-sv-no-citations', 'SE', 'sv', 'Göteborg', 'Visa ett exempel.', 'fixture-byok'],
 ]);
 
 it('backs off on 429 and 5xx and retries the same request up to three times', function () {
+    Engine::factory()->create(['key' => 'chatgpt_api', 'model_id' => '']);
     $failure = EngineFixtures::load('chatgpt_api', 'error');
     $raw = EngineFixtures::load('chatgpt_api', 'no-nb');
     Http::fake(['https://api.openai.com/v1/responses' => Http::sequence()
@@ -84,7 +85,7 @@ it('backs off on 429 and 5xx and retries the same request up to three times', fu
         ->push($failure, 503)
         ->push($raw)]);
 
-    $result = app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15'));
+    $result = app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-byok'));
 
     expect($result->raw)->toBe($raw);
     Http::assertSentCount(3);
@@ -96,7 +97,7 @@ it('backs off on 429 and 5xx and retries the same request up to three times', fu
 it('stops on a permanent 4xx and records a sanitized failure code', function () {
     Http::fake(['https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'error'), 401)]);
 
-    expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15')))
+    expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-byok')))
         ->toThrow(EngineCallFailed::class, 'openai_http_401');
 
     Http::assertSentCount(1);
@@ -106,7 +107,7 @@ it('stops on a permanent 4xx and records a sanitized failure code', function () 
 it('stops after three unsuccessful transient responses', function () {
     Http::fake(['https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'error'), 502)]);
 
-    expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15')))
+    expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-byok')))
         ->toThrow(EngineCallFailed::class, 'openai_http_502');
 
     Http::assertSentCount(3);
@@ -116,9 +117,29 @@ it('stops after three unsuccessful transient responses', function () {
 it('handles a transport timeout without repeating or surfacing provider details', function () {
     Http::fake(['https://api.openai.com/v1/responses' => Http::failedConnection('Synthetic timeout')]);
 
-    expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15')))
+    expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-byok')))
         ->toThrow(EngineCallFailed::class, 'openai_connection_failed');
 
     Http::assertSentCount(1);
     Sleep::assertNeverSlept();
 });
+
+it('rejects an empty or incomplete provider response', function (string $status) {
+    $raw = EngineFixtures::load('chatgpt_api', 'empty-response');
+    $raw['status'] = $status;
+    Http::fake(['https://api.openai.com/v1/responses' => Http::response($raw)]);
+
+    expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-byok')))
+        ->toThrow(EngineCallFailed::class, 'openai_invalid_response');
+
+    Http::assertSentCount(1);
+})->with(['completed', 'incomplete']);
+
+it('requires a tenant key before making a request', function (?string $apiKey) {
+    Http::fake();
+
+    expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', $apiKey)))
+        ->toThrow(EngineCallFailed::class, 'openai_missing_api_key');
+
+    Http::assertNothingSent();
+})->with([null, '   ']);

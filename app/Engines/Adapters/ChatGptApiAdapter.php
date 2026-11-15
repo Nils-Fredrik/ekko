@@ -28,14 +28,15 @@ final class ChatGptApiAdapter implements EngineAdapter
 
     public function collect(EngineRequest $request): EngineResult
     {
-        $apiKey = $request->apiKey ?? config()->string('engines.chatgpt_api.api_key');
+        $apiKey = trim($request->apiKey ?? '');
 
         if ($apiKey === '') {
             throw new EngineCallFailed('openai_missing_api_key');
         }
 
         $engine = Engine::query()->find($this->key());
-        $model = $engine?->model_id ?? config()->string('engines.chatgpt_api.model');
+        $model = trim($engine->model_id ?? '');
+        $model = $model !== '' ? $model : config()->string('engines.chatgpt_api.model');
         $location = ['type' => 'approximate', 'country' => $request->country];
 
         if ($request->city !== null && $request->city !== '') {
@@ -135,7 +136,7 @@ final class ChatGptApiAdapter implements EngineAdapter
         return new EngineResult(
             answerText: $text,
             modelIdReported: is_string($raw['model'] ?? null) ? $raw['model'] : null,
-            citations: $citations,
+            citations: array_values($citations),
             inputTokens: $inputTokens,
             outputTokens: $outputTokens,
             searchCalls: $searchCalls,
@@ -144,8 +145,8 @@ final class ChatGptApiAdapter implements EngineAdapter
     }
 
     /**
-     * @param  list<array{url: string, title: string|null, rank: int, from_annotation: true}>  $citations
-     * @return list<array{url: string, title: string|null, rank: int, from_annotation: true}>
+     * @param  array<string, array{url: string, title: string|null, rank: int, from_annotation: true}>  $citations
+     * @return array<string, array{url: string, title: string|null, rank: int, from_annotation: true}>
      */
     private function collectCitations(mixed $annotations, array $citations): array
     {
@@ -159,12 +160,12 @@ final class ChatGptApiAdapter implements EngineAdapter
             }
 
             $url = $annotation['url'] ?? null;
-            if (! is_string($url) || filter_var($url, FILTER_VALIDATE_URL) === false
+            if (! is_string($url) || isset($citations[$url]) || filter_var($url, FILTER_VALIDATE_URL) === false
                 || ! in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
                 continue;
             }
 
-            $citations[] = [
+            $citations[$url] = [
                 'url' => $url,
                 'title' => is_string($annotation['title'] ?? null) ? $annotation['title'] : null,
                 'rank' => count($citations) + 1,

@@ -23,6 +23,7 @@
                     "text": "Et annet eksempel.",
                     "annotations": [
                         {"type": "url_citation", "url": "https://example.test/norge", "title": "Norge", "start_index": 0, "end_index": 18},
+                        {"type": "url_citation", "url": "https://example.test/oslo", "title": "Gjenta", "start_index": 0, "end_index": 18},
                         {"type": "file_citation", "file_id": "file_fixture"}
                     ]
                 }
