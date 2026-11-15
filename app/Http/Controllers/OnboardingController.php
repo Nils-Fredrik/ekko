@@ -18,7 +18,9 @@ use App\Usage\BillingAccount;
 use App\Usage\MonthlyUsage;
 use App\Usage\PlannedRun;
 use App\Usage\QuotaGuard;
+use Brick\Math\BigDecimal;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -56,11 +58,8 @@ class OnboardingController extends Controller
         if ($plan instanceof Plan && $plan->max_brands !== null && Brand::query()->count() >= $plan->max_brands) {
             return $this->refuse('brand_limit', 422);
         }
-        if (! $this->quotaAllows($tenant)) {
-            return $this->refuse('quota_reached', 429);
-        }
 
-        return $this->start($store, Analysis::BRAND, [
+        return $this->start($store, $tenant, Analysis::BRAND, [
             'name' => trim($data['name']),
             // Always the bare host: the wizard fetches over https only.
             'primary_domain' => (string) SiteUrl::hostFromUserInput($data['primary_domain']),
@@ -87,11 +86,8 @@ class OnboardingController extends Controller
         if (! Topic::query()->where('brand_id', $brand->id)->whereNotNull('cross_market_key')->exists()) {
             return $this->refuse('no_topics', 422);
         }
-        if (! $this->quotaAllows($tenant)) {
-            return $this->refuse('quota_reached', 429);
-        }
 
-        return $this->start($store, Analysis::MARKET, [
+        return $this->start($store, $tenant, Analysis::MARKET, [
             'brand_id' => $brand->id,
             'country' => strtoupper($data['country']),
             'language' => $this->language($data['language']),
@@ -156,11 +152,26 @@ class OnboardingController extends Controller
         return response()->json($result + ['prompt_count' => (int) $promptCount, 'core_prompt_count' => $core]);
     }
 
-    /** @param  array<string, mixed>  $input */
-    private function start(AnalysisStore $store, string $kind, array $input): JsonResponse
+    /**
+     * Checks the quota and creates the analysis under the tenant's lock, counting the analyses that are started but
+     * not billed yet, so parallel requests cannot all pass on the same remaining quota. The job is dispatched after
+     * the lock is released: with a synchronous queue it finishes the analysis, which takes the lock too.
+     *
+     * @param  array<string, mixed>  $input
+     */
+    private function start(AnalysisStore $store, Team $tenant, string $kind, array $input): JsonResponse
     {
-        $tenantId = (int) app(TenantContext::class)->require();
-        $analysis = $store->create($tenantId, (int) auth()->id(), $kind, $input);
+        $tenantId = $tenant->id;
+        try {
+            $analysis = $store->reserving($tenantId, fn (int $pending): ?Analysis => $this->quotaAllows($tenant, $pending)
+                ? $store->create($tenantId, (int) auth()->id(), $kind, $input)
+                : null);
+        } catch (LockTimeoutException) {
+            return $this->refuse('busy', 429);
+        }
+        if ($analysis === null) {
+            return $this->refuse('quota_reached', 429);
+        }
 
         RunOnboardingAnalysis::dispatch($tenantId, $analysis->id);
 
@@ -192,10 +203,14 @@ class OnboardingController extends Controller
         return response()->json(['error' => ['code' => $code, 'message' => __("onboarding.errors.{$code}")]], $status);
     }
 
-    private function quotaAllows(Team $tenant): bool
+    /** Whether one more analysis fits, with $pending started analyses counted as one call and the estimated cost each. */
+    private function quotaAllows(Team $tenant, int $pending): bool
     {
+        $estimate = (string) config('ekko.anthropic.onboarding.estimated_cost_usd');
         $usage = app(MonthlyUsage::class)->forAdmission($tenant, CarbonImmutable::now('UTC'));
-        $planned = new PlannedRun(0, true, BillingAccount::Platform, (string) config('ekko.anthropic.onboarding.estimated_cost_usd'));
+        $usage->calls = (int) $usage->calls + $pending;
+        $usage->cost_usd = (string) BigDecimal::of((string) $usage->cost_usd)->plus(BigDecimal::of($estimate)->multipliedBy($pending));
+        $planned = new PlannedRun(0, true, BillingAccount::Platform, $estimate);
 
         return app(QuotaGuard::class)->allows($usage, $planned);
     }

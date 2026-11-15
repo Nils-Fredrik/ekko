@@ -80,8 +80,8 @@ return [
             'model' => env('EKKO_ONBOARDING_MODEL', 'claude-sonnet-5-5'),
             'max_tokens' => 16000,
             'effort' => 'medium',
-            'input_usd_per_mtok' => '3.00',
-            'output_usd_per_mtok' => '15.00',
+            'input_usd_per_mtok' => '2.00',
+            'output_usd_per_mtok' => '10.00',
             'estimated_cost_usd' => '0.15',
         ],
     ],
@@ -112,6 +112,9 @@ return [
         'proposal_ttl_hours' => 24,
         // Analyses a user may start per minute.
         'analyses_per_minute' => 6,
+        // How long a started analysis counts against the quota before it is billed. Longer than the job's timeout
+        // (240 s), so only an analysis whose worker died runs out before it is finished.
+        'pending_reservation_seconds' => 600,
         'estimate' => [
             // Runs per month for one prompt and one repetition.
             'runs_per_month' => ['daily' => '30', 'weekly' => '4.35', 'monthly' => '1', 'off' => '0'],

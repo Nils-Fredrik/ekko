@@ -9,6 +9,7 @@ return [
         'market_limit' => 'Pakken tillater ikke flere markeder for denne merkevaren.',
         'no_topics' => 'Merkevaren har ingen temaer som kan kobles på tvers av markeder.',
         'quota_reached' => 'Månedens kvote eller budsjett er brukt opp. Analysen kan ikke startes.',
+        'busy' => 'Det startes allerede en analyse for denne tenanten. Prøv igjen om litt.',
         'brand_gone' => 'Merkevaren finnes ikke lenger.',
         'fetch_invalid_url' => 'Adressen er ikke gyldig. Veiviseren henter bare sider over https.',
         'fetch_blocked_address' => 'Adressen peker til en intern eller privat IP-adresse og kan ikke hentes.',

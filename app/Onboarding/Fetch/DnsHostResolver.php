@@ -16,7 +16,8 @@ final class DnsHostResolver implements HostResolver
             }
         }
 
-        // Names that only the system resolver knows (the hosts file, search domains).
+        // Names that only the system resolver knows (the hosts file, search domains). IPv4 only: a host that has
+        // only AAAA records and that dns_get_record() cannot read fails with a DNS error.
         if ($addresses === []) {
             $v4 = @gethostbynamel($host);
             $addresses = is_array($v4) ? $v4 : [];

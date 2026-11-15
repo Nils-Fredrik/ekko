@@ -93,8 +93,8 @@ it('logs the model call as onboarding usage on the platform, with the cost from 
         ->and($events[0]->input_tokens)->toBe(4000)
         ->and($events[0]->output_tokens)->toBe(3000)
         ->and($events[0]->billed_to)->toBe('platform')
-        // 4000 * 3.00 / 1e6 + 3000 * 15.00 / 1e6
-        ->and((string) $events[0]->cost_usd)->toBe('0.05700000');
+        // 4000 * 2.00 / 1e6 + 3000 * 10.00 / 1e6 (Sonnet 5.5)
+        ->and((string) $events[0]->cost_usd)->toBe('0.03800000');
 });
 
 it('turns the domain the user typed into a bare host, and refuses what cannot be a public site', function (string $domain, ?string $host) {
@@ -239,6 +239,49 @@ it('checks the quota before it starts, and starts nothing when the call quota is
 
     Queue::assertNothingPushed();
     expect($fakes->model->requests)->toBe([]);
+});
+
+it('counts started analyses against the quota until they are billed', function () {
+    $plan = Plan::factory()->create(['monthly_call_quota' => 2, 'max_brands' => null]);
+    [$tenant, $owner] = wizardTenant($plan);
+    $fakes = OnboardingFakes::bind();
+    Queue::fake();
+
+    // Two queued analyses use the two calls left, so the third is refused before any of them has run.
+    $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->assertStatus(202);
+    $first = $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->assertStatus(202)->json('id');
+    $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())
+        ->assertStatus(429)
+        ->assertJsonPath('error.code', 'quota_reached');
+    Queue::assertPushed(RunOnboardingAnalysis::class, 2);
+    expect(app(AnalysisStore::class)->pending($tenant->id))->toBe(2);
+
+    // A finished analysis is no longer pending: its usage event counts instead.
+    $store = app(AnalysisStore::class);
+    app(OnboardingRunner::class)->fail($store->find($tenant->id, $first), 'model_unavailable');
+    expect($store->pending($tenant->id))->toBe(1);
+    $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->assertStatus(202);
+
+    // A reservation whose worker died runs out.
+    $this->travel((int) config('ekko.wizard.pending_reservation_seconds') + 1)->seconds();
+    expect($store->pending($tenant->id))->toBe(0)->and($fakes->model->requests)->toBe([]);
+});
+
+it('does not turn an analysis that was marked failed into a proposal', function () {
+    [$tenant, $owner] = wizardTenant();
+    $fakes = OnboardingFakes::bind();
+    Queue::fake();
+    $id = $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->json('id');
+    $store = app(AnalysisStore::class);
+
+    // The job's failed() marks it failed while the first worker is still in the model call.
+    $fakes->model->before = function () use ($store, $tenant, $id): void {
+        app(OnboardingRunner::class)->fail($store->find($tenant->id, $id), 'internal');
+    };
+    (new RunOnboardingAnalysis($tenant->id, $id))->handle($store, app(OnboardingRunner::class));
+
+    expect($store->find($tenant->id, $id)->status)->toBe(Analysis::FAILED)
+        ->and($store->find($tenant->id, $id)->proposal)->toBeNull();
 });
 
 it('stops when the platform budget is used up', function () {
@@ -442,3 +485,8 @@ it('validates the new market', function (array $data, string $field) {
     'bad country' => [['country' => 'SWE', 'language' => 'sv'], 'country'],
     'no language' => [['country' => 'SE'], 'language'],
 ]);
+
+it('runs within the time the queue gives a job before it hands it to another worker', function () {
+    // A second pickup would fail at once (tries = 1) and mark the analysis failed while the first still runs.
+    expect((new RunOnboardingAnalysis(1, 'x'))->timeout)->toBeLessThan((int) config('queue.connections.database.retry_after'));
+});

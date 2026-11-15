@@ -13,6 +13,9 @@ final class FakeOnboardingModelClient implements OnboardingModelClient
     /** @var list<OnboardingRequest> */
     public array $requests = [];
 
+    /** Runs inside the call, before the reply: lets a test change state while the model is answering. */
+    public ?\Closure $before = null;
+
     public function __construct(
         public ?string $text = null,
         public ?string $failure = null,
@@ -24,6 +27,9 @@ final class FakeOnboardingModelClient implements OnboardingModelClient
     public function suggest(OnboardingRequest $request): OnboardingModelResult
     {
         $this->requests[] = $request;
+        if ($this->before !== null) {
+            ($this->before)();
+        }
         if ($this->unavailable) {
             throw OnboardingModelFailed::unavailable();
         }

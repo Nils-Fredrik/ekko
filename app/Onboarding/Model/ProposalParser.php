@@ -215,14 +215,40 @@ final class ProposalParser
         if (preg_match('/[^\s@]+@[^\s@]+\.[^\s@]+/u', $text) === 1) {
             return true;
         }
-        if (preg_match_all('/\+?[\d][\d\s().\-]{6,}[\d]/u', $text, $matches) > 0) {
-            foreach ($matches[0] as $candidate) {
-                if (strlen((string) preg_replace('/\D/', '', $candidate)) >= 8) {
-                    return true;
-                }
+
+        // Digit groups that may be one number: an optional country code, then groups of 2 to 4 digits joined by a
+        // space, a dash or a dot.
+        preg_match_all('/(?<![\w+])(\+\d{1,3}[\s\-]?)?\(?\d{2,4}\)?(?:[\s.\-]?\d{2,4}){1,4}(?!\w)/u', $text, $matches);
+        foreach ($matches[0] as $candidate) {
+            if ($this->looksLikePhoneNumber($candidate)) {
+                return true;
             }
         }
 
         return false;
+    }
+
+    /**
+     * A phone number, not an amount or a period: with a country code 8 to 15 digits; without one 8 digits (Norway,
+     * Denmark), or 8 to 10 digits starting with 0 (Sweden). Amounts with a space as thousands separator
+     * (10 000 000) and year ranges (2024-2025) do not count.
+     */
+    private function looksLikePhoneNumber(string $candidate): bool
+    {
+        $candidate = trim($candidate);
+        $digits = (string) preg_replace('/\D/', '', $candidate);
+        $length = strlen($digits);
+
+        if (str_starts_with($candidate, '+')) {
+            return $length >= 8 && $length <= 15;
+        }
+        if (preg_match('/^\d{1,3}(?:[\s.]\d{3})+$/', $candidate) === 1) {
+            return false;
+        }
+        if (preg_match('/^(?:19|20)\d{2}\s?-\s?(?:19|20)\d{2}$/', $candidate) === 1) {
+            return false;
+        }
+
+        return $length === 8 || (str_starts_with($digits, '0') && $length >= 8 && $length <= 10);
     }
 }

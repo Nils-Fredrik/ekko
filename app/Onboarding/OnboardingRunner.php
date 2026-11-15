@@ -183,8 +183,17 @@ final class OnboardingRunner
         ]));
     }
 
+    /**
+     * Moves the analysis on, unless it has been marked failed in the meantime (the job's failed() after a timeout):
+     * a failed analysis stays failed, so a client that saw the failure is never shown a proposal afterwards.
+     */
     private function advance(Analysis $analysis, string $status): void
     {
+        $stored = $this->store->find($analysis->tenantId, $analysis->id);
+        if ($stored !== null && $stored->status === Analysis::FAILED) {
+            return;
+        }
+
         $analysis->status = $status;
         $this->store->save($analysis);
     }

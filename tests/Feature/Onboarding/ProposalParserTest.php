@@ -114,13 +114,21 @@ it('drops prompts with an email address or a phone number', function (string $te
     'norwegian number' => 'Ring 912 34 567 for å bestille sko',
     'international number' => 'Er +47 912 34 567 nummeret til butikken?',
     'dashed number' => 'Nummer 912-34-567 i Oslo, er det riktig butikk?',
+    'pairs' => 'Er 91 23 45 67 nummeret til kundeservice?',
+    'swedish number' => 'Ska jag ringa 08-123 456 78 för att boka?',
 ]);
 
-it('keeps prompts that only contain ordinary numbers', function () {
-    $data = brandData(['prompts' => [['text' => 'Hva er de beste løpeskoene under 2000 kroner i 2026?', 'cross_market_key' => 'running_shoes', 'intent' => 'category', 'funnel_stage' => 'decision', 'is_core' => false]]]);
+it('keeps prompts that only contain ordinary numbers', function (string $text) {
+    $data = brandData(['prompts' => [['text' => $text, 'cross_market_key' => 'running_shoes', 'intent' => 'category', 'funnel_stage' => 'decision', 'is_core' => false]]]);
 
     expect(parseBrand(json_encode($data))['proposal']['prompts'])->toHaveCount(1);
-});
+})->with([
+    'price and year' => 'Hva er de beste løpeskoene under 2000 kroner i 2026?',
+    'amount with thousands separators' => 'Hva er beste boliglån for 10 000 000 kr?',
+    'year range' => 'Hvilke sommerdekk er best for sesongen 2024-2025?',
+    'tyre size' => 'Hvilke dekk passer til 205/55 R16 91V?',
+    'two years' => 'Hva var beste løpesko i 2024 og 2025?',
+]);
 
 it('drops prompts with an unknown topic, intent or funnel stage, or text that is missing or too short', function () {
     $good = manyPrompts(1)[0];

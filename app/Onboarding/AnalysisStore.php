@@ -2,22 +2,56 @@
 
 namespace App\Onboarding;
 
+use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
  * Keeps analyses in the cache, one key per tenant and analysis (ADR 0018). The tenant is part of the key,
  * so an id from another tenant finds nothing, and find() checks it once more on the stored value.
+ *
+ * Analyses that are queued or running are also kept in a per-tenant list of pending analyses, so the quota check
+ * can count what has been started but not billed yet. The list is changed only under the tenant's lock
+ * (reserving()), and an entry that is never finished (a worker that died) runs out after
+ * ekko.wizard.pending_reservation_seconds.
  */
 final class AnalysisStore
 {
-    /** @param  array<string, mixed>  $input */
+    /**
+     * Runs $start under the tenant's lock with the number of pending analyses. Use it to check the quota and create
+     * the analysis as one step, so two requests cannot both pass the check on the same remaining quota.
+     *
+     * @template T
+     *
+     * @param  Closure(int): T  $start
+     * @return T
+     */
+    public function reserving(int $tenantId, Closure $start): mixed
+    {
+        return Cache::lock($this->lockKey($tenantId), 10)->block(5, fn () => $start($this->pending($tenantId)));
+    }
+
+    /**
+     * Creates an analysis and counts it as pending. Call inside reserving().
+     *
+     * @param  array<string, mixed>  $input
+     */
     public function create(int $tenantId, int $userId, string $kind, array $input): Analysis
     {
         $analysis = new Analysis((string) Str::uuid(), $tenantId, $userId, $kind, $input);
         $this->save($analysis);
 
+        $pending = $this->pendingList($tenantId);
+        $pending[$analysis->id] = now()->addSeconds((int) config('ekko.wizard.pending_reservation_seconds'))->getTimestamp();
+        Cache::put($this->pendingKey($tenantId), $pending, now()->addDay());
+
         return $analysis;
+    }
+
+    /** Analyses of the tenant that are queued or running, and not billed yet. */
+    public function pending(int $tenantId): int
+    {
+        return count($this->pendingList($tenantId));
     }
 
     public function find(int $tenantId, string $id): ?Analysis
@@ -37,6 +71,33 @@ final class AnalysisStore
             $analysis->toArray(),
             now()->addHours((int) config('ekko.wizard.proposal_ttl_hours')),
         );
+
+        if ($analysis->isFinished()) {
+            Cache::lock($this->lockKey($analysis->tenantId), 10)->block(5, function () use ($analysis): void {
+                $pending = $this->pendingList($analysis->tenantId);
+                unset($pending[$analysis->id]);
+                Cache::put($this->pendingKey($analysis->tenantId), $pending, now()->addDay());
+            });
+        }
+    }
+
+    /** @return array<string, int> Analysis id => when the reservation runs out (Unix time). */
+    private function pendingList(int $tenantId): array
+    {
+        $now = now()->getTimestamp();
+        $pending = Cache::get($this->pendingKey($tenantId));
+
+        return is_array($pending) ? array_filter($pending, fn (mixed $until): bool => is_int($until) && $until > $now) : [];
+    }
+
+    private function pendingKey(int $tenantId): string
+    {
+        return "onboarding:pending:{$tenantId}";
+    }
+
+    private function lockKey(int $tenantId): string
+    {
+        return "onboarding:lock:{$tenantId}";
     }
 
     private function key(int $tenantId, string $id): string
