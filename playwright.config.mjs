@@ -1,4 +1,5 @@
 import { defineConfig } from '@playwright/test';
+import { databaseEnv } from './tests/Browser/database.mjs';
 
 const port = Number(process.env.BROWSER_PORT ?? 8010);
 export default defineConfig({
@@ -15,6 +16,6 @@ export default defineConfig({
         url: `http://127.0.0.1:${port}/up`,
         reuseExistingServer: false,
         timeout: 30000,
-        env: { APP_URL: `http://127.0.0.1:${port}`, SESSION_SECURE_COOKIE: 'false' },
+        env: { ...databaseEnv, APP_URL: `http://127.0.0.1:${port}`, SESSION_SECURE_COOKIE: 'false' },
     },
 });
