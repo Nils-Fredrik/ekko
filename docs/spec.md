@@ -380,7 +380,7 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 | `google_ai_mode` | Google | SERP, kø | DataForSEO AI Mode-endepunkt (standardkø), der det er tilgjengelig for markedet | daglig | alle |
 | `claude_haiku` | Claude | API | Anthropic Messages API med `claude-haiku-5-5`, grunnversjonen av web search-verktøyet (uten dynamisk filtrering, `max_uses: 2`) og `user_location`. Kilder fra `web_search_result_location`-sitater. | daglig | alle |
 | `claude_sonnet` | Claude | API | Som over, med `claude-sonnet-5-5` | ukentlig | kjerne |
-| `perplexity_api` | Perplexity | API | Perplexitys API med websøk. Kilder fra `citations`/`search_results`. | ukentlig | alle |
+| `perplexity_api` | Perplexity | API | Perplexity Agent API med `perplexity/sonar` og `web_search`. Kilder fra `search_results` og `url_citation`-annotasjoner. | ukentlig | alle |
 | `chatgpt_api` | ChatGPT | API | OpenAI Responses API med `web_search` og `user_location` | av | – |
 | `gemini_api` | Gemini | API | Gemini API med Google Search-grounding. Kilder fra `groundingMetadata`. | av | – |
 
@@ -397,6 +397,8 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 - Færre prompts per marked.
 
 **Oppsett av ny motor:** én adapterklasse, én rad i `engines`, priser i `engine_prices` og fixtures. Det skal ikke være nødvendig å endre noe annet.
+
+`perplexity_api` bruker Agent API (`/v1/agent`) etter at støtten for Sonar Chat Completions opphørte 27. september 2026. Motorens konfigurerte modell har forrang foran `PERPLEXITY_MODEL` (standard `perplexity/sonar`). Agent API får land og eventuell by via nettsøkverktøyets `user_location`. Språk settes med en kort språkinstruks i brukerinnlegget, siden Agent API mangler et språkfilter for søk. Tenantens nøkkel har forrang når den er oppgitt, ellers brukes `PERPLEXITY_API_KEY`. [Migreringsveiledning for Sonar](https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/how-to)
 
 `chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
 
