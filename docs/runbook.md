@@ -5,7 +5,7 @@
 ### Integrasjoner og identiteter
 
 - Claude GitHub App skal være installert for `Nils-Fredrik/ekko`. `CLAUDE_CODE_OAUTH_TOKEN` kommer fra et eget Claude Team-sete, aldri fra Console-organisasjonens API-nøkkel. Workflowen bruker eksplisitt `claude-opus-5-5` og en commit-pinnet `anthropics/claude-code-action`.
-- GitHub-repoet må være koblet til ChatGPT Codex, med kodereview aktivert. Verifiser GPT-6.1 Sol i integrasjonens tilgjengelige innstillinger. Workflowen kan utløse review med `@codex review`, men den kan ikke velge modell gjennom en dokumentert kommentarparameter. Dokumenter innstillingen før aksept; ikke anta at modellnavn i en kommentar endrer modellen.
+- GitHub-repoet må være koblet til ChatGPT Codex, med kodereview aktivert. Eieren bekreftet 15.11.2026 at repoets innstillinger ikke har modellvalg; GitHub-kvitteringene oppgir heller ikke modell. GPT-6.1 Sol kan derfor ikke bekreftes. Aktiveringen bruker integrasjonens leverandørstyrte modell som dokumentert avvik i spec 19.5 (Board #457). Workflowen kan utløse review med `@codex review`, men kan ikke velge modell gjennom en dokumentert kommentarparameter. Verifiser bot-identitet, aktuell head-SHA og fersk kvittering; ikke anta modellidentitet. Kontroller modellvalget igjen hvis integrasjonen senere tilbyr det.
 - `CODEX_TRIGGER_TOKEN` er en separat, minst privilegert finmasket GitHub-token for å kommentere på PR-er i dette repoet. Den trenger Pull requests: read and write på bare ekko (Metadata: read følger automatisk). Issues: write alene ga 403 på PR-kommentarer i live aksepttesten. Den brukes bare av prepare-steget og eksponeres aldri for review-agenten. Kontroller at tokenets avsender faktisk kan utløse Codex; en kommentar fra `GITHUB_TOKEN` alene er ikke tilstrekkelig testbevis.
 - `BOARD_MCP_TOKEN` er en dedikert CI-identitet med tilgang til dette Board-et. Den må virke som Bearer-autentisering mot `https://board.maksimer.com/mcp`. En nettleserinnlogging er ikke en CI-hemmelighet. Klienten initialiserer MCP, leser snapshot og poster bare en kort blocker med PR-referanse etter tre ulike mislykkede kode-revisjoner. Ingen diff, modelltekst eller hemmeligheter sendes til Board.
 
@@ -50,6 +50,25 @@ jq -n --argjson app_id "$AGENT_REVIEW_APP_ID" \
 ```
 
 6. Dokumenter test-PR-er, revisjoner, CI og beskyttelseskontroll på Board. T42 lukkes først når hele aksepten er bekreftet. Eieren er fortsatt den eneste som merger.
+
+### Akseptbevis fra 15.11.2026
+
+Aktivert 15.11.2026: `main` krever `strict: true`, `test` fra GitHub Actions (App-ID `15368`) og `agent-review` fra Ekko Agent Review NF (App-ID `5773706`, bot-ID `357077641`). Kravene gjelder også administratorer. Force-push og sletting er av. `check-protection.mjs` består mot metadata hentet etter aktivering, inkludert miljøets eneste tillatte branch `main`.
+
+Testene ble kjørt i to omganger: `88fac6b` etter #49 og `6f6ebdc` etter #54, som angitt per rad nedenfor. #54 endret bare Claudes lesetilgang og publiseringskvittering (samt tilhørende test/dokumentasjon). Codex-ruting, kildekontroll, eskalering, request-workflow og miljøregel var uendret. Derfor beholdes bevisene for disse kontrollene fra `88fac6b`, mens Claude- og dobbelreview ble kjørt på nytt mot `6f6ebdc`. De midlertidige PR-ene er lukket uten merge. Modellen bak Codex-integrasjonen er ikke eksponert; se avviket i spec 19.5 og Board #457.
+
+| Kontroll        | Main/base           | Bevis                                                                                                                                                                                                                                                        |
+| --------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Codex alene     | `88fac6b`           | PR #51, head `2220e3e`, review-kjøring `43756979343` og CI `43756955486` grønne.                                                                                                                                                                             |
+| Claude alene    | `6f6ebdc`           | PR #57, head `16c29d3`, review-kjøring `43759435655` grønn; eksakt kvittering fra Claude-boten.                                                                                                                                                              |
+| Begge reviewere | `6f6ebdc`           | PR #58, head `151dfeb`, review-kjøring `43759445560` og CI `43759420120` grønne.                                                                                                                                                                             |
+| Bot-push        | `88fac6b`           | PR #50: `claude[bot]` pushet `aefd018`; request-kjøring `43757386759` startet automatisk.                                                                                                                                                                    |
+| Ny kode         | `6f6ebdc`           | PR #57: `3d192dc` fikk pending og ingen arvet godkjenning; produksjonsfunksjonen `sameSnapshot` avviste den gamle godkjenningen. Fersk review `43759612562` og CI `43759585469` ble grønne.                                                                  |
+| Endret base     | `88fac6b → 6f6ebdc` | PR #51s kildekjøring `43756955399` hadde base `88fac6b`. `reviewSource` mot ekte GitHub-data og main `6f6ebdc` avviste den med «Source does not match the trusted main checkout». Etter aktivering viste GitHub `BEHIND` til tross for grønne gamle sjekker. |
+| Miljøsperre     | `88fac6b`           | PR #52, jobb `132943049815`: `refs/pull/52/merge` ble avvist av main-only-regelen før noen steg kjørte. Ingen hemmeligheter ble lest.                                                                                                                        |
+| Eskalering      | `88fac6b`           | PR #50: tre ulike feilende heads ga Board #450; omkjøring `43757676130`, forsøk 2, ga ingen ny blocker. Testblockeren ble forklart og løst i #451.                                                                                                           |
+
+Claude CLI 2.1.325 ble også testet med syntetiske filer: repo-lesing virket, mens `.git` og filer utenfor arbeidsmappen ble avvist. En separat CLI/MCP-rundtur brukte den ekte publiseringsfunksjonen med syntetisk API og viste identisk publisert og strukturert resultat. Ingen produksjonshemmeligheter ble brukt i disse lokale probene. De 24 deterministiske Node-testene består; funksjonstestene over erstatter ikke CI.
 
 ### Feil og gjenoppretting
 
