@@ -11,7 +11,7 @@ const stop = () => {
 </script>
 
 <template>
-    <div v-if="actingAs" class="bg-red-700 text-white" role="alert" data-testid="acting-as-banner">
+    <div v-if="actingAs" class="bg-primary text-white" role="alert" data-testid="acting-as-banner">
         <div class="max-w-7xl mx-auto py-2 px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 text-sm">
             <p>
                 <span class="font-semibold">{{ $t('app.acting_as.banner', { tenant: actingAs.tenant }) }}</span>

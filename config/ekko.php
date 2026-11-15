@@ -3,6 +3,11 @@
 return [
 
     /*
+    | Languages the interface can be shown in (docs/spec.md 14.1). nb is the default.
+    */
+    'locales' => ['nb', 'sv', 'en'],
+
+    /*
     | Days a team invitation can be accepted (docs/spec.md 5.4). Enforced server-side when the
     | invitation is accepted and when a single sign-on account is linked.
     */
@@ -25,6 +30,7 @@ return [
         'password.confirm.store',
         'password.confirmation',
         'logout',
+        'locale.update',
         'verification.*',
     ],
 

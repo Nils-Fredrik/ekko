@@ -10,6 +10,20 @@ return [
         'sv' => 'Svenska',
         'en' => 'English',
     ],
+    'common' => [
+        'close' => 'Stäng',
+    ],
+    'nav' => [
+        'menu' => 'Meny',
+        'open_menu' => 'Öppna meny',
+        'theme' => 'Tema',
+        'language' => 'Språk',
+        'themes' => [
+            'dark' => 'Mörkt',
+            'light' => 'Ljust',
+            'system' => 'Följ systemet',
+        ],
+    ],
     'acting_as' => [
         'banner' => 'Du agerar som :tenant.',
         'reason' => 'Orsak: :reason',

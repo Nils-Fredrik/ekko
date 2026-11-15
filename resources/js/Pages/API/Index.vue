@@ -12,7 +12,7 @@ defineProps({
 <template>
     <AppLayout :title="$t('API Tokens')">
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $t('API Tokens') }}</h2>
+            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ $t('API Tokens') }}</h2>
         </template>
 
         <div>
