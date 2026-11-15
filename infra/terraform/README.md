@@ -25,10 +25,17 @@ ever contain a secret value.
    operations (T05); compromise of the web identity therefore also exposes that
    credential. The exact BYPASSRLS setup on Cloud SQL must be verified before
    release.
+   Repeat these checks after recovery or role rotation: both logins work;
+   `ekko_app` has no superuser, CREATEDB, CREATEROLE, replication, BYPASSRLS or
+   role memberships; `ekko_migrate` has BYPASSRLS, schema CREATE/USAGE and
+   SET ROLE access to `ekko_app`, without superuser, CREATEDB or CREATEROLE.
+   With a synthetic FORCE ROW LEVEL SECURITY table, the app role must see no
+   rows without a tenant and only the selected tenant's rows; the migration
+   role must see all rows. Roll back the probe and remove temporary operators.
 4. Add secret versions directly in Secret Manager, using a secure process that
    does not expose values in shell history, logs, source control or Terraform
    state. The runtime identity has access only to its listed secrets. Push the
-   application image to the Artifact Registry repository. For the initial
+   verified web and jobs images from the CI artifact to Artifact Registry. For the initial
    rollout use a temporary HTTPS value for `app_url`, then set it to the actual
    Cloud Run URL in a second reviewed deployment. Configure OAuth redirects
    and verify the URL before accepting user traffic.

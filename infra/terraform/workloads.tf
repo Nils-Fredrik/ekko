@@ -96,8 +96,8 @@ resource "google_cloud_run_v2_service" "web" {
     # T10 deploys image revisions and manages traffic after bootstrap.
     ignore_changes = [client, client_version, template[0].containers[0].image, template[0].revision, traffic]
     precondition {
-      condition     = length(trimspace(var.image)) > 0
-      error_message = "Set image to an existing application image before enabling workloads."
+      condition     = can(regex("^${var.region}-docker[.]pkg[.]dev/${var.project_id}/ekko/web@sha256:[a-f0-9]{64}$", var.image))
+      error_message = "Set image to an immutable web digest in this project's Ekko Artifact Registry repository."
     }
     precondition {
       condition     = startswith(var.app_url, "https://")
@@ -180,8 +180,8 @@ resource "google_cloud_run_v2_job" "job" {
   lifecycle {
     ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
     precondition {
-      condition     = length(trimspace(var.job_image)) > 0
-      error_message = "Set job_image to the verified jobs image with Chromium before enabling workloads."
+      condition     = can(regex("^${var.region}-docker[.]pkg[.]dev/${var.project_id}/ekko/jobs@sha256:[a-f0-9]{64}$", var.job_image))
+      error_message = "Set job_image to an immutable jobs digest with Chromium in this project's Ekko Artifact Registry repository."
     }
   }
   depends_on = [google_project_service.api, google_secret_manager_secret_iam_member.read, google_project_iam_member.cloudsql_client]

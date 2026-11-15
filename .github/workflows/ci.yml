@@ -150,6 +150,8 @@ jobs:
             - run: npm ci --no-audit --no-fund
             - name: Verify failed smoke test keeps traffic unchanged
               run: bash tests/deploy/test-deploy.sh
+            - name: Verify registry digest selection
+              run: python3 -m unittest discover -s tests/deploy -v
             - name: Save verified images
               run: |
                   mkdir -p "$RUNNER_TEMP/verified-images"
@@ -230,8 +232,8 @@ jobs:
                   docker tag ekko-jobs-check:ci "$JOB_TAG"
                   docker push "$WEB_TAG"
                   docker push "$JOB_TAG"
-                  web_image=$(docker image inspect "$WEB_TAG" --format '{{index .RepoDigests 0}}')
-                  job_image=$(docker image inspect "$JOB_TAG" --format '{{index .RepoDigests 0}}')
+                  web_image=$(docker image inspect "$WEB_TAG" --format '{{json .RepoDigests}}' | python3 "$GITHUB_WORKSPACE/scripts/image-digest.py" "${WEB_TAG%:*}")
+                  job_image=$(docker image inspect "$JOB_TAG" --format '{{json .RepoDigests}}' | python3 "$GITHUB_WORKSPACE/scripts/image-digest.py" "${JOB_TAG%:*}")
                   [[ "$web_image" == "${WEB_TAG%:*}@sha256:"* && "$job_image" == "${JOB_TAG%:*}@sha256:"* ]]
                   [[ "${web_image##*@}" =~ ^sha256:[a-f0-9]{64}$ && "${job_image##*@}" =~ ^sha256:[a-f0-9]{64}$ ]]
                   echo "WEB_IMAGE=$web_image" >> "$GITHUB_ENV"
