@@ -34,6 +34,8 @@ final class CollectEngineRun extends TenantJob
     /** @return array<int, object> */
     public function middleware(): array
     {
+        // ADR 0020: each collector database phase opens its own short RLS transaction;
+        // an outer ApplyTenantRls transaction would hold tenant locks during provider I/O.
         return [new SetTenantContext];
     }
 

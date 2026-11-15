@@ -18,16 +18,21 @@ use App\Usage\MonthlyUsage;
 use App\Usage\PlannedRun;
 use App\Usage\QuotaGuard;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use RuntimeException;
+use Throwable;
 
 final class Dispatcher
 {
+    public int $failures = 0;
+
     public function __construct(private TenantContext $context, private TenantRls $rls, private EnginePricing $prices, private TenantApiKeys $keys, private MonthlyUsage $usage, private QuotaGuard $quota) {}
 
     /** Planning is idempotent per tenant-local date; enqueue and marker commit together in PostgreSQL. */
     public function dispatch(CarbonImmutable $now, bool $plan = true): int
     {
+        $this->failures = 0;
         if (config('queue.connections.database.connection') !== null && config('queue.connections.database.connection') !== config('database.default')) {
             throw new RuntimeException('queue_must_share_tenant_connection');
         }
@@ -42,36 +47,47 @@ final class Dispatcher
             $tenants = Team::query()->where('personal_team', false)->where('status', TenantStatus::Active->value)->orderBy('id')->get();
             $pending = [];
             foreach ($tenants as $tenant) {
-                $pending[$tenant->id] = $this->context->run($tenant->id, fn () => $this->rls->run([$tenant->id], function () use ($tenant, $now, $plan) {
-                    $tenant = Team::query()->lock('for no key update')->findOrFail($tenant->id);
-                    if ($plan) {
-                        $this->plan($tenant, $now);
-                    }
+                try {
+                    $pending[$tenant->id] = $this->context->run($tenant->id, fn () => $this->rls->run([$tenant->id], function () use ($tenant, $now, $plan) {
+                        $tenant = Team::query()->lock('for no key update')->findOrFail($tenant->id);
+                        if ($plan) {
+                            $this->plan($tenant, $now);
+                        }
 
-                    $this->refreshBatches();
-                    if (Run::query()->where('status', 'collected')->exists()) {
-                        SubmitExtractionBatch::dispatch($tenant->id)->onConnection('database')->afterCommit();
-                    }
+                        $this->refreshBatches();
+                        if (Run::query()->where('status', 'collected')->exists()) {
+                            SubmitExtractionBatch::dispatch($tenant->id)->onConnection('database')->afterCommit();
+                        }
 
-                    return Run::query()->whereNull('enqueued_at')->where(function ($query) use ($now) {
-                        $query->where('status', 'queued')->orWhere(fn ($poll) => $poll->where('status', 'submitted')->where('next_poll_at', '<=', $now));
-                    })->orderBy('id')->pluck('id')->all();
-                }));
+                        return Run::query()->whereNull('enqueued_at')->where(function ($query) use ($now) {
+                            $query->where('status', 'queued')->orWhere(fn ($poll) => $poll->where('status', 'submitted')->where('next_poll_at', '<=', $now));
+                        })->orderBy('id')->pluck('id')->all();
+                    }));
+                } catch (Throwable $failure) {
+                    $this->failures++;
+                    $pending[$tenant->id] = [];
+                    Log::error('Tenant dispatch planning failed.', ['tenant_id' => $tenant->id, 'error_type' => $failure::class]);
+                }
             }
             $count = 0;
             foreach (FairQueue::interleave($pending) as $entry) {
                 $id = $entry['tenant_id'];
-                $count += $this->context->run($id, fn () => $this->rls->run([$id], function () use ($entry, $now, $id): int {
-                    $run = Run::query()->lockForUpdate()->findOrFail($entry['item']);
-                    if ($run->enqueued_at !== null || ! in_array($run->status, ['queued', 'submitted'], true)) {
-                        return 0;
-                    }
-                    // Explicit connection: synchronous/failover dispatch would break the atomic outbox.
-                    Queue::connection('database')->push(new CollectEngineRun($id, $run->id));
-                    $run->forceFill(['enqueued_at' => $now])->save();
+                try {
+                    $count += $this->context->run($id, fn () => $this->rls->run([$id], function () use ($entry, $now, $id): int {
+                        $run = Run::query()->lockForUpdate()->findOrFail($entry['item']);
+                        if ($run->enqueued_at !== null || ! in_array($run->status, ['queued', 'submitted'], true)) {
+                            return 0;
+                        }
+                        // Explicit connection: synchronous/failover dispatch would break the atomic outbox.
+                        Queue::connection('database')->push(new CollectEngineRun($id, $run->id));
+                        $run->forceFill(['enqueued_at' => $now])->save();
 
-                    return 1;
-                }));
+                        return 1;
+                    }));
+                } catch (Throwable $failure) {
+                    $this->failures++;
+                    Log::error('Run enqueue failed.', ['tenant_id' => $id, 'run_id' => $entry['item'], 'error_type' => $failure::class]);
+                }
             }
 
             return $count;

@@ -363,7 +363,7 @@ For slike motorer settes `runs.status` til `submitted` etter innsending. `extrac
 - **Kilder:** hentes fra leverandørens egne annotasjoner der de finnes, og `from_annotation` settes til `true`.
 - **Timeout:** 120 sekunder per kall.
 - **Feilhåndtering:** inntil 3 forsøk med eksponentiell ventetid for 429 og 5xx. 4xx ellers markeres `failed` med `error_code`.
-- **Rate limiting:** hver motor har grense for samtidige kall og kall per minutt, implementert med Laravel `RateLimited`-jobbmiddleware (database-lås).
+- **Rate limiting:** hver motor har grense for samtidige kall og kall per minutt, implementert med `EngineThrottle` og delte PostgreSQL-låser (ADR 0020).
 - **Råsvar:** hele leverandørsvaret lagres i `gs://ekko-raw/{tenant_id}/{yyyy}/{mm}/{run_id}.json`.
 - **Tester:** hver adapter har kontraktstester mot innspilte svar (fixtures). CI gjør aldri levende kall.
 

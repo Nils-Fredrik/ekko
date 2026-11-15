@@ -14,6 +14,6 @@ final class ExtractionPollController
         $dispatcher->dispatch(CarbonImmutable::now('UTC'), plan: false);
         $worker->startIfPending();
 
-        return response()->noContent();
+        return $dispatcher->failures > 0 ? response('', 503) : response()->noContent();
     }
 }

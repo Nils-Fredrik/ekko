@@ -93,7 +93,8 @@ test('queue insertion rolls back together with its run marker', function () {
             throw new RuntimeException('fixture_marker_failure');
         }
     });
-    expect(fn () => app(Dispatcher::class)->dispatch(CarbonImmutable::now()))->toThrow(RuntimeException::class, 'fixture_marker_failure');
+    $dispatcher = app(Dispatcher::class);
+    expect($dispatcher->dispatch(CarbonImmutable::now()))->toBe(0)->and($dispatcher->failures)->toBe(1);
     expect(DB::table('jobs')->count())->toBe(0);
     app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], fn () => expect(Run::query()->sole()->enqueued_at)->toBeNull()));
 });
@@ -115,4 +116,30 @@ test('a durable database job executes collection with tenant context and records
         expect(Run::query()->sole()->status)->toBe('collected')
             ->and(UsageEvent::query()->count())->toBe(1);
     }));
+});
+
+test('a tenant with a missing engine price does not prevent other tenants from being queued', function () {
+    $missing = Engine::factory()->create(['key' => 'gemini_api', 'provider' => 'google', 'is_enabled' => true]);
+    $invalid = dispatchTenant($missing, 1);
+    $valid = dispatchTenant(dispatchEngine(), 1);
+    $dispatcher = app(Dispatcher::class);
+    expect($dispatcher->dispatch(CarbonImmutable::now()))->toBe(1)->and($dispatcher->failures)->toBe(1);
+    $job = unserialize(json_decode(DB::table('jobs')->sole()->payload, true)['data']['command']);
+    expect($job->tenantId())->toBe($valid->id);
+    app(TenantContext::class)->run($invalid->id, fn () => app(TenantRls::class)->run([$invalid->id], fn () => expect(RunBatch::query()->count())->toBe(0)));
+});
+
+test('a failed queue marker does not prevent the next tenant from being enqueued', function () {
+    $engine = dispatchEngine();
+    $invalid = dispatchTenant($engine, 1);
+    $valid = dispatchTenant($engine, 1);
+    Run::updating(function (Run $run) use ($invalid): void {
+        if ($run->tenant_id === $invalid->id && $run->isDirty('enqueued_at')) {
+            throw new RuntimeException('fixture_marker_failure');
+        }
+    });
+    $dispatcher = app(Dispatcher::class);
+    expect($dispatcher->dispatch(CarbonImmutable::now()))->toBe(1)->and($dispatcher->failures)->toBe(1);
+    $job = unserialize(json_decode(DB::table('jobs')->sole()->payload, true)['data']['command']);
+    expect($job->tenantId())->toBe($valid->id);
 });

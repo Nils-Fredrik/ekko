@@ -6,6 +6,7 @@ use App\Scheduling\Dispatcher;
 use App\Scheduling\WorkerLauncher;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 final class DispatchDue extends Command
@@ -21,8 +22,15 @@ final class DispatchDue extends Command
             $launcher->startIfPending();
             $this->components->info(__('collection.queued', ['count' => $count]));
 
+            if ($dispatcher->failures > 0) {
+                $this->components->error(__('collection.failed'));
+
+                return self::FAILURE;
+            }
+
             return self::SUCCESS;
-        } catch (Throwable) {
+        } catch (Throwable $failure) {
+            Log::error('Collection dispatch failed.', ['error_type' => $failure::class]);
             $this->components->error(__('collection.failed'));
 
             return self::FAILURE;
