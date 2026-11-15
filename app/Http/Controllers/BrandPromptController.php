@@ -9,15 +9,19 @@ use App\Metrics\Metric;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\Brand;
+use App\Models\Market;
 use App\Models\Prompt;
 use App\Models\Response;
+use App\Models\Team;
 use App\Prompts\AnswerSegments;
 use App\Prompts\PersonalData;
 use App\Prompts\PromptCsv;
+use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -114,21 +118,33 @@ class BrandPromptController extends Controller
         ]);
 
         $personal = false;
-        if (isset($validated['text'])) {
-            $hash = Prompt::hashText($validated['text']);
-            $taken = Prompt::query()
-                ->where('market_id', $prompt->market_id)
-                ->where('text_hash', $hash)
-                ->whereKeyNot($prompt->id)
-                ->exists();
-            if ($taken) {
-                throw ValidationException::withMessages(['text' => __('app.library.duplicate')]);
-            }
-            $validated['text_hash'] = $hash;
-            $personal = PersonalData::in($validated['text']);
-        }
+        DB::transaction(function () use ($brand, $prompt, $validated, &$personal): void {
+            $marketId = (int) $prompt->market_id;
+            // Same order as the API and MCP: lock the market, then the prompt, then check active capacity.
+            Market::query()->where('brand_id', $brand->id)->lockForUpdate()->findOrFail($marketId);
+            $locked = Prompt::query()->where('market_id', $marketId)->lockForUpdate()->findOrFail($prompt->id);
 
-        $prompt->update($validated);
+            if (! $locked->is_active && ($validated['is_active'] ?? false)) {
+                $this->checkActiveCapacity($marketId);
+            }
+
+            $changes = $validated;
+            if (isset($changes['text'])) {
+                $hash = Prompt::hashText($changes['text']);
+                $taken = Prompt::query()
+                    ->where('market_id', $marketId)
+                    ->where('text_hash', $hash)
+                    ->whereKeyNot($locked->id)
+                    ->exists();
+                if ($taken) {
+                    throw ValidationException::withMessages(['text' => __('app.library.duplicate')]);
+                }
+                $changes['text_hash'] = $hash;
+                $personal = PersonalData::in($changes['text']);
+            }
+
+            $locked->update($changes);
+        });
 
         return back()->with('personal_data', $personal);
     }
@@ -233,14 +249,7 @@ class BrandPromptController extends Controller
             ->exists();
         abort_unless($owns, 404);
 
-        $stored = null;
-        if (is_string($response->raw_uri) && $response->raw_uri !== '') {
-            try {
-                $stored = app(RawResponseStore::class)->read($response->raw_uri);
-            } catch (\Throwable) {
-                $stored = null;
-            }
-        }
+        $stored = self::storedRaw($response);
         $body = $stored ?? (string) $response->answer_text;
         $json = $stored !== null;
 
@@ -248,6 +257,37 @@ class BrandPromptController extends Controller
             'Content-Type' => $json ? 'application/json' : 'text/plain; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="response-'.$response->id.($json ? '.json' : '.txt').'"',
         ]);
+    }
+
+    private function checkActiveCapacity(int $marketId): void
+    {
+        $tenantId = app(TenantContext::class)->id();
+        $limit = $tenantId === null ? null : Team::query()->find($tenantId)?->plan?->max_prompts_per_market;
+        if ($limit !== null && Prompt::query()->where('market_id', $marketId)->where('is_active', true)->count() >= $limit) {
+            throw ValidationException::withMessages(['is_active' => __('app.library.quota')]);
+        }
+    }
+
+    /**
+     * Provider JSON only when the URI is this tenant's object in the configured raw bucket (docs/spec.md 6).
+     */
+    private static function storedRaw(Response $response): ?string
+    {
+        $uri = $response->raw_uri;
+        $tenantId = $response->getAttribute('tenant_id');
+        if (! is_string($uri) || $uri === '' || (! is_int($tenantId) && ! is_string($tenantId))) {
+            return null;
+        }
+        $prefix = 'gs://'.config()->string('engines.raw_bucket').'/'.$tenantId.'/';
+        if (! str_starts_with($uri, $prefix)) {
+            return null;
+        }
+
+        try {
+            return app(RawResponseStore::class)->read($uri);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function promptOf(Brand $brand, Prompt $prompt): Prompt

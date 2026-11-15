@@ -9,15 +9,17 @@ use App\Models\Prompt;
 use App\Models\Team;
 use App\Models\Topic;
 use App\Tenancy\TenantContext;
+use Illuminate\Support\Facades\DB;
 
 /**
  * CSV import and export of prompts (docs/spec.md 14.2). Columns are text, market (country),
- * location, topic, intent, funnel_stage, priority and active.
+ * language, location, topic, intent, funnel_stage, priority, active and market_id.
+ * Country alone is not unique when one country has several languages (docs/spec.md 6.2).
  */
 final class PromptCsv
 {
     /** @var list<string> */
-    public const COLUMNS = ['text', 'market', 'location', 'topic', 'intent', 'funnel_stage', 'priority', 'active'];
+    public const COLUMNS = ['text', 'market', 'language', 'location', 'topic', 'intent', 'funnel_stage', 'priority', 'active', 'market_id'];
 
     public static function export(Brand $brand): string
     {
@@ -43,12 +45,14 @@ final class PromptCsv
             fputcsv($handle, [
                 $prompt->text,
                 $prompt->market->country,
+                $prompt->market->language,
                 $prompt->market->location_label ?? '',
                 $prompt->topic_id === null ? '' : $prompt->topic->name,
                 $prompt->intent,
                 $prompt->funnel_stage,
                 $prompt->priority,
                 $prompt->is_active ? '1' : '0',
+                $prompt->market->id,
             ]);
         }
 
@@ -63,6 +67,18 @@ final class PromptCsv
      * @return array{created: int, skipped: int, errors: list<string>, warnings: list<string>}
      */
     public static function import(Brand $brand, string $csv): array
+    {
+        return DB::transaction(function () use ($brand, $csv): array {
+            Market::query()->where('brand_id', $brand->id)->orderBy('id')->lockForUpdate()->get(['id']);
+
+            return self::read($brand, $csv);
+        });
+    }
+
+    /**
+     * @return array{created: int, skipped: int, errors: list<string>, warnings: list<string>}
+     */
+    private static function read(Brand $brand, string $csv): array
     {
         $result = ['created' => 0, 'skipped' => 0, 'errors' => [], 'warnings' => []];
         $handle = fopen('php://temp', 'r+');
@@ -127,7 +143,7 @@ final class PromptCsv
             return __('app.library.invalid_row');
         }
 
-        $market = self::market($brand, $values['market'] ?? '', $values['location'] ?? '');
+        $market = self::market($brand, $values);
         if (! $market instanceof Market) {
             return $market;
         }
@@ -149,12 +165,13 @@ final class PromptCsv
             return __('app.library.invalid_row');
         }
 
+        $active = ! in_array(strtolower($values['active'] ?? '1'), ['0', 'false', 'no'], true);
         $hash = Prompt::hashText($text);
         if (Prompt::query()->where('market_id', $market->id)->where('text_hash', $hash)->exists()) {
             return __('app.library.duplicate');
         }
 
-        if (! self::withinQuota($market->id)) {
+        if ($active && ! self::withinQuota($market->id)) {
             return __('app.library.quota');
         }
 
@@ -165,33 +182,64 @@ final class PromptCsv
             'intent' => $intent,
             'funnel_stage' => $funnel,
             'priority' => $priority,
-            'is_active' => ! in_array(strtolower($values['active'] ?? '1'), ['0', 'false', 'no'], true),
+            'is_active' => $active,
             'text_hash' => $hash,
         ]);
 
         return null;
     }
 
-    private static function market(Brand $brand, string $country, string $location): Market|string
+    /**
+     * @param  array<string, string>  $values
+     */
+    private static function market(Brand $brand, array $values): Market|string
     {
-        $country = strtoupper($country);
-        $matches = $brand->markets->filter(function (Market $market) use ($country, $location): bool {
-            if (strtoupper($market->country) !== $country) {
+        $country = strtoupper($values['market'] ?? '');
+        $location = $values['location'] ?? '';
+        $language = strtolower($values['language'] ?? '');
+        $id = $values['market_id'] ?? '';
+
+        if ($id !== '') {
+            if (preg_match('/^\d+$/', $id) !== 1) {
+                return __('app.library.unknown_market');
+            }
+
+            $market = $brand->markets->first(fn (Market $market): bool => (int) $market->id === (int) $id);
+            if (! $market instanceof Market) {
+                return __('app.library.unknown_market');
+            }
+            if ($country !== '' && strtoupper((string) $market->country) !== $country) {
+                return __('app.library.ambiguous_market');
+            }
+            if ($location !== '' && (string) $market->location_label !== $location) {
+                return __('app.library.ambiguous_market');
+            }
+            if ($language !== '' && strtolower((string) $market->language) !== $language) {
+                return __('app.library.ambiguous_market');
+            }
+
+            return $market;
+        }
+
+        $matches = $brand->markets->filter(function (Market $market) use ($country, $location, $language): bool {
+            if (strtoupper((string) $market->country) !== $country) {
+                return false;
+            }
+            if ($location !== '' && (string) $market->location_label !== $location) {
+                return false;
+            }
+            if ($language !== '' && strtolower((string) $market->language) !== $language) {
                 return false;
             }
 
-            if ($location === '') {
-                return true;
-            }
-
-            return (string) $market->location_label === $location;
+            return true;
         });
 
         if ($matches->isEmpty()) {
             return __('app.library.unknown_market');
         }
 
-        if ($location === '' && $matches->count() > 1) {
+        if ($matches->count() > 1) {
             return __('app.library.ambiguous_market');
         }
 
@@ -220,6 +268,6 @@ final class PromptCsv
             return true;
         }
 
-        return Prompt::query()->where('market_id', $marketId)->count() < $max;
+        return Prompt::query()->where('market_id', $marketId)->where('is_active', true)->count() < $max;
     }
 }

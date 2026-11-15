@@ -174,7 +174,7 @@ return [
         'imported' => 'Importerade :created prompter. Hoppade över :skipped.',
         'duplicate' => 'Finns redan.',
         'unknown_market' => 'Okänd marknad.',
-        'ambiguous_market' => 'Flera marknader har samma land. Fyll i location.',
+        'ambiguous_market' => 'Flera marknader passar. Fyll i language, location eller market_id.',
         'unknown_topic' => 'Okänt ämne.',
         'invalid_row' => 'Ogiltig rad.',
         'quota' => 'Marknadens promptkvot är nådd.',

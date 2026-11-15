@@ -174,7 +174,7 @@ return [
         'imported' => 'Imported :created prompts. Skipped :skipped.',
         'duplicate' => 'Already exists.',
         'unknown_market' => 'Unknown market.',
-        'ambiguous_market' => 'Several markets share this country. Fill in location.',
+        'ambiguous_market' => 'Several markets match. Fill in language, location or market_id.',
         'unknown_topic' => 'Unknown topic.',
         'invalid_row' => 'Invalid row.',
         'quota' => 'The market has reached its prompt quota.',

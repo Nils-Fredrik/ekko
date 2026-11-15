@@ -2,8 +2,9 @@
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
+import InputError from '@/Components/InputError.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -20,24 +21,24 @@ const props = defineProps({
 });
 
 const editing = ref(null);
-const draft = ref({ text: '', intent: '', priority: '', is_active: true });
+const form = useForm({ text: '', intent: '', priority: '', is_active: true });
+const toggleError = ref({ id: null, message: '' });
 
 const personal = computed(
-    () => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(draft.value.text) || /(?:\+|00)\d{7,}\b|\b\d{8}\b/.test(draft.value.text),
+    () => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(form.text) || /(?:\+|00)?\d(?:[\s-]?\d){7,}/.test(form.text),
 );
 
 function edit(prompt) {
     editing.value = prompt.id;
-    draft.value = {
-        text: prompt.text,
-        intent: prompt.intent,
-        priority: prompt.priority,
-        is_active: prompt.is_active,
-    };
+    form.clearErrors();
+    form.text = prompt.text;
+    form.intent = prompt.intent;
+    form.priority = prompt.priority;
+    form.is_active = prompt.is_active;
 }
 
 function save(prompt) {
-    router.patch(route('brands.prompts.update', [props.brand.id, prompt.id]), draft.value, {
+    form.patch(route('brands.prompts.update', [props.brand.id, prompt.id]), {
         preserveScroll: true,
         onSuccess: () => {
             editing.value = null;
@@ -46,10 +47,16 @@ function save(prompt) {
 }
 
 function toggle(prompt) {
+    toggleError.value = { id: null, message: '' };
     router.patch(
         route('brands.prompts.update', [props.brand.id, prompt.id]),
         { is_active: !prompt.is_active },
-        { preserveScroll: true },
+        {
+            preserveScroll: true,
+            onError: (errors) => {
+                toggleError.value = { id: prompt.id, message: errors.is_active || errors.text || '' };
+            },
+        },
     );
 }
 
@@ -131,16 +138,17 @@ function importCsv(event) {
                                 <td class="px-4 py-3">
                                     <div v-if="editing === prompt.id" class="flex flex-col gap-2">
                                         <textarea
-                                            v-model="draft.text"
+                                            v-model="form.text"
                                             rows="2"
                                             class="w-full rounded-lg border border-line px-3 py-2 text-sm"
                                         />
+                                        <InputError :message="form.errors.text" />
                                         <p v-if="personal" class="text-xs text-warning">
                                             {{ $t('app.library.personal_data') }}
                                         </p>
                                         <div class="flex flex-wrap gap-2">
                                             <select
-                                                v-model="draft.intent"
+                                                v-model="form.intent"
                                                 class="rounded-lg border border-line px-2 py-1 text-sm"
                                             >
                                                 <option v-for="item in intents" :key="item.value" :value="item.value">
@@ -148,7 +156,7 @@ function importCsv(event) {
                                                 </option>
                                             </select>
                                             <select
-                                                v-model="draft.priority"
+                                                v-model="form.priority"
                                                 class="rounded-lg border border-line px-2 py-1 text-sm"
                                             >
                                                 <option
@@ -228,6 +236,11 @@ function importCsv(event) {
                                     <span v-else :class="prompt.is_active ? 'text-success' : 'text-ink-soft'">
                                         {{ prompt.is_active ? $t('app.library.active') : $t('app.library.inactive') }}
                                     </span>
+                                    <InputError
+                                        v-if="toggleError.id === prompt.id"
+                                        :message="toggleError.message"
+                                        class="mt-1"
+                                    />
                                 </td>
                             </tr>
                         </tbody>

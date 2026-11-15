@@ -1,5 +1,6 @@
 <?php
 
+use App\Engines\RawResponseStore;
 use App\Models\AggDaily;
 use App\Models\AggSourceDaily;
 use App\Models\AiReferralDaily;
@@ -10,8 +11,10 @@ use App\Models\CompetitorAlias;
 use App\Models\CompetitorDomain;
 use App\Models\Market;
 use App\Models\Mention;
+use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\User;
+use App\Prompts\PersonalData;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Tests\Support\Metrics\MetricsWorld;
@@ -167,6 +170,119 @@ test('prompts can be edited, exported and imported, and a reader cannot change t
     $this->actingAs($reader)
         ->post(route('brands.competitors.store', $world->brand), ['name' => 'Ny'])
         ->assertForbidden();
+});
+
+test('inline saves report duplicate text, and another brand in the tenant is not found', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $otherBrand = Brand::factory()->create();
+    $otherPrompt = Prompt::factory()->for(Market::factory()->for($otherBrand))->create();
+    $otherResponse = $world->answer($otherPrompt, now()->toIso8601String());
+
+    $this->actingAs($owner)
+        ->from(route('brands.prompts.index', $world->brand))
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p2]), ['text' => $world->p1->text])
+        ->assertRedirect()
+        ->assertSessionHasErrors('text');
+
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $otherPrompt]), ['text' => 'En annen formulering'])
+        ->assertNotFound();
+    $this->actingAs($owner)
+        ->get(route('brands.responses.raw', [$world->brand, $otherResponse]))
+        ->assertNotFound();
+});
+
+test('reactivation and csv import count only active prompts against the plan', function () {
+    $world = MetricsWorld::create();
+    $world->tenant->forceFill(['plan_id' => Plan::factory()->create(['max_prompts_per_market' => 1])->id])->save();
+    $world->p2->update(['is_active' => false]);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)
+        ->from(route('brands.prompts.index', $world->brand))
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p2]), ['is_active' => true])
+        ->assertRedirect()
+        ->assertSessionHasErrors('is_active');
+    expect($world->p2->fresh()->is_active)->toBeFalse();
+
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => 'Hvem maler kaffen best?'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market,active\nEn inaktiv?,NO,0\nEn aktiv?,NO,1\n"])
+        ->assertRedirect();
+
+    app(TenantContext::class)->run($world->tenant->id, function () use ($world) {
+        expect(Prompt::query()->where('market_id', $world->market->id)->where('text', 'En inaktiv?')->where('is_active', false)->exists())->toBeTrue()
+            ->and(Prompt::query()->where('text', 'En aktiv?')->exists())->toBeFalse();
+    });
+});
+
+test('csv import tells markets in the same country apart by language', function () {
+    $world = MetricsWorld::create();
+    $nynorsk = Market::factory()->for($world->brand)->create(['country' => 'NO', 'language' => 'nn']);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\nKva er best kaffi?,NO\n"])
+        ->assertRedirect();
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market,language\nKva er best kaffi?,NO,nn\n"])
+        ->assertRedirect();
+
+    app(TenantContext::class)->run($world->tenant->id, function () use ($world, $nynorsk) {
+        $prompt = Prompt::query()->where('text', 'Kva er best kaffi?')->first();
+        expect($prompt)->not->toBeNull()->and($prompt->market_id)->toBe($nynorsk->id)
+            ->and(Prompt::query()->where('market_id', $world->market->id)->where('text', 'Kva er best kaffi?')->exists())->toBeFalse();
+    });
+
+    $export = $this->actingAs($owner)->get(route('brands.prompts.export', $world->brand))->assertOk()->getContent();
+    expect($export)->toContain('language')->and($export)->toContain('market_id')->and($export)->toContain(',nn,');
+});
+
+test('a raw download stays inside the tenant prefix of the configured bucket', function () {
+    $world = MetricsWorld::create();
+    config(['engines.raw_bucket' => 'ekko-raw']);
+    $response = $world->answer($world->p1, now()->toIso8601String());
+    $response->update(['answer_text' => 'lokal tekst', 'raw_uri' => 'gs://ekko-raw/'.$world->tenant->id.'/2026/11/1.json']);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $store = Mockery::mock(RawResponseStore::class);
+    $store->shouldReceive('read')->once()->with('gs://ekko-raw/'.$world->tenant->id.'/2026/11/1.json')->andReturn('{"from":"store"}');
+    app()->instance(RawResponseStore::class, $store);
+
+    $this->actingAs($owner)->get(route('brands.responses.raw', [$world->brand, $response]))
+        ->assertOk()
+        ->assertSee('store');
+
+    $response->update(['raw_uri' => 'gs://other-bucket/'.$world->tenant->id.'/2026/11/1.json']);
+    $blocked = Mockery::mock(RawResponseStore::class);
+    $blocked->shouldNotReceive('read');
+    app()->instance(RawResponseStore::class, $blocked);
+
+    $this->actingAs($owner)->get(route('brands.responses.raw', [$world->brand, $response]))
+        ->assertOk()
+        ->assertSee('lokal tekst');
+
+    $response->update(['raw_uri' => 'gs://ekko-raw/999999/2026/11/1.json']);
+    $this->actingAs($owner)->get(route('brands.responses.raw', [$world->brand, $response]))
+        ->assertOk()
+        ->assertSee('lokal tekst');
+});
+
+test('personal data warnings cover spaced phone numbers', function () {
+    expect(PersonalData::in('Ring 412 34 567'))->toBeTrue()
+        ->and(PersonalData::in('Ring +47 412 34 567'))->toBeTrue()
+        ->and(PersonalData::in('Ring +47 41234567'))->toBeTrue()
+        ->and(PersonalData::in('ola@example.test'))->toBeTrue()
+        ->and(PersonalData::in('Hvem maler kaffen best?'))->toBeFalse();
 });
 
 test('sources and crawlers read MetricsService', function () {

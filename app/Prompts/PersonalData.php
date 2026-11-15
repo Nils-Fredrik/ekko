@@ -10,7 +10,6 @@ final class PersonalData
     public static function in(string $text): bool
     {
         return preg_match('/[^\s@]+@[^\s@]+\.[^\s@]+/u', $text) === 1
-            || preg_match('/(?:\+|00)\d{7,}\b/u', $text) === 1
-            || preg_match('/\b\d{8}\b/u', $text) === 1;
+            || preg_match('/(?:\+|00)?\d(?:[\s-]?\d){7,}/u', $text) === 1;
     }
 }
