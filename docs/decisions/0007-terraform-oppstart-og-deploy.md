@@ -15,6 +15,7 @@ T09 krever GCP-ressursene i spesifikasjonen, minste privilegium og at passord og
 - Terraform oppretter ikke hemmelighetsverdier og leser dem ikke inn i state eller plan. Drift oppretter og roterer hemmelighetsversjoner og databasepassord med en sikker prosess. Den loggførte administratortilkoblingen i web trenger tilgang til en separat administrativ databasehemmelighet.
 - Cloud Run og Scheduler opprettes først når et faktisk image og nødvendige hemmelighetsversjoner er tilgjengelige. Web starter privat og åpnes først etter verifisering. Scheduler er pauset inntil kommandoer og validering av OIDC-token på interne endepunkter er implementert og kontrollert. En offentlig Cloud Run-tjeneste beskytter ikke individuelle URL-er med IAM.
 - Etter oppstart eier deployløpet i T10 image, webtrafikk og revisjonsnavn. Terraform ignorerer disse feltene og deployklientens metadata. T10 må holde produksjonstrafikken på en eksplisitt testet revisjon ved infrastrukturendringer som lager nye revisjoner. Startkoden for worker (T17) begrenser `taskCount` til maks åtte, med automatisk parallellisme i Cloud Run.
+- Cloud Run terminerer TLS før Apache. Laravel stoler derfor på `X-Forwarded-Proto` fra frontend-proxyen for å generere HTTPS-lenker, assets og OAuth-metadata. Forwarded host og port stoles ikke på; de kan ikke flytte lenker til en annen opprinnelse. Direkte HTTP uten headeren fungerer fortsatt lokalt. Containeren skal bare eksponeres gjennom Cloud Runs frontend i produksjon.
 
 ## Konsekvenser
 
