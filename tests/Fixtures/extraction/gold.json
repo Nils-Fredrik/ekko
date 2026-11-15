@@ -1,0 +1,1188 @@
+{
+ "catalog": {
+  "brands": [
+   {
+    "key": "fjordkaffe",
+    "name": "Fjordkaffe",
+    "aliases": [
+     {
+      "alias": "Fjordkaffe",
+      "mode": "case_insensitive"
+     },
+     {
+      "alias": "Fjord Kaffe",
+      "mode": "case_insensitive"
+     },
+     {
+      "alias": "FJK",
+      "mode": "exact_word"
+     },
+     {
+      "alias": "fjordkaffe\\s+(?:as|ab)\\b",
+      "mode": "regex"
+     }
+    ],
+    "domains": [
+     {
+      "domain": "fjordkaffe.no",
+      "include_subdomains": true
+     },
+     {
+      "domain": "fjordkaffe.se",
+      "include_subdomains": false
+     }
+    ]
+   }
+  ],
+  "competitors": [
+   {
+    "key": "bergensbrenneriet",
+    "aliases": [
+     {
+      "alias": "Bergensbrenneriet",
+      "mode": "case_insensitive"
+     },
+     {
+      "alias": "Bergen Brenneri",
+      "mode": "case_insensitive"
+     }
+    ],
+    "domains": [
+     "bergensbrenneriet.no"
+    ]
+   },
+   {
+    "key": "kaffekompaniet",
+    "aliases": [
+     {
+      "alias": "Kaffekompaniet",
+      "mode": "case_insensitive"
+     },
+     {
+      "alias": "KK",
+      "mode": "exact_word"
+     }
+    ],
+    "domains": [
+     "kaffekompaniet.no"
+    ]
+   },
+   {
+    "key": "bjornkaffe",
+    "aliases": [
+     {
+      "alias": "Bjørnkaffe",
+      "mode": "case_insensitive"
+     }
+    ],
+    "domains": [
+     "bjornkaffe.se",
+     "bjørnkaffe.se"
+    ]
+   },
+   {
+    "key": "aasen",
+    "aliases": [
+     {
+      "alias": "Åsen Kaffe",
+      "mode": "case_insensitive"
+     }
+    ],
+    "domains": [
+     "aasenkaffe.no"
+    ]
+   },
+   {
+    "key": "nordlys",
+    "aliases": [
+     {
+      "alias": "Nordlys Rosteri",
+      "mode": "case_insensitive"
+     },
+     {
+      "alias": "Nordlys",
+      "mode": "exact_word"
+     }
+    ],
+    "domains": [
+     "nordlysrosteri.no"
+    ]
+   }
+  ]
+ },
+ "responses": [
+  {
+   "id": "nb-01",
+   "language": "nb",
+   "text": "Fjordkaffe er et norsk kaffebrenneri med kontor i Bergen.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nb-02",
+   "language": "nb",
+   "text": "De beste kaffebrennerne i Norge:\n1. Bergensbrenneriet – kjent for lysbrente bønner.\n2. Fjordkaffe – et solid valg for kontoret.\n3. Kaffekompaniet – bred produktserie.",
+   "expected": [
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 1
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nb-03",
+   "language": "nb",
+   "text": "Jeg anbefaler fjordkaffe hvis du vil ha økologisk kaffe.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nb-04",
+   "language": "nb",
+   "text": "Fjordkaffes bønner kommer fra Colombia.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "possessive -s"
+  },
+  {
+   "id": "nb-05",
+   "language": "nb",
+   "text": "Fjordkaffe's espresso er populær.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "apostrophe possessive"
+  },
+  {
+   "id": "nb-06",
+   "language": "nb",
+   "text": "Fjordkaffe’s espresso er populær.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "typographic apostrophe"
+  },
+  {
+   "id": "nb-07",
+   "language": "nb",
+   "text": "Fjordkaffeautomaten på kontoret er ødelagt.",
+   "expected": [],
+   "citations": [],
+   "note": "compound word"
+  },
+  {
+   "id": "nb-08",
+   "language": "nb",
+   "text": "Kaffekompaniet-appen lar deg bestille kaffe.",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "hyphen compound"
+  },
+  {
+   "id": "nb-09",
+   "language": "nb",
+   "text": "Se nordlys og nyt kaffe i Tromsø.",
+   "expected": [],
+   "citations": [],
+   "note": "exact_word is case-sensitive"
+  },
+  {
+   "id": "nb-10",
+   "language": "nb",
+   "text": "Nordlys Rosteri og Nordlys Kaffebar er ikke det samme.",
+   "expected": [
+    {
+     "entity": "competitor:nordlys",
+     "surface": "Nordlys Rosteri",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "longest alias, one mention per entity"
+  },
+  {
+   "id": "nb-11",
+   "language": "nb",
+   "text": "KK og FJK konkurrerer om kontorkaffe.",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "KK",
+     "list_position": null
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "FJK",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nb-12",
+   "language": "nb",
+   "text": "Skriv kk i feltet.",
+   "expected": [],
+   "citations": [],
+   "note": "exact_word KK is not kk"
+  },
+  {
+   "id": "nb-13",
+   "language": "nb",
+   "text": "Aasen Kaffe leverer til kafeer i Oslo.",
+   "expected": [
+    {
+     "entity": "competitor:aasen",
+     "surface": "Aasen Kaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "aa equals å"
+  },
+  {
+   "id": "nb-14",
+   "language": "nb",
+   "text": "BERGENSBRENNERIET er størst i vest.",
+   "expected": [
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "BERGENSBRENNERIET",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nb-15",
+   "language": "nb",
+   "text": "Åsen Kaffe er et lite brenneri.",
+   "expected": [
+    {
+     "entity": "competitor:aasen",
+     "surface": "Åsen Kaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "decomposed å"
+  },
+  {
+   "id": "nb-16",
+   "language": "nb",
+   "text": "Fjordkaffe AS vant prisen.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe AS",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "regex alias beats shorter alias"
+  },
+  {
+   "id": "nb-17",
+   "language": "nb",
+   "text": "Bergen\nBrenneri leverer også til private.",
+   "expected": [
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergen\nBrenneri",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "newline equals space"
+  },
+  {
+   "id": "nb-18",
+   "language": "nb",
+   "text": "Prøv Fjord Kaffe i dag.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjord Kaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "no-break space"
+  },
+  {
+   "id": "nb-19",
+   "language": "nb",
+   "text": "Alternativer:\n- Kaffekompaniet\n- Bergensbrenneriet\n- Fjordkaffe\n",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 2
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nb-20",
+   "language": "nb",
+   "text": "1. Bergensbrenneriet\n   - Lysbrent\n   - Kjent fra Fjordkaffe-testen\n2. Nordlys Rosteri\n\n3. Kaffekompaniet",
+   "expected": [
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 1
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:nordlys",
+     "surface": "Nordlys Rosteri",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": "nested item, blank line inside list"
+  },
+  {
+   "id": "nb-21",
+   "language": "nb",
+   "text": "Fjordkaffe er populært. Her er en liste:\n1. Bergensbrenneriet\n2. Fjordkaffe",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 1
+    }
+   ],
+   "citations": [],
+   "note": "offset from first occurrence, position from first list occurrence"
+  },
+  {
+   "id": "nb-22",
+   "language": "nb",
+   "text": "Kildene er oppgitt under.",
+   "expected": [],
+   "citations": [
+    {
+     "url": "https://www.fjordkaffe.no/produkter/?utm_source=chatgpt.com&utm_medium=x",
+     "normalized": "https://fjordkaffe.no/produkter",
+     "ownership": "own",
+     "competitor": null
+    },
+    {
+     "url": "https://shop.fjordkaffe.no/",
+     "normalized": "https://shop.fjordkaffe.no",
+     "ownership": "own",
+     "competitor": null
+    },
+    {
+     "url": "https://fjordkaffe.se/",
+     "normalized": "https://fjordkaffe.se",
+     "ownership": "own",
+     "competitor": null
+    },
+    {
+     "url": "https://shop.fjordkaffe.se/x",
+     "normalized": "https://shop.fjordkaffe.se/x",
+     "ownership": "third_party",
+     "competitor": null
+    },
+    {
+     "url": "https://www.bergensbrenneriet.no/?gclid=abc&fbclid=1&srsltid=z",
+     "normalized": "https://bergensbrenneriet.no",
+     "ownership": "competitor",
+     "competitor": "bergensbrenneriet"
+    },
+    {
+     "url": "https://blogg.bergensbrenneriet.no/post/",
+     "normalized": "https://blogg.bergensbrenneriet.no/post",
+     "ownership": "competitor",
+     "competitor": "bergensbrenneriet"
+    },
+    {
+     "url": "https://no.wikipedia.org/wiki/Kaffe#Historie",
+     "normalized": "https://no.wikipedia.org/wiki/Kaffe",
+     "ownership": "third_party",
+     "competitor": null
+    },
+    {
+     "url": "https://example.com/a?b=1&utm_campaign=x&c=2",
+     "normalized": "https://example.com/a?b=1&c=2",
+     "ownership": "third_party",
+     "competitor": null
+    }
+   ],
+   "note": ""
+  },
+  {
+   "id": "nb-23",
+   "language": "nb",
+   "text": "Bestill fra fjordkaffe.no i dag.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "domain in text"
+  },
+  {
+   "id": "nb-24",
+   "language": "nb",
+   "text": "Fjordkaffe3000-serien er utsolgt.",
+   "expected": [],
+   "citations": [],
+   "note": "digit directly after"
+  },
+  {
+   "id": "nb-25",
+   "language": "nb",
+   "text": "Fjordkaffer finnes overalt.",
+   "expected": [],
+   "citations": [],
+   "note": "plural is not possessive"
+  },
+  {
+   "id": "nb-26",
+   "language": "nb",
+   "text": "Fjord​kaffe er best i test.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjord​kaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "zero-width space"
+  },
+  {
+   "id": "nb-27",
+   "language": "nb",
+   "text": "Ｆｊｏｒｄｋａｆｆｅ er best.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Ｆｊｏｒｄｋａｆｆｅ",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "fullwidth NFKC"
+  },
+  {
+   "id": "nb-28",
+   "language": "nb",
+   "text": "Her er tre alternativer:\n\n1. **Fjordkaffe**\n\nFjordkaffe er et solid valg.\n\n2. **Bergensbrenneriet**\n\nBergensbrenneriet er billigst.\n\n3. **Kaffekompaniet**\n\nKaffekompaniet har bredest utvalg. Nordlys Rosteri nevnes bare her.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    },
+    {
+     "entity": "competitor:nordlys",
+     "surface": "Nordlys Rosteri",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "paragraphs between numbered items"
+  },
+  {
+   "id": "nb-29",
+   "language": "nb",
+   "text": "### 1. Fjordkaffe\n\nGod kaffe.\n\n### 2. Bergensbrenneriet\n\nLysbrent.\n\n## Oppsummering\n\nKaffekompaniet er best.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "numbered headings"
+  },
+  {
+   "id": "nb-30",
+   "language": "nb",
+   "text": "Topplisten:\n**1.** Fjordkaffe\n**2.** Bergensbrenneriet\n**3.** Kaffekompaniet",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": "closing bold after marker"
+  },
+  {
+   "id": "nb-31",
+   "language": "nb",
+   "text": "### 1. Fjordkaffe\n- Økologisk\n- Lysbrent\n\n### 2. Bergensbrenneriet\n- Billig\n\n### 3. Kaffekompaniet\n- Stort utvalg",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": "bullets under numbered headings"
+  },
+  {
+   "id": "nn-01",
+   "language": "nn",
+   "text": "Fjordkaffe er eit norsk kaffibrenneri.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-02",
+   "language": "nn",
+   "text": "Kva er best? Eg rår til Bergensbrenneriet, men og Fjordkaffe er bra.",
+   "expected": [
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": null
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-03",
+   "language": "nn",
+   "text": "Åsen Kaffe leverer til kafear på Vestlandet.",
+   "expected": [
+    {
+     "entity": "competitor:aasen",
+     "surface": "Åsen Kaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-04",
+   "language": "nn",
+   "text": "Dei beste:\n1) Kaffekompaniet\n2) Fjordkaffe",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 1
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 2
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-05",
+   "language": "nn",
+   "text": "Fjordkaffes bønner er økologiske.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-06",
+   "language": "nn",
+   "text": "Ho drikk berre Bjørnkaffe om morgonen.",
+   "expected": [
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Bjørnkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-07",
+   "language": "nn",
+   "text": "Nordlys Rosteri i Tromsø er kjend for nordlys-bryggen.",
+   "expected": [
+    {
+     "entity": "competitor:nordlys",
+     "surface": "Nordlys Rosteri",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-08",
+   "language": "nn",
+   "text": "Det finst ingen som heiter Fjordkaffeleverandør.",
+   "expected": [],
+   "citations": [],
+   "note": "compound word"
+  },
+  {
+   "id": "nn-09",
+   "language": "nn",
+   "text": "Bjørnkaffe, Kaffekompaniet og Fjordkaffe vart testa.",
+   "expected": [
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Bjørnkaffe",
+     "list_position": null
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-10",
+   "language": "nn",
+   "text": "* Fjordkaffe\n* Åsen Kaffe\n",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:aasen",
+     "surface": "Åsen Kaffe",
+     "list_position": 2
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-11",
+   "language": "nn",
+   "text": "– Bergen Brenneri\n– Fjordkaffe",
+   "expected": [
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergen Brenneri",
+     "list_position": 1
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 2
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "nn-13",
+   "language": "nn",
+   "text": "1. Fjordkaffe\n\nOm kaffien:\n\n- Økologisk\n- Lett brent\n\n2. Bjørnkaffe\n\n- Rimeleg\n\n3. Åsen Kaffe\n\n- Lokalt",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Bjørnkaffe",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:aasen",
+     "surface": "Åsen Kaffe",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": "paragraph and bullets under numbered items"
+  },
+  {
+   "id": "nn-12",
+   "language": "nn",
+   "text": "Dei sel Aasen kaffe i butikken.",
+   "expected": [
+    {
+     "entity": "competitor:aasen",
+     "surface": "Aasen kaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-01",
+   "language": "sv",
+   "text": "Fjordkaffe är ett norskt kafferosteri.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-02",
+   "language": "sv",
+   "text": "Björnkaffe är populärt i Sverige.",
+   "expected": [
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "ö equals ø"
+  },
+  {
+   "id": "sv-03",
+   "language": "sv",
+   "text": "Jag rekommenderar Björnkaffe eller Fjordkaffe.",
+   "expected": [
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": null
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-04",
+   "language": "sv",
+   "text": "Fjordkaffes bönor är ekologiska.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-05",
+   "language": "sv",
+   "text": "Vilka är bäst?\n1. Kaffekompaniet\n2. Björnkaffe\n3. Fjordkaffe\n4. Nordlys Rosteri",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": 2
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 3
+    },
+    {
+     "entity": "competitor:nordlys",
+     "surface": "Nordlys Rosteri",
+     "list_position": 4
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-06",
+   "language": "sv",
+   "text": "Fjordkaffe AB säljer även i Sverige.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe AB",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": "regex alias"
+  },
+  {
+   "id": "sv-07",
+   "language": "sv",
+   "text": "Fjordkaffemaskinen är trasig.",
+   "expected": [],
+   "citations": [],
+   "note": "compound word"
+  },
+  {
+   "id": "sv-08",
+   "language": "sv",
+   "text": "Björnkaffe-påsen var tom.",
+   "expected": [
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-09",
+   "language": "sv",
+   "text": "BJÖRNKAFFE är störst.",
+   "expected": [
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "BJÖRNKAFFE",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-10",
+   "language": "sv",
+   "text": "Björnen dricker kaffe.",
+   "expected": [],
+   "citations": [],
+   "note": "shared prefix is not a match"
+  },
+  {
+   "id": "sv-11",
+   "language": "sv",
+   "text": "Källor finns nedan.",
+   "expected": [],
+   "citations": [
+    {
+     "url": "https://www.bjornkaffe.se/kaffe/?utm_source=gemini",
+     "normalized": "https://bjornkaffe.se/kaffe",
+     "ownership": "competitor",
+     "competitor": "bjornkaffe"
+    },
+    {
+     "url": "https://se.wikipedia.org/wiki/Kaffe/",
+     "normalized": "https://se.wikipedia.org/wiki/Kaffe",
+     "ownership": "third_party",
+     "competitor": null
+    },
+    {
+     "url": "https://www.bjørnkaffe.se/om-oss/",
+     "normalized": "https://xn--bjrnkaffe-m8a.se/om-oss",
+     "ownership": "competitor",
+     "competitor": "bjornkaffe"
+    },
+    {
+     "url": "https://FJORDKAFFE.no:443/Om-oss/",
+     "normalized": "https://fjordkaffe.no/Om-oss",
+     "ownership": "own",
+     "competitor": null
+    }
+   ],
+   "note": ""
+  },
+  {
+   "id": "sv-12",
+   "language": "sv",
+   "text": "Aasen Kaffe säljs i butik.",
+   "expected": [
+    {
+     "entity": "competitor:aasen",
+     "surface": "Aasen Kaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-13",
+   "language": "sv",
+   "text": "* Kaffekompaniet\n* Fjordkaffe\n* Bergensbrenneriet",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 1
+    },
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-14",
+   "language": "sv",
+   "text": "Ekologiskt kaffe:\n\n1. **Fjordkaffe** – norskt.\n2. **Björnkaffe** – svenskt.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": 2
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-15",
+   "language": "sv",
+   "text": "Nordlys Rosteri säljer norrsken-kaffe.",
+   "expected": [
+    {
+     "entity": "competitor:nordlys",
+     "surface": "Nordlys Rosteri",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-16",
+   "language": "sv",
+   "text": "Fjord Kaffe och FJK är samma företag.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjord Kaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-17",
+   "language": "sv",
+   "text": "Jag kan inte hjälpa till med det.",
+   "expected": [],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-18",
+   "language": "sv",
+   "text": "Besök fjordkaffe.se.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "fjordkaffe",
+     "list_position": null
+    }
+   ],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-19",
+   "language": "sv",
+   "text": "",
+   "expected": [],
+   "citations": [],
+   "note": ""
+  },
+  {
+   "id": "sv-20",
+   "language": "sv",
+   "text": "1. **Fjordkaffe**\n\n- Ekologiskt\n- Mörkrostat\n\n2. **Björnkaffe**\n\n- Billigt\n\n3. **Kaffekompaniet**\n\n- Stort utbud",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": "blank line and bullets under numbered items"
+  }
+ ]
+}

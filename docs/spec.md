@@ -397,7 +397,7 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 **Oppsett av ny motor:** én adapterklasse, én rad i `engines`, priser i `engine_prices` og fixtures. Det skal ikke være nødvendig å endre noe annet.
 
-`chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
+`chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
 
 ### 7.5 Gjentakelser og modellversjoner
 
@@ -415,6 +415,8 @@ Kjøres synkront i workeren rett etter innsamling.
 - **Søk etter alias:** alle `brand_aliases` og `competitor_aliases` i tenanten matches etter `match_mode` med ordgrenser. `first_char_offset` lagres.
 - **Listeposisjon:** nummererte og punktvise lister tolkes. Posisjon er listeelementets nummer (1-basert) der merkevaren først forekommer.
 - **Sitater:** normaliseres ved å fjerne sporingsparametre (`utm_*`, `gclid`, `fbclid`, `srsltid`), skråstrek på slutten og `www.`. Eierskap avgjøres mot `brand_domains` og `competitor_domains`.
+
+Detaljene (folding av ö/ø og ä/æ, ordgrenser og genitiv-s, listeregler, regex-sikkerhet og eierskap) står i [ADR 0010](decisions/0010-deterministisk-gjenkjenning.md).
 
 ### 8.2 Modellbasert uttrekk (andre ledd)
 
