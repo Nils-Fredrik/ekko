@@ -3,12 +3,17 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Database\Factories\RunBatchFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property CarbonInterface $scheduled_for
+ * @property string $status
+ */
 class RunBatch extends Model
 {
     use BelongsToTenant;

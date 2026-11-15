@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Brand;
+use App\Tenancy\TenantContext;
 use Tests\Feature\TenantIsolation\Support\RouteAccess;
 use Tests\Feature\TenantIsolation\Support\Scenario;
 
@@ -46,7 +48,28 @@ return [
 
     // The signed-in user's own account.
     'logout' => RouteAccess::user(),
+    // The overview and the brand list have no resource id. They show the signed-in tenant only,
+    // and the leak scan checks that tenant B never appears. The brand page is addressed by id.
     'dashboard' => RouteAccess::user(),
+    'brands.index' => RouteAccess::user(),
+    'brands.show' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantB->id,
+                fn () => Brand::factory()->create()->id,
+            );
+
+            return ['params' => ['brand' => $id]];
+        },
+        own: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantA->id,
+                fn () => Brand::factory()->create()->id,
+            );
+
+            return ['params' => ['brand' => $id]];
+        },
+    ),
     'GET api/user' => RouteAccess::user(),
     'profile.show' => RouteAccess::user(),
     'user-profile-information.update' => RouteAccess::user(),
