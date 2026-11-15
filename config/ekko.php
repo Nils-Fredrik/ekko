@@ -8,6 +8,14 @@ return [
     'locales' => ['nb', 'sv', 'en'],
 
     /*
+    | How many days back ekko:aggregate rebuilds when no date is given (docs/spec.md 9, ADR 0012), besides today.
+    | Answers are only counted once extracted, and batch extraction can take more than a day.
+    */
+    'aggregate' => [
+        'lookback_days' => 3,
+    ],
+
+    /*
     | Days a team invitation can be accepted (docs/spec.md 5.4). Enforced server-side when the
     | invitation is accepted and when a single sign-on account is linked.
     */

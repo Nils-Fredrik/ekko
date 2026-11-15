@@ -293,23 +293,38 @@ test('the command takes a range and a tenant filter, and queues jobs without --s
     Queue::assertPushed(AggregateTenantDays::class, fn (AggregateTenantDays $job) => $job->tenantId === $a->tenant->id && $job->dates === ['2026-11-09', '2026-11-10']);
 });
 
-test('without a date the command aggregates yesterday and today in the tenant timezone', function () {
+test('without a date the command aggregates today and the days back in the tenant timezone', function () {
     // 23:30Z on the 15th is 00:30 on the 16th in Oslo.
     Carbon::setTestNow('2026-11-15 23:30:00');
     $w = MetricsWorld::create();
     $w->answer($w->p1, '2026-11-15T10:00:00Z');
     $w->answer($w->p1, '2026-11-15T23:10:00Z');
+    // Extracted late: collected three local days before today, still inside the window.
+    $w->answer($w->p1, '2026-11-13T10:00:00Z');
+    // Older than the window: not rebuilt without a date.
+    $w->answer($w->p1, '2026-11-12T10:00:00Z');
 
     $this->artisan('ekko:aggregate', ['--sync' => true])->assertSuccessful();
 
     expect(AggDaily::query()->orderBy('date')->get()->map(fn ($row) => [$row->date->format('Y-m-d'), $row->responses])->all())
-        ->toBe([['2026-11-15', 1], ['2026-11-16', 1]]);
+        ->toBe([['2026-11-13', 1], ['2026-11-15', 1], ['2026-11-16', 1]]);
     Carbon::setTestNow();
+});
+
+test('a long range is split into jobs of at most 31 days', function () {
+    $w = MetricsWorld::create();
+    Queue::fake();
+
+    $this->artisan('ekko:aggregate', ['--from' => '2026-01-01', '--to' => '2026-03-15', '--tenant' => [$w->tenant->id]])->assertSuccessful();
+
+    Queue::assertPushed(AggregateTenantDays::class, 3);
+    Queue::assertPushed(AggregateTenantDays::class, fn (AggregateTenantDays $job) => count($job->dates) === 31);
 });
 
 test('the command refuses a bad date or range', function () {
     $this->artisan('ekko:aggregate', ['date' => 'not-a-date'])->assertFailed();
     $this->artisan('ekko:aggregate', ['--from' => '2026-11-10', '--to' => '2026-11-01'])->assertFailed();
+    $this->artisan('ekko:aggregate', ['--to' => '2026-11-01'])->assertFailed();
 });
 
 test('model change markers: the first change on a day is recorded once', function () {

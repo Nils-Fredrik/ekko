@@ -2,7 +2,7 @@
 
 namespace App\Metrics;
 
-use App\Jobs\AggregateTenantDay;
+use App\Jobs\AggregateTenantDays;
 use App\Models\AggDaily;
 use App\Models\AggSourceDaily;
 use App\Models\Citation;
@@ -23,7 +23,7 @@ use Throwable;
  * Builds agg_daily, agg_source_daily and the model change markers for one tenant and one day
  * (docs/spec.md 6.4, 7.5 and 9, ADR 0012).
  *
- * Runs in the tenant context the caller has set (a {@see AggregateTenantDay} job, which also applies
+ * Runs in the tenant context the caller has set (a {@see AggregateTenantDays} job, which also applies
  * row-level security). It is idempotent: the day is recomputed from the stored responses, mentions and
  * citations, rows are updated in place, and rows that no longer have data are removed. It can be run again for
  * any date, also after late extraction results or after a mention has changed.
@@ -70,35 +70,33 @@ final class DailyAggregator
         // competitor id => brand id: a response only counts the competitors of its own brand.
         $competitorBrand = Competitor::query()->pluck('brand_id', 'id')->all();
 
-        $responses = Response::query()
+        $daily = [];
+        $source = [];
+
+        Response::query()
             ->join('runs', 'runs.id', '=', 'responses.run_id')
             ->join('prompts', 'prompts.id', '=', 'runs.prompt_id')
             ->join('markets', 'markets.id', '=', 'prompts.market_id')
             ->where('runs.status', 'extracted')
             ->where('responses.collected_at', '>=', $start)
             ->where('responses.collected_at', '<', $end)
-            ->orderBy('responses.id')
-            ->get(['responses.id', 'responses.engine_key', 'responses.answer_type', 'runs.prompt_id', 'prompts.market_id', 'markets.brand_id']);
+            ->select(['responses.id', 'responses.engine_key', 'responses.answer_type', 'runs.prompt_id', 'prompts.market_id', 'markets.brand_id'])
+            ->chunkById(self::CHUNK, function (Collection $chunk) use (&$daily, &$source, $competitorBrand): void {
+                $ids = $chunk->pluck('id')->all();
+                $mentions = Mention::query()
+                    ->whereIn('response_id', $ids)
+                    ->whereIn('entity_type', ['brand', 'competitor'])
+                    ->get(['response_id', 'entity_type', 'entity_id', 'list_position', 'is_recommended', 'sentiment'])
+                    ->groupBy('response_id');
+                $citations = Citation::query()
+                    ->whereIn('response_id', $ids)
+                    ->get(['response_id', 'domain', 'ownership'])
+                    ->groupBy('response_id');
 
-        $daily = [];
-        $source = [];
-
-        foreach ($responses->chunk(self::CHUNK) as $chunk) {
-            $ids = $chunk->pluck('id')->all();
-            $mentions = Mention::query()
-                ->whereIn('response_id', $ids)
-                ->whereIn('entity_type', ['brand', 'competitor'])
-                ->get(['response_id', 'entity_type', 'entity_id', 'list_position', 'is_recommended', 'sentiment'])
-                ->groupBy('response_id');
-            $citations = Citation::query()
-                ->whereIn('response_id', $ids)
-                ->get(['response_id', 'domain', 'ownership'])
-                ->groupBy('response_id');
-
-            foreach ($chunk as $response) {
-                $this->add($daily, $source, $response, $mentions->get($response->id, collect()), $citations->get($response->id, collect()), $competitorBrand);
-            }
-        }
+                foreach ($chunk as $response) {
+                    $this->add($daily, $source, $response, $mentions->get($response->id, collect()), $citations->get($response->id, collect()), $competitorBrand);
+                }
+            }, 'responses.id', 'id');
 
         return [$daily, $source];
     }

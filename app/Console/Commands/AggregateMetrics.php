@@ -16,7 +16,7 @@ use Throwable;
 class AggregateMetrics extends Command
 {
     protected $signature = 'ekko:aggregate
-        {date? : A day (Y-m-d, in each tenant\'s timezone). Default: yesterday and today}
+        {date? : A day (Y-m-d, in each tenant\'s timezone). Default: today and the days back set in config}
         {--from= : First day of a range (Y-m-d), with --to}
         {--to= : Last day of a range (Y-m-d). Default: the day of --from}
         {--tenant=* : Only these tenant ids}
@@ -42,11 +42,14 @@ class AggregateMetrics extends Command
             ->get(['id', 'timezone']);
 
         foreach ($tenants as $tenant) {
-            // Without a date the days are today and yesterday in the tenant's own timezone, so late results
-            // for yesterday are included.
+            // Without a date the days are today and the days back (ekko.aggregate.lookback_days) in the tenant's
+            // own timezone, so results that were extracted late are included. Long ranges are split into
+            // jobs of at most 31 days, so a transaction stays short and a retry is cheap.
             $dates = $days ?? $this->defaultDays((string) $tenant->timezone);
-            $job = new AggregateTenantDays($tenant->id, $dates);
-            $this->option('sync') ? dispatch_sync($job) : dispatch($job);
+            foreach (array_chunk($dates, 31) as $chunk) {
+                $job = new AggregateTenantDays($tenant->id, $chunk);
+                $this->option('sync') ? dispatch_sync($job) : dispatch($job);
+            }
         }
 
         $this->components->info(__($this->option('sync') ? 'metrics.aggregate.done' : 'metrics.aggregate.queued', ['tenants' => $tenants->count()]));
@@ -61,6 +64,10 @@ class AggregateMetrics extends Command
     {
         $from = $this->option('from') ?: $this->argument('date');
         if ($from === null) {
+            if ($this->option('to')) {
+                throw new \InvalidArgumentException('--to needs --from');
+            }
+
             return null;
         }
 
@@ -99,6 +106,8 @@ class AggregateMetrics extends Command
             $today = CarbonImmutable::now('UTC');
         }
 
-        return [$today->subDay()->format('Y-m-d'), $today->format('Y-m-d')];
+        $back = max(1, (int) config('ekko.aggregate.lookback_days'));
+
+        return array_map(fn (int $offset) => $today->subDays($back - $offset)->format('Y-m-d'), range(0, $back));
     }
 }
