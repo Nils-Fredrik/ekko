@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Alert;
 use App\Models\Brand;
 use App\Models\Engine;
 use App\Models\Market;
@@ -8,6 +9,7 @@ use App\Models\Response;
 use App\Models\Run;
 use App\Models\RunBatch;
 use App\Tenancy\TenantContext;
+use Illuminate\Http\UploadedFile;
 use Tests\Feature\TenantIsolation\Support\RouteAccess;
 use Tests\Feature\TenantIsolation\Support\Scenario;
 
@@ -82,7 +84,41 @@ $teamB = fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id]];
 $teamA = fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id]];
 $tenantRoles = ['owner', 'admin', 'partner_advisor', 'editor', 'reader'];
 
+$apiResource = function (Scenario $s, bool $foreign, string $action = 'read'): array {
+    return app(TenantContext::class)->run($foreign ? $s->tenantB->id : $s->tenantA->id, function () use ($action) {
+        $brand = Brand::factory()->create();
+        $market = Market::factory()->create(['brand_id' => $brand->id]);
+        $data = match ($action) {
+            'store' => ['market_id' => $market->id, 'text' => 'A synthetic question?', 'intent' => 'category', 'funnel_stage' => 'awareness'],
+            'update', 'destroy' => ['id' => Prompt::factory()->create(['market_id' => $market->id])->id, 'text' => 'Updated question?'],
+            default => [],
+        };
+
+        return ['params' => ['brand' => $brand->id], 'data' => $data];
+    });
+};
+$apiEntries = [];
+foreach (['metrics', 'prompts', 'responses', 'sources', 'competitors'] as $resource) {
+    $apiEntries['api.v1.'.$resource.'.index'] = RouteAccess::tenant(
+        foreign: fn (Scenario $s) => $apiResource($s, true),
+        own: fn (Scenario $s) => $apiResource($s, false),
+    );
+}
+foreach (['store', 'update', 'destroy'] as $action) {
+    $apiEntries['api.v1.prompts.'.$action] = RouteAccess::tenant(
+        foreign: fn (Scenario $s) => $apiResource($s, true, $action),
+        own: fn (Scenario $s) => $apiResource($s, false, $action),
+        deniedRoles: ['reader'],
+    );
+}
+// No resource parameter: the token determines the tenant, like the dashboard list. ApiIsolationTest
+// verifies the collection contents and raw RLS against another tenant and a partner's client.
+foreach (['brands', 'alerts', 'usage'] as $resource) {
+    $apiEntries['api.v1.'.$resource.'.index'] = RouteAccess::user(own: fn () => []);
+}
+
 return [
+    ...$apiEntries,
     // Public and system routes.
     'home' => RouteAccess::public(),
     // Sets the caller's own language (session, and the user row when signed in). No tenant data.
@@ -189,6 +225,26 @@ return [
         foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
         own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
     ),
+    // Acknowledging an alert is the tenant admin's (alert rights, docs/spec.md 5.2). Addressed by id.
+    'alerts.acknowledge' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantB->id,
+                fn () => Alert::factory()->create()->id,
+            );
+
+            return ['params' => ['alert' => $id]];
+        },
+        own: function (Scenario $s) {
+            $id = app(TenantContext::class)->run(
+                $s->tenantA->id,
+                fn () => Alert::factory()->create()->id,
+            );
+
+            return ['params' => ['alert' => $id]];
+        },
+        deniedRoles: ['editor', 'reader'],
+    ),
     'GET api/user' => RouteAccess::user(),
     'profile.show' => RouteAccess::user(),
     'user-profile-information.update' => RouteAccess::user(),
@@ -227,6 +283,28 @@ return [
     // Ends the admin's own acting-as session state only; no tenant data.
     'admin.acting-as.stop' => RouteAccess::user(),
 
+    'bot-log-uploads.index' => RouteAccess::tenant(
+        foreign: $teamB,
+        own: function (Scenario $s): array {
+            $s->brandIn($s->tenantA);
+            $s->brandIn($s->tenantB);
+
+            return ['params' => ['team' => $s->tenantA->id]];
+        },
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'bot-log-uploads.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $s->brandIn($s->tenantB)->id]],
+        own: fn (Scenario $s) => [
+            'params' => ['brand' => $s->brandIn($s->tenantA)->id],
+            'data' => [
+                'domain' => 'site.example.test',
+                'log' => UploadedFile::fake()->createWithContent('access.log.gz', gzencode((string) file_get_contents(base_path('tests/Fixtures/bot-logs/combined.txt')))),
+            ],
+        ],
+        deniedRoles: ['editor', 'reader'],
+    ),
+
     // Tenants: the tenant switcher, the team page, members and invitations.
     'current-team.update' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['data' => ['team_id' => $s->tenantB->id]],
@@ -264,6 +342,30 @@ return [
         foreign: fn (Scenario $s) => ['params' => ['invitation' => $s->invitationB->id]],
         own: fn (Scenario $s) => ['params' => ['invitation' => $s->invitationForAdminA()->id]],
     )->signed(),
+
+    // The Claude connection (docs/spec.md 15.2, ADR 0016). The MCP server takes only access tokens of a Claude
+    // connection; its tools are checked tool by tool in McpToolIsolationTest (register: mcp-tools.php).
+    'mcp' => RouteAccess::user(),
+    'GET mcp' => RouteAccess::public(),
+    'DELETE mcp' => RouteAccess::public(),
+    // OAuth metadata, registration, token and revocation: Claude calls these without a session. A token or
+    // refresh token only reaches its own connection (McpOAuthTest).
+    'mcp.oauth.protected-resource' => RouteAccess::public(),
+    'mcp.oauth.protected-resource.nested' => RouteAccess::public(),
+    'mcp.oauth.authorization-server' => RouteAccess::public(),
+    'mcp.oauth.authorization-server.nested' => RouteAccess::public(),
+    'mcp.oauth.register' => RouteAccess::public(),
+    'mcp.oauth.token' => RouteAccess::public(),
+    'mcp.oauth.revoke' => RouteAccess::public(),
+    // Consent: the tenant must be one the user can select (McpOAuthTest).
+    'mcp.oauth.authorize' => RouteAccess::user(),
+    'mcp.oauth.decide' => RouteAccess::user(),
+    // The user's own Claude connections.
+    'mcp.connections' => RouteAccess::user(),
+    'mcp.connections.destroy' => RouteAccess::user(
+        foreign: fn (Scenario $s) => ['params' => ['connection' => $s->mcpConnectionOf($s->ownerB, $s->tenantB)->id]],
+        own: fn (Scenario $s) => ['params' => ['connection' => $s->mcpConnectionOf($s->adminA, $s->tenantA)->id]],
+    ),
 
     // Platform admin only.
     'teams.create' => RouteAccess::platformAdmin(),

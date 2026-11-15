@@ -44,12 +44,14 @@ function tenantModelRights(): array
         Models\AlertRule::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
         // Alerts and reports are made by the system; the admin acknowledges or removes them.
         Models\Alert::class => ['read' => POLICY_EVERY_ROLE, 'create' => POLICY_NO_ROLE, 'change' => POLICY_ADMINS],
+        Models\AlertEvaluation::class => $system(POLICY_ADMINS),
         Models\ReportSchedule::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
         Models\Report::class => ['read' => POLICY_EVERY_ROLE, 'create' => POLICY_NO_ROLE, 'change' => POLICY_ADMINS],
 
         // Integrations hold credentials: admin only, also for reading.
         Models\Integration::class => $edit(POLICY_ADMINS, POLICY_ADMINS),
         Models\TenantApiKey::class => $edit(POLICY_ADMINS, POLICY_ADMINS),
+        Models\BotLogUpload::class => ['read' => POLICY_ADMINS, 'create' => POLICY_ADMINS, 'change' => POLICY_NO_ROLE],
 
         // Collection and results (6.3, 6.4): written by the system, read by everyone. A manual
         // check (admin and editor) starts a run batch.

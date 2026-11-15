@@ -17,6 +17,7 @@ import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({
     tokens: Array,
+    createTenantName: String,
     availablePermissions: Array,
     defaultPermissions: Array,
 });
@@ -47,7 +48,7 @@ const createApiToken = () => {
 };
 
 const manageApiTokenPermissions = (token) => {
-    updateApiTokenForm.permissions = token.abilities;
+    updateApiTokenForm.permissions = token.abilities.filter((ability) => props.availablePermissions.includes(ability));
     managingPermissionsFor.value = token;
 };
 
@@ -80,6 +81,7 @@ const deleteApiToken = () => {
 
             <template #description>
                 {{ $t('API tokens allow third-party services to authenticate with our application on your behalf.') }}
+                <p class="mt-2">{{ $t('api.token_tenant', { tenant: createTenantName ?? $t('api.unavailable') }) }}</p>
             </template>
 
             <template #form>
@@ -118,7 +120,7 @@ const deleteApiToken = () => {
 
                 <PrimaryButton
                     :class="{ 'opacity-25': createApiTokenForm.processing }"
-                    :disabled="createApiTokenForm.processing"
+                    :disabled="createApiTokenForm.processing || !createTenantName"
                 >
                     {{ $t('Create') }}
                 </PrimaryButton>
@@ -143,6 +145,13 @@ const deleteApiToken = () => {
                             <div v-for="token in tokens" :key="token.id" class="flex items-center justify-between">
                                 <div class="break-all">
                                     {{ token.name }}
+                                    <p class="text-sm text-gray-500">
+                                        {{
+                                            token.tenant_name
+                                                ? $t('api.bound_tenant', { tenant: token.tenant_name })
+                                                : $t('api.unbound_token')
+                                        }}
+                                    </p>
                                 </div>
 
                                 <div class="flex items-center ms-2">

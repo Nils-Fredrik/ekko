@@ -59,7 +59,7 @@ final class MetricsWorld
     /**
      * One answer collected at the given UTC time. Options: engine, status (run status, default extracted), type
      * (answer_type), model (model_id_reported), brand (mention: pos, rec, sent), competitors (id => pos|null),
-     * unknown (bool), otherBrand (a brand id mentioned too), citations (list of [domain, ownership]).
+     * unknown (bool, or the surface name of the unknown brand), otherBrand (a brand id mentioned too), citations (list of [domain, ownership]).
      *
      * @param  array<string, mixed>  $options
      */
@@ -95,7 +95,10 @@ final class MetricsWorld
             ]);
         }
         if (! empty($options['unknown'])) {
-            Mention::factory()->create(['response_id' => $response->id, 'entity_type' => 'unknown', 'detection' => 'llm', 'list_position' => 1, 'sentiment' => 0.9]);
+            Mention::factory()->create([
+                'response_id' => $response->id, 'entity_type' => 'unknown', 'detection' => 'llm', 'list_position' => 1, 'sentiment' => 0.9,
+                ...(is_string($options['unknown']) ? ['surface_name' => $options['unknown']] : []),
+            ]);
         }
         foreach ($options['citations'] ?? [] as [$domain, $ownership]) {
             Citation::factory()->create(['response_id' => $response->id, 'domain' => $domain, 'url' => "https://{$domain}/x", 'url_normalized' => "https://{$domain}/x", 'ownership' => $ownership]);

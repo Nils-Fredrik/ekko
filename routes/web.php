@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Admin\ActingAsController;
+use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\SocialLoginController;
+use App\Http\Controllers\BotLogUploadController;
 use App\Http\Controllers\BrandCompetitorController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\BrandCrawlerController;
@@ -41,6 +43,10 @@ Route::middleware([
     Route::post('/brands/{brand}/competitors', [BrandCompetitorController::class, 'store'])->name('brands.competitors.store');
     Route::get('/brands/{brand}/sources', BrandSourceController::class)->name('brands.sources');
     Route::get('/brands/{brand}/crawlers', BrandCrawlerController::class)->name('brands.crawlers');
+    Route::post('/alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
+
+    Route::get('/teams/{team}/bot-log-uploads', [BotLogUploadController::class, 'index'])->name('bot-log-uploads.index');
+    Route::post('/brands/{brand}/bot-log-uploads', [BotLogUploadController::class, 'store'])->name('bot-log-uploads.store');
 
     // Platform admin: act as a tenant (docs/spec.md 5.2). Starting needs a confirmed password.
     Route::post('/admin/acting-as/{team}', [ActingAsController::class, 'store'])
