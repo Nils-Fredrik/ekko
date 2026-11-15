@@ -33,7 +33,7 @@ $team->users()->attach($user, ['role' => 'reader']);
 $user->switchTeam($team);
 $brand = app(TenantContext::class)->run($team->id, fn () => Brand::factory()->create(['name' => 'Browser fixture brand']));
 $values = ['SMOKE_EMAIL' => $user->email, 'SMOKE_PASSWORD' => $password, 'SMOKE_TENANT_ID' => (string) $team->id, 'SMOKE_BRAND_ID' => (string) $brand->id];
-// Integration verification can add the unmerged T33/T34 branches without changing this fixture.
+// The integrated T33/T34 contracts are exercised by the deployment smoke test.
 if (class_exists(TokenTenant::class)) {
     $values['SMOKE_REST_TOKEN'] = $user->createToken('browser-smoke', ['read', 'tenant:'.$team->id])->plainTextToken;
 }

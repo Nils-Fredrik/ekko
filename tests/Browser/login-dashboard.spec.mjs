@@ -1,3 +1,5 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { test, expect } from '@playwright/test';
 
 test('wrong credentials cannot reach the dashboard', async ({ page }) => {
@@ -26,4 +28,13 @@ test('login renders the tenant overview and brand metrics', async ({ page }) => 
     await expect(page).toHaveURL(new RegExp(`/brands/${process.env.SMOKE_BRAND_ID}$`));
     await expect(page.getByRole('heading', { name: 'Browser fixture brand' })).toBeVisible();
     expect(errors).toEqual([]);
+});
+
+test('deployment smoke exercises login, REST, OAuth and MCP and revokes its connection', async ({ baseURL }) => {
+    test.setTimeout(60000);
+    const result = await promisify(execFile)(process.execPath, ['scripts/smoke.mjs', baseURL], {
+        env: process.env,
+        timeout: 55000,
+    });
+    expect(result.stdout).toContain('passed');
 });

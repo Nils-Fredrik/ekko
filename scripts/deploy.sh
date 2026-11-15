@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Draft only. Integrated smoke and live GCP behavior must be verified
-# before this script is connected to an active deployment workflow.
+# CI invokes this only when EKKO_DEPLOY_ENABLED is explicitly enabled after bootstrap
+# and live validation. The workflow must never cancel a running main deployment.
 set -euo pipefail
 : "${WEB_IMAGE:?}" "${JOB_IMAGE:?}" "${PROJECT_ID:?}" "${REGION:?}" "${REVISION_SUFFIX:?}"
 service=ekko-web
