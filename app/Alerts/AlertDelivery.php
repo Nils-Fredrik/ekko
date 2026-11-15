@@ -61,6 +61,18 @@ final class AlertDelivery
             ->update(['digest_date' => $digestDate]);
     }
 
+    /**
+     * Urgent alerts (payload urgent, the quota alert at 100 %) do not wait for the digest: whenever the job runs,
+     * those without a digest date get the tenant's local date and go out with the next delivery, also before the
+     * day's evaluation and after the day's digest was sent. Call inside the tenant's row-level security.
+     */
+    public function assignUrgent(string $digestDate): int
+    {
+        return Alert::query()->whereNull('digest_date')
+            ->where('payload->urgent', true)
+            ->update(['digest_date' => $digestDate]);
+    }
+
     public function deliver(CarbonImmutable $now, string $digestDate): void
     {
         $tenantId = current_tenant_id();

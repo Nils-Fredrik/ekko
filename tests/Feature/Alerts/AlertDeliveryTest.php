@@ -162,6 +162,39 @@ test('nothing is evaluated or sent before 05:30 in the tenant timezone', functio
     expect(AlertEvaluation::query()->count())->toBe(1);
 });
 
+test('an urgent alert (quota at 100 %) goes out at once, before the evaluation and after the digest', function () {
+    $urgent = fn () => makeAlert($this->w, 'quota', [...quotaPayload(), 'threshold_percent' => 100, 'urgent' => true], brandRule: false);
+    makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));
+
+    // Before the evaluation time: only the urgent alert is sent, and the day is not evaluated.
+    $this->travelTo(CarbonImmutable::parse('2026-11-16 03:15:00', 'Europe/Oslo'));
+    $first = $urgent();
+    runAlertJob($this->w);
+
+    Http::assertSentCount(1);
+    Http::assertSent(fn ($request) => str_contains($request['text'], 'ett varsel') && str_contains($request['text'], 'Forbruket har nådd 100 %'));
+    Mail::assertSent(AlertDigestMail::class, 3);
+    expect($first->refresh()->delivered_at)->not->toBeNull()
+        ->and(AlertEvaluation::query()->count())->toBe(0)
+        ->and(Alert::query()->whereNull('digest_date')->count())->toBe(1);
+
+    // The digest later that morning has the other alert only.
+    $this->travelTo(CarbonImmutable::parse('2026-11-16 08:00:00', 'Europe/Oslo'));
+    runAlertJob($this->w);
+    Http::assertSentCount(2);
+    Http::assertSent(fn ($request) => str_contains($request['text'], 'synlighet i') && ! str_contains($request['text'], 'Forbruket'));
+
+    // After the digest: a new urgent alert does not wait for the next day.
+    $this->travelTo(CarbonImmutable::parse('2026-11-16 14:15:00', 'Europe/Oslo'));
+    $second = $urgent();
+    runAlertJob($this->w);
+    runAlertJob($this->w);
+
+    Http::assertSentCount(3);
+    expect($second->refresh()->delivered_at)->not->toBeNull()
+        ->and($second->digest_date->toDateString())->toBe('2026-11-16');
+});
+
 test('a failed Slack delivery is retried the same day without sending the e-mail again', function () {
     $this->slack->push('error', 500);
     $alert = makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));

@@ -290,7 +290,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 | `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker` |
 | `extraction-poll` | hvert 15. minutt, via internt endepunkt | Sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
 | `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) har egen trigger, `alerts` under (ADR 0012, ADR 0017) |
-| `alerts` | hver time, kvart over | `ekko:evaluate-alerts --sync`. Hver tenant evalueres én gang per lokal dag, ved første kjøring etter 05:30 i tenantens tidssone, og kjøringen leverer døgnmeldingen. Senere kjøringer samme dag prøver bare feilede kanaler på nytt (ADR 0017) |
+| `alerts` | hver time, kvart over | `ekko:evaluate-alerts --sync`. Hver tenant evalueres én gang per lokal dag, ved første kjøring etter 05:30 i tenantens tidssone, og kjøringen leverer døgnmeldingen. Senere kjøringer samme dag prøver bare feilede kanaler på nytt. Kvotevarselet ved 100 % sendes av første kjøring etter at det oppstår, uansett tid på døgnet (ADR 0017) |
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
 | `usage-rollup` | hver time, via `ekko-task` | `ekko:usage-rollup` og kvotekontroll |
@@ -561,7 +561,7 @@ Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like 
 - `quota` og `integration_error` opprettes av kvoterollupen (7.2) og av synkene (10.1, 10.2) når tilstanden oppstår. T24 leverer dem med de andre.
 - Samme tema (marked og motor, prompt og konkurrent, …) varsles ikke igjen innen karensperioden (7 dager, 30 for `new_competitor`).
 - Evalueringen venter til kl. 12:00 så lenge kjøringer som er planlagt i går, ikke er ferdig uttrukket, og regnes bare for aktive merkevarer, markeder og kjerneprompts. En regel som er slått av, gir ingen varsler og ingen levering.
-- **Døgnmelding:** alle varsler fra de siste tre dagene som ikke har vært i en melding før, går ut sammen i én Slack-melding og én e-post per mottaker per tenant og lokal dag. Varsler som oppstår senere på dagen venter til neste døgn.
+- **Døgnmelding:** alle varsler fra de siste tre dagene som ikke har vært i en melding før, går ut sammen i én Slack-melding og én e-post per mottaker per tenant og lokal dag. Varsler som oppstår senere på dagen venter til neste døgn. Unntaket er kvotevarselet ved 100 %: kjøringene stopper da, så det sendes med en gang (innen et kvarter, ved neste timekjøring) som en egen melding.
 - **Kvittering:** hver kanal har en kvittering på varselet (`deliveries`: status, forsøk, tidspunkt). Meldingene sendes utenfor databasetransaksjon og hver kvittering lagres straks. Feilede kanaler prøves på nytt hver time samme dag, høyst tre forsøk, og settes til oppgitt når dagen er over. `delivered_at` settes når ingen kanal venter lenger. En tenant-admin kan i tillegg kvittere for at varselet er sett (`POST /alerts/{alert}/acknowledge`, `acknowledged_by` og `acknowledged_at`).
 - E-post går til tenantens eier og admin, og til partnerrådgivere i partner-tenanten. `quota` går også til plattformadmin.
 

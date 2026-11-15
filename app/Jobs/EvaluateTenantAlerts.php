@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\DB;
  * time (ekko.alerts.evaluate_after, tenant-local) it does nothing, and until ekko.alerts.evaluate_wait_until it
  * waits while runs planned yesterday are still being collected or extracted (only extracted answers count, ADR
  * 0012). The first run after that claims the local day (alert_evaluations), evaluates the alert types and
- * delivers the digest. Later runs the same day only retry channels that failed.
+ * delivers the digest. Later runs the same day only retry channels that failed. Urgent alerts (the quota alert at
+ * 100 %) are delivered by every run, before the evaluation time too (AlertDelivery::assignUrgent()).
  *
  * The job does not run in one transaction: the evaluation is one, and the delivery sends messages outside a
  * transaction and saves each receipt in its own (see AlertDelivery), so a failure after a message was sent
@@ -41,33 +42,27 @@ class EvaluateTenantAlerts extends TenantJob
     {
         $now = CarbonImmutable::now();
 
-        $date = $rls->run([$this->tenantId], function () use ($evaluator, $delivery, $now): ?string {
+        $date = $rls->run([$this->tenantId], function () use ($evaluator, $delivery, $now): string {
             $tenant = Team::query()->findOrFail($this->tenantId);
             $timezone = $this->timezone((string) $tenant->timezone);
             $local = $now->setTimezone($timezone);
-
-            if ($local->lt($this->at($local, (string) config('ekko.alerts.evaluate_after')))) {
-                return null;
-            }
-
             $date = $local->toDateString();
-            if (! AlertEvaluation::query()->where('local_date', $date)->exists()) {
-                if ($this->awaitsExtraction($local)) {
-                    return null;
-                }
 
-                if ($this->claim($date, $now)) {
-                    $evaluator->evaluate($now, $timezone);
-                    $delivery->assignDigest($now, $date);
-                }
+            // Urgent alerts go out on every run, whatever the time of day.
+            $delivery->assignUrgent($date);
+
+            if ($local->gte($this->at($local, (string) config('ekko.alerts.evaluate_after')))
+                && ! AlertEvaluation::query()->where('local_date', $date)->exists()
+                && ! $this->awaitsExtraction($local)
+                && $this->claim($date, $now)) {
+                $evaluator->evaluate($now, $timezone);
+                $delivery->assignDigest($now, $date);
             }
 
             return $date;
         });
 
-        if ($date !== null) {
-            $delivery->deliver($now, $date);
-        }
+        $delivery->deliver($now, $date);
     }
 
     /**
