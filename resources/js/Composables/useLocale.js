@@ -15,7 +15,10 @@ export function useLocale() {
             { locale: code },
             {
                 preserveScroll: true,
-                onSuccess: () => loadLanguageAsync(code),
+                onSuccess: () => {
+                    document.documentElement.lang = code;
+                    loadLanguageAsync(code);
+                },
             },
         );
 
