@@ -271,7 +271,8 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 | `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
 | `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `byok_cost_usd`, `byok_budget_usd`, `quota_alerted_threshold`, `status` (ok, warning, capped) |
 | `alert_rules` | `tenant_id`, `brand_id`, `type`, `threshold`, `channels` (jsonb), `is_active` |
-| `alerts` | `tenant_id`, `alert_rule_id`, `triggered_at`, `payload` (jsonb), `delivered_at`, `acknowledged_by` |
+| `alerts` | `tenant_id`, `alert_rule_id`, `subject`, `triggered_at`, `payload` (jsonb), `digest_date`, `deliveries` (jsonb, kvittering per kanal), `delivered_at`, `acknowledged_by`, `acknowledged_at` |
+| `alert_evaluations` | `tenant_id`, `local_date`, `evaluated_at` (én rad per tenant og lokal dag, unik; gjør at evalueringen kjører én gang per døgn) |
 | `report_schedules` | `tenant_id`, `brand_id`, `cadence` (weekly, monthly), `recipients` (jsonb), `locale`, `branding` (tenant, partner) |
 | `reports` | `tenant_id`, `report_schedule_id`, `period_start`, `period_end`, `pdf_uri`, `sent_at` |
 | `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `last_failed_on`, `status` |
@@ -288,7 +289,8 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 |---|---|---|
 | `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker` |
 | `extraction-poll` | hvert 15. minutt, via internt endepunkt | Sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
-| `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) kjøres av egen trigger etter første aggregering etter 05:30 (ADR 0012) |
+| `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) har egen trigger, `alerts` under (ADR 0012, ADR 0019) |
+| `alerts` | hver time, kvart over | `ekko:evaluate-alerts --sync`. Hver tenant evalueres én gang per lokal dag, ved første kjøring etter 05:30 i tenantens tidssone, og kjøringen leverer døgnmeldingen. Senere kjøringer samme dag prøver bare feilede kanaler på nytt. Kvotevarselet ved 100 % sendes av første kjøring etter at det oppstår, uansett tid på døgnet (ADR 0019) |
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
 | `usage-rollup` | hver time, via `ekko-task` | `ekko:usage-rollup` og kvotekontroll |
@@ -550,6 +552,20 @@ Integrasjonen `ga4` lagrer GA4 property-ID og bruker en tjenestekonto med leseti
 | `integration_error` | Synk mot ClickHouse eller GA4 feiler to dager på rad | – |
 
 Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like varsler samles til én melding per tenant per døgn.
+
+**Evaluering og levering (T24, [ADR 0019](decisions/0019-varsler.md)):**
+
+- Terskler står i `alert_rules.threshold`: prosentpoeng for `visibility_drop`, prosent for `competitor_takeover` og `new_competitor`. En regel opprettes med standardverdiene fra `config/ekko.php` første gang typen evalueres, og kan endres per tenant.
+- Sammenligningene bruker de siste sju dagene som slutter i går mot de sju foregående, i tenantens tidssone. Tallene hentes fra `MetricsService`.
+- `visibility_drop` krever n ≥ 30 begge uker. `competitor_takeover` regnes per kjerneprompt og krever minst 5 listesvar begge uker. `new_competitor` krever minst 30 svar i markedet.
+- `citation_lost` sammenligner siste runde (dag) med forrige runde med svar, per kjerneprompt og motor.
+- `model_change` varsler bare når motorens dominerende modell-ID for en dag er en annen enn dominerende modell-ID forrige dag med svar. Markørene i `model_changes` brukes ikke, siden leverandører veksler mellom versjoner i løpet av en dag. Karensen gjelder motoren, så et nytt modellbytte for samme motor innen karensperioden varsles ikke.
+- `quota` og `integration_error` opprettes av kvoterollupen (7.2) og av synkene (10.1, 10.2) når tilstanden oppstår. T24 leverer dem med de andre.
+- Samme tema (marked og motor, prompt og konkurrent, …) varsles ikke igjen innen karensperioden (7 dager, 30 for `new_competitor`).
+- Evalueringen venter til kl. 12:00 så lenge kjøringer som er planlagt i går, ikke er ferdig uttrukket, og regnes bare for aktive merkevarer, markeder og kjerneprompts. En regel som er slått av, gir ingen varsler og ingen levering.
+- **Døgnmelding:** alle varsler fra de siste tre dagene som ikke har vært i en melding før, går ut sammen i én Slack-melding og én e-post per mottaker per tenant og lokal dag. Varsler som oppstår senere på dagen venter til neste døgn. Unntaket er kvotevarselet ved 100 %: kjøringene stopper da, så det sendes med en gang (innen et kvarter, ved neste timekjøring) som en egen melding.
+- **Kvittering:** hver kanal har en kvittering på varselet (`deliveries`: status, forsøk, tidspunkt). Meldingene sendes utenfor databasetransaksjon og hver kvittering lagres straks. Feilede kanaler prøves på nytt hver time samme dag, høyst tre forsøk, og settes til oppgitt når dagen er over. `delivered_at` settes når ingen kanal venter lenger. En tenant-admin kan i tillegg kvittere for at varselet er sett (`POST /alerts/{alert}/acknowledge`, `acknowledged_by` og `acknowledged_at`).
+- E-post går til tenantens eier og admin, og til partnerrådgivere i partner-tenanten. `quota` går også til plattformadmin.
 
 ### 11.2 Rapporter
 

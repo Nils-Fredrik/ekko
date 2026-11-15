@@ -44,6 +44,7 @@ function tenantModelRights(): array
         Models\AlertRule::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
         // Alerts and reports are made by the system; the admin acknowledges or removes them.
         Models\Alert::class => ['read' => POLICY_EVERY_ROLE, 'create' => POLICY_NO_ROLE, 'change' => POLICY_ADMINS],
+        Models\AlertEvaluation::class => $system(POLICY_ADMINS),
         Models\ReportSchedule::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
         Models\Report::class => ['read' => POLICY_EVERY_ROLE, 'create' => POLICY_NO_ROLE, 'change' => POLICY_ADMINS],
 
