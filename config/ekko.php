@@ -30,19 +30,19 @@ return [
 
     /*
     | Model-based extraction, the second stage of answer analysis (docs/spec.md 8.2, ADR 0011). Prices are
-    | USD per million tokens for the prompt sizes an answer gives (up to 100K tokens); the batch discount
-    | applies to Message Batches only, not to the single retry through the Messages API.
+    | USD per million tokens for the prompt sizes an answer gives (up to 100K tokens); the batch price factor
+    | (0.5 = half price) applies to Message Batches only, not to the single retry through the Messages API.
     */
     'anthropic' => [
         'extraction' => [
             'model' => env('EKKO_EXTRACTION_MODEL', 'claude-haiku-5-5'),
-            'max_tokens' => 4096,
+            'max_tokens' => 16000,
             'effort' => 'low',
             'batch_size' => 100,
             'poll_delay_seconds' => 120,
             'input_usd_per_mtok' => '0.10',
             'output_usd_per_mtok' => '0.50',
-            'batch_discount' => '0.5',
+            'batch_price_factor' => '0.5',
         ],
     ],
 

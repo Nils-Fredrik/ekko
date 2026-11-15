@@ -70,7 +70,7 @@ final class RecordedExtractionClient implements ExtractionClient
     private function outcome(string $customId, array $entry, bool $viaBatch): ExtractionOutcome
     {
         if (isset($entry['error'])) {
-            return new ExtractionOutcome($customId, false, null, 0, 0, $viaBatch, (string) $entry['error']);
+            return new ExtractionOutcome($customId, false, null, (int) ($entry['input_tokens'] ?? 0), (int) ($entry['output_tokens'] ?? 0), $viaBatch, (string) $entry['error']);
         }
 
         $text = $entry['text'] ?? null;

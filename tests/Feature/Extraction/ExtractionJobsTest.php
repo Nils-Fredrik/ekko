@@ -113,20 +113,6 @@ it('submits one batch per tenant for collected answers and stores the batch as a
         ->and($other->run()->withoutGlobalScopes()->first()->status)->toBe('collected');
 });
 
-it('splits a tenant into batches of the configured size', function () {
-    config(['ekko.anthropic.extraction.batch_size' => 2]);
-    $a = extractionTenant();
-    foreach (range(1, 5) as $i) {
-        collectedResponse($a, "Fjordkaffe nummer {$i}.");
-    }
-    $client = new FakeExtractionClient(fn (string $id): array => entry([]));
-    app()->instance(ExtractionClient::class, $client);
-
-    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
-
-    expect(array_map('count', $client->batches))->toBe([2, 2, 1]);
-});
-
 it('sends the market language, the catalog and the deterministic result with each answer', function () {
     $a = extractionTenant();
     $response = collectedResponse($a, "Topplisten:\n1. Nordlys Rosteri\n2. Fjordkaffe");
@@ -328,6 +314,85 @@ it('never lets one tenant poll or write another tenants batch', function () {
 
     expect(fn () => runPoll($b['tenant'], $jobOfA->id))->toThrow(ModelNotFoundException::class);
     expect($jobOfA->refresh()->status)->toBe('submitted');
+});
+
+/** Runs a submit job by hand, in its tenant, while Bus::fake() holds back the jobs it queues. */
+function runSubmit(Team $tenant): void
+{
+    $submit = new SubmitExtractionBatch($tenant->id);
+    asTenant($tenant, fn () => app()->call([$submit, 'handle']));
+}
+
+it('submits at most one batch per run and queues itself again while answers wait', function () {
+    Bus::fake();
+    config(['ekko.anthropic.extraction.batch_size' => 2]);
+    $a = extractionTenant();
+    $ids = array_map(fn (int $i): int => collectedResponse($a, "Fjordkaffe nummer {$i}.")->id, range(1, 5));
+    $client = new FakeExtractionClient(fn (string $id): array => entry([]));
+    app()->instance(ExtractionClient::class, $client);
+
+    runSubmit($a['tenant']);
+
+    expect($client->batches)->toBe([["r{$ids[0]}", "r{$ids[1]}"]]);
+    Bus::assertDispatched(SubmitExtractionBatch::class, fn (SubmitExtractionBatch $job): bool => $job->tenantId === $a['tenant']->id);
+    Bus::assertDispatchedTimes(PollExtractionBatch::class, 1);
+
+    // The next runs skip the answers that wait for their results.
+    runSubmit($a['tenant']);
+    runSubmit($a['tenant']);
+    expect(array_map('count', $client->batches))->toBe([2, 2, 1]);
+    // The queued successor holds the unique lock, so the later runs queue no second copy.
+    Bus::assertDispatchedTimes(SubmitExtractionBatch::class, 1);
+
+    runSubmit($a['tenant']);
+    expect($client->batches)->toHaveCount(3);
+});
+
+it('does not let answers that wait for results crowd out new ones', function () {
+    Bus::fake();
+    config(['ekko.anthropic.extraction.batch_size' => 2]);
+    $a = extractionTenant();
+    $waiting = [collectedResponse($a, 'Fjordkaffe en.')->id, collectedResponse($a, 'Fjordkaffe to.')->id];
+    $fresh = collectedResponse($a, 'Fjordkaffe tre.');
+    app(TenantContext::class)->run($a['tenant']->id, fn () => ExtractionJob::factory()->create(['response_ids' => $waiting, 'status' => 'submitted']));
+    $client = new FakeExtractionClient(fn (string $id): array => entry([]));
+    app()->instance(ExtractionClient::class, $client);
+
+    runSubmit($a['tenant']);
+
+    expect($client->batches)->toBe([["r{$fresh->id}"]]);
+});
+
+it('keeps the deterministic results and flags the answers when the poll job gives up', function () {
+    Bus::fake([PollExtractionBatch::class]);
+    $a = extractionTenant();
+    $first = collectedResponse($a, 'Fjordkaffe er bra.');
+    $second = collectedResponse($a, 'Nordlys Rosteri er kjent.');
+    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => entry([]), ended: false));
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    $job = ExtractionJob::query()->withoutGlobalScopes()->sole();
+
+    (new PollExtractionBatch($a['tenant']->id, $job->id))->failed(new RuntimeException('gave up: contains SECRET-ANSWER'));
+
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($first, $second, $job) {
+        expect($job->refresh()->status)->toBe('failed')
+            ->and($first->refresh()->llm_failed)->toBeTrue()
+            ->and($first->run->status)->toBe('extracted')
+            ->and($second->refresh()->llm_failed)->toBeTrue()
+            ->and(Mention::query()->where('response_id', $first->id)->sole()->detection)->toBe('deterministic');
+    });
+
+    // A job that already finished is left alone.
+    $other = extractionTenant();
+    $done = collectedResponse($other, 'Fjordkaffe.');
+    $finished = app(TenantContext::class)->run($other['tenant']->id, fn () => ExtractionJob::factory()->create(['response_ids' => [$done->id], 'status' => 'completed']));
+    (new PollExtractionBatch($other['tenant']->id, $finished->id))->failed(new RuntimeException);
+    expect($done->refresh()->llm_failed)->toBeFalse();
+});
+
+it('backs off between retries of an exception and has a lock that expires', function () {
+    expect((new PollExtractionBatch(1, 1))->backoff)->toBe([60, 300, 900])
+        ->and((new SubmitExtractionBatch(1))->uniqueFor)->toBe(3600);
 });
 
 it('runs as tenant jobs, and the submit job is unique per tenant', function () {

@@ -96,17 +96,17 @@ final class AnthropicExtractionClient implements ExtractionClient
             }
         }
 
-        // A refusal carries no usable JSON, but its tokens were billed.
-        $refused = $message->stopReason === 'refusal';
+        // A refusal and an answer cut off at max_tokens carry no usable JSON, but their tokens were billed.
+        $failure = in_array($message->stopReason, ['refusal', 'max_tokens'], true) ? $message->stopReason : null;
 
         return new ExtractionOutcome(
             $customId,
-            ! $refused,
-            $refused ? null : $text,
+            $failure === null,
+            $failure === null ? $text : null,
             $message->usage->inputTokens,
             $message->usage->outputTokens,
             $viaBatch,
-            $refused ? 'refusal' : null,
+            $failure,
         );
     }
 }

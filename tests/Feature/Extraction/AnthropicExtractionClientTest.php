@@ -41,7 +41,7 @@ it('submits one batch with the schema as structured output, Haiku 5.5 and no for
 
     $params = $body['requests'][0]['params'];
     expect($params['model'])->toBe('claude-haiku-5-5')
-        ->and($params['max_tokens'])->toBe(4096)
+        ->and($params['max_tokens'])->toBe(16000)
         ->and($params['system'])->toBe('system text')
         ->and($params['messages'])->toBe([['role' => 'user', 'content' => 'user one']])
         ->and($params['output_config']['effort'])->toBe('low')
@@ -70,6 +70,7 @@ it('reads batch results of every kind, with token usage', function () {
         ['custom_id' => 'r2', 'result' => ['type' => 'succeeded', 'message' => json_decode(FakeHttpClient::message('', 'refusal', 90, 0), true)]],
         ['custom_id' => 'r3', 'result' => ['type' => 'errored', 'error' => ['type' => 'error', 'error' => ['type' => 'invalid_request_error', 'message' => 'details that are never kept']]]],
         ['custom_id' => 'r4', 'result' => ['type' => 'expired']],
+        ['custom_id' => 'r5', 'result' => ['type' => 'succeeded', 'message' => json_decode(FakeHttpClient::message('{"mentions": [', 'max_tokens', 80, 16000), true)]],
     ];
     $http = new FakeHttpClient([
         'GET /v1/messages/batches/msgbatch_1/results' => [200, implode("\n", array_map('json_encode', $lines))."\n", 'application/x-jsonl'],
@@ -80,7 +81,11 @@ it('reads batch results of every kind, with token usage', function () {
         $outcomes[$outcome->customId] = $outcome;
     }
 
-    expect($outcomes)->toHaveCount(4)
+    expect($outcomes)->toHaveCount(5)
+        ->and($outcomes['r5']->succeeded)->toBeFalse()
+        ->and($outcomes['r5']->text)->toBeNull()
+        ->and($outcomes['r5']->errorType)->toBe('max_tokens')
+        ->and($outcomes['r5']->outputTokens)->toBe(16000)
         ->and($outcomes['r1']->succeeded)->toBeTrue()
         ->and($outcomes['r1']->text)->toBe(extractionJson())
         ->and($outcomes['r1']->inputTokens)->toBe(120)

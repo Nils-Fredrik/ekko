@@ -10,7 +10,7 @@ use App\Detection\DetectedMention;
  * known brands and competitors with their aliases, and what deterministic detection already found.
  *
  * The answer comes from a search engine and is untrusted (docs/spec.md 16). The system prompt says that
- * it is data, not instructions, and the answer is placed between <answer> tags with < and > escaped, so
+ * it is data, not instructions, and the answer is placed between <answer> tags with &, < and > escaped, so
  * it cannot close the tag or open new ones. Nothing built here is ever logged.
  */
 final class ExtractionPromptBuilder
@@ -24,7 +24,7 @@ The user message has four parts:
 - market_language: the language of the market the question was asked in.
 - known_entities: the brands and competitors the customer monitors, each with an id, a type (brand or competitor) and aliases.
 - already_detected: the known entities a deterministic text search already found in the answer.
-- the answer, between <answer> and </answer>, with the characters < and > written as &lt; and &gt;.
+- the answer, between <answer> and </answer>, with the characters &, < and > written as &amp;, &lt; and &gt;.
 
 Rules for the output:
 - mentions: one entry per distinct company, brand or product brand that the answer names, at its first occurrence. A known entity (it, or one of its aliases, or a clear spelling variant, appears in known_entities) uses its own type and id. Any other named company or brand uses type "unknown" and id null. Do not list generic words, places or product categories.
@@ -75,7 +75,7 @@ PROMPT;
     /** Makes the answer inert: it cannot close the answer tag or open a new one. */
     public static function escape(string $answerText): string
     {
-        return str_replace(['<', '>'], ['&lt;', '&gt;'], mb_scrub($answerText));
+        return htmlspecialchars(mb_scrub($answerText), ENT_NOQUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
     /** @param  array<int|string, mixed>  $value */

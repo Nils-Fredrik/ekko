@@ -16,7 +16,7 @@ return new class extends Migration
             $table->boolean('llm_failed')->default(false);
         });
 
-        DB::statement("ALTER TABLE extraction_jobs ADD CONSTRAINT extraction_jobs_status_values CHECK (status IN ('submitted', 'completed'))");
+        DB::statement("ALTER TABLE extraction_jobs ADD CONSTRAINT extraction_jobs_status_values CHECK (status IN ('submitted', 'completed', 'failed'))");
     }
 
     public function down(): void

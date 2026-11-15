@@ -11,18 +11,23 @@ use App\Extraction\ExtractionWriter;
 use App\Models\ExtractionJob;
 use App\Models\Response;
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Queue\ShouldBeUnique;
+use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 
 /**
  * Submits the collected, not yet extracted responses of one tenant to Anthropic Message Batches
  * (docs/spec.md 8.2, ADR 0011). A batch never mixes tenants: every batch is one {@see ExtractionJob} row of
  * the tenant, and its results are written back by {@see PollExtractionBatch} under that tenant's context
- * and row-level security. At most one submit job per tenant runs at a time.
+ * and row-level security.
+ *
+ * One run submits at most one batch and queues itself again when more answers wait. The whole run is one
+ * transaction, so a failure after the provider accepted a batch would lose the batch's row; with one
+ * batch per run, a failing submit has nothing accepted to lose. Only one submit job per tenant is queued
+ * at a time, and the lock is released when the job starts, so it can queue its successor.
  */
-class SubmitExtractionBatch extends TenantJob implements ShouldBeUnique
+class SubmitExtractionBatch extends TenantJob implements ShouldBeUniqueUntilProcessing
 {
-    /** Responses read per run; the rest waits for the next run. */
-    private const MAX_RESPONSES = 1000;
+    /** Seconds a queued submit job holds the lock if it never starts. */
+    public int $uniqueFor = 3600;
 
     public function uniqueId(): string
     {
@@ -35,57 +40,64 @@ class SubmitExtractionBatch extends TenantJob implements ShouldBeUnique
         ExtractionPromptBuilder $prompts,
         ExtractionWriter $writer,
     ): void {
+        $size = max(1, (int) config('ekko.anthropic.extraction.batch_size'));
+
+        // An empty answer has nothing to analyse: no model call, the run is simply extracted.
+        Response::query()
+            ->whereHas('run', fn ($query) => $query->where('status', 'collected'))
+            ->whereRaw("btrim(answer_text) = ''")
+            ->each(fn (Response $response) => $writer->markExtracted($response));
+
         $inFlight = [];
         foreach (ExtractionJob::query()->where('status', 'submitted')->get() as $job) {
             foreach ((array) $job->response_ids as $id) {
-                $inFlight[(int) $id] = true;
+                $inFlight[] = (int) $id;
             }
         }
 
+        // One more than a batch, to know whether another run is needed. The in-flight filter is in the query,
+        // before the limit, so answers that are waiting for their results never crowd out new ones.
         $responses = Response::query()
             ->whereHas('run', fn ($query) => $query->where('status', 'collected'))
+            ->whereRaw("btrim(answer_text) <> ''")
+            ->whereNotIn('id', $inFlight)
             ->with('run.prompt.market')
             ->orderBy('id')
-            ->limit(self::MAX_RESPONSES)
-            ->get()
-            ->reject(fn (Response $response): bool => isset($inFlight[$response->id]));
+            ->limit($size + 1)
+            ->get();
 
-        $catalog = DetectionCatalog::load();
-        $size = max(1, (int) config('ekko.anthropic.extraction.batch_size'));
-        $ready = [];
-
-        foreach ($responses as $response) {
-            if (trim((string) $response->answer_text) === '') {
-                $writer->markExtracted($response);
-
-                continue;
-            }
-
-            // The deterministic stage first: it recreates its rows, and the model stage builds on them.
-            $detector->detect($response, $catalog);
-            $ready[] = $response;
+        $more = $responses->count() > $size;
+        $chunk = $responses->take($size)->values();
+        if ($chunk->isEmpty()) {
+            return;
         }
 
-        foreach (array_chunk($ready, $size) as $chunk) {
-            $requests = array_map(fn (Response $response): ExtractionRequest => $prompts->build(
-                'r'.$response->id,
-                (string) $response->answer_text,
-                $response->run->prompt->market->language ?? $response->answer_language ?? 'und',
-                $catalog->aliases,
-                $writer->deterministicMentions($response),
-            ), $chunk);
+        $catalog = DetectionCatalog::load();
+        foreach ($chunk as $response) {
+            // The deterministic stage first: it recreates its rows, and the model stage builds on them.
+            $detector->detect($response, $catalog);
+        }
 
-            $batchId = $runner->submit($requests);
+        $requests = $chunk->map(fn (Response $response): ExtractionRequest => $prompts->build(
+            'r'.$response->id,
+            (string) $response->answer_text,
+            $response->run->prompt->market->language ?? $response->answer_language ?? 'und',
+            $catalog->aliases,
+            $writer->deterministicMentions($response),
+        ))->all();
 
-            $job = ExtractionJob::query()->create([
-                'provider_batch_id' => $batchId,
-                'status' => 'submitted',
-                'response_ids' => array_map(fn (Response $response): int => $response->id, $chunk),
-                'submitted_at' => CarbonImmutable::now('UTC'),
-            ]);
+        $job = ExtractionJob::query()->create([
+            'provider_batch_id' => $runner->submit($requests),
+            'status' => 'submitted',
+            'response_ids' => $chunk->pluck('id')->map(fn ($id): int => (int) $id)->all(),
+            'submitted_at' => CarbonImmutable::now('UTC'),
+        ]);
 
-            PollExtractionBatch::dispatch($this->tenantId, $job->id)
-                ->delay(now()->addSeconds((int) config('ekko.anthropic.extraction.poll_delay_seconds')));
+        PollExtractionBatch::dispatch($this->tenantId, $job->id)
+            ->delay(now()->addSeconds((int) config('ekko.anthropic.extraction.poll_delay_seconds')));
+
+        if ($more) {
+            self::dispatch($this->tenantId)->afterCommit();
         }
     }
 }

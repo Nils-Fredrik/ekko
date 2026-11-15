@@ -7,7 +7,7 @@ use Brick\Math\RoundingMode;
 
 /**
  * Cost of one extraction call from config('ekko.anthropic.extraction') (docs/spec.md 12.2, ADR 0011): token
- * prices per million tokens, with the Message Batches discount for calls made through a batch.
+ * prices per million tokens, with the Message Batches price factor for calls made through a batch.
  */
 final class ExtractionCost
 {
@@ -21,7 +21,7 @@ final class ExtractionCost
             ->dividedByExact(1_000_000);
 
         if ($outcome->viaBatch) {
-            $cost = $cost->multipliedBy($config['batch_discount']);
+            $cost = $cost->multipliedBy($config['batch_price_factor']);
         }
 
         return (string) $cost->toScale(8, RoundingMode::HalfUp);

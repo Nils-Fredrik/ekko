@@ -53,6 +53,7 @@ final class ExtractionWriter
 
             foreach ($extraction->mentions as $mention) {
                 if ($mention->detection === 'deterministic') {
+                    // By entity, not by row: the deterministic stage writes one mention per entity (ADR 0010).
                     Mention::query()
                         ->where('response_id', $response->id)->where('detection', 'deterministic')
                         ->where('entity_type', $mention->entityType)->where('entity_id', $mention->entityId)
@@ -82,6 +83,17 @@ final class ExtractionWriter
             }
 
             $response->update(['answer_type' => $extraction->answerType, 'llm_failed' => $extraction->llmFailed]);
+            $this->markExtracted($response);
+        });
+    }
+
+    /** The model stage could not be completed at all: keep the deterministic results and flag the response. */
+    public function abandon(Response $response): void
+    {
+        $this->guardTenant($response);
+
+        DB::transaction(function () use ($response): void {
+            $response->update(['llm_failed' => true]);
             $this->markExtracted($response);
         });
     }

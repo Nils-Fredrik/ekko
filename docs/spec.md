@@ -251,7 +251,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at`, `answer_type` (list, single_recommendation, comparison, informational, refusal), `llm_failed` |
 | `mentions` | `tenant_id`, `response_id`, `entity_type` (brand, competitor, unknown), `entity_id` (null for unknown), `surface_name`, `first_char_offset`, `list_position` (null hvis ikke liste), `is_recommended`, `sentiment` (-1.0–1.0), `detection` (deterministic, llm) |
 | `citations` | `tenant_id`, `response_id`, `url`, `url_normalized`, `domain`, `ownership` (own, competitor, third_party), `competitor_id`, `source_type` (news, review, forum, wiki, marketplace, social, gov, other), `rank_in_answer`, `from_annotation` (bool) |
-| `extraction_jobs` | `tenant_id`, `provider_batch_id`, `status` (submitted, completed), `response_ids` (jsonb), `submitted_at`, `completed_at` |
+| `extraction_jobs` | `tenant_id`, `provider_batch_id`, `status` (submitted, completed, failed), `response_ids` (jsonb), `submitted_at`, `completed_at` |
 
 ### 6.4 Aggregater
 
@@ -424,7 +424,7 @@ Svar med status `collected` sendes i batch til Anthropic Message Batches med mod
 - listen over kjente merkevarer og konkurrenter med alias
 - resultatet fra 8.1
 
-Modellen skal returnere JSON etter dette skjemaet. Skjemaet tvinges med strukturert utdata (`output_config.format`, JSON-skjema), ikke med tvunget verktøykall, som de nyeste modellene ikke støtter (ADR 0011):
+Modellen skal returnere JSON etter dette skjemaet. Skjemaet tvinges med strukturert utdata (`output_config.format`, JSON-skjema), ikke med tvunget verktøykall, siden verktøyet bare ville finnes for å få JSON tilbake (ADR 0011):
 
 ```json
 {

@@ -57,7 +57,7 @@ final class ExtractionRunner
                 continue;
             }
 
-            Log::info('Extraction batch result unusable, retrying once.', ['custom_id' => $customId]);
+            Log::info('Extraction batch result unusable, retrying once.', ['custom_id' => $customId, 'error_type' => ($first['outcomes'][0] ?? null)?->errorType]);
             $attempts[$customId] = $this->retry($customId, $first['outcomes'], $requestFor);
         }
 
