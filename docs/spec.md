@@ -400,6 +400,10 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 `chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
 
+`claude_haiku` og `claude_sonnet` bruker `engines.model_id` når den er satt, ellers modellene i tabellen. Kallet autentiseres med tenantens egen Anthropic-nøkkel når en slik nøkkel følger kjøringen, ellers med Ekkos workspace-nøkkel `ANTHROPIC_API_KEY` (12.5). Messages API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg. Kallet setter `max_tokens` til 4096.
+
+Claude-adapterne samler inn svar med `stop_reason` lik `end_turn` og tekstinnhold. `refusal`, `max_tokens` og `pause_turn` gir `anthropic_invalid_response`. En feil fra søkeverktøyet i et HTTP 200-svar gir `anthropic_web_search_failed`. Hvis verktøyet rapporterer `max_uses_exceeded`, kan adapteren fortsatt samle inn et fullført svar og kildene som allerede er sitert.
+
 ### 7.5 Gjentakelser og modellversjoner
 
 Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares. Markøren lagres i `model_changes` av `ekko:aggregate` (første svar på dagen med en annen modell-ID enn forrige svar, én per motor og dag) og leses med `MetricsService::modelChanges()` (ADR 0012).
