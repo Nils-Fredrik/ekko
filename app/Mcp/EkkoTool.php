@@ -159,8 +159,9 @@ abstract class EkkoTool extends Tool
     protected function period(Request $request, Team $tenant, int $defaultDays = 30): array
     {
         $timezone = $this->timezone($tenant);
-        $to = $this->date($request->get('to')) ?? CarbonImmutable::now($timezone)->startOfDay();
-        $from = $this->date($request->get('from')) ?? $to->subDays($defaultDays - 1);
+        // Explicit and default days in the same timezone, so today's date compares equal to today.
+        $to = $this->date($request->get('to'), $timezone) ?? CarbonImmutable::now($timezone)->startOfDay();
+        $from = $this->date($request->get('from'), $timezone) ?? $to->subDays($defaultDays - 1);
         if ($from->gt($to) || $from->diffInDays($to) > 400) {
             throw new ToolFailure(__('mcp.errors.period'));
         }
@@ -300,13 +301,13 @@ abstract class EkkoTool extends Tool
         return array_values(array_unique(array_map(fn ($item): string => (string) $item, is_array($value) ? $value : [$value])));
     }
 
-    private function date(mixed $value): ?CarbonImmutable
+    private function date(mixed $value, string $timezone): ?CarbonImmutable
     {
         if ($value === null || $value === '') {
             return null;
         }
         try {
-            $date = is_string($value) ? CarbonImmutable::createFromFormat('!Y-m-d', $value) : null;
+            $date = is_string($value) ? CarbonImmutable::createFromFormat('!Y-m-d', $value, $timezone) : null;
         } catch (Throwable) {
             $date = null;
         }

@@ -309,3 +309,13 @@ test('get_usage separates platform cost from costs on the tenant\'s own keys', f
         ->and($result['data']['byok_cost_usd'])->toEqual(4.0)
         ->and($result['data']['month'])->toBe(now('UTC')->format('Y-m'));
 });
+
+test('a period from today in the tenant timezone is accepted without to', function () {
+    // 00:30 UTC is 01:30 in Oslo: the local day is ahead of the UTC day's midnight.
+    $this->travelTo(now('UTC')->startOfDay()->addMinutes(30));
+
+    $result = McpTestClient::call($this, adminToken($this), 'get_visibility', ['from' => now('Europe/Oslo')->format('Y-m-d')]);
+
+    expect($result['isError'])->toBeFalse($result['raw'])
+        ->and($result['data']['period'])->toBe(['from' => now('Europe/Oslo')->format('Y-m-d'), 'to' => now('Europe/Oslo')->format('Y-m-d')]);
+});
