@@ -10,6 +10,7 @@ use App\Models\Competitor;
 use App\Models\ModelChange;
 use App\Models\Prompt;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -175,6 +176,28 @@ final class MetricsService
                 'share' => Formulas::ratio($row->responses_with_domain, $n),
                 'n' => $n,
             ])->all();
+    }
+
+    /**
+     * Paginated domains for the REST API, using the same counters and formulas as the dashboard.
+     *
+     * @return LengthAwarePaginator<int|string, array{domain: string, citations: int, responses_with_domain: int, share: float|null, n: int, gap_responses: int, gap_rate: float|null, gap_n: int}>
+     */
+    public function sourcesPage(MetricsFilter $filter, int $perPage): LengthAwarePaginator
+    {
+        $n = $this->sourceResponses($filter);
+        $gapN = (int) $this->dailyQuery($filter)->sum('agg_daily.competitor_only_responses');
+
+        return $this->sourceQuery($filter, 'responses_with_domain')->paginate($perPage)->through(fn (object $row) => [
+            'domain' => (string) $row->domain,
+            'citations' => (int) $row->citations,
+            'responses_with_domain' => (int) $row->responses_with_domain,
+            'share' => Formulas::ratio($row->responses_with_domain, $n),
+            'n' => $n,
+            'gap_responses' => (int) $row->gap_responses,
+            'gap_rate' => Formulas::ratio($row->gap_responses, $gapN),
+            'gap_n' => $gapN,
+        ]);
     }
 
     /**

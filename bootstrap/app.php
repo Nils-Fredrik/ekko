@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ApiTokenContext;
 use App\Http\Middleware\ApplyTenantRls;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\HandleInertiaRequests;
@@ -9,6 +10,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -38,8 +40,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Tenant isolation runs after authentication and before route model binding, so bound
         // models are loaded with the tenant in the context and under row-level security.
         $middleware->prependToPriorityList(SubstituteBindings::class, ApplyTenantRls::class);
+        $middleware->prependToPriorityList(SubstituteBindings::class, ApiTokenContext::class);
         $middleware->prependToPriorityList(ApplyTenantRls::class, SetCurrentTenant::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->shouldRenderJsonWhen(fn (Request $request) => $request->is('api/v1/*') || $request->expectsJson());
     })->create();

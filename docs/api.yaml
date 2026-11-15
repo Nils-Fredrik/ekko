@@ -1,0 +1,1045 @@
+openapi: 3.1.0
+info:
+  title: Ekko REST API
+  version: 1.0.0
+  description: 'Tenantbundet REST-API. Opprett personlig Sanctum-token i Jetstream. Send Authorization:
+    Bearer <token>, Accept: application/json og Content-Type: application/json ved skriving. Tokenbinding
+    endres ikke med nettleserens tenantvalg; ubundne eldre tokens må erstattes. Brukerens nåværende rolle
+    kontrolleres på hvert kall. Nettlesersesjon alene gir ikke tilgang. Read og write er uavhengige. Alle
+    ruter deler 60 kall/minutt/token. Datoer er inklusive lokale dager i tenantens tidssone. Metrikker
+    inkluderer utvalgsstørrelse n og low_sample (n < 10); rater er brøker 0–1 og value er null ved n=0.
+    Interne lagringsadresser og rå leverandørpayload eksponeres ikke.'
+servers:
+- url: /api/v1
+security:
+- personalToken: []
+paths:
+  /brands:
+    get:
+      operationId: listBrands
+      summary: List merkevarer
+      x-required-ability: read
+      parameters:
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandCollection'
+        '401': &id001
+          description: Manglende, utløpt eller tilbakekalt token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403': &id002
+          description: Tenantbinding, medlemskap, rolle, ability, e-post eller tofaktor gir ikke tilgang.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404': &id003
+          description: Ressursen finnes ikke innen valgt tenant og merkevare.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422': &id004
+          description: Valideringsfeil eller pakkegrense.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429': &id005
+          description: 60 forespørsler per minutt per token er overskredet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              description: Sekunder til nytt forsøk.
+              schema: &id010
+                type: integer
+  /brands/{brand}/prompts:
+    get:
+      operationId: listPrompts
+      summary: Hent prompts
+      x-required-ability: read
+      parameters:
+      - $ref: '#/components/parameters/brand'
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptCollection'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+    post:
+      operationId: createPrompt
+      summary: Opprett prompt
+      x-required-ability: write
+      parameters:
+      - $ref: '#/components/parameters/brand'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Prompt'
+                required:
+                - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+      description: Krever redigeringsrettighet i tillegg til tokenets write. PATCH og DELETE sender id
+        i JSON-body. Marked kan ikke flyttes med PATCH. Bruk is_active=false for å bevare historikk.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePrompt'
+    patch:
+      operationId: updatePrompt
+      summary: Oppdater prompt
+      x-required-ability: write
+      parameters:
+      - $ref: '#/components/parameters/brand'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Prompt'
+                required:
+                - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+      description: Krever redigeringsrettighet i tillegg til tokenets write. PATCH og DELETE sender id
+        i JSON-body. Marked kan ikke flyttes med PATCH. Bruk is_active=false for å bevare historikk.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePrompt'
+    delete:
+      operationId: deletePrompt
+      summary: Slett prompt og tilknyttet historikk
+      x-required-ability: write
+      parameters:
+      - $ref: '#/components/parameters/brand'
+      responses:
+        '204':
+          description: Slettet, tom body.
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+      description: Krever redigeringsrettighet i tillegg til tokenets write. PATCH og DELETE sender id
+        i JSON-body. Marked kan ikke flyttes med PATCH. Bruk is_active=false for å bevare historikk.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: &id006
+                  type: integer
+                  minimum: 1
+              required:
+              - id
+  /brands/{brand}/competitors:
+    get:
+      operationId: listCompetitors
+      summary: Hent competitors
+      x-required-ability: read
+      parameters:
+      - $ref: '#/components/parameters/brand'
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompetitorCollection'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /brands/{brand}/responses:
+    get:
+      operationId: listResponses
+      summary: Hent responses
+      x-required-ability: read
+      parameters:
+      - $ref: '#/components/parameters/brand'
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/per_page'
+      - $ref: '#/components/parameters/from'
+      - $ref: '#/components/parameters/to'
+      - $ref: '#/components/parameters/market'
+      - $ref: '#/components/parameters/engine'
+      - $ref: '#/components/parameters/prompt'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseCollection'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /brands/{brand}/sources:
+    get:
+      operationId: listSources
+      summary: Hent sources
+      x-required-ability: read
+      parameters:
+      - $ref: '#/components/parameters/brand'
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/per_page'
+      - $ref: '#/components/parameters/from'
+      - $ref: '#/components/parameters/to'
+      - $ref: '#/components/parameters/market'
+      - $ref: '#/components/parameters/engine'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SourcePage'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /brands/{brand}/metrics:
+    get:
+      operationId: listMetrics
+      summary: Hent metrics
+      x-required-ability: read
+      parameters:
+      - $ref: '#/components/parameters/brand'
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/per_page'
+      - $ref: '#/components/parameters/from'
+      - $ref: '#/components/parameters/to'
+      - $ref: '#/components/parameters/market'
+      - $ref: '#/components/parameters/engine'
+      - $ref: '#/components/parameters/group_by'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Metrics'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /alerts:
+    get:
+      operationId: listAlerts
+      summary: List varsler
+      x-required-ability: read
+      parameters:
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AlertCollection'
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /usage:
+    get:
+      operationId: getUsage
+      summary: Hent månedsforbruk
+      x-required-ability: read
+      parameters:
+      - $ref: '#/components/parameters/month'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    anyOf:
+                    - $ref: '#/components/schemas/Usage'
+                    - type: 'null'
+                required:
+                - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+components:
+  securitySchemes:
+    personalToken:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum personal access token
+  parameters:
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000000
+        default: 1
+      description: Sidenummer.
+    per_page:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+      description: Antall rader per side.
+    from:
+      name: from
+      in: query
+      schema:
+        type: string
+        format: date
+      description: Første lokale kalenderdag. Standard 27 dager før to.
+    to:
+      name: to
+      in: query
+      schema:
+        type: string
+        format: date
+      description: Siste lokale kalenderdag, inklusiv. Standard i dag. Maks 366 dager i perioden.
+    market:
+      name: market
+      in: query
+      schema: *id006
+      description: Markeds-ID innen merkevaren.
+    engine:
+      name: engine
+      in: query
+      schema: &id007
+        type: string
+      description: Eksisterende motornøkkel.
+    prompt:
+      name: prompt
+      in: query
+      schema: *id006
+      description: Prompt-ID innen merkevaren.
+    month:
+      name: month
+      in: query
+      schema:
+        type: string
+        pattern: ^\d{4}-(0[1-9]|1[0-2])$
+      description: Måned YYYY-MM, standard inneværende måned i tenantens tidssone.
+    group_by:
+      name: group_by
+      in: query
+      schema:
+        type: string
+        enum:
+        - day
+        - week
+        - month
+        - market
+        - engine
+        - prompt
+        - topic
+        - intent
+        - funnel_stage
+        default: day
+      description: Tidskorn eller dimensjon.
+    brand:
+      name: brand
+      in: path
+      required: true
+      schema: *id006
+      description: Merkevare i tokenets tenant; fremmed ID gir 404.
+  schemas:
+    Error:
+      type: object
+      properties:
+        message: *id007
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: *id007
+      required:
+      - message
+    Brand:
+      type: object
+      properties:
+        id: *id006
+        name: *id007
+        slug: *id007
+        primary_domain:
+          type:
+          - string
+          - 'null'
+        status: *id007
+      required:
+      - id
+      - name
+      - slug
+      - primary_domain
+      - status
+    Prompt:
+      type: object
+      properties:
+        id: *id006
+        market_id: *id006
+        topic_id:
+          type:
+          - integer
+          - 'null'
+        text: *id007
+        intent: *id007
+        funnel_stage: *id007
+        priority: *id007
+        is_active: &id009
+          type: boolean
+        created_at: &id008
+          type: string
+          format: date-time
+        updated_at: *id008
+      required:
+      - id
+      - market_id
+      - topic_id
+      - text
+      - intent
+      - funnel_stage
+      - priority
+      - is_active
+      - created_at
+      - updated_at
+    Competitor:
+      type: object
+      properties:
+        id: *id006
+        brand_id: *id006
+        name: *id007
+        is_active: *id009
+      required:
+      - id
+      - brand_id
+      - name
+      - is_active
+    Alert:
+      type: object
+      properties:
+        id: *id006
+        alert_rule_id: *id006
+        triggered_at: *id008
+        payload:
+          type: object
+          additionalProperties: true
+        delivered_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        acknowledged_by:
+          type:
+          - integer
+          - 'null'
+      required:
+      - id
+      - alert_rule_id
+      - triggered_at
+      - payload
+      - delivered_at
+      - acknowledged_by
+    Usage:
+      type: object
+      properties:
+        month: *id008
+        calls: *id010
+        cost_usd: *id007
+        quota_calls:
+          type:
+          - integer
+          - 'null'
+        budget_usd:
+          type:
+          - string
+          - 'null'
+        byok_cost_usd: *id007
+        byok_budget_usd:
+          type:
+          - string
+          - 'null'
+        status: *id007
+      required:
+      - month
+      - calls
+      - cost_usd
+      - quota_calls
+      - budget_usd
+      - byok_cost_usd
+      - byok_budget_usd
+      - status
+    Metric:
+      type: object
+      properties:
+        value:
+          type:
+          - number
+          - 'null'
+        n:
+          type: integer
+          minimum: 0
+        low_sample: *id009
+      required:
+      - value
+      - n
+      - low_sample
+    MetricSummary:
+      type: object
+      properties:
+        responses: *id010
+        visibility:
+          $ref: '#/components/schemas/Metric'
+        recommendation_rate:
+          $ref: '#/components/schemas/Metric'
+        share_of_voice:
+          $ref: '#/components/schemas/Metric'
+        average_position:
+          $ref: '#/components/schemas/Metric'
+        first_place_rate:
+          $ref: '#/components/schemas/Metric'
+        citation_rate:
+          $ref: '#/components/schemas/Metric'
+        sentiment:
+          $ref: '#/components/schemas/Metric'
+      required:
+      - responses
+      - visibility
+      - recommendation_rate
+      - share_of_voice
+      - average_position
+      - first_place_rate
+      - citation_rate
+      - sentiment
+    Source:
+      type: object
+      properties:
+        domain: *id007
+        citations: *id010
+        responses_with_domain: *id010
+        share:
+          type:
+          - number
+          - 'null'
+        n: *id010
+        gap_responses: *id010
+        gap_rate:
+          type:
+          - number
+          - 'null'
+        gap_n: *id010
+      required:
+      - domain
+      - citations
+      - responses_with_domain
+      - share
+      - n
+      - gap_responses
+      - gap_rate
+      - gap_n
+    Mention:
+      type: object
+      properties:
+        entity_type: *id007
+        entity_id:
+          type:
+          - integer
+          - 'null'
+        surface_name: *id007
+        first_char_offset:
+          type:
+          - integer
+          - 'null'
+        list_position:
+          type:
+          - integer
+          - 'null'
+        is_recommended: *id009
+        sentiment:
+          type:
+          - string
+          - 'null'
+        detection: *id007
+      required:
+      - entity_type
+      - entity_id
+      - surface_name
+      - first_char_offset
+      - list_position
+      - is_recommended
+      - sentiment
+      - detection
+    Citation:
+      type: object
+      properties:
+        url: *id007
+        url_normalized: *id007
+        domain: *id007
+        ownership: *id007
+        source_type:
+          type:
+          - string
+          - 'null'
+        rank_in_answer:
+          type:
+          - integer
+          - 'null'
+        from_annotation: *id009
+      required:
+      - url
+      - url_normalized
+      - domain
+      - ownership
+      - source_type
+      - rank_in_answer
+      - from_annotation
+    Response:
+      type: object
+      properties:
+        id: *id006
+        run_id: *id006
+        prompt_id: *id006
+        engine_key: *id007
+        model_id_reported:
+          type:
+          - string
+          - 'null'
+        answer_text: *id007
+        answer_language:
+          type:
+          - string
+          - 'null'
+        collected_at: *id008
+        answer_type:
+          type:
+          - string
+          - 'null'
+        llm_failed: *id009
+        mentions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Mention'
+        citations:
+          type: array
+          items:
+            $ref: '#/components/schemas/Citation'
+      required:
+      - id
+      - run_id
+      - prompt_id
+      - engine_key
+      - model_id_reported
+      - answer_text
+      - answer_language
+      - collected_at
+      - answer_type
+      - llm_failed
+      - mentions
+      - citations
+    BrandCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Brand'
+        links:
+          type: object
+          properties:
+            first: &id011
+              type:
+              - string
+              - 'null'
+            last: *id011
+            prev: *id011
+            next: *id011
+          required:
+          - first
+          - last
+          - prev
+          - next
+        meta:
+          type: object
+          properties:
+            current_page: *id010
+            last_page: *id010
+            per_page: *id010
+            total: *id010
+          additionalProperties: true
+      required:
+      - data
+      - links
+      - meta
+    PromptCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Prompt'
+        links:
+          type: object
+          properties:
+            first: *id011
+            last: *id011
+            prev: *id011
+            next: *id011
+          required:
+          - first
+          - last
+          - prev
+          - next
+        meta:
+          type: object
+          properties:
+            current_page: *id010
+            last_page: *id010
+            per_page: *id010
+            total: *id010
+          additionalProperties: true
+      required:
+      - data
+      - links
+      - meta
+    CompetitorCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Competitor'
+        links:
+          type: object
+          properties:
+            first: *id011
+            last: *id011
+            prev: *id011
+            next: *id011
+          required:
+          - first
+          - last
+          - prev
+          - next
+        meta:
+          type: object
+          properties:
+            current_page: *id010
+            last_page: *id010
+            per_page: *id010
+            total: *id010
+          additionalProperties: true
+      required:
+      - data
+      - links
+      - meta
+    AlertCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Alert'
+        links:
+          type: object
+          properties:
+            first: *id011
+            last: *id011
+            prev: *id011
+            next: *id011
+          required:
+          - first
+          - last
+          - prev
+          - next
+        meta:
+          type: object
+          properties:
+            current_page: *id010
+            last_page: *id010
+            per_page: *id010
+            total: *id010
+          additionalProperties: true
+      required:
+      - data
+      - links
+      - meta
+    ResponseCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Response'
+        links:
+          type: object
+          properties:
+            first: *id011
+            last: *id011
+            prev: *id011
+            next: *id011
+          required:
+          - first
+          - last
+          - prev
+          - next
+        meta:
+          type: object
+          properties:
+            current_page: *id010
+            last_page: *id010
+            per_page: *id010
+            total: *id010
+          additionalProperties: true
+      required:
+      - data
+      - links
+      - meta
+    SourcePage:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Source'
+        current_page: *id010
+        last_page: *id010
+        per_page: *id010
+        total: *id010
+        from:
+          type:
+          - integer
+          - 'null'
+        to:
+          type:
+          - integer
+          - 'null'
+        path: *id007
+        first_page_url: *id007
+        last_page_url: *id007
+        next_page_url: *id011
+        prev_page_url: *id011
+        links:
+          type: array
+          items:
+            type: object
+            properties:
+              url: *id011
+              label: *id007
+              active: *id009
+            required:
+            - url
+            - label
+            - active
+      required:
+      - data
+      - current_page
+      - last_page
+      - per_page
+      - total
+      - from
+      - to
+      - path
+      - first_page_url
+      - last_page_url
+      - next_page_url
+      - prev_page_url
+      - links
+    Metrics:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            summary:
+              $ref: '#/components/schemas/MetricSummary'
+            series:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      period: *id007
+                      group: *id007
+                      metrics:
+                        $ref: '#/components/schemas/MetricSummary'
+                    required:
+                    - metrics
+                current_page: *id010
+                last_page: *id010
+                per_page: *id010
+                total: *id010
+                from:
+                  type:
+                  - integer
+                  - 'null'
+                to:
+                  type:
+                  - integer
+                  - 'null'
+                path: *id007
+                first_page_url: *id007
+                last_page_url: *id007
+                next_page_url: *id011
+                prev_page_url: *id011
+                links:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      url: *id011
+                      label: *id007
+                      active: *id009
+                    required:
+                    - url
+                    - label
+                    - active
+              required:
+              - data
+              - current_page
+              - last_page
+              - per_page
+              - total
+              - from
+              - to
+              - path
+              - first_page_url
+              - last_page_url
+              - next_page_url
+              - prev_page_url
+              - links
+          required:
+          - summary
+          - series
+        meta:
+          type: object
+          properties:
+            from:
+              type: string
+              format: date
+            to:
+              type: string
+              format: date
+            timezone: *id007
+            group_by: *id007
+          required:
+          - from
+          - to
+          - timezone
+          - group_by
+      required:
+      - data
+      - meta
+    CreatePrompt:
+      type: object
+      properties:
+        market_id: *id006
+        topic_id: &id012
+          type:
+          - integer
+          - 'null'
+        text: &id013
+          type: string
+          maxLength: 10000
+          minLength: 1
+        intent: &id014
+          type: string
+          enum:
+          - category
+          - comparison
+          - brand
+          - problem
+          - local
+        funnel_stage: &id015
+          type: string
+          enum:
+          - awareness
+          - consideration
+          - decision
+        priority: &id016
+          type: string
+          enum:
+          - core
+          - standard
+          default: standard
+        is_active: &id017
+          type: boolean
+          default: true
+      required:
+      - market_id
+      - text
+      - intent
+      - funnel_stage
+    UpdatePrompt:
+      type: object
+      properties:
+        id: *id006
+        topic_id: *id012
+        text: *id013
+        intent: *id014
+        funnel_stage: *id015
+        priority: *id016
+        is_active: *id017
+      required:
+      - id
