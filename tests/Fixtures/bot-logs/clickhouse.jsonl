@@ -1,0 +1,2 @@
+{"domain":"site.example.test","bot":"gptbot","hits":"3","unique_paths":"2","top_paths":[["-2","/shop"],["-1","/help"]]}
+{"domain":"news.site.example.test","bot":"claude_searchbot","hits":"1","unique_paths":"1","top_paths":[["-1","/"]]}

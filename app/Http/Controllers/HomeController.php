@@ -6,6 +6,7 @@ use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
 use App\Metrics\MetricsService;
 use App\Models\Alert;
+use App\Models\BotLogUpload;
 use App\Models\Brand;
 use App\Models\RunBatch;
 use App\Models\UsageMonthly;
@@ -37,6 +38,7 @@ class HomeController extends Controller
                 'alerts' => [],
                 'runs' => [],
                 'usage' => null,
+                'botLogUploadsUrl' => null,
             ]);
         }
 
@@ -60,6 +62,9 @@ class HomeController extends Controller
             'alerts' => $this->alerts(),
             'runs' => $this->runs(),
             'usage' => $this->usage($period->timezone),
+            'botLogUploadsUrl' => Gate::allows('create', BotLogUpload::class)
+                ? route('bot-log-uploads.index', ['team' => current_tenant_id()])
+                : null,
         ]);
     }
 

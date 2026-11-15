@@ -10,7 +10,9 @@ use App\Models\Competitor;
 use App\Models\ModelChange;
 use App\Models\Prompt;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /**
@@ -126,6 +128,49 @@ final class MetricsService
     }
 
     /**
+     * The brand against its active competitors (docs/spec.md 9, 15.2 compare_competitors): for each competitor the
+     * answers that name it, its visibility (those answers ÷ the brand's answers) and its share of voice (its
+     * mentions ÷ the mentions of the brand and all active competitors, the same denominator as the brand's share
+     * of voice). Most mentioned first. Position and recommendation rate are only aggregated for the brand.
+     *
+     * @return list<array{competitor_id: int, name: string, mentions: int, visibility: Metric, share_of_voice: Metric}>
+     */
+    public function competitorComparison(MetricsFilter $filter): array
+    {
+        $competitors = Competitor::query()->where('brand_id', $filter->brandId)->where('is_active', true)->orderBy('name')->pluck('name', 'id');
+        if ($competitors->isEmpty()) {
+            return [];
+        }
+
+        $mentions = $this->dailyQuery($filter)
+            ->toBase()
+            ->crossJoin(DB::raw("jsonb_each_text(case when jsonb_typeof(agg_daily.competitor_mentions) = 'object' then agg_daily.competitor_mentions else '{}'::jsonb end) as e"))
+            ->whereIn(DB::raw('e.key'), $competitors->keys()->map(fn ($id) => (string) $id)->all())
+            ->groupBy(DB::raw('e.key'))
+            ->selectRaw('e.key as competitor_id, sum(e.value::bigint) as mentions')
+            ->pluck('mentions', 'competitor_id');
+
+        $totals = (array) ($this->totalsQuery($filter)->first() ?? []);
+        $responses = (int) ($totals['responses'] ?? 0);
+        $voices = (int) ($totals['brand_mentioned'] ?? 0) + (int) ($totals['competitor_mentions'] ?? 0);
+
+        $rows = [];
+        foreach ($competitors as $id => $name) {
+            $count = (int) ($mentions[(string) $id] ?? 0);
+            $rows[] = [
+                'competitor_id' => (int) $id,
+                'name' => (string) $name,
+                'mentions' => $count,
+                'visibility' => new Metric(Formulas::ratio($count, $responses), $responses),
+                'share_of_voice' => new Metric(Formulas::ratio($count, $voices), $voices),
+            ];
+        }
+        usort($rows, fn (array $a, array $b): int => [$b['mentions'], $a['name']] <=> [$a['mentions'], $b['name']]);
+
+        return $rows;
+    }
+
+    /**
      * Stability: for each prompt, engine and day (a round), the share of repetitions where the brand is mentioned,
      * as the mean over those cells and the distribution (share rounded to two decimals => number of cells). Only
      * cells with at least two repetitions count; with one repetition per round there is nothing to compare.
@@ -175,6 +220,28 @@ final class MetricsService
                 'share' => Formulas::ratio($row->responses_with_domain, $n),
                 'n' => $n,
             ])->all();
+    }
+
+    /**
+     * Paginated domains for the REST API, using the same counters and formulas as the dashboard.
+     *
+     * @return LengthAwarePaginator<int|string, array{domain: string, citations: int, responses_with_domain: int, share: float|null, n: int, gap_responses: int, gap_rate: float|null, gap_n: int}>
+     */
+    public function sourcesPage(MetricsFilter $filter, int $perPage): LengthAwarePaginator
+    {
+        $n = $this->sourceResponses($filter);
+        $gapN = (int) $this->dailyQuery($filter)->sum('agg_daily.competitor_only_responses');
+
+        return $this->sourceQuery($filter, 'responses_with_domain')->paginate($perPage)->through(fn (object $row) => [
+            'domain' => (string) $row->domain,
+            'citations' => (int) $row->citations,
+            'responses_with_domain' => (int) $row->responses_with_domain,
+            'share' => Formulas::ratio($row->responses_with_domain, $n),
+            'n' => $n,
+            'gap_responses' => (int) $row->gap_responses,
+            'gap_rate' => Formulas::ratio($row->gap_responses, $gapN),
+            'gap_n' => $gapN,
+        ]);
     }
 
     /**

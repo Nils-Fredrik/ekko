@@ -16,6 +16,18 @@ return [
     ],
 
     /*
+    | The Claude connection (MCP, docs/spec.md 15.2, ADR 0016). Clients Claude may register per day for the
+    | whole application, tool calls per minute per user and OAuth calls per minute per address.
+    */
+    'mcp' => [
+        'clients_per_day' => 500,
+        'calls_per_minute' => 120,
+        'oauth_per_minute' => 30,
+        // Items per page for tools that page their results with a cursor.
+        'page_size' => 25,
+    ],
+
+    /*
     | Days a team invitation can be accepted (docs/spec.md 5.4). Enforced server-side when the
     | invitation is accepted and when a single sign-on account is linked.
     */
@@ -58,6 +70,25 @@ return [
             'output_usd_per_mtok' => '0.50',
             'batch_price_factor' => '0.5',
         ],
+    ],
+
+    'bot_logs' => [
+        // User-agent substrings are matched case-insensitively, in the configured order.
+        'bots' => [
+            'OAI-SearchBot' => 'oai_searchbot',
+            'GPTBot' => 'gptbot',
+            'ChatGPT-User' => 'chatgpt_user',
+            'PerplexityBot' => 'perplexitybot',
+            'Perplexity-User' => 'perplexity_user',
+            'ClaudeBot' => 'claudebot',
+            'Claude-User' => 'claude_user',
+            'Claude-SearchBot' => 'claude_searchbot',
+            'Google-Extended' => 'google_extended',
+            'GoogleOther' => 'google_other',
+        ],
+        'clickhouse_endpoints' => array_values(array_filter(array_map('trim', explode(',', (string) env('EKKO_CLICKHOUSE_ENDPOINTS', ''))))),
+        'max_upload_kib' => 2048,
+        'max_expanded_bytes' => 64 * 1024 * 1024,
     ],
 
 ];
