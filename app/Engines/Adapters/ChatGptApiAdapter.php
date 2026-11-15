@@ -28,7 +28,7 @@ final class ChatGptApiAdapter implements EngineAdapter
 
     public function collect(EngineRequest $request): EngineResult
     {
-        $apiKey = trim($request->apiKey ?? '');
+        $apiKey = trim($request->apiKey ?? config('engines.chatgpt_api.api_key', ''));
 
         if ($apiKey === '') {
             throw new EngineCallFailed('openai_missing_api_key');
@@ -49,7 +49,7 @@ final class ChatGptApiAdapter implements EngineAdapter
                 ->withoutRedirecting()
                 ->timeout(120)
                 ->retry([250, 500], when: self::shouldRetry(...), throw: false)
-                ->post('https://api.openai.com/v1/responses', [
+                ->post('https://eu.api.openai.com/v1/responses', [
                     'model' => $model,
                     'input' => $request->promptText."\n\nRespond in the language identified by the BCP 47 tag {$request->language}.",
                     'store' => false,

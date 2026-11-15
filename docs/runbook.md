@@ -113,3 +113,9 @@ application health. This moves web traffic only. It does not reverse migrations
 or restore job images; assess and restore those separately if needed. Migrations
 must remain backward compatible so that an earlier revision can run against the
 current schema. Exercise this procedure in an isolated environment before use.
+
+## Produksjonsdomene og OAuth (T10)
+
+Kanonisk URL er `https://ekko.maksimer.com`; Google-callback er `/auth/google/callback` på samme vert. Terraform klargjør IP, DNS-autorisert sertifikat og global ekstern lastbalanserer, med HTTP→HTTPS og TLS ≥1.2. DNS-postene og kontrollert bootstrapstatus står i [T10-status](t10-deploy-draft.md); oppsett og OAuth-prosedyre står i [Terraform-README](../infra/terraform/README.md).
+
+Ved planlegging fra en ny arbeidskopi: kopier `production.tfvars.example` til ignorert `production.auto.tfvars`, behold `enable_https=true` og fyll inn eksisterende workload-valg. Standardverdien false må ikke brukes til å fjerne allerede provisionert HTTPS. Før offentlig åpning kontrolleres sertifikatstatus ACTIVE, domene/redirect, OAuth-innlogging for invitert konto og avvisning for uinvitert konto, samt klient-IP og spoofing både direkte og via lastbalansereren. Direkte kandidatadresser brukes fortsatt av røyktesten. Public IAM og schedules er separate brytere og skal fortsatt være av under bootstrap.

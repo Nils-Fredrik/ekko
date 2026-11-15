@@ -30,7 +30,7 @@ it('collects a fresh localized Responses request and preserves provider annotati
     string $byok,
 ) {
     $raw = EngineFixtures::load('chatgpt_api', $fixtureName);
-    Http::fake(['https://api.openai.com/v1/responses' => Http::response($raw)]);
+    Http::fake(['https://eu.api.openai.com/v1/responses' => Http::response($raw)]);
     Engine::factory()->create(['key' => 'chatgpt_api', 'model_id' => 'gpt-5-mini-2025-08-07']);
 
     $adapter = app(EngineRegistry::class)->resolve('chatgpt_api');
@@ -80,7 +80,7 @@ it('backs off on 429 and 5xx and retries the same request up to three times', fu
     Engine::factory()->create(['key' => 'chatgpt_api', 'model_id' => '']);
     $failure = EngineFixtures::load('chatgpt_api', 'error');
     $raw = EngineFixtures::load('chatgpt_api', 'no-nb');
-    Http::fake(['https://api.openai.com/v1/responses' => Http::sequence()
+    Http::fake(['https://eu.api.openai.com/v1/responses' => Http::sequence()
         ->push($failure, 429)
         ->push($failure, 503)
         ->push($raw)]);
@@ -95,7 +95,7 @@ it('backs off on 429 and 5xx and retries the same request up to three times', fu
 });
 
 it('stops on a permanent 4xx and records a sanitized failure code', function () {
-    Http::fake(['https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'error'), 401)]);
+    Http::fake(['https://eu.api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'error'), 401)]);
 
     expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-byok')))
         ->toThrow(EngineCallFailed::class, 'openai_http_401');
@@ -105,7 +105,7 @@ it('stops on a permanent 4xx and records a sanitized failure code', function () 
 });
 
 it('stops after three unsuccessful transient responses', function () {
-    Http::fake(['https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'error'), 502)]);
+    Http::fake(['https://eu.api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'error'), 502)]);
 
     expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-byok')))
         ->toThrow(EngineCallFailed::class, 'openai_http_502');
@@ -115,7 +115,7 @@ it('stops after three unsuccessful transient responses', function () {
 });
 
 it('handles a transport timeout without repeating or surfacing provider details', function () {
-    Http::fake(['https://api.openai.com/v1/responses' => Http::failedConnection('Synthetic timeout')]);
+    Http::fake(['https://eu.api.openai.com/v1/responses' => Http::failedConnection('Synthetic timeout')]);
 
     expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-byok')))
         ->toThrow(EngineCallFailed::class, 'openai_connection_failed');
@@ -127,7 +127,7 @@ it('handles a transport timeout without repeating or surfacing provider details'
 it('rejects an empty or incomplete provider response', function (string $status) {
     $raw = EngineFixtures::load('chatgpt_api', 'empty-response');
     $raw['status'] = $status;
-    Http::fake(['https://api.openai.com/v1/responses' => Http::response($raw)]);
+    Http::fake(['https://eu.api.openai.com/v1/responses' => Http::response($raw)]);
 
     expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-byok')))
         ->toThrow(EngineCallFailed::class, 'openai_invalid_response');
@@ -135,7 +135,8 @@ it('rejects an empty or incomplete provider response', function (string $status)
     Http::assertSentCount(1);
 })->with(['completed', 'incomplete']);
 
-it('requires a tenant key before making a request', function (?string $apiKey) {
+it('requires a credential before making a request', function (?string $apiKey) {
+    config(['engines.chatgpt_api.api_key' => null]);
     Http::fake();
 
     expect(fn () => app(ChatGptApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', $apiKey)))

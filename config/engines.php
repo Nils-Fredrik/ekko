@@ -1,11 +1,15 @@
 <?php
 
 return [
+    // Deployment gates also stop already queued work; historical results remain readable.
+    'disabled_providers' => array_filter(explode(',', env('EKKO_DISABLED_ENGINE_PROVIDERS', ''))),
+    'gemini_grounding_approved' => env('EKKO_GEMINI_GROUNDING_APPROVED', false),
+
     'raw_bucket' => env('EKKO_RAW_BUCKET', 'ekko-raw'),
 
     'chatgpt_api' => [
         'api_key' => env('OPENAI_API_KEY'),
-        'model' => env('OPENAI_CHATGPT_MODEL', 'gpt-5-mini'),
+        'model' => env('OPENAI_CHATGPT_MODEL', 'gpt-5-mini-2025-08-07'),
     ],
 
     'dataforseo' => [

@@ -9,41 +9,40 @@ locals {
     migrate  = { command = ["php", "artisan", "migrate", "--force"], timeout = "3600s" }
   } : {}
   common_env = {
-    APP_ENV               = "production"
-    APP_URL               = var.app_url
-    APP_DEBUG             = "false"
-    DB_CONNECTION         = "pgsql"
-    DB_HOST               = "/cloudsql/${google_sql_database_instance.postgres.connection_name}"
-    DB_PORT               = "5432"
-    DB_DATABASE           = google_sql_database.app.name
-    DB_RLS_ROLE           = var.app_db_user
-    DB_QUEUE_RETRY_AFTER  = tostring(local.queue_retry_after_seconds)
-    QUEUE_CONNECTION      = "database"
-    CACHE_STORE           = "database"
-    SESSION_DRIVER        = "database"
-    SESSION_COOKIE        = "__Host-ekko_session"
-    SESSION_SECURE_COOKIE = "true"
-    SESSION_SAME_SITE     = "lax"
-    LOG_CHANNEL           = "stderr"
-    GOOGLE_CLOUD_PROJECT  = var.project_id
-    GOOGLE_CLOUD_REGION   = var.region
-    EKKO_START_WORKER     = "true"
-    EKKO_RAW_BUCKET       = google_storage_bucket.raw.name
-    EKKO_REPORTS_BUCKET   = google_storage_bucket.reports.name
+    APP_ENV                        = "production"
+    APP_URL                        = var.app_url
+    APP_DEBUG                      = "false"
+    DB_CONNECTION                  = "pgsql"
+    DB_HOST                        = "/cloudsql/${google_sql_database_instance.postgres.connection_name}"
+    DB_PORT                        = "5432"
+    DB_DATABASE                    = google_sql_database.app.name
+    DB_RLS_ROLE                    = var.app_db_user
+    DB_QUEUE_RETRY_AFTER           = tostring(local.queue_retry_after_seconds)
+    QUEUE_CONNECTION               = "database"
+    CACHE_STORE                    = "database"
+    SESSION_DRIVER                 = "database"
+    SESSION_COOKIE                 = "__Host-ekko_session"
+    SESSION_SECURE_COOKIE          = "true"
+    SESSION_SAME_SITE              = "lax"
+    LOG_CHANNEL                    = "stderr"
+    EKKO_DISABLED_ENGINE_PROVIDERS = "perplexity,dataforseo"
+    EKKO_GEMINI_GROUNDING_APPROVED = tostring(var.gemini_grounding_approved)
+    GOOGLE_CLOUD_PROJECT           = var.project_id
+    GOOGLE_CLOUD_REGION            = var.region
+    EKKO_START_WORKER              = "true"
+    EKKO_RAW_BUCKET                = google_storage_bucket.raw.name
+    EKKO_REPORTS_BUCKET            = google_storage_bucket.reports.name
   }
   web_secrets = {
-    APP_KEY                 = "app-key"
-    DB_PASSWORD             = "db-password"
-    DB_ADMIN_PASSWORD       = "db-admin-password"
-    GOOGLE_CLIENT_SECRET    = "google-oauth-client-secret"
-    MICROSOFT_CLIENT_SECRET = "microsoft-oauth-client-secret"
+    APP_KEY              = "app-key"
+    DB_PASSWORD          = "db-password"
+    DB_ADMIN_PASSWORD    = "db-admin-password"
+    GOOGLE_CLIENT_SECRET = "google-oauth-client-secret"
   }
   worker_secrets = {
-    ANTHROPIC_API_KEY      = "anthropic-api-key"
-    OPENAI_API_KEY         = "openai-api-key"
-    GEMINI_API_KEY         = "gemini-api-key"
-    PERPLEXITY_API_KEY     = "perplexity-api-key"
-    DATAFORSEO_CREDENTIALS = "dataforseo-credentials"
+    ANTHROPIC_API_KEY = "anthropic-api-key"
+    OPENAI_API_KEY    = "openai-api-key"
+    GEMINI_API_KEY    = "gemini-api-key"
   }
 }
 
@@ -64,7 +63,7 @@ resource "google_cloud_run_v2_service" "web" {
       image = var.image
       resources { limits = { cpu = "1", memory = "1Gi" } }
       dynamic "env" {
-        for_each = merge(local.common_env, { DB_USERNAME = var.app_db_user, DB_ADMIN_USERNAME = var.admin_db_user, EKKO_SCHEDULER_SERVICE_ACCOUNT = google_service_account.component["scheduler"].email, EKKO_SCHEDULER_AUDIENCE = var.app_url })
+        for_each = merge(local.common_env, { DB_USERNAME = var.app_db_user, DB_ADMIN_USERNAME = var.admin_db_user, GOOGLE_CLIENT_ID = var.google_oauth_client_id, GOOGLE_REDIRECT_URI = "${var.app_url}/auth/google/callback", EKKO_SCHEDULER_SERVICE_ACCOUNT = google_service_account.component["scheduler"].email, EKKO_SCHEDULER_AUDIENCE = var.app_url })
         content {
           name  = env.key
           value = env.value
@@ -100,8 +99,12 @@ resource "google_cloud_run_v2_service" "web" {
       error_message = "Set image to an immutable web digest in this project's Ekko Artifact Registry repository."
     }
     precondition {
+      condition     = can(regex("^[0-9]+-[A-Za-z0-9_-]+[.]apps[.]googleusercontent[.]com$", var.google_oauth_client_id))
+      error_message = "Create a Google Web OAuth client and set google_oauth_client_id before enabling workloads."
+    }
+    precondition {
       condition     = startswith(var.app_url, "https://")
-      error_message = "Set app_url to the HTTPS Cloud Run service URL before enabling workloads."
+      error_message = "Set app_url to the canonical HTTPS URL before enabling workloads."
     }
   }
   depends_on = [google_project_service.api, google_secret_manager_secret_iam_member.read, google_project_iam_member.cloudsql_client]

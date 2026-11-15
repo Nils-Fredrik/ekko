@@ -121,7 +121,7 @@ final readonly class EngineCollector
         #[SensitiveParameter] ?string $apiKey,
     ): ?ReservedEngineRun {
         $engine = $run->engine()->first();
-        if (! in_array($run->status, ['queued', 'running'], true) || ! $engine?->is_enabled) {
+        if (! in_array($run->status, ['queued', 'running'], true) || ! $engine?->isAvailable()) {
             throw new LogicException('This run cannot collect an engine response.');
         }
 

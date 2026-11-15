@@ -32,18 +32,21 @@ ever contain a secret value.
    With a synthetic FORCE ROW LEVEL SECURITY table, the app role must see no
    rows without a tenant and only the selected tenant's rows; the migration
    role must see all rows. Roll back the probe and remove temporary operators.
-4. Add secret versions directly in Secret Manager, using a secure process that
-   does not expose values in shell history, logs, source control or Terraform
-   state. The runtime identity has access only to its listed secrets. Push the
-   verified web and jobs images from the CI artifact to Artifact Registry. For the initial
-   rollout use a temporary HTTPS value for `app_url`, then set it to the actual
-   Cloud Run URL in a second reviewed deployment. Configure OAuth redirects
-   and verify the URL before accepting user traffic.
-5. Set `enable_workloads = true`, `image` to the immutable web image digest,
-   `job_image` to the immutable jobs image digest (with Chromium), and
-   `app_url` to a temporary HTTPS URL for bootstrap; review a new plan before
-   applying. After creation set `app_url` to the actual service URL and review
-   the second plan before accepting traffic.
+4. Add secret versions directly in Secret Manager, never through Terraform or
+   command-line arguments. Required at launch: app key, both database passwords,
+   Google OAuth client secret, Anthropic, OpenAI and Gemini keys. Microsoft,
+   Perplexity and DataForSEO are not mounted or granted to runtime identities.
+   Their existing empty secret containers are retained.
+5. Copy `production.tfvars.example` to ignored `production.auto.tfvars` and keep
+   `enable_https = true` in every production plan after bootstrap. Run plan/apply
+   with workloads disabled first to reserve the IP and request DNS authorization.
+   `terraform output -json production_dns_records` gives the exact A and CNAME
+   records for the existing DNS provider. Keep the CNAME for certificate renewal.
+   No AAAA record is provisioned; remove conflicting old records when switching.
+   Configure the Google Web OAuth client as described below, then set its public
+   ID in `google_oauth_client_id`. Set `enable_workloads = true`, `image` and
+   `job_image` to the verified immutable CI digests. `app_url` is always
+   `https://ekko.maksimer.com`; no temporary URL or OAuth callback is needed.
    Create all required secret versions first: Cloud Run validates secret access
    and versions at deployment. The image must implement the web process and
    job commands described in the specification. Subsequent image changes need
@@ -88,3 +91,39 @@ the replica location at secret creation.
 `terraform plan` are required checks. After an approved apply, run plan again to
 verify that it has no changes. Without GCP access an actual plan and the clean
 post-apply acceptance criterion cannot be established.
+
+## Domain and Google OAuth
+
+The HTTPS resources are in `https.tf`: global external Application Load Balancer,
+serverless NEG, TLS 1.2+ certificate map, HTTP-to-HTTPS redirect, and no CDN.
+The IP/certificate resources can exist before Cloud Run. Forwarding rules and
+backends are created only with workloads. These are billable resources; the old
+infrastructure estimate excludes them. See ADR 0024 for ingress and client-IP
+verification requirements. Do not open public IAM before those checks pass.
+
+Create a **Web application** in Google Auth Platform for `ekko-514612`:
+
+- Authorized domain: `maksimer.com`.
+- Homepage/origin: `https://ekko.maksimer.com` (JavaScript origins are not needed
+  for this server-side Socialite flow).
+- Exact redirect: `https://ekko.maksimer.com/auth/google/callback`.
+- Only identity scopes: `openid`, `email`, `profile`.
+- External audience is needed for invited partner/customer Google accounts;
+  testing mode must list the invited test accounts. Internal audience would
+  exclude accounts outside the owning Workspace organization.
+
+The owner completes branding/contact and consent settings. Store the client
+secret as a new version of `ekko-google-oauth-client-secret` directly in Secret
+Manager. Never place it in tfvars, chat, command history or a PR. The client ID
+is non-secret and is the only OAuth value Terraform needs. Do not substitute an
+IAP OAuth client or IAM workforce OAuth client; this is Google Sign-In for the
+application. Google describes the setup in its
+[web-server OAuth guide](https://developers.google.com/identity/protocols/oauth2/web-server#creatingcred).
+
+After workloads exist, use the migration identity to run `php artisan db:seed
+--force` with the production image: this creates package defaults and direct
+engines, without demo customers or fake prices. Review existing package and market
+settings (seeding preserves them), enter approved `engine_prices`, and confirm
+quotas before enabling schedules. Gemini remains disabled until Google's
+Search-grounding terms are resolved; set `gemini_grounding_approved=true` and
+explicitly enable the engine only then. This does not require new secrets.

@@ -45,3 +45,28 @@ On-demand-backup `1794767625561` er bekreftet SUCCESSFUL. Det samme jobbimaget k
 Et senere review avdekket HTTP-genererte lenker bak Cloud Runs TLS-terminering. Rettelsen i `bootstrap/app.php` stoler bare på videresendt protokoll; tester dekker HTTPS i OAuth-metadata, login/asset-lenker, avvisning av forwarded host/port og uendret lokal HTTP. De første image-digestene over dokumenterer migreringsbeviset; workload-start må bruke et nytt, grønt CI-image som inkluderer HTTPS-rettelsen.
 
 Nye images med HTTPS-rettelsen er publisert uten nytt bygg fra det verifiserte artifactet i [CI-kjøring 43748764084](https://github.com/Nils-Fredrik/ekko/actions/runs/43748764084), kildecommit `6a5ea9c` (artifact-ID `14175288035`). Sjekksummen er kontrollert før innlasting. Web-digest er `sha256:e9f259b2122dfbfe1de398a4e370b256634d7ebb648c8af8f54e2eb8b965a6ea`; jobs-digest er `sha256:836fc395354e02e3c2da7d9ac4a7b42cca0b93e3746a1adc35898c38ab08cd65`. HTTPS-konfigurasjonen er også kontrollert i webcontaineren. Ingen workloads eller trafikk er startet. En ny workload-plan må bruke disse eller nyere verifiserte digester.
+
+## Fortsettelse 15. november: produksjonsdomene og direkte API-er
+
+Den tidligere statusen over er historikk. Grenen ble hentet på `1fc6cde` etter konfliktløsningen; [CI 43761087794](https://github.com/Nils-Fredrik/ekko/actions/runs/43761087794) er grønn. PR-en forblir utkast og de åpne reviewtrådene om live produksjonsaksept består.
+
+Alle tre direkte leverandørnøkler (OpenAI, Anthropic, Gemini) har nå aktiv versjon 1. Google OAuth-hemmeligheten har ingen versjoner. Microsoft, Perplexity og DataForSEO er ikke oppstartskrav. Runtime-oppsettet er tilpasset dette, mens eksisterende beholdere beholdes. OpenAI Responses med EU-endepunkt, `store=false`, snapshot `gpt-5-mini-2025-08-07` og påkrevd websøk ga HTTP 200 / completed og ett søk med et syntetisk spørsmål. Ingen nøkkel eller svartekst ble logget. Gemini-grounding er fortsatt et eksplisitt avklaringspunkt (ADR 0024).
+
+Avgrenset HTTPS-bootstrap opprettet sju ressurser: to API-aktiveringer, global IPv4, DNS-autorisasjon, sertifikat, sertifikatkart og kartoppføring. Planen hadde ingen endringer eller slettinger. Ingen Cloud Run-tjeneste eller trafikk er startet. Dette er et målrettet bootstrapbevis, ikke en ren full Terraform-plan.
+
+Publiser disse postene hos dagens DNS-leverandør, TTL 300:
+
+| Navn | Type | Verdi |
+|---|---|---|
+| `ekko.maksimer.com.` | A | `35.190.63.68` |
+| `_acme-challenge_ekbcfyjihdz4tixc.ekko.maksimer.com.` | CNAME | `f6002ce0-9805-451e-8b30-eece34a2f205.15.authorize.certificatemanager.goog.` |
+
+Sertifikatet venter på DNS. Lastbalansererens backend og forwarding rules kommer ved workload-bootstrap. Lokal, ignorert `production.auto.tfvars` bevarer `enable_https=true`; nye arbeidskopier må bruke eksempelfilen. Google OAuth callback er `https://ekko.maksimer.com/auth/google/callback`. Eierens Web OAuth-klient og hemmelighetsversjon gjenstår før workloads kan opprettes. Se Terraform-README for detaljene, uten å dele hemmeligheter i chatten.
+
+Før schedules aktiveres må produksjonsmotorer/pakker seedes, eksisterende oppsett gjennomgås og godkjente motorpriser registreres. Gemini må avklares særskilt. Før offentlig trafikk må klient-IP-kjeden verifiseres via både ny lastbalanserer og direkte Cloud Run. Dette må samordnes med T39-F3 / PR #55; dagens lokale tester beviser ikke den virkelige proxykjeden.
+
+Full etterplan for fundament/HTTPS viser tre planlagte IAM-fjerninger (Microsoft på web, DataForSEO og Perplexity på worker), én tidligere Cloud SQL no-op og ingen opprettelser. SQLs før-/etter-verdier er identiske; differansen gjelder sensitivitetsmetadata. Planen er ikke anvendt. En separat workload-plan med syntetisk OAuth-klient-ID (kun plan, aldri apply) validerte 34 opprettelser og kontraktene for kanonisk URL, callback, direkte secrets, Gemini-sperre, privat web, pausede schedules, TLS 1.2 og deaktivert CDN. Den syntetiske planfilen ble slettet etter kontroll. Ny plan med ekte klient-ID og nye CI-digester kreves før oppstart.
+
+Lokalt består `composer test` med 1635 tester / 9382 assertions (512 MB PHP-minne), inkludert tenant-isolasjon. `composer lint` (Pint/Larastan), `npm run lint` (fire eksisterende Vue-advarsler), `npm run build`, deploy-mocktester, fire digest-tester og Terraform fmt/validate består. Første fulltest krevde nytt frontend-bygg etter oppdateringen fra main; ingen tester ble svekket. OpenAI modellisteverifisering mot `eu.api.openai.com/v1/models` ga også HTTP 200 med gyldig liste.
+
+`npm run test:browser` består med tre Chromium-tester, inkludert autentisert login/REST/OAuth/MCP-smoke og tilbakekalling. Dette er fortsatt lokalt bevis, ikke Cloud Run-produksjonsaksept.
