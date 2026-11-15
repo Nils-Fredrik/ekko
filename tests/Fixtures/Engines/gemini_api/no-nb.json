@@ -15,7 +15,9 @@
                 "webSearchQueries": ["Fjordparken Oslo", "Kystmuseet Oslo", "Fjordparken Oslo", ""],
                 "searchEntryPoint": {"renderedContent": "<div>Illustrativt søkeforslag</div>"},
                 "groundingChunks": [
-                    {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/fixture", "title": "Fjordparken"}},
+                    {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/fixture", "title": "www.Fjordparken.test"}},
+                    {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/duplicate", "title": "fjordparken.test"}},
+                    {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/unknown", "title": "En tittel uten domenenavn"}},
                     {"web": {"uri": "https://example.test/kystmuseet"}},
                     {"web": {"uri": "https://example.test/kystmuseet"}},
                     {"web": {"uri": "ftp://example.test/uventet-kilde", "title": "Uventet kilde"}}

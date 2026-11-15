@@ -1,11 +1,17 @@
 <?php
 
+use App\Detection\DeterministicDetector;
 use App\Engines\Adapters\GeminiApiAdapter;
 use App\Engines\EngineCallFailed;
 use App\Engines\EngineRegistry;
 use App\Engines\EngineRequest;
+use App\Models\Brand;
+use App\Models\Citation;
 use App\Models\Engine;
 use App\Models\Market;
+use App\Models\Response;
+use App\Models\Team;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
@@ -71,8 +77,8 @@ it('collects a fresh Gemini response with Google Search and market context', fun
         'no-nb', 'NO', 'nb', 'Oslo', 'Hva kan jeg besøke i nærheten?',
         "Besøk Fjordparken i Oslo.\nKystmuseet er et annet alternativ.", 2, 40, [
             [
-                'url' => 'https://vertexaisearch.cloud.google.com/grounding-api-redirect/fixture',
-                'title' => 'Fjordparken',
+                'url' => 'https://fjordparken.test/',
+                'title' => 'www.Fjordparken.test',
                 'rank' => 1,
                 'from_annotation' => true,
             ],
@@ -83,6 +89,43 @@ it('collects a fresh Gemini response with Google Search and market context', fun
         'se-sv-no-citations', 'SE', 'sv', 'Göteborg', 'Vad kan jag besöka i närheten?',
         'Ett svenskt exempel utan källor.', 0, 10, [],
     ],
+]);
+
+it('classifies a grounded source against the tenant domain using the provider metadata', function (?string $providerDomain, string $domain) {
+    $raw = EngineFixtures::load('gemini_api', 'no-nb');
+    if ($providerDomain !== null) {
+        $raw['candidates'][0]['groundingMetadata']['groundingChunks'][0]['web']['domain'] = $providerDomain;
+    }
+    Http::fake(['https://generativelanguage.googleapis.com/*' => Http::response($raw)]);
+
+    $result = app(GeminiApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', 'Oslo', '15', 'fixture-tenant-key'));
+    $source = $result->citations[0];
+
+    expect($source['url'])->toBe("https://{$domain}/")
+        ->and($result->raw)->toBe($raw);
+    Http::assertSentCount(1);
+
+    $tenant = Team::factory()->tenant()->create();
+    app(TenantContext::class)->run($tenant->id, function () use ($source, $result, $domain) {
+        $brand = Brand::factory()->create();
+        $brand->domains()->create(['domain' => $domain, 'include_subdomains' => false]);
+        $response = Response::factory()->create(['answer_text' => $result->answerText]);
+        $citation = Citation::factory()->for($response)->create([
+            'url' => $source['url'],
+            'rank_in_answer' => $source['rank'],
+            'from_annotation' => $source['from_annotation'],
+        ]);
+
+        app(DeterministicDetector::class)->detect($response);
+
+        $citation->refresh();
+        expect($citation->domain)->toBe($domain)
+            ->and($citation->ownership)->toBe('own')
+            ->and($citation->from_annotation)->toBeTrue();
+    });
+})->with([
+    'hostname in the title' => [null, 'fjordparken.test'],
+    'structured domain takes precedence' => ['www.Example.test.', 'example.test'],
 ]);
 
 it('retries 429 and 5xx with backoff and uses the configured fallback model', function () {

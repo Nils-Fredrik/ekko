@@ -2,6 +2,7 @@
 
 namespace App\Engines\Adapters;
 
+use App\Detection\UrlNormalizer;
 use App\Engines\EngineAdapter;
 use App\Engines\EngineCallFailed;
 use App\Engines\EngineRequest;
@@ -16,6 +17,8 @@ use Throwable;
 
 final class GeminiApiAdapter implements EngineAdapter
 {
+    private const GROUNDING_REDIRECT_HOST = 'vertexaisearch.cloud.google.com';
+
     public function key(): string
     {
         return 'gemini_api';
@@ -127,13 +130,13 @@ final class GeminiApiAdapter implements EngineAdapter
 
         $citations = [];
         foreach ($chunks as $chunk) {
-            $url = data_get($chunk, 'web.uri');
-            if (! is_string($url) || isset($citations[$url]) || filter_var($url, FILTER_VALIDATE_URL) === false
-                || ! in_array(strtolower((string) parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+            $title = data_get($chunk, 'web.title');
+            $url = $this->sourceUrl(data_get($chunk, 'web.uri'), data_get($chunk, 'web.domain'), $title);
+
+            if ($url === null || isset($citations[$url])) {
                 continue;
             }
 
-            $title = data_get($chunk, 'web.title');
             $citations[$url] = [
                 'url' => $url,
                 'title' => is_string($title) ? $title : null,
@@ -143,6 +146,34 @@ final class GeminiApiAdapter implements EngineAdapter
         }
 
         return array_values($citations);
+    }
+
+    private function sourceUrl(mixed $uri, mixed $providerDomain, mixed $title): ?string
+    {
+        if (! is_string($uri) || filter_var($uri, FILTER_VALIDATE_URL) === false
+            || ! in_array(strtolower((string) parse_url($uri, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+            return null;
+        }
+
+        if (UrlNormalizer::hostKey((string) parse_url($uri, PHP_URL_HOST)) !== self::GROUNDING_REDIRECT_HOST
+            || ! str_starts_with((string) parse_url($uri, PHP_URL_PATH), '/grounding-api-redirect/')) {
+            return $uri;
+        }
+
+        // The original link stays in the raw payload. Use a hostname for source attribution.
+        foreach ([$providerDomain, $title] as $value) {
+            if (! is_string($value)) {
+                continue;
+            }
+
+            $domain = UrlNormalizer::hostKey(trim($value));
+            if ($domain !== self::GROUNDING_REDIRECT_HOST && preg_match('/\.[a-z][a-z0-9-]*$/D', $domain) === 1
+                && filter_var($domain, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) !== false) {
+                return "https://{$domain}/";
+            }
+        }
+
+        return null;
     }
 
     private function countSearches(mixed $queries): int
