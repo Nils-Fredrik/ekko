@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\UploadedFile;
 use Tests\Feature\TenantIsolation\Support\RouteAccess;
 use Tests\Feature\TenantIsolation\Support\Scenario;
 
@@ -84,6 +85,28 @@ return [
     ),
     // Ends the admin's own acting-as session state only; no tenant data.
     'admin.acting-as.stop' => RouteAccess::user(),
+
+    'bot-log-uploads.index' => RouteAccess::tenant(
+        foreign: $teamB,
+        own: function (Scenario $s): array {
+            $s->brandIn($s->tenantA);
+            $s->brandIn($s->tenantB);
+
+            return ['params' => ['team' => $s->tenantA->id]];
+        },
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'bot-log-uploads.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $s->brandIn($s->tenantB)->id]],
+        own: fn (Scenario $s) => [
+            'params' => ['brand' => $s->brandIn($s->tenantA)->id],
+            'data' => [
+                'domain' => 'site.example.test',
+                'log' => UploadedFile::fake()->createWithContent('access.log.gz', gzencode((string) file_get_contents(base_path('tests/Fixtures/bot-logs/combined.txt')))),
+            ],
+        ],
+        deniedRoles: ['editor', 'reader'],
+    ),
 
     // Tenants: the tenant switcher, the team page, members and invitations.
     'current-team.update' => RouteAccess::tenant(

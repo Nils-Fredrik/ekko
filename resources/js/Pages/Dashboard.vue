@@ -1,5 +1,8 @@
 <script setup>
+import { Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+
+defineProps({ botLogUploadsUrl: String });
 </script>
 
 <template>
@@ -13,6 +16,9 @@ import AppLayout from '@/Layouts/AppLayout.vue';
                 <div class="rounded-2xl border border-line bg-white p-6 text-ink lg:p-8">
                     <h1 class="text-2xl font-medium tracking-tight">{{ $t('app.name') }}</h1>
                     <p class="mt-4 text-sm text-ink-soft">{{ $t('app.tagline') }}</p>
+                    <Link v-if="botLogUploadsUrl" :href="botLogUploadsUrl" class="mt-4 inline-block text-sm underline">
+                        {{ $t('bot_logs.title') }}
+                    </Link>
                 </div>
             </div>
         </div>

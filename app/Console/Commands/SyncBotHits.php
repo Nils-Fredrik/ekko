@@ -1,0 +1,113 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\BotLogs\BotHits;
+use App\BotLogs\BrandLogDomains;
+use App\BotLogs\ClickHouseBotHits;
+use App\BotLogs\ClickHouseSyncFailed;
+use App\Models\BotLogUpload;
+use App\Models\Brand;
+use App\Models\Integration;
+use App\Models\Team;
+use App\Tenancy\Rls\TenantRls;
+use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
+use Illuminate\Console\Command;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
+
+final class SyncBotHits extends Command
+{
+    protected $signature = 'ekko:sync-bot-hits {--date= : Completed UTC date to sync (YYYY-MM-DD)}';
+
+    protected $description = 'Sync daily AI bot hits from ClickHouse';
+
+    public function handle(TenantContext $context, TenantRls $rls, ClickHouseBotHits $clickHouse, BotHits $hits): int
+    {
+        try {
+            $date = $this->date();
+        } catch (InvalidArgumentException) {
+            $this->error(__('bot_logs.invalid_date'));
+
+            return self::INVALID;
+        }
+
+        $failed = 0;
+        foreach (Team::query()->where('personal_team', false)->lazyById() as $team) {
+            $context->run($team->id, function () use ($rls, $team, $date, $clickHouse, $hits, &$failed): void {
+                $integrationIds = $rls->run([$team->id], function () use ($team) {
+                    BotLogUpload::query()->where('status', 'pending')->where('created_at', '<', now()->subDays(7))
+                        ->update(['status' => 'rejected', 'payload' => null]);
+
+                    return $team->isActive()
+                        ? Integration::query()->where('type', 'clickhouse_logs')->pluck('id')
+                        : [];
+                });
+
+                foreach ($integrationIds as $integrationId) {
+                    $ok = $rls->run([$team->id], fn (): bool => $this->sync($integrationId, $date, $clickHouse, $hits));
+                    if (! $ok) {
+                        $failed++;
+                        Log::warning('ClickHouse bot hit sync failed.', ['tenant_id' => $team->id, 'integration_id' => $integrationId]);
+                    }
+                }
+            });
+        }
+
+        return $failed === 0 ? self::SUCCESS : self::FAILURE;
+    }
+
+    private function sync(int $id, CarbonImmutable $date, ClickHouseBotHits $clickHouse, BotHits $hits): bool
+    {
+        $integration = Integration::query()->where('type', 'clickhouse_logs')->find($id);
+        if ($integration === null) {
+            return true;
+        }
+
+        $brand = Brand::query()->lockForUpdate()->find($integration->brand_id);
+        $integration = Integration::query()->where('type', 'clickhouse_logs')->lockForUpdate()->find($id);
+        if ($brand === null || $integration === null) {
+            return true;
+        }
+
+        try {
+            $domains = BrandLogDomains::for($brand);
+            if ($domains === []) {
+                throw new ClickHouseSyncFailed('The brand has no registered domain.');
+            }
+            /** @var array<string, mixed> $settings */
+            $settings = $integration->getAttribute('config');
+            $rows = $clickHouse->forDay($settings, $date, $domains, config()->array('ekko.bot_logs.bots'));
+        } catch (ClickHouseSyncFailed|DecryptException) {
+            $integration->update(['status' => 'error']);
+
+            return false;
+        }
+
+        $hits->replace($brand, [$date->toDateString()], $rows);
+        $integration->update(['status' => 'active', 'last_sync_at' => now()]);
+
+        return true;
+    }
+
+    private function date(): CarbonImmutable
+    {
+        $today = CarbonImmutable::today('UTC');
+        $value = $this->option('date');
+        if ($value === null) {
+            return $today->subDay();
+        }
+        if (! CarbonImmutable::canBeCreatedFromFormat($value, 'Y-m-d')) {
+            throw new InvalidArgumentException('Invalid sync date.');
+        }
+
+        $date = CarbonImmutable::createFromFormat('!Y-m-d', $value, 'UTC');
+        if (! $date instanceof CarbonImmutable || $date->toDateString() !== $value || $date >= $today) {
+            throw new InvalidArgumentException('Invalid sync date.');
+        }
+
+        return $date;
+    }
+}
