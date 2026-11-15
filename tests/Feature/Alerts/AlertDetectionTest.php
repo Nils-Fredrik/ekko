@@ -352,3 +352,37 @@ test('brands that are not active are not evaluated', function () {
 
     expect(evaluated())->toBe([]);
 });
+
+test('a model that flaps back is not alerted again within the cooldown', function () {
+    foreach (['2026-11-14' => 'gpt-a', '2026-11-15' => 'gpt-b'] as $day => $model) {
+        $this->w->answer($this->w->p1, "{$day} 10:00:00", ['model' => $model]);
+    }
+    expect(evaluated())->toBe(['model_change']);
+
+    $this->travelTo(CarbonImmutable::parse('2026-11-17 08:00:00', 'Europe/Oslo'));
+    $this->w->answer($this->w->p1, '2026-11-16 10:00:00', ['model' => 'gpt-a']);
+
+    expect(evaluated())->toBe([]);
+});
+
+test('a prompt that flips between cited and not cited is not alerted every other day', function () {
+    $this->w->p1->update(['priority' => 'core']);
+    aggRow($this->w, '2026-11-14', ['responses' => 5, 'own_cited' => 3]);
+    aggRow($this->w, '2026-11-15', ['responses' => 5, 'own_cited' => 0]);
+    expect(evaluated())->toBe(['citation_lost']);
+
+    $this->travelTo(CarbonImmutable::parse('2026-11-18 08:00:00', 'Europe/Oslo'));
+    aggRow($this->w, '2026-11-16', ['responses' => 5, 'own_cited' => 2]);
+    aggRow($this->w, '2026-11-17', ['responses' => 5, 'own_cited' => 0]);
+
+    expect(evaluated())->toBe([]);
+});
+
+test('core prompts in an inactive market give no alerts', function () {
+    $this->w->p1->update(['priority' => 'core']);
+    aggRow($this->w, '2026-11-14', ['responses' => 5, 'own_cited' => 3]);
+    aggRow($this->w, '2026-11-15', ['responses' => 5, 'own_cited' => 0]);
+    $this->w->market->update(['is_active' => false]);
+
+    expect(evaluated())->toBe([]);
+});

@@ -560,8 +560,9 @@ Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like 
 - `model_change` varsler bare når motorens dominerende modell-ID for en dag er en annen enn dominerende modell-ID forrige dag med svar. Markørene i `model_changes` brukes ikke, siden leverandører veksler mellom versjoner i løpet av en dag.
 - `quota` og `integration_error` opprettes av kvoterollupen (7.2) og av synkene (10.1, 10.2) når tilstanden oppstår. T24 leverer dem med de andre.
 - Samme tema (marked og motor, prompt og konkurrent, …) varsles ikke igjen innen karensperioden (7 dager, 30 for `new_competitor`).
-- **Døgnmelding:** alle varsler som ikke har vært i en melding før, går ut sammen i én Slack-melding og én e-post per mottaker per tenant og lokal dag. Varsler som oppstår senere på dagen venter til neste døgn.
-- **Kvittering:** hver kanal har en kvittering på varselet (`deliveries`: status, forsøk, tidspunkt). Feilede kanaler prøves på nytt hver time samme dag, høyst tre forsøk. `delivered_at` settes når ingen kanal venter lenger. En tenant-admin kan i tillegg kvittere for at varselet er sett (`POST /alerts/{alert}/acknowledge`, `acknowledged_by` og `acknowledged_at`).
+- Evalueringen venter til kl. 12:00 så lenge gårsdagens kjøringer ikke er ferdig uttrukket, og regnes bare for aktive merkevarer, markeder og kjerneprompts. En regel som er slått av, gir ingen varsler og ingen levering.
+- **Døgnmelding:** alle varsler fra de siste tre dagene som ikke har vært i en melding før, går ut sammen i én Slack-melding og én e-post per mottaker per tenant og lokal dag. Varsler som oppstår senere på dagen venter til neste døgn.
+- **Kvittering:** hver kanal har en kvittering på varselet (`deliveries`: status, forsøk, tidspunkt). Meldingene sendes utenfor databasetransaksjon og hver kvittering lagres straks. Feilede kanaler prøves på nytt hver time samme dag, høyst tre forsøk, og settes til oppgitt når dagen er over. `delivered_at` settes når ingen kanal venter lenger. En tenant-admin kan i tillegg kvittere for at varselet er sett (`POST /alerts/{alert}/acknowledge`, `acknowledged_by` og `acknowledged_at`).
 - E-post går til tenantens eier og admin, og til partnerrådgivere i partner-tenanten. `quota` går også til plattformadmin.
 
 ### 11.2 Rapporter

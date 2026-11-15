@@ -32,7 +32,7 @@ final readonly class CompetitorTakeover implements Detector
 
             $promptIds = Prompt::query()
                 ->where('priority', 'core')->where('is_active', true)
-                ->whereIn('market_id', $brand->markets()->pluck('id'))
+                ->whereIn('market_id', $brand->markets()->where('is_active', true)->pluck('id'))
                 ->pluck('id')->map(fn ($id) => (int) $id)->all();
             if ($promptIds === []) {
                 continue;

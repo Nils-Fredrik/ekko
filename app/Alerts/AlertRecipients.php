@@ -3,6 +3,7 @@
 namespace App\Alerts;
 
 use App\Enums\TenantRole;
+use App\Enums\TenantStatus;
 use App\Models\Alert;
 use App\Models\Team;
 use App\Models\User;
@@ -42,14 +43,23 @@ final class AlertRecipients
      */
     private function tenantAdmins(Team $tenant): Collection
     {
+        return $this->cache["tenant:{$tenant->id}"] ??= $this->loadTenantAdmins($tenant);
+    }
+
+    /**
+     * @return Collection<int, User>
+     */
+    private function loadTenantAdmins(Team $tenant): Collection
+    {
         $ids = [$tenant->user_id, ...$tenant->users()->wherePivot('role', TenantRole::Admin->value)->pluck('users.id')->all()];
 
+        // As in TenantAccess::partnerRole(): the advisors of a partner tenant that is closed have no access.
         $partner = $tenant->partner_team_id === null ? null : Team::query()->find($tenant->partner_team_id);
-        if ($partner !== null) {
+        if ($partner !== null && $partner->status !== TenantStatus::Closed) {
             $ids = [...$ids, ...$partner->users()->wherePivot('role', TenantRole::PartnerAdvisor->value)->pluck('users.id')->all()];
         }
 
-        return $this->cache["tenant:{$tenant->id}"] ??= User::query()->whereIn('id', $ids)->orderBy('id')->get();
+        return User::query()->whereIn('id', $ids)->orderBy('id')->get();
     }
 
     /**

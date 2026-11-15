@@ -31,7 +31,7 @@ final readonly class ModelChange implements Detector
             $previous = null;
             foreach ($days as $day => $model) {
                 if ($previous !== null && $previous !== $model && (string) $day >= $freshFrom) {
-                    $candidates[] = new AlertCandidate(AlertType::ModelChange, null, "engine:{$engine}:{$day}:{$model}", [
+                    $candidates[] = new AlertCandidate(AlertType::ModelChange, null, "engine:{$engine}", [
                         'engine_key' => $engine,
                         'date' => (string) $day,
                         'from_model' => $previous,

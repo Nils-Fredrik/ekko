@@ -32,7 +32,7 @@ final readonly class CitationLost implements Detector
 
             $promptIds = Prompt::query()
                 ->where('priority', 'core')->where('is_active', true)
-                ->whereIn('market_id', $brand->markets()->pluck('id'))
+                ->whereIn('market_id', $brand->markets()->where('is_active', true)->pluck('id'))
                 ->pluck('id')->map(fn ($id) => (int) $id)->all();
             if ($promptIds === []) {
                 continue;
@@ -54,7 +54,7 @@ final readonly class CitationLost implements Detector
                     continue;
                 }
 
-                $candidates[] = new AlertCandidate(AlertType::CitationLost, $brand->id, "prompt:{$latest['prompt_id']}:engine:{$latest['engine_key']}:{$latest['date']}", [
+                $candidates[] = new AlertCandidate(AlertType::CitationLost, $brand->id, "prompt:{$latest['prompt_id']}:engine:{$latest['engine_key']}", [
                     'prompt_id' => $latest['prompt_id'],
                     'engine_key' => $latest['engine_key'],
                     'previous_round' => ['date' => $before['date'], 'citation' => $before['citation']->toArray()],

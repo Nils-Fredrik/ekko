@@ -9,6 +9,8 @@ use App\Models\AggDaily;
 use App\Models\Alert;
 use App\Models\AlertEvaluation;
 use App\Models\AlertRule;
+use App\Models\Run;
+use App\Models\RunBatch;
 use App\Models\Team;
 use App\Models\User;
 use App\Tenancy\TenantContext;
@@ -316,4 +318,150 @@ test('an editor cannot acknowledge an alert', function () {
     $this->actingAs($this->editor)->post(route('alerts.acknowledge', $alert))->assertForbidden();
 
     expect($alert->refresh()->acknowledged_at)->toBeNull();
+});
+
+// Recipients, markdown, old alerts and failure handling (review of PR #37) ---------------------------------------
+
+test('partner advisors of the partner tenant get the e-mail, and nobody else in a partner tenant does', function () {
+    $partner = Team::factory()->tenant()->create();
+    $otherPartner = Team::factory()->tenant()->create();
+    $advisor = User::factory()->create();
+    $partnerEditor = User::factory()->create();
+    $otherAdvisor = User::factory()->create();
+    $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
+    $partner->users()->attach($partnerEditor, ['role' => 'editor']);
+    $otherPartner->users()->attach($otherAdvisor, ['role' => 'partner_advisor']);
+    $this->w->tenant->forceFill(['partner_team_id' => $partner->id])->save();
+    makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));
+
+    runAlertJob($this->w);
+
+    $recipients = fn (AlertDigestMail $mail) => collect([$this->owner, $this->admin, $advisor, $partnerEditor, $otherAdvisor, $this->editor])
+        ->filter(fn (User $user) => $mail->hasTo($user->email))->pluck('id')->all();
+    $sentTo = Mail::sent(AlertDigestMail::class)->flatMap($recipients)->all();
+
+    expect($sentTo)->toEqualCanonicalizing([$this->owner->id, $this->admin->id, $advisor->id]);
+});
+
+test('advisors of a closed partner tenant get nothing', function () {
+    $partner = Team::factory()->tenant()->create();
+    $advisor = User::factory()->create();
+    $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
+    $this->w->tenant->forceFill(['partner_team_id' => $partner->id])->save();
+    $partner->forceFill(['status' => 'closed'])->save();
+    makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));
+
+    runAlertJob($this->w);
+
+    Mail::assertNotSent(AlertDigestMail::class, fn (AlertDigestMail $mail) => $mail->hasTo($advisor->email));
+    Mail::assertSent(AlertDigestMail::class, 2);
+});
+
+test('names from AI answers cannot become links in the e-mail', function () {
+    $this->w->brand->update(['name' => '[Marke](https://evil.example/brand)']);
+    makeAlert($this->w, 'new_competitor', [
+        'market_id' => $this->w->market->id,
+        'name' => '[Logg inn](https://evil.example/login) ![](https://evil.example/pixel.png) **fet**',
+        'share' => ['value' => 0.2, 'n' => 40],
+    ]);
+
+    runAlertJob($this->w);
+
+    $mails = Mail::sent(AlertDigestMail::class);
+    expect($mails)->toHaveCount(2);
+    foreach ($mails as $mail) {
+        $html = $mail->render();
+        expect($html)->not->toContain('href="https://evil.example')
+            ->not->toContain('src="https://evil.example')
+            ->not->toContain('<strong>fet</strong>')
+            ->toContain('Logg inn')
+            ->toContain('Marke');
+    }
+});
+
+test('old alerts that never had a digest stay in the list and are not sent', function () {
+    $old = makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));
+    $old->forceFill(['triggered_at' => now()->subDays(10)])->save();
+    $recent = makeAlert($this->w, 'model_change', modelPayload($this->w), brandRule: false);
+
+    runAlertJob($this->w);
+
+    expect($old->refresh()->digest_date)->toBeNull()->and($old->delivered_at)->toBeNull()
+        ->and($recent->refresh()->delivered_at)->not->toBeNull();
+    Http::assertSentCount(1);
+    Http::assertSent(fn ($request) => str_contains($request['text'], 'ett varsel') && ! str_contains($request['text'], 'synlighet i'));
+});
+
+test('a rule that is turned off delivers nothing, also for alerts made by other parts of the system', function () {
+    $alert = makeAlert($this->w, 'quota', quotaPayload(), brandRule: false);
+    $alert->alertRule->update(['is_active' => false]);
+
+    runAlertJob($this->w);
+
+    Http::assertNothingSent();
+    Mail::assertNothingSent();
+    expect($alert->refresh()->delivered_at)->not->toBeNull()->and($alert->deliveries)->toBe([]);
+});
+
+test('a channel that still fails when its day is over is given up and the alert settled', function () {
+    $this->slack->push('error', 500);
+    $alert = makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));
+    runAlertJob($this->w);
+    expect($alert->refresh()->delivered_at)->toBeNull();
+
+    $this->travelTo(CarbonImmutable::parse('2026-11-17 06:00:00', 'Europe/Oslo'));
+    runAlertJob($this->w);
+
+    expect($alert->refresh()->deliveries['slack']['status'])->toBe('gave_up')
+        ->and($alert->delivered_at)->not->toBeNull();
+    Http::assertSentCount(1);
+});
+
+test('the evaluation waits for yesterday\'s runs to be extracted until noon', function () {
+    $batch = RunBatch::factory()->create(['market_id' => $this->w->market->id, 'scheduled_for' => '2026-11-15 23:30:00']);
+    Run::factory()->create(['run_batch_id' => $batch->id, 'prompt_id' => $this->w->p1->id, 'engine_key' => $this->w->engine->key, 'status' => 'collected']);
+    makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));
+
+    runAlertJob($this->w);
+    expect(AlertEvaluation::query()->count())->toBe(0);
+    Http::assertNothingSent();
+
+    $this->travelTo(CarbonImmutable::parse('2026-11-16 11:59:00', 'Europe/Oslo'));
+    runAlertJob($this->w);
+    expect(AlertEvaluation::query()->count())->toBe(0);
+
+    $this->travelTo(CarbonImmutable::parse('2026-11-16 12:00:00', 'Europe/Oslo'));
+    runAlertJob($this->w);
+    expect(AlertEvaluation::query()->count())->toBe(1);
+    Http::assertSentCount(1);
+});
+
+test('the evaluation does not wait once the runs are extracted', function () {
+    $batch = RunBatch::factory()->create(['market_id' => $this->w->market->id, 'scheduled_for' => '2026-11-15 23:30:00']);
+    Run::factory()->create(['run_batch_id' => $batch->id, 'prompt_id' => $this->w->p1->id, 'engine_key' => $this->w->engine->key, 'status' => 'extracted']);
+
+    runAlertJob($this->w);
+
+    expect(AlertEvaluation::query()->count())->toBe(1);
+});
+
+test('two runs never deliver the same alerts at once', function () {
+    makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));
+
+    // Another database session holds the tenant's delivery lock, as a run that is sending right now would.
+    $config = config('database.connections.pgsql');
+    $other = new PDO("pgsql:host={$config['host']};port={$config['port']};dbname={$config['database']}", $config['username'], $config['password']);
+    $other->prepare('select pg_advisory_lock(24001, ?)')->execute([$this->w->tenant->id]);
+
+    try {
+        runAlertJob($this->w);
+        Http::assertNothingSent();
+        Mail::assertNothingSent();
+    } finally {
+        $other->query('select pg_advisory_unlock_all()');
+    }
+
+    runAlertJob($this->w);
+    Http::assertSentCount(1);
+    Mail::assertSent(AlertDigestMail::class, 2);
 });

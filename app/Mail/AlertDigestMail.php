@@ -30,6 +30,22 @@ class AlertDigestMail extends Mailable
 
     public function content(): Content
     {
-        return new Content(markdown: 'mail.alert-digest');
+        // The lines hold names that come from AI answers and from the tenant. The view is Markdown, so they
+        // are escaped, or a name like "[Log in](https://...)" would become a link in a mail from Ekko.
+        return new Content(markdown: 'mail.alert-digest', with: [
+            'safeTenant' => self::escapeMarkdown($this->tenantName),
+            'safeGroups' => array_map(fn (array $group): array => [
+                'title' => self::escapeMarkdown($group['title']),
+                'lines' => array_map(self::escapeMarkdown(...), $group['lines']),
+            ], $this->groups),
+        ]);
+    }
+
+    /**
+     * Backslash-escapes Markdown punctuation. < > and & are left to the HTML escaping of the view.
+     */
+    public static function escapeMarkdown(string $text): string
+    {
+        return (string) preg_replace('/([\\\\`*_{}\[\]()#+\-.!|~])/', '\\\\$1', $text);
     }
 }

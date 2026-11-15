@@ -127,9 +127,14 @@ final class AlertPresenter
             return '';
         }
 
-        $market = Market::query()->find((int) $id);
+        return $this->markets[(int) $id] ??= $this->marketLabel((int) $id);
+    }
 
-        return $this->markets[(int) $id] ??= $market === null ? '' : ($market->location_label ?: strtoupper($market->country));
+    private function marketLabel(int $id): string
+    {
+        $market = Market::query()->find($id);
+
+        return $market === null ? '' : ($market->location_label ?: strtoupper($market->country));
     }
 
     private function competitor(mixed $id): string

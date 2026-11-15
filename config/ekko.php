@@ -17,8 +17,9 @@ return [
 
     /*
     | Alerts (docs/spec.md 11.1, ADR 0017). The evaluation runs once per tenant and local day, in the first
-    | scheduler run after evaluate_after (local time), when yesterday's figures are aggregated. All alerts of
-    | that run go out as one message per channel (the digest).
+    | scheduler run after evaluate_after (local time), when yesterday's figures are aggregated, but not before
+    | yesterday's runs are extracted unless evaluate_wait_until has passed. All alerts of that run go out as one
+    | message per channel (the digest). digest_max_age_days: older alerts that never got a digest stay in the list.
     |
     | thresholds are in the unit of alert_rules.threshold: percentage points or percent. A rule row is created
     | the first time its type is evaluated, with these defaults, and can then be changed per tenant.
@@ -28,6 +29,8 @@ return [
     */
     'alerts' => [
         'evaluate_after' => '05:30',
+        'evaluate_wait_until' => '12:00',
+        'digest_max_age_days' => 3,
         'default_channels' => ['in_app', 'email', 'slack'],
         'thresholds' => [
             'visibility_drop' => 10,

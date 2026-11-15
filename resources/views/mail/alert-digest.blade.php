@@ -1,7 +1,7 @@
 @component('mail::message')
-# {{ trans_choice('alerts.mail.heading', $count, ['tenant' => $tenantName, 'count' => $count]) }}
+# {{ trans_choice('alerts.mail.heading', $count, ['tenant' => $safeTenant, 'count' => $count]) }}
 
-@foreach ($groups as $group)
+@foreach ($safeGroups as $group)
 **{{ $group['title'] }}**
 
 @foreach ($group['lines'] as $line)
