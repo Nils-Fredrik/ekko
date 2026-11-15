@@ -25,6 +25,8 @@ $tenantRoles = ['owner', 'admin', 'partner_advisor', 'editor', 'reader'];
 return [
     // Public and system routes.
     'home' => RouteAccess::public(),
+    // Sets the caller's own language (session, and the user row when signed in). No tenant data.
+    'locale.update' => RouteAccess::public(),
     'GET up' => RouteAccess::public(),
     'sanctum.csrf-cookie' => RouteAccess::public(),
 

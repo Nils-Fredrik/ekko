@@ -4,6 +4,7 @@ use App\Http\Middleware\ApplyTenantRls;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetCurrentTenant;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -21,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias(['two-factor.required' => EnsureTwoFactorEnabled::class]);
 
         $middleware->web(append: [
+            SetLocale::class,
             EnsureTwoFactorEnabled::class,
             SetCurrentTenant::class,
             ApplyTenantRls::class,
