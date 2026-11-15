@@ -1,0 +1,78 @@
+{
+    "id": "msg_fixture_norway",
+    "type": "message",
+    "role": "assistant",
+    "model": "claude-fixture-reported-model",
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "content": [
+        {
+            "type": "server_tool_use",
+            "id": "srvtoolu_fixture_1",
+            "name": "web_search",
+            "input": {"query": "eksempel på kilder i Oslo"}
+        },
+        {
+            "type": "web_search_tool_result",
+            "tool_use_id": "srvtoolu_fixture_1",
+            "content": [
+                {
+                    "type": "web_search_result",
+                    "url": "https://example.test/unused",
+                    "title": "Usitert treff",
+                    "encrypted_content": "fixture",
+                    "page_age": null
+                }
+            ]
+        },
+        {
+            "type": "server_tool_use",
+            "id": "srvtoolu_fixture_2",
+            "name": "web_search",
+            "input": {"query": "andre kilder i Norge"}
+        },
+        {
+            "type": "web_search_tool_result",
+            "tool_use_id": "srvtoolu_fixture_2",
+            "content": []
+        },
+        {
+            "type": "text",
+            "text": "Et norsk eksempel. ",
+            "citations": [
+                {
+                    "type": "web_search_result_location",
+                    "url": "https://example.test/oslo",
+                    "title": "Oslo",
+                    "encrypted_index": "fixture",
+                    "cited_text": "Et oppdiktet utdrag om Oslo."
+                }
+            ]
+        },
+        {
+            "type": "text",
+            "text": "Et annet eksempel.",
+            "citations": [
+                {
+                    "type": "web_search_result_location",
+                    "url": "https://example.test/oslo",
+                    "title": "Oslo",
+                    "encrypted_index": "fixture",
+                    "cited_text": "Et annet oppdiktet utdrag om Oslo."
+                },
+                {
+                    "type": "web_search_result_location",
+                    "url": "https://example.test/norge",
+                    "title": "Norge",
+                    "encrypted_index": "fixture",
+                    "cited_text": "Et oppdiktet utdrag om Norge."
+                }
+            ]
+        }
+    ],
+    "usage": {
+        "input_tokens": 4120,
+        "output_tokens": 83,
+        "server_tool_use": {"web_search_requests": 2}
+    }
+}
