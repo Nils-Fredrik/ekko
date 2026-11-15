@@ -22,6 +22,7 @@ use App\Scheduling\CloudRunAccessToken;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Sleep;
 use Tests\Support\Onboarding\FakePageTransport;
 use Tests\Support\Onboarding\OnboardingFakes;
 
@@ -503,7 +504,7 @@ function onboardingCloudRun(): void
     app()->instance(CloudRunAccessToken::class, $token);
 }
 
-it('starts the worker once the queued analysis is committed', function () {
+it('starts the worker within the request, once the queued analysis is committed', function () {
     [$tenant, $owner] = wizardTenant();
     OnboardingFakes::bind();
     onboardingCloudRun();
@@ -536,4 +537,34 @@ it('answers the request even when the worker cannot be started', function () {
 
     expect(DB::table('jobs')->count())->toBe(1);
     Http::assertNotSent(fn ($request) => str_ends_with($request->url(), ':run'));
+});
+
+it('answers busy while another request holds the tenant lock, with the database cache store', function () {
+    [$tenant, $owner] = wizardTenant();
+    OnboardingFakes::bind();
+    Queue::fake();
+    config(['cache.default' => 'database']);
+    Sleep::fake(syncWithCarbon: true);
+    DB::table('cache_locks')->insert(['key' => config('cache.prefix')."onboarding:lock:{$tenant->id}", 'owner' => 'another-request', 'expiration' => now()->addHour()->getTimestamp()]);
+
+    // Inside the request's transaction: the lock attempt must not abort it (PostgreSQL 25P02 would give a 500).
+    $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())
+        ->assertStatus(429)
+        ->assertJsonPath('error.code', 'busy');
+    Queue::assertNothingPushed();
+});
+
+it('takes over an expired tenant lock, with the database cache store', function () {
+    [$tenant, $owner] = wizardTenant();
+    OnboardingFakes::bind();
+    Queue::fake();
+    config(['cache.default' => 'database']);
+    $key = config('cache.prefix')."onboarding:lock:{$tenant->id}";
+    DB::table('cache_locks')->insert(['key' => $key, 'owner' => 'a-dead-request', 'expiration' => now()->subMinute()->getTimestamp()]);
+
+    $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->assertStatus(202);
+
+    Queue::assertPushed(RunOnboardingAnalysis::class, 1);
+    expect(DB::table('cache_locks')->where('key', $key)->exists())->toBeFalse()
+        ->and(app(AnalysisStore::class)->pending($tenant->id))->toBe(1);
 });

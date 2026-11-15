@@ -2,6 +2,7 @@
 
 namespace App\Onboarding;
 
+use App\Scheduling\CollectionLocks;
 use Closure;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -12,8 +13,10 @@ use Illuminate\Support\Str;
  *
  * Analyses that are queued or running are also kept in a per-tenant list of pending analyses, so the quota check
  * can count what has been started but not billed yet. The list is changed only under the tenant's lock
- * (reserving()), and an entry that is never finished (a worker that died) runs out after
- * ekko.wizard.pending_reservation_seconds.
+ * (reserving()). The lock is a row in cache_locks taken with INSERT ... ON CONFLICT DO NOTHING
+ * (CollectionLocks, ADR 0020): the request runs in a transaction (row-level security), and Laravel's database
+ * lock would abort that transaction on a key conflict in PostgreSQL. An entry that is never finished (a worker
+ * that died) runs out after ekko.wizard.pending_reservation_seconds.
  */
 final class AnalysisStore
 {
@@ -28,7 +31,7 @@ final class AnalysisStore
      */
     public function reserving(int $tenantId, Closure $start): mixed
     {
-        return Cache::lock($this->lockKey($tenantId), 10)->block(5, fn () => $start($this->pending($tenantId)));
+        return CollectionLocks::make($this->lockKey($tenantId), 10)->block(5, fn () => $start($this->pending($tenantId)));
     }
 
     /**
@@ -73,7 +76,7 @@ final class AnalysisStore
         );
 
         if ($analysis->isFinished()) {
-            Cache::lock($this->lockKey($analysis->tenantId), 10)->block(5, function () use ($analysis): void {
+            CollectionLocks::make($this->lockKey($analysis->tenantId), 10)->block(5, function () use ($analysis): void {
                 $pending = $this->pendingList($analysis->tenantId);
                 unset($pending[$analysis->id]);
                 Cache::put($this->pendingKey($analysis->tenantId), $pending, now()->addDay());

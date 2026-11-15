@@ -24,6 +24,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Throwable;
@@ -177,13 +178,15 @@ class OnboardingController extends Controller
 
         RunOnboardingAnalysis::dispatch($tenantId, $analysis->id);
 
-        // The worker is a Cloud Run job that only runs when started (T17). It is started once the response is
-        // sent, after the request's transaction has committed the queued job, so the user does not wait for the
-        // next scheduled dispatch. A failure to start is reported, not shown: the next dispatch-due or
-        // extraction-poll starts the worker as well.
-        defer(function (): void {
+        // The worker is a Cloud Run job that only runs when started (T17). It is started once the request's
+        // transaction has committed the queued job, inside the request: on Cloud Run with CPU only during
+        // requests, work after the response may never finish. A failure to start is reported, not shown: the
+        // next dispatch-due or extraction-poll starts the worker as well.
+        DB::afterCommit(function (): void {
             try {
                 app(WorkerLauncher::class)->startIfPending();
+            } catch (LockTimeoutException) {
+                // Another request or the scheduler is starting the worker right now.
             } catch (Throwable $e) {
                 report($e);
             }

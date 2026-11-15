@@ -93,7 +93,7 @@ Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lok
 |---|---|---|
 | Web, API og MCP | Cloud Run service `ekko-web` | min 0, maks 4 instanser, 1 vCPU / 1 GiB, Cloud SQL-tilkobling via Unix-socket |
 | Dispatcher | Cloud Run Job `ekko-dispatch` | `php artisan ekko:dispatch-due` |
-| Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid (av dispatcheren eller av `extraction-poll`). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300 --timeout=420`-prosesser. Ved oppstart settes `taskCount` til `ceil(jobber i kø / 2000)`, maks 8, med automatisk parallellisme i Cloud Run. Databasekøen reserverer jobber i 450 sekunder. |
+| Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid: av dispatcheren, av `extraction-poll` og av veiviseren når en analyse legges i kø (ADR 0018). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300 --timeout=420`-prosesser. Ved oppstart settes `taskCount` til `ceil(jobber i kø / 2000)`, maks 8, med automatisk parallellisme i Cloud Run. Databasekøen reserverer jobber i 450 sekunder. |
 | Planlagte oppgaver | Cloud Run Job `ekko-task` | samme image, kommando settes per Scheduler-trigger. Kjører timevis aggregering og forbruksoppdatering samt øvrige planlagte oppgaver (se 7.1). |
 | Lette periodiske oppgaver | Interne endepunkter på `ekko-web` | Cloud Scheduler kaller `POST /internal/tick/{oppgave}` med OIDC-token fra en egen tjenestekonto. Endepunktene gjør kun korte kontroller og legger tyngre arbeid i køen. |
 | Migrering | Cloud Run Job `ekko-migrate` | `php artisan migrate --force`, kjøres i deploy-pipeline |
