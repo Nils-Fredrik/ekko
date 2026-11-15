@@ -93,7 +93,7 @@ Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lok
 |---|---|---|
 | Web, API og MCP | Cloud Run service `ekko-web` | min 0, maks 4 instanser, 1 vCPU / 1 GiB, Cloud SQL-tilkobling via Unix-socket |
 | Dispatcher | Cloud Run Job `ekko-dispatch` | `php artisan ekko:dispatch-due` |
-| Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid (av dispatcheren eller av `extraction-poll`). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300`-prosesser, fordi arbeidet i hovedsak er venting på eksterne API-er. `parallelism` settes ved oppstart til `ceil(jobber i kø / 2000)`, maks 8. |
+| Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid (av dispatcheren eller av `extraction-poll`). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300 --timeout=420`-prosesser. Ved oppstart settes `taskCount` til `ceil(jobber i kø / 2000)`, maks 8, med automatisk parallellisme i Cloud Run. Databasekøen reserverer jobber i 450 sekunder. |
 | Daglige oppgaver | Cloud Run Job `ekko-task` | samme image, kommando settes per Scheduler-trigger. Brukes kun for daglige og ukentlige oppgaver. |
 | Lette periodiske oppgaver | Interne endepunkter på `ekko-web` | Cloud Scheduler kaller `POST /internal/tick/{oppgave}` med OIDC-token fra en egen tjenestekonto. Endepunktene gjør kun korte kontroller og legger tyngre arbeid i køen. |
 | Migrering | Cloud Run Job `ekko-migrate` | `php artisan migrate --force`, kjøres i deploy-pipeline |
@@ -1122,7 +1122,7 @@ Migreringer, modeller, fabrikker og seedere for 6.2–6.5. Seedere lager demodat
 - `php artisan migrate:fresh --seed` gir et brukbart demomiljø.
 
 ### T09 – Terraform
-Ressursene i 3.1 i prosjektet `ekko-514612`, med egne tjenestekontoer per komponent (web, jobber, Scheduler, CI) og IAM med minste privilegium.
+Ressursene i 3.1 i prosjektet `ekko-514612`, med egne tjenestekontoer per komponent (web, jobber, Scheduler, CI) og IAM med minste privilegium. SQL-innlogginger og hemmelighetsversjoner opprettes utenfor Terraform, mens instans, database og hemmelighetsbeholdere forvaltes i Terraform (ADR 0007). SQL-rollen `ekko_app` og administrativ `BYPASSRLS` må verifiseres før produksjon.
 - `terraform plan` er rent etter `apply`.
 - Ingen nøkler i state utover referanser til Secret Manager.
 
