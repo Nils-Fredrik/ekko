@@ -72,4 +72,23 @@ return [
         ],
     ],
 
+    'bot_logs' => [
+        // User-agent substrings are matched case-insensitively, in the configured order.
+        'bots' => [
+            'OAI-SearchBot' => 'oai_searchbot',
+            'GPTBot' => 'gptbot',
+            'ChatGPT-User' => 'chatgpt_user',
+            'PerplexityBot' => 'perplexitybot',
+            'Perplexity-User' => 'perplexity_user',
+            'ClaudeBot' => 'claudebot',
+            'Claude-User' => 'claude_user',
+            'Claude-SearchBot' => 'claude_searchbot',
+            'Google-Extended' => 'google_extended',
+            'GoogleOther' => 'google_other',
+        ],
+        'clickhouse_endpoints' => array_values(array_filter(array_map('trim', explode(',', (string) env('EKKO_CLICKHOUSE_ENDPOINTS', ''))))),
+        'max_upload_kib' => 2048,
+        'max_expanded_bytes' => 64 * 1024 * 1024,
+    ],
+
 ];

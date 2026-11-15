@@ -53,6 +53,7 @@ test('the overview shows the tenant brands with visibility and n, and nothing fr
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Home')
+            ->where('botLogUploadsUrl', route('bot-log-uploads.index', $world->tenant))
             ->where('brands', fn ($brands) => collect($brands)->pluck('name')->all() === ['Fjordkaffe'])
             ->where('brands.0.visibility.value', 0.5)
             ->where('brands.0.visibility.n', 20)
@@ -72,7 +73,7 @@ test('a reader sees the overview but not usage', function () {
 
     $this->actingAs($reader)->get('/dashboard')
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('usage', null)->where('brands.0.name', 'Fjordkaffe'));
+        ->assertInertia(fn ($page) => $page->where('usage', null)->where('botLogUploadsUrl', null)->where('brands.0.name', 'Fjordkaffe'));
 });
 
 test('the brand dashboard follows the engine filter and shows a model change', function () {

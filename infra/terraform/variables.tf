@@ -68,3 +68,9 @@ variable "enable_public_access" {
   type        = bool
   default     = false
 }
+
+variable "clickhouse_endpoints" {
+  description = "Approved HTTPS endpoints for tenant ClickHouse log integrations."
+  type        = list(string)
+  default     = []
+}
