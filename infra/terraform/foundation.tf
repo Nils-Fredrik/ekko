@@ -12,6 +12,7 @@ locals {
     "run.googleapis.com",
     "secretmanager.googleapis.com",
     "sqladmin.googleapis.com",
+    "sts.googleapis.com",
   ])
   identities = toset(["web", "dispatch", "worker", "task", "migrate", "scheduler", "ci"])
   secrets = toset([
