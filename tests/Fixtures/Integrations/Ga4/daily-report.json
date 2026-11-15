@@ -1,0 +1,28 @@
+{
+  "dimensionHeaders": [{"name": "date"}, {"name": "sessionSource"}],
+  "metricHeaders": [
+    {"name": "sessions", "type": "TYPE_INTEGER"},
+    {"name": "engagedSessions", "type": "TYPE_INTEGER"},
+    {"name": "keyEvents", "type": "TYPE_FLOAT"}
+  ],
+  "rows": [
+    {
+      "dimensionValues": [{"value": "20261113"}, {"value": "perplexity.ai"}],
+      "metricValues": [{"value": "11"}, {"value": "8"}, {"value": "1.25"}]
+    },
+    {
+      "dimensionValues": [{"value": "20261114"}, {"value": "chatgpt.com"}],
+      "metricValues": [{"value": "40"}, {"value": "21"}, {"value": "3.0E0"}]
+    },
+    {
+      "dimensionValues": [{"value": "20261114"}, {"value": "chat.openai.com"}],
+      "metricValues": [{"value": "5"}, {"value": "3"}, {"value": "0"}]
+    },
+    {
+      "dimensionValues": [{"value": "20261114"}, {"value": "chatgpt.com.example.test"}],
+      "metricValues": [{"value": "99"}, {"value": "99"}, {"value": "99"}]
+    }
+  ],
+  "rowCount": 4,
+  "metadata": {"timeZone": "Europe/Oslo"}
+}

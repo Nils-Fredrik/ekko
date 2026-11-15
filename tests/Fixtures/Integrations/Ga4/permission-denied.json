@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 403,
+    "message": "Account has no access to synthetic property 123456789.",
+    "status": "PERMISSION_DENIED"
+  }
+}
