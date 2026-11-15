@@ -58,6 +58,60 @@ return [
             'output_usd_per_mtok' => '0.50',
             'batch_price_factor' => '0.5',
         ],
+
+        /*
+        | The onboarding wizard's suggestions (docs/spec.md 13, ADR 0018): Claude Sonnet 5.5 through the plain
+        | Messages API. Prices are USD per million tokens (A7: the price list is not final); estimated_cost_usd
+        | is what one analysis is expected to cost, used for the quota check before it starts.
+        */
+        'onboarding' => [
+            'model' => env('EKKO_ONBOARDING_MODEL', 'claude-sonnet-5-5'),
+            'max_tokens' => 16000,
+            'effort' => 'medium',
+            'input_usd_per_mtok' => '3.00',
+            'output_usd_per_mtok' => '15.00',
+            'estimated_cost_usd' => '0.15',
+        ],
+    ],
+
+    /*
+    | The onboarding wizard (docs/spec.md 13 and 16, ADR 0018). Fetching a customer's site is the one place
+    | where Ekko makes a request to an address the user typed, so the limits are strict.
+    */
+    'wizard' => [
+        'fetch' => [
+            'max_pages' => 6,
+            'max_redirects' => 3,
+            'max_bytes' => 2 * 1024 * 1024,
+            'connect_timeout_seconds' => 5,
+            'request_timeout_seconds' => 10,
+            'total_timeout_seconds' => 40,
+            'user_agent' => 'EkkoBot/1.0 (+https://ekko.maksimer.com)',
+            'max_text_chars_per_page' => 6000,
+        ],
+        'suggestions' => [
+            'max_competitors' => 10,
+            'max_topics' => 8,
+            'max_prompts' => 50,
+            'max_core_prompts' => 10,
+            'max_name_variants' => 10,
+        ],
+        // How long an unconfirmed proposal stays readable. Proposals live only in the cache, never in the database.
+        'proposal_ttl_hours' => 24,
+        // Analyses a user may start per minute.
+        'analyses_per_minute' => 6,
+        'estimate' => [
+            // Runs per month for one prompt and one repetition.
+            'runs_per_month' => ['daily' => '30', 'weekly' => '4.35', 'monthly' => '1', 'off' => '0'],
+            // What one engine call is assumed to use, by engine method. Token prices come from engine_prices.
+            'call_usage' => [
+                'api' => ['input_tokens' => 400, 'output_tokens' => 1200, 'search_calls' => 2],
+                'ui_scrape' => ['input_tokens' => 0, 'output_tokens' => 0, 'search_calls' => 0],
+                'serp' => ['input_tokens' => 0, 'output_tokens' => 0, 'search_calls' => 0],
+            ],
+            // What extracting one answer is assumed to use (batch price).
+            'extraction_usage' => ['input_tokens' => 1500, 'output_tokens' => 400],
+        ],
     ],
 
 ];

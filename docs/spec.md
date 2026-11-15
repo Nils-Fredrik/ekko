@@ -650,6 +650,12 @@ Veiviseren gjør at en ny merkevare er klar til første kjøring på få minutte
 
 For et nytt marked på en eksisterende merkevare foreslår veiviseren prompts på det nye språket ut fra eksisterende temaer (`cross_market_key`). Promptene skal formuleres slik brukere i markedet faktisk spør, ikke som oversettelser.
 
+**Backend (T25, [ADR 0018](decisions/0018-veiviser-backend.md)):**
+- Analysen er asynkron: `POST /onboarding/analyses` (ny merkevare) og `POST /brands/{brand}/market-proposals` (nytt marked) svarer `202` med et id, og `GET /onboarding/analyses/{id}` gir status og forslag som strukturert JSON. Forslaget ligger bare i cachen i 24 timer og lagres ikke i konfigurasjonen før brukeren bekrefter.
+- Sonnet-kallet bruker strukturert utdata (`output_config.format`), og sidetekst sendes som data i escapede tagger (16). Telling og lengder håndheves ved parsing: høyst 10 konkurrenter, 8 temaer, 50 prompts, 10 kjerneprompts. Prompts med e-postadresse eller telefonnummer forkastes.
+- Kostnadsestimatet (`POST /onboarding/cost-estimate`) regnes fra `engine_prices`, pakken, egne nøkler og månedens forbruk, og viser avvik fra pakken og kvoten som advarsler.
+- Hvert modellkall føres i `usage_events` med `kind = onboarding` (plattformen betaler) og kontrolleres mot kvote og budsjett før start (`429` når de er brukt opp).
+
 ---
 ## 14. Brukergrensesnitt
 
@@ -804,7 +810,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 **Inndata og innhold:**
 - **Innhold fra motorene behandles som data.** Svartekster vises escaped. Lenker åpnes med `rel="noopener noreferrer nofollow"`.
 - **Svartekster sendes til uttrekksmodellen med instruks** om at innholdet er data og ikke instruksjoner.
-- **Veiviserens nettsidehenting:** kun `https`, maks 2 MB per side, ingen private IP-adresser (SSRF-vern) og maks 6 sider.
+- **Veiviserens nettsidehenting:** kun `https` på standardporten, maks 2 MB per side, ingen private IP-adresser (SSRF-vern) og maks 6 sider. Vertsnavnet slås opp og alle adressene må være offentlige, adressen som ble sjekket festes for tilkoblingen, og hver omdirigering (høyst 3) kontrolleres på nytt. Nettkartet er én ekstra forespørsel og regnes ikke som side (ADR 0018).
 
 **Personvern:**
 - **Region:** alle data i EU (`europe-west1`).
@@ -1210,6 +1216,8 @@ Alle typer i 11.1, samling per døgn, levering til Slack og e-post, og kvitterin
 ### T25 – Veiviser, backend
 Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kapittel 13, kostnadsestimat og forslag for nytt marked basert på `cross_market_key`.
 - Forslagene returneres som strukturert JSON og lagres ikke før bekreftelse.
+- Sidehentingen avviser private, loopback-, link-local- og metadata-adresser (IPv4 og IPv6), også etter omdirigering, og er dekket av tester (ADR 0018).
+- Bekreftelsen som lagrer forslaget (merkevare, konkurrenter, temaer, prompts og motoroppsett) er ikke en del av T25 og leveres sammen med veiviser-UI-et (T29).
 
 ### T26 – Oversikt og merkevare-dashboard
 `Home.vue`, `Brands/Index.vue` og `Brands/Show.vue` med filtre, nøkkeltall, trendgrafer, share of voice, motor-sammenligning og modellbytte-markører.
