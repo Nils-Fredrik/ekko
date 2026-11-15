@@ -20,6 +20,20 @@ class Prompt extends Model
     use RecordsRevisions;
 
     /** @var list<string> */
+    public const INTENTS = ['category', 'comparison', 'brand', 'problem', 'local'];
+
+    /** @var list<string> */
+    public const FUNNELS = ['awareness', 'consideration', 'decision'];
+
+    /** @var list<string> */
+    public const PRIORITIES = ['core', 'standard'];
+
+    public static function hashText(string $text): string
+    {
+        return hash('sha256', $text);
+    }
+
+    /** @var list<string> */
     protected $fillable = [
         'market_id',
         'topic_id',

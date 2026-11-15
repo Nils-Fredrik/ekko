@@ -1,0 +1,100 @@
+<script setup>
+import BrandNav from '@/Components/Brand/BrandNav.vue';
+import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
+import { router } from '@inertiajs/vue3';
+
+const props = defineProps({
+    brand: { type: Object, required: true },
+    period: { type: Object, required: true },
+    filters: { type: Object, required: true },
+    markets: { type: Array, required: true },
+    competitors: { type: Array, required: true },
+    suggestions: { type: Array, required: true },
+    canManage: { type: Boolean, required: true },
+});
+
+function add(suggestion) {
+    router.post(route('brands.competitors.store', props.brand.id), { name: suggestion.name }, { preserveScroll: true });
+}
+</script>
+
+<template>
+    <AppLayout :title="brand.name">
+        <template #header>
+            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+        </template>
+
+        <div class="py-8">
+            <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+                <BrandNav :brand-id="brand.id" />
+                <PeriodFilters
+                    :brand-id="brand.id"
+                    route-name="brands.competitors.index"
+                    :days="period.days"
+                    :markets="markets"
+                    :market="filters.market"
+                />
+
+                <section class="rounded-2xl border border-line bg-white p-5 text-ink">
+                    <h3 class="text-sm font-medium">{{ $t('app.library.suggestions') }}</h3>
+                    <p v-if="suggestions.length === 0" class="mt-3 text-sm text-ink-soft">
+                        {{ $t('app.library.no_suggestions') }}
+                    </p>
+                    <ul v-else class="mt-3 flex flex-col gap-3">
+                        <li
+                            v-for="suggestion in suggestions"
+                            :key="suggestion.name"
+                            class="flex items-center justify-between gap-3"
+                        >
+                            <span>
+                                {{ suggestion.name }}
+                                <span class="text-xs text-ink-soft">
+                                    {{ $t('app.library.suggestion_count', { count: suggestion.responses }) }}
+                                </span>
+                            </span>
+                            <button
+                                v-if="canManage"
+                                type="button"
+                                class="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary-deep"
+                                @click="add(suggestion)"
+                            >
+                                {{ $t('app.library.add_competitor') }}
+                            </button>
+                        </li>
+                    </ul>
+                </section>
+
+                <p v-if="competitors.length === 0" class="text-sm text-ink-soft">
+                    {{ $t('app.library.no_competitors') }}
+                </p>
+                <div v-else class="overflow-x-auto rounded-2xl border border-line bg-white text-ink">
+                    <table class="w-full text-left text-sm">
+                        <thead class="border-b border-line text-xs text-ink-soft">
+                            <tr>
+                                <th class="px-4 py-3 font-medium">{{ $t('app.library.competitors') }}</th>
+                                <th class="px-4 py-3 font-medium">{{ $t('app.library.aliases') }}</th>
+                                <th class="px-4 py-3 font-medium">{{ $t('app.library.domains') }}</th>
+                                <th class="px-4 py-3 font-medium">{{ $t('app.library.active') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="competitor in competitors"
+                                :key="competitor.id"
+                                class="border-b border-line-soft last:border-0 hover:bg-row-hover"
+                            >
+                                <td class="px-4 py-3 font-medium">{{ competitor.name }}</td>
+                                <td class="px-4 py-3 text-ink-soft">{{ competitor.aliases.join(', ') }}</td>
+                                <td class="px-4 py-3 text-ink-soft">{{ competitor.domains.join(', ') }}</td>
+                                <td class="px-4 py-3" :class="competitor.is_active ? 'text-success' : 'text-ink-soft'">
+                                    {{ competitor.is_active ? $t('app.library.active') : $t('app.library.inactive') }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </AppLayout>
+</template>
