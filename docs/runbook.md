@@ -63,6 +63,15 @@ Miljøreglene følger [GitHubs dokumenterte GITHUB_REF-kontroll](https://docs.gi
 
 # Operations runbook
 
+## Retry a deployment
+
+Verified container artifacts expire after one day. If an artifact has expired,
+rerun the entire CI workflow so that the images are rebuilt, checked and
+transferred together; retrying only the deploy job cannot recover the artifact.
+The image job has a 30-minute limit and deploy has a 90-minute limit. After a
+timeout, inspect the backup, migration, traffic and job-image state before retrying:
+termination may leave a migration or Cloud Run operation running independently.
+
 ## Roll back web traffic
 
 This procedure applies only after the deployment pipeline is completed and

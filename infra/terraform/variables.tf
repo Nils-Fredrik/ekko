@@ -34,7 +34,13 @@ variable "enable_workloads" {
 }
 
 variable "image" {
-  description = "Existing Artifact Registry image, preferably pinned by digest; required when workloads are enabled."
+  description = "Existing web image pinned by Artifact Registry digest; required when workloads are enabled."
+  type        = string
+  default     = ""
+}
+
+variable "job_image" {
+  description = "Existing jobs image with Chromium, pinned by Artifact Registry digest; required when workloads are enabled."
   type        = string
   default     = ""
 }

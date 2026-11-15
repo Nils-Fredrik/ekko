@@ -138,7 +138,7 @@ resource "google_cloud_run_v2_job" "job" {
       timeout         = each.value.timeout
       max_retries     = 0
       containers {
-        image   = var.image
+        image   = var.job_image
         command = each.value.command
         args    = each.key == "task" ? ["php artisan list"] : []
         resources { limits = { cpu = "1", memory = "1Gi" } }
@@ -179,6 +179,10 @@ resource "google_cloud_run_v2_job" "job" {
   # T10 owns image updates after the initial provision.
   lifecycle {
     ignore_changes = [client, client_version, template[0].template[0].containers[0].image]
+    precondition {
+      condition     = length(trimspace(var.job_image)) > 0
+      error_message = "Set job_image to the verified jobs image with Chromium before enabling workloads."
+    }
   }
   depends_on = [google_project_service.api, google_secret_manager_secret_iam_member.read, google_project_iam_member.cloudsql_client]
 }

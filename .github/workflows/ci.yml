@@ -115,6 +115,7 @@ jobs:
     image:
         name: container build
         runs-on: ubuntu-latest
+        timeout-minutes: 30
         outputs:
             artifact-id: ${{ steps.images.outputs.artifact-id }}
         steps:
@@ -186,6 +187,7 @@ jobs:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.EKKO_DEPLOY_ENABLED == 'true'
         needs: [test, image]
         runs-on: ubuntu-latest
+        timeout-minutes: 90
         permissions:
             contents: read
             id-token: write
@@ -228,11 +230,12 @@ jobs:
                   docker tag ekko-jobs-check:ci "$JOB_TAG"
                   docker push "$WEB_TAG"
                   docker push "$JOB_TAG"
-                  web_digest=$(gcloud artifacts docker images describe "$WEB_TAG" --format='value(image_summary.digest)')
-                  job_digest=$(gcloud artifacts docker images describe "$JOB_TAG" --format='value(image_summary.digest)')
-                  [[ "$web_digest" =~ ^sha256:[a-f0-9]{64}$ && "$job_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
-                  echo "WEB_IMAGE=${WEB_TAG%:*}@$web_digest" >> "$GITHUB_ENV"
-                  echo "JOB_IMAGE=${JOB_TAG%:*}@$job_digest" >> "$GITHUB_ENV"
+                  web_image=$(docker image inspect "$WEB_TAG" --format '{{index .RepoDigests 0}}')
+                  job_image=$(docker image inspect "$JOB_TAG" --format '{{index .RepoDigests 0}}')
+                  [[ "$web_image" == "${WEB_TAG%:*}@sha256:"* && "$job_image" == "${JOB_TAG%:*}@sha256:"* ]]
+                  [[ "${web_image##*@}" =~ ^sha256:[a-f0-9]{64}$ && "${job_image##*@}" =~ ^sha256:[a-f0-9]{64}$ ]]
+                  echo "WEB_IMAGE=$web_image" >> "$GITHUB_ENV"
+                  echo "JOB_IMAGE=$job_image" >> "$GITHUB_ENV"
             - name: Deploy candidate and promote after smoke test
               env:
                   SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}

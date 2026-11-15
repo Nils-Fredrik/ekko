@@ -32,7 +32,8 @@ ever contain a secret value.
    rollout use a temporary HTTPS value for `app_url`, then set it to the actual
    Cloud Run URL in a second reviewed deployment. Configure OAuth redirects
    and verify the URL before accepting user traffic.
-5. Set `enable_workloads = true`, `image` to the immutable image digest and
+5. Set `enable_workloads = true`, `image` to the immutable web image digest,
+   `job_image` to the immutable jobs image digest (with Chromium), and
    `app_url` to a temporary HTTPS URL for bootstrap; review a new plan before
    applying. After creation set `app_url` to the actual service URL and review
    the second plan before accepting traffic.
