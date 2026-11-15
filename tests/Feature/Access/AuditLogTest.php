@@ -300,6 +300,7 @@ test('switching tenant keeps the current acting-as when the revision log cannot 
     $session = ['auth.password_confirmed_at' => time()];
 
     $this->actingAs($admin)->withSession($session)->post("/admin/acting-as/{$this->tenant->id}", ['reason' => 'Support case 4711']);
+    Log::spy();
     // Only the entry for the second tenant fails, so the stop entry for the first could be written.
     // Rolled back with the test transaction.
     DB::unprepared(<<<SQL
@@ -314,6 +315,10 @@ test('switching tenant keeps the current acting-as when the revision log cannot 
     $this->actingAs($admin)->withSession($session)->post("/admin/acting-as/{$second->id}", ['reason' => 'Support case 4712'])
         ->assertServerError()
         ->assertSessionHas('acting_as.tenant_id', $this->tenant->id);
+
+    // The stop entry for the first tenant is rolled back with the request, in both logs.
+    expect(auditEntries('acting_as.stopped'))->toBe([]);
+    Log::shouldNotHaveReceived('info', ['acting_as.stopped', Mockery::any()]);
 });
 
 test('competitor aliases and domains are recorded', function () {
