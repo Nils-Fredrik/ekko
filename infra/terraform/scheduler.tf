@@ -55,7 +55,7 @@ resource "google_cloud_scheduler_job" "tick" {
     uri         = "${google_cloud_run_v2_service.web[0].uri}/internal/tick/${each.key}"
     oidc_token {
       service_account_email = google_service_account.component["scheduler"].email
-      audience              = google_cloud_run_v2_service.web[0].uri
+      audience              = var.app_url
     }
   }
 }

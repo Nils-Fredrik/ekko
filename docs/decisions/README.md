@@ -27,3 +27,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0017](0017-rest-api-token-og-kontrakt.md) | REST-API: tenantbundne tokens og avgrenset kontrakt | Foreslått |
 | [0018](0018-veiviser-backend.md) | Veiviserens backend: sidehenting med SSRF-vern, forslag med Sonnet, kostnadsestimat | Akseptert |
 | [0019](0019-varsler.md) | Varsler: evaluering, døgnmelding, levering og kvittering | Foreslått |
+| [0020](0020-dispatch-og-worker.md) | Varig dispatch, køleverandører og worker | Foreslått |
