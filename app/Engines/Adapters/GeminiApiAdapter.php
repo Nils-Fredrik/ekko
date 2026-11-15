@@ -87,12 +87,13 @@ final class GeminiApiAdapter implements EngineAdapter
     /** @param array<array-key, mixed> $raw */
     private function parseResult(array $raw): EngineResult
     {
+        $finishReason = data_get($raw, 'candidates.0.finishReason');
         $parts = data_get($raw, 'candidates.0.content.parts');
         $inputTokens = data_get($raw, 'usageMetadata.promptTokenCount');
         $outputTokens = data_get($raw, 'usageMetadata.candidatesTokenCount');
         $thoughtTokens = data_get($raw, 'usageMetadata.thoughtsTokenCount', 0);
 
-        if (! is_array($parts) || ! is_int($inputTokens) || ! is_int($outputTokens) || ! is_int($thoughtTokens)
+        if ($finishReason !== 'STOP' || ! is_array($parts) || ! is_int($inputTokens) || ! is_int($outputTokens) || ! is_int($thoughtTokens)
             || min($inputTokens, $outputTokens, $thoughtTokens) < 0) {
             throw new EngineCallFailed('gemini_invalid_response');
         }

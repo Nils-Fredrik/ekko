@@ -182,6 +182,26 @@ it('rejects an empty provider response', function () {
     Http::assertSentCount(1);
 });
 
+it('rejects a partial answer unless Gemini reports a normal stop', function (array $completion) {
+    $raw = EngineFixtures::load('gemini_api', 'se-sv-no-citations');
+    unset($raw['candidates'][0]['finishReason']);
+    $raw['candidates'][0] = array_replace($raw['candidates'][0], $completion);
+    $raw['candidates'][0]['content']['parts'] = [['text' => '1. Fjordparken 2.']];
+    Http::fake(['https://generativelanguage.googleapis.com/*' => Http::response($raw)]);
+
+    expect(fn () => app(GeminiApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', 'fixture-tenant-key')))
+        ->toThrow(fn (EngineCallFailed $failure) => expect($failure->errorCode)->toBe('gemini_invalid_response')
+            ->and($failure->getMessage())->toBe('gemini_invalid_response'));
+
+    Http::assertSentCount(1);
+    Sleep::assertNeverSlept();
+})->with([
+    'token limit' => [['finishReason' => 'MAX_TOKENS', 'finishMessage' => 'Synthetic provider detail']],
+    'safety stop' => [['finishReason' => 'SAFETY']],
+    'empty finish reason' => [['finishReason' => '']],
+    'missing finish reason' => [[]],
+]);
+
 it('requires a tenant API key before making a request', function (?string $apiKey) {
     Http::fake();
 
