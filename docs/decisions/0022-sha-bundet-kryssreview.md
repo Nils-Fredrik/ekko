@@ -12,4 +12,4 @@ Tre mislykkede ulike head-SHA-er siden siste godkjenning eskaleres til T42 på B
 
 Dette medfører avhengighet til et observert Codex-format som må testes ved integrasjonsendringer. Grenbeskyttelsen aktiveres først etter separate test-PR-er; eieren merger alltid. Se `docs/runbook.md` for aktivering og feilhåndtering.
 
-Claude leser bare arbeidsmappen i restricted-modus. Diff og kontekst ligger under `.review/`. Publiseringsverktøyet avviser tekst med miljøverdier på minst 16 tegn eller kjente tokenmønstre. Ukjent mergeability ventes på i inntil 30 sekunder, før kjøringen feiler lukket.
+Claude leser bare arbeidsmappen i restricted-modus. Diff og kontekst ligger under `.review/`. Publiseringsverktøyet avviser tekst med verdier på minst 16 tegn fra miljøvariabler med TOKEN, SECRET, KEY, PASSWORD eller CREDENTIAL i navnet eller kjente tokenmønstre. Ukjent mergeability ventes på i inntil 30 sekunder, før kjøringen feiler lukket.

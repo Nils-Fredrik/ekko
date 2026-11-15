@@ -83,10 +83,11 @@ export async function runReview(
     }
 
     async function prepare() {
+        // Invalidate an earlier success even if mergeability lookup subsequently fails.
+        if (!/^[a-f0-9]{40}$/.test(env.EVENT_HEAD || '')) throw new Error('Invalid event head');
+        await status(env.EVENT_HEAD, 'pending', 'Venter på kryssreview');
         const pr = await getPull();
         if (pr.head.sha !== env.EVENT_HEAD || pr.base.sha !== env.EVENT_BASE) throw new Error('Stale event');
-        // Set pending before review work starts. If anything fails, the gate stays closed.
-        await status(pr.head.sha, 'pending', 'Venter på kryssreview');
         reviewRounds([], Number(env.AGENT_REVIEW_BOT_ID));
         const files = await allPages(`${pull}/files`);
         if (files.length !== pr.changed_files || files.length >= 3000)

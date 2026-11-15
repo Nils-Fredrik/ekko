@@ -86,7 +86,7 @@ async function harness(t, overrides = {}) {
             if (state.mutateAfterDiff) state.pr = { ...pr, head: { sha: 'd'.repeat(40) } };
             return new Response(state.diff);
         }
-        return Response.json(state.pr);
+        return Response.json(state.pulls?.length ? state.pulls.shift() : state.pr);
     };
     return {
         env,
@@ -320,4 +320,42 @@ test('the shared GitHub Actions bot cannot forge or reset review rounds', () => 
     };
     assert.equal(reviewRounds([comment], 12345678).failures, 0);
     assert.throws(() => reviewRounds([], 41898282));
+});
+
+test('ordinary repository metadata is safe to publish while credentials remain blocked', async () => {
+    const env = {
+        GH_TOKEN: 'synthetic-credential-value-for-tests',
+        GITHUB_REPOSITORY: 'Nils-Fredrik/ekko',
+        PR_NUMBER: '42',
+        SNAPSHOT: snapshot(),
+        GITHUB_WORKSPACE: '/home/runner/work/ekko/ekko',
+        GITHUB_SHA: base,
+        GITHUB_SERVER_URL: 'https://github.com',
+        GITHUB_HEAD_REF: 't42-agent-review',
+    };
+    const summary = `pr:${env.GITHUB_REPOSITORY}#42 ${env.GITHUB_WORKSPACE} ${env.GITHUB_SHA} ${env.GITHUB_SERVER_URL} ${env.GITHUB_HEAD_REF}`;
+    const result = await publishClaudeReview(
+        { conclusion: 'GODKJENT', summary },
+        {
+            env,
+            request: async (_url, options) =>
+                Response.json(options.method === 'POST' ? { id: 123, user: { id: 209825114 } } : pr),
+        },
+    );
+    assert.equal(result.comment_id, 123);
+});
+
+test('prepare invalidates earlier approval before mergeability retries and tolerates temporary null', async (t) => {
+    const h = await harness(t);
+    h.state.pulls = [{ ...pr, mergeable: null }, { ...pr, mergeable: null }, pr];
+    await h.run('prepare');
+    assert.equal(h.calls[0].body.state, 'pending');
+    assert.ok(h.calls[0].url.endsWith(`/statuses/${head}`));
+    assert.equal(h.state.pulls.length, 0);
+    const failed = await harness(t);
+    failed.state.pr = { ...pr, mergeable: null };
+    await assert.rejects(failed.run('prepare'), /mergeable/);
+    assert.equal(failed.calls[0].body.state, 'pending');
+    assert.equal(failed.calls.filter((call) => call.url.endsWith('/pulls/42')).length, 6);
+    assert.ok(!failed.calls.some((call) => call.body?.state === 'success'));
 });

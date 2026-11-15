@@ -11,8 +11,12 @@ export async function publishClaudeReview(input, { env = process.env, request = 
     const result = claudeVerdict(JSON.stringify(input));
     if (
         /(?:gh[opsu]_|github_pat_|sk-ant-|-----BEGIN [A-Z ]*PRIVATE KEY-----)/.test(result.summary) ||
-        Object.values(env).some(
-            (value) => typeof value === 'string' && value.length >= 16 && result.summary.includes(value),
+        Object.entries(env).some(
+            ([name, value]) =>
+                /TOKEN|SECRET|KEY|PASSWORD|CREDENTIAL/i.test(name) &&
+                typeof value === 'string' &&
+                value.length >= 16 &&
+                result.summary.includes(value),
         )
     ) {
         throw new Error('Review text may contain credentials; publication refused');

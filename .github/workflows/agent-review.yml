@@ -86,6 +86,7 @@ jobs:
               with:
                   claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
                   track_progress: 'false'
+                  allowed_bots: 'claude,chatgpt-codex-connector,cursor'
                   prompt: |
                       Perform an independent code review of the PR diff in ${{ github.workspace }}/.review/review.diff.
                       Read AGENTS.md and docs/spec.md from this base checkout.
