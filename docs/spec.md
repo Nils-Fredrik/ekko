@@ -525,6 +525,8 @@ Integrasjonen `clickhouse_logs` per merkevare lagrer tilkobling (vert, database,
 
 Listen over user-agents vedlikeholdes i konfigurasjon, ikke i kode. Spørringene skal følge skjemaet som er dokumentert i skillen `clickhouse-logs-query` for Maksimer-loggene.
 
+ClickHouse-synken registrerer feildager i tenantens tidssone og oppretter `integration_error` etter to påfølgende feildager (11.1). Vellykket synk setter `status = synced` og nullstiller feilrekken; feil bevarer tidligere aggregater og `last_sync_at`. Se [ADR 0014](decisions/0014-botloggimport.md).
+
 Tenants uten ClickHouse kan i stedet laste opp loggfiler (nginx/Apache combined-format, gz) via grensesnittet. Filene parses av en jobb.
 
 ### 10.2 AI-trafikk fra GA4

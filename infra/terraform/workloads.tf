@@ -140,7 +140,11 @@ resource "google_cloud_run_v2_job" "job" {
         args    = each.key == "task" ? ["php artisan list"] : []
         resources { limits = { cpu = "1", memory = "1Gi" } }
         dynamic "env" {
-          for_each = merge(local.common_env, { DB_USERNAME = each.key == "migrate" ? var.admin_db_user : var.app_db_user })
+          for_each = merge(
+            local.common_env,
+            { DB_USERNAME = each.key == "migrate" ? var.admin_db_user : var.app_db_user },
+            each.key == "task" ? { EKKO_CLICKHOUSE_ENDPOINTS = join(",", var.clickhouse_endpoints) } : {},
+          )
           content {
             name  = env.key
             value = env.value
