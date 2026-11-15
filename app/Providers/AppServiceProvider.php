@@ -10,6 +10,9 @@ use App\Extraction\ExtractionClient;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -34,6 +37,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // The Claude connection (ADR 0016): tool calls per user, and the OAuth endpoints Claude calls without a
+        // session per address.
+        RateLimiter::for('mcp', fn (Request $request) => Limit::perMinute((int) config('ekko.mcp.calls_per_minute'))
+            ->by('mcp:'.($request->user()?->getAuthIdentifier() ?? $request->ip())));
+        RateLimiter::for('mcp-oauth', fn (Request $request) => Limit::perMinute((int) config('ekko.mcp.oauth_per_minute'))
+            ->by('mcp-oauth:'.$request->ip()));
     }
 }

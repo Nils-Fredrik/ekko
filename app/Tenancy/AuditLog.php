@@ -54,6 +54,17 @@ final class AuditLog
     }
 
     /**
+     * A change made through the Claude connection (MCP, docs/spec.md 15.2). The changed rows also have their own
+     * revisions (RecordsRevisions); this entry says that Claude made them, with which tool and connection.
+     *
+     * @param  array<string, mixed>  $properties  Counts and ids only, never texts.
+     */
+    public function mcpChange(User $by, Team $tenant, string $tool, array $properties): void
+    {
+        $this->record($tenant, "mcp.{$tool}", $by, null, ['source' => 'mcp', 'tool' => $tool, ...$properties]);
+    }
+
+    /**
      * @param  array<string, mixed>  $properties  No secrets, answer texts or prompt texts.
      */
     private function record(Team $tenant, string $event, ?User $causer, ?Model $subject, array $properties): void

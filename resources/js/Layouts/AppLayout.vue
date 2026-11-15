@@ -170,6 +170,10 @@ const logout = () => {
                                             {{ $t('API Tokens') }}
                                         </DropdownLink>
 
+                                        <DropdownLink :href="route('mcp.connections')">
+                                            {{ $t('mcp.nav') }}
+                                        </DropdownLink>
+
                                         <div class="border-t border-line-soft" />
 
                                         <div
@@ -273,6 +277,13 @@ const logout = () => {
                         @click="menuOpen = false"
                     >
                         {{ $t('API Tokens') }}
+                    </Link>
+                    <Link
+                        :href="route('mcp.connections')"
+                        class="rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('mcp.nav') }}
                     </Link>
                 </div>
 
