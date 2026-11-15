@@ -601,6 +601,30 @@
    "note": "numbered headings"
   },
   {
+   "id": "nb-30",
+   "language": "nb",
+   "text": "Topplisten:\n**1.** Fjordkaffe\n**2.** Bergensbrenneriet\n**3.** Kaffekompaniet",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": 1
+    },
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": 2
+    },
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": 3
+    }
+   ],
+   "citations": [],
+   "note": "closing bold after marker"
+  },
+  {
    "id": "nn-01",
    "language": "nn",
    "text": "Fjordkaffe er eit norsk kaffibrenneri.",

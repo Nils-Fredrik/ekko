@@ -32,6 +32,10 @@ it('numbers items of numbered and bulleted lists from 1', function (string $text
     'crlf' => ["1. Alfa\r\n2. Beta\r\n3. Gamma"],
     'indented list' => ["  1. Alfa\n  2. Beta\n  3. Gamma"],
     'bold names' => ["1. **Alfa** – x\n2. **Beta** – y\n3. **Gamma** – z"],
+    'bold marker' => ["**1.** Alfa\n**2.** Beta\n**3.** Gamma"],
+    'bold marker with paren' => ["**1)** Alfa\n**2)** Beta\n**3)** Gamma"],
+    'bold number before dot' => ["**1**. Alfa\n**2**. Beta\n**3**. Gamma"],
+    'whole item bold' => ["**1. Alfa**\n**2. Beta**\n**3. Gamma**"],
     'after intro' => ["Her er tre:\n\n- Alfa\n- Beta\n- Gamma\n"],
 ]);
 

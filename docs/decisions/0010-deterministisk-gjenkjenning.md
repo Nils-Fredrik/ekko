@@ -26,7 +26,7 @@ Koden ligger i `App\Detection`. `DeterministicDetector::detect(Response)` kjøre
 
 ## Konsekvenser
 
-- Gullsettet (`tests/Fixtures/extraction/gold.json`, 60 svar på nb, nn og sv) kjøres i CI og krever 100 % treff på kjente alias og ingen ekstra treff. Nye normaliseringsregler eller alias-tilfeller legges inn i gullsettet.
+- Gullsettet (`tests/Fixtures/extraction/gold.json`, 61 svar på nb, nn og sv) kjøres i CI og krever 100 % treff på kjente alias og ingen ekstra treff. Nye normaliseringsregler eller alias-tilfeller legges inn i gullsettet.
 - Skjemaet for alias-administrasjon (T28) må bruke `SafeRegexAlias` når `match_mode = regex`.
 - Worker-jobben (T17) må kalle `DeterministicDetector` i `TenantJob`-konteksten og kan dele én `DetectionCatalog::load()` på tvers av flere svar i samme tenant.
 - Modellleddet (T20) leser nevnelsene med `detection = deterministic` som fasit for om en kjent merkevare er nevnt (8.2).

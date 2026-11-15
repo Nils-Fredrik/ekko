@@ -14,7 +14,7 @@ namespace App\Detection;
  */
 final class ListPositions
 {
-    private const MARKER = '/^(?<indent>[ \t]*)(?:(?:#{1,6}[ \t]+)?(?:\*\*)?(?<num>\d{1,3})[.)]|(?<bullet>[-*+•·–—]))[ \t]+\S/u';
+    private const MARKER = '/^(?<indent>[ \t]*)(?:(?:#{1,6}[ \t]+)?(?:\*\*)?(?<num>\d{1,3})(?:\*\*)?[.)](?:\*\*)?|(?<bullet>[-*+•·–—]))[ \t]+\S/u';
 
     /**
      * @return list<array{start: int, end: int, position: int}> item ranges in code points of $text
