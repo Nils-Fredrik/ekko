@@ -4,6 +4,8 @@ PR #31 er fortsatt et utkast. CI bygger web- og jobbimage, kjører alle kodekont
 
 ## Røyktestkontrakt
 
+Container-jobben kontrollerer både web- og jobbimaget, lagrer dem sammen i et komprimert artifact med én dags levetid, laster arkivet ned igjen og kontrollerer identitet og runtime-innhold. Deploy henter nøyaktig dette artifact-ID-et fra samme workflow-kjøring, kontrollerer sjekksummen og publiserer imagene uten nytt bygg. Produksjonsutrulling bruker registry-digestene. PR-kjøringer publiserer aldri til Artifact Registry.
+
 `scripts/smoke.sh URL` kjører Playwright/Chromium mot kandidatens opprinnelse. Den krever:
 
 - `SMOKE_EMAIL` og `SMOKE_PASSWORD`: en verifisert, syntetisk lesebruker i en egen testtenant, uten partner- eller plattformadminrettigheter.
@@ -26,4 +28,10 @@ Installer Node-avhengigheter og Chromium før kjøring (`npm ci`, `npx playwrigh
 5. Rull ut en bevisst feilende revisjon uten trafikk i isolert Cloud Run. Dokumenter før/etter-fordeling av trafikk, revisjons-ID og feilet smoke. Test også feil ved jobboppdatering etter webpromotering og prosedyren for tilbakeføring.
 6. Sett `EKKO_DEPLOY_ENABLED=true` først når bevisene foreligger. Eieren merger etter godkjent kryssreview og grønn CI.
 
-`tests/deploy/test-deploy.sh` tester kommandoenes rekkefølge og feilveier med mocks. Det er ikke bevis på Cloud Run-oppførsel. Ingen produksjonsressurser eller trafikk er endret i dette arbeidet. Se `docs/runbook.md` for tilbakeføring.
+`tests/deploy/test-deploy.sh` tester kommandoenes rekkefølge og feilveier med mocks. Det er ikke bevis på Cloud Run-oppførsel. Se `docs/runbook.md` for tilbakeføring.
+
+## Kontrollert oppstartsstatus 15. november 2026
+
+GCP-lesetilgang og Terraform-backend er verifisert. SQL-instansen og registry finnes. En gjennomgått, målrettet IAM/WIF-plan opprettet 13 ressurser uten endring eller sletting av eksisterende ressurser: GitHub-pool/provider, STS og avgrensede CI-rettigheter, samt leserollen for worker-kjøringer. Målrettingen utelot en uvedkommende Cloud SQL-planendring uten synlig før/etter-differanse; hele infrastrukturen er derfor ikke erklært driftfri.
+
+Alle elleve Secret Manager-beholdere mangler aktive versjoner. Bare databasebrukeren `postgres` finnes, og ingen Cloud Run-tjenester eller containerimages er opprettet. Ingen webtrafikk er endret. Runtime-legitimasjon, databasebrukere, første images og workload-bootstrap gjenstår før produksjonsaksepten kan kjøres. Ingen hemmelige verdier er lest eller kopiert i denne kontrollen.

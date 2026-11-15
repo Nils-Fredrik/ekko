@@ -10,7 +10,7 @@ case "${1:-}" in
     done
     ;;
   verify)
-    docker run --rm --entrypoint sh ekko-context-check:ci -eu -c '
+    docker run --rm --entrypoint sh "${IMAGE:-ekko-context-check:ci}" -eu -c '
       for path in .env auth.json gha-creds-ekko-fixture.json storage/ekko-fixture.key public/hot bootstrap/cache/config.php storage/app/private/ekko-fixture storage/app/public/ekko-fixture storage/framework/cache/data/ekko-fixture storage/framework/sessions/ekko-fixture storage/framework/testing/ekko-fixture storage/framework/views/ekko-fixture storage/logs/ekko-fixture tests docs infra .github; do
         if [ -e "$path" ]; then echo "Unexpected local state: $path" >&2; exit 1; fi
       done

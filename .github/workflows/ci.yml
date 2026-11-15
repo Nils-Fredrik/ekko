@@ -115,6 +115,8 @@ jobs:
     image:
         name: container build
         runs-on: ubuntu-latest
+        outputs:
+            artifact-id: ${{ steps.images.outputs.artifact-id }}
         steps:
             - uses: actions/checkout@v4
             - uses: docker/setup-buildx-action@v3
@@ -134,6 +136,12 @@ jobs:
                   context: .
                   target: jobs
                   push: false
+                  load: true
+                  tags: ekko-jobs-check:ci
+            - name: Verify jobs image excludes local state
+              env:
+                  IMAGE: ekko-jobs-check:ci
+              run: bash tests/deploy/test-docker-context.sh verify
             - uses: actions/setup-node@v4
               with:
                   node-version: '24'
@@ -141,6 +149,38 @@ jobs:
             - run: npm ci --no-audit --no-fund
             - name: Verify failed smoke test keeps traffic unchanged
               run: bash tests/deploy/test-deploy.sh
+            - name: Save verified images
+              run: |
+                  mkdir -p "$RUNNER_TEMP/verified-images"
+                  docker save ekko-context-check:ci ekko-jobs-check:ci | gzip -1 > "$RUNNER_TEMP/verified-images/images.tar.gz"
+                  cd "$RUNNER_TEMP/verified-images"
+                  sha256sum images.tar.gz > images.sha256
+            - name: Preserve verified images for this run
+              id: images
+              uses: actions/upload-artifact@v4
+              with:
+                  name: verified-images-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: ${{ runner.temp }}/verified-images/
+                  retention-days: 1
+                  compression-level: 0
+                  if-no-files-found: error
+            - name: Download archive to verify transfer before deployment
+              uses: actions/download-artifact@v4
+              with:
+                  artifact-ids: ${{ steps.images.outputs.artifact-id }}
+                  path: ${{ runner.temp }}/restored-images
+                  merge-multiple: true
+            - name: Verify restored image identities and runtime contents
+              run: |
+                  expected_web=$(docker image inspect ekko-context-check:ci --format '{{.Id}}')
+                  expected_jobs=$(docker image inspect ekko-jobs-check:ci --format '{{.Id}}')
+                  docker image rm ekko-context-check:ci ekko-jobs-check:ci
+                  (cd "$RUNNER_TEMP/restored-images" && sha256sum --check images.sha256)
+                  docker load --input "$RUNNER_TEMP/restored-images/images.tar.gz"
+                  [[ "$(docker image inspect ekko-context-check:ci --format '{{.Id}}')" == "$expected_web" ]]
+                  [[ "$(docker image inspect ekko-jobs-check:ci --format '{{.Id}}')" == "$expected_jobs" ]]
+                  bash tests/deploy/test-docker-context.sh verify
+                  IMAGE=ekko-jobs-check:ci bash tests/deploy/test-docker-context.sh verify
 
     deploy:
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.EKKO_DEPLOY_ENABLED == 'true'
@@ -173,21 +213,26 @@ jobs:
             - run: npx playwright install --with-deps chromium
             - uses: google-github-actions/setup-gcloud@v2
             - run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
-            - uses: docker/setup-buildx-action@v3
-            - id: web
-              uses: docker/build-push-action@v6
+            - name: Download this run's verified images
+              uses: actions/download-artifact@v4
               with:
-                  context: .
-                  target: web
-                  push: true
-                  tags: ${{ env.WEB_TAG }}
-            - id: jobs
-              uses: docker/build-push-action@v6
-              with:
-                  context: .
-                  target: jobs
-                  push: true
-                  tags: ${{ env.JOB_TAG }}
+                  artifact-ids: ${{ needs.image.outputs.artifact-id }}
+                  path: ${{ runner.temp }}/verified-images
+                  merge-multiple: true
+            - name: Publish verified images without rebuilding
+              run: |
+                  cd "$RUNNER_TEMP/verified-images"
+                  sha256sum --check images.sha256
+                  docker load --input images.tar.gz
+                  docker tag ekko-context-check:ci "$WEB_TAG"
+                  docker tag ekko-jobs-check:ci "$JOB_TAG"
+                  docker push "$WEB_TAG"
+                  docker push "$JOB_TAG"
+                  web_digest=$(gcloud artifacts docker images describe "$WEB_TAG" --format='value(image_summary.digest)')
+                  job_digest=$(gcloud artifacts docker images describe "$JOB_TAG" --format='value(image_summary.digest)')
+                  [[ "$web_digest" =~ ^sha256:[a-f0-9]{64}$ && "$job_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+                  echo "WEB_IMAGE=${WEB_TAG%:*}@$web_digest" >> "$GITHUB_ENV"
+                  echo "JOB_IMAGE=${JOB_TAG%:*}@$job_digest" >> "$GITHUB_ENV"
             - name: Deploy candidate and promote after smoke test
               env:
                   SMOKE_EMAIL: ${{ secrets.SMOKE_EMAIL }}
@@ -196,6 +241,4 @@ jobs:
                   SMOKE_TENANT_ID: ${{ vars.SMOKE_TENANT_ID }}
                   SMOKE_BRAND_ID: ${{ vars.SMOKE_BRAND_ID }}
                   SMOKE_MCP_CLIENT_ID: ${{ vars.SMOKE_MCP_CLIENT_ID }}
-                  WEB_IMAGE: europe-west1-docker.pkg.dev/ekko-514612/ekko/web@${{ steps.web.outputs.digest }}
-                  JOB_IMAGE: europe-west1-docker.pkg.dev/ekko-514612/ekko/jobs@${{ steps.jobs.outputs.digest }}
               run: scripts/deploy.sh
