@@ -2,6 +2,7 @@
 
 namespace App\Extraction;
 
+use App\AnthropicBudget\Account;
 use App\Detection\DetectedMention;
 use App\Detection\DetectionCatalog;
 use App\Detection\DeterministicDetector;
@@ -127,6 +128,7 @@ final class ExtractionWriter
                 'cost_usd' => $this->cost->of($outcome),
                 'billed_to' => 'platform',
             ]);
+            app(Account::class)->settle('extract:r'.$response->id);
         }
     }
 

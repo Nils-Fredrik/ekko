@@ -2,6 +2,7 @@
 
 namespace App\Engines\Adapters;
 
+use App\AnthropicBudget\Account;
 use App\Engines\EngineAdapter;
 use App\Engines\EngineCallFailed;
 use App\Engines\EngineRequest;
@@ -67,6 +68,12 @@ abstract class ClaudeMessagesAdapter implements EngineAdapter
         }
 
         if (! $response->successful()) {
+            if (str_contains(strtolower((string) $response->json('error.message')), 'credit balance is too low')) {
+                if ($request->apiKey === null) {
+                    app(Account::class)->markExhausted();
+                }
+                throw new EngineCallFailed('anthropic_credits_exhausted');
+            }
             throw new EngineCallFailed('anthropic_http_'.$response->status());
         }
 

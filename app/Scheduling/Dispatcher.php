@@ -2,11 +2,14 @@
 
 namespace App\Scheduling;
 
+use App\AnthropicBudget\Account;
+use App\AnthropicBudget\Planner;
 use App\Engines\Credentials\TenantApiKeys;
 use App\Engines\EnginePricing;
 use App\Enums\TenantStatus;
 use App\Jobs\CollectEngineRun;
 use App\Jobs\SubmitExtractionBatch;
+use App\Models\AnthropicBudgetPlan;
 use App\Models\Market;
 use App\Models\Run;
 use App\Models\RunBatch;
@@ -33,6 +36,9 @@ final class Dispatcher
     public function dispatch(CarbonImmutable $now, bool $plan = true): int
     {
         $this->failures = 0;
+        if ($plan) {
+            app(Planner::class)->plan($now);
+        }
         if (config('queue.connections.database.connection') !== null && config('queue.connections.database.connection') !== config('database.default')) {
             throw new RuntimeException('queue_must_share_tenant_connection');
         }
@@ -115,6 +121,8 @@ final class Dispatcher
         }
         $day = $now->setTimezone($tenant->timezone)->startOfDay();
         $candidates = [];
+        $budget = app(Account::class);
+        $additions = $budget->configured() ? (AnthropicBudgetPlan::query()->where('day', $now->utc()->toDateString())->first()->additions ?? []) : [];
         foreach (Market::query()->where('is_active', true)->whereHas('brand', fn ($q) => $q->where('status', 'active'))->with(['marketEngines.engine', 'prompts' => fn ($q) => $q->where('is_active', true)->orderByRaw("CASE WHEN priority = 'core' THEN 0 ELSE 1 END")->orderBy('id')])->orderBy('id')->get() as $market) {
             $batch = RunBatch::query()->firstOrCreate(['market_id' => $market->id, 'dispatch_date' => $day->toDateString()], ['scheduled_for' => $day->utc(), 'status' => 'queued']);
             if (! $batch->wasRecentlyCreated) {
@@ -128,12 +136,22 @@ final class Dispatcher
                     }
                     $ranks = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
                     $frequency = $ranks[$setting->frequency] <= $ranks[$plan->maxFrequencyForEngine($key)] ? $setting->frequency : $plan->maxFrequencyForEngine($key);
-                    if (! PromptSchedule::due($prompt->id, $frequency, $day)) {
+                    $platformClaude = $budget->configured() && in_array($key, ['claude_haiku', 'claude_sonnet'], true) && $this->keys->forEngine($tenant, $setting->engine) === null;
+                    if ($platformClaude && $key === 'claude_sonnet' && $frequency === 'daily') {
+                        $frequency = 'weekly';
+                    }
+                    $extra = array_values(array_filter($additions, fn ($item) => $item['prompt'] === $prompt->id && $item['engine'] === $key));
+                    $dailyExtra = count(array_filter($extra, fn ($item) => $item['kind'] === 'sonnet_daily')) > 0;
+                    if (! PromptSchedule::due($prompt->id, $frequency, $day) && ! $dailyExtra) {
                         continue;
                     }
                     $price = $this->prices->effectiveAt($key, $now);
                     $account = $this->keys->forEngine($tenant, $setting->engine) === null ? BillingAccount::Platform : BillingAccount::Byok;
-                    for ($repetition = 1; $repetition <= min(3, $setting->repetitions, $plan->max_repetitions); $repetition++) {
+                    $repetitions = min(3, $setting->repetitions, $plan->max_repetitions);
+                    foreach ($extra as $item) {
+                        $repetitions = max($repetitions, min(3, $plan->max_repetitions, $item['repetition']));
+                    }
+                    for ($repetition = 1; $repetition <= $repetitions; $repetition++) {
                         $run = $batch->runs()->create(['prompt_id' => $prompt->id, 'engine_key' => $key, 'repetition' => $repetition]);
                         $candidates[] = new PlannedRun($run->id, $prompt->priority === 'core', $account, $price->price_per_call_usd);
                     }

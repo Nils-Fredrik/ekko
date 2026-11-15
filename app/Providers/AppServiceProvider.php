@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\AnthropicBudget\Account;
+use App\AnthropicBudget\BudgetedExtractionClient;
+use App\AnthropicBudget\Estimator;
 use App\Engines\EngineRegistry;
 use App\Engines\GcsRawResponseStore;
 use App\Engines\RawResponseStore;
@@ -32,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(EngineRegistry::class, EngineRegistry::discover(...));
         $this->app->bind(RawResponseStore::class, GcsRawResponseStore::class);
         // Resolved lazily: without ANTHROPIC_API_KEY the app boots, and only extraction fails.
-        $this->app->bind(ExtractionClient::class, fn (): ExtractionClient => AnthropicExtractionClient::fromConfig());
+        $this->app->bind(ExtractionClient::class, fn (): ExtractionClient => new BudgetedExtractionClient(AnthropicExtractionClient::fromConfig(), app(Account::class), app(Estimator::class)));
     }
 
     /**

@@ -1,0 +1,19 @@
+# ADR 0023: Kredittplan og reservasjoner for Anthropic
+
+Status: Foreslått. T41, spesifikasjon 12.5.
+
+Planleggingen følger en UTC-periode med konfigurert startdag. Dag 29–31 avkortes til siste dato i korte måneder, uten å flytte neste måneds anker. Pott er en eksplisitt workspace-tildeling; tom konfigurasjon aktiverer ingen kredittstyring. Kallkvoter og BYOK-budsjetter fra T19 gjelder fortsatt.
+
+`ekko:anthropic-budget` beregner gjenværende grunnlast fra aktive markeder, pakker og promptplaner. `Dispatcher` kaller samme planlegger før daglig planlegging, slik at Cloud Scheduler ikke kan kjøre dispatch før budsjettsteget er ferdig. Prognosen inkluderer forbruk, ventende reservasjoner og grunnlast samt 10 % buffer på gjenværende grunnlast. Bufferen frigjøres de siste tre dagene. Tillegg fordeles over gjenværende dager: Sonnet for kjerneprompts, gjentakelser rangert etter variasjon i merkevareomtale siste 14 dager, deretter månedlig innsikt. Daglige hash-ranger roterer like kandidater. Pakkegrenser og motorvalg overstyres ikke.
+
+Beregninger bruker heltall på 10^-8 USD. Innsamlingskall reserverer et konservativt estimat under en låst plattformrad før HTTP. Message Batches og enkeltforsøk på uttrekk reserverer samme konto. Faktisk bokført bruk erstatter reservasjonen ved oppgjør. Ukjent utfall beholder reservasjonen ut perioden; drift må avstemme mot leverandøren før man frigjør ukjent forbruk. API-kostnad kan avvike fra estimatet; den harde ytre grensen er fortsatt workspace-grensen i Console med automatisk påfylling av, som spesifikasjonen krever. Dette er ikke en garanti mot feil konfigurert leverandørkonto.
+
+`anthropic_credit_spend` er en append-only plattformkonto med bare hendelses-ID, tidspunkt og USD. Ingen tenant-ID, navn, svar eller nøkkel kopieres. Dette hindrer at sletting av en tenant frigjør kreditt som allerede er brukt. Eksisterende forbruk overføres ved migrering; nye `UsageEvent`-rader bokføres idempotent. Konto, kredittstopp og ventende reservasjoner er globale fordi de gjelder én leverandørkonto. Daglige planer og innsiktstildelinger er tenant-eide modeller med `BelongsToTenant`, RLS og sammensatt fremmednøkkel til merkevaren.
+
+Ved 95 % prioriteres bare Haiku-kjerneprompts og uttrekk. Et eksplisitt svar om for lav kreditt setter et stopp ut perioden; BYOK-feil setter aldri plattformstopp. Ved ny periode nullstilles stopp og gammel kapasitet brukes ikke videre. Andre HTTP-feil tolkes ikke som tom kreditt.
+
+T32 bruker `AnthropicInsightAllocation` som budsjettert tillatelse for månedlig Sonnet-innsikt. Tildelingen reserverer beløpet med operasjonsnøkkel `insight:<brand>:<cycle_start>` og er unik per merkevare/periode. Rapportprodusenten må bokføre faktisk kost som plattformens `UsageEvent` med `engine_key=claude_sonnet`, sette `consumed_at` og frigjøre reservasjonen med `Account::settle()` i samme transaksjon. T41 genererer ikke rapporttekst. Ingen gammel eller forbrukt tildeling skal gi et nytt kall. Eventuell kostnad over tildelingen må reserveres før HTTP. T25 må bruke samme reserve-/oppgjørsgrensesnitt for plattformens onboarding-kall når veiviseren integreres.
+
+Admin-siden viser bare globale beløp og antall tillegg, bak `is_platform_admin` og eksisterende 2FA-krav. Tildelt pott/startdag og faktisk Console-grense må bekreftes av eieren før aktivering. Tester bruker syntetiske perioder og beløp.
+
+Feilsignal kontrollert mot [Anthropics dokumentasjon for API-kreditt](https://platform.claude.com/docs/en/about-claude/api-credits-for-subscribers): `credit balance is too low`. SDK- og HTTP-adapteren logger ikke feilmeldingen eller API-nøkler.

@@ -251,6 +251,8 @@ return [
         own: fn (Scenario $s) => ['params' => ['connection' => $s->mcpConnectionOf($s->adminA, $s->tenantA)->id]],
     ),
 
+    'admin.usage' => RouteAccess::platformAdmin(),
+
     // Platform admin only.
     'teams.create' => RouteAccess::platformAdmin(),
     'teams.store' => RouteAccess::platformAdmin(fn (Scenario $s) => ['data' => ['name' => 'New tenant']]),

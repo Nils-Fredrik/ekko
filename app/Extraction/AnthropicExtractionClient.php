@@ -6,6 +6,7 @@ use Anthropic\Client;
 use Anthropic\Messages\Batches\MessageBatchErroredResult;
 use Anthropic\Messages\Batches\MessageBatchSucceededResult;
 use Anthropic\Messages\Message;
+use App\AnthropicBudget\Account;
 use Psr\Http\Client\ClientInterface;
 
 /**
@@ -56,6 +57,9 @@ final class AnthropicExtractionClient implements ExtractionClient
             if ($result instanceof MessageBatchSucceededResult) {
                 yield $this->outcome($row->customID, $result->message, true);
             } else {
+                if ($result instanceof MessageBatchErroredResult && str_contains(strtolower($result->error->error->message), 'credit balance is too low')) {
+                    app(Account::class)->markExhausted();
+                }
                 $type = $result instanceof MessageBatchErroredResult ? $result->error->error->type : $result->type;
                 yield new ExtractionOutcome($row->customID, false, null, 0, 0, true, $type);
             }

@@ -2,6 +2,8 @@
 
 namespace App\Engines;
 
+use App\AnthropicBudget\Account;
+use App\AnthropicBudget\Estimator;
 use App\Engines\Credentials\TenantApiKeys;
 use App\Models\Run;
 use App\Models\Team;
@@ -131,7 +133,14 @@ final readonly class EngineCollector
         $usage = $this->monthlyUsage->forAdmission($tenant, $occurredAt);
         $planned = new PlannedRun($run->id, $prompt->priority === 'core', $billing, $price->price_per_call_usd);
 
-        if (! $this->quotaGuard->allows($usage, $planned)) {
+        $budgetAllowed = true;
+        if ($billing === BillingAccount::Platform && in_array($run->engine_key, ['claude_haiku', 'claude_sonnet'], true)) {
+            $budgetAllowed = app(Account::class)->reserve('run:'.$run->id.':'.($run->attempts + 1), app(Estimator::class)->engine($run->engine_key, $occurredAt, 4096), $run->engine_key === 'claude_haiku' && $prompt->priority === 'core');
+        }
+        if (! $budgetAllowed || ! $this->quotaGuard->allows($usage, $planned)) {
+            if ($budgetAllowed) {
+                app(Account::class)->settle('run:'.$run->id.':'.($run->attempts + 1));
+            }
             $run->update(['status' => 'skipped_quota', 'finished_at' => $occurredAt]);
 
             return null;
@@ -171,6 +180,7 @@ final readonly class EngineCollector
             'cost_usd' => $this->pricing->cost($reservation->price, $result),
             'billed_to' => $reservation->billingAccount->value,
         ]);
+        app(Account::class)->settle('run:'.$run->id.':'.$run->attempts);
     }
 
     private function settle(
