@@ -6,4 +6,8 @@ return [
     'chatgpt_api' => [
         'model' => env('OPENAI_CHATGPT_MODEL', 'gpt-5-mini'),
     ],
+
+    'gemini_api' => [
+        'model' => env('GOOGLE_GEMINI_MODEL', 'gemini-3.8-flash'),
+    ],
 ];

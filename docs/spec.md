@@ -399,6 +399,10 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 `chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
 
+`gemini_api` krever en Gemini API-nøkkel fra tenanten. Adapteren bruker motorens konfigurerte modell, med `GOOGLE_GEMINI_MODEL` som reserve (standard `gemini-3.8-flash`). Google Search-verktøyet har ingen egne felter for land, by eller språk. Adapteren sender derfor markedet som en instruks i det ene brukerinnlegget. Dette gir modellen kontekst, uten geografisk avgrensning av søkeresultatene.
+
+I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Adapteren verifiseres med syntetiske svar.
+
 ### 7.5 Gjentakelser og modellversjoner
 
 Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares.
