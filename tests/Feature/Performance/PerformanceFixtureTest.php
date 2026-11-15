@@ -53,3 +53,18 @@ it('requires the production engine catalogue and a unique fixture identity', fun
     expect(fn () => $fixture->create((string) Str::uuid(), Str::random(32)))->toThrow(RuntimeException::class);
     expect(Team::query()->count())->toBe(0);
 });
+
+it('refuses cleanup when a synthetic identity gains rights or another team membership', function (string $change) {
+    $key = (string) Str::uuid();
+    $fixture = app(PerformanceFixture::class);
+    $created = $fixture->create($key, Str::random(32), days: 1, prompts: 1);
+    $reader = User::query()->where('email', $created['email'])->sole();
+    if ($change === 'platform_admin') {
+        $reader->forceFill(['is_platform_admin' => true])->save();
+    } else {
+        Team::factory()->create()->users()->attach($reader, ['role' => 'reader']);
+    }
+    expect(fn () => $fixture->delete($key))->toThrow(RuntimeException::class)
+        ->and(Team::query()->find($created['tenant_id']))->not->toBeNull()
+        ->and($reader->fresh())->not->toBeNull();
+})->with(['platform_admin', 'other_team']);

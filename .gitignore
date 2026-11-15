@@ -38,3 +38,7 @@ crash.log
 
 __pycache__/
 /performance-result.json
+
+# Synthetic performance identities and local measurement reports.
+/fixture-*.json
+/performance-result.json
