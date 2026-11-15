@@ -38,7 +38,7 @@ final readonly class NewCompetitor implements Detector
                         continue;
                     }
 
-                    $candidates[] = new AlertCandidate(AlertType::NewCompetitor, $brand->id, "market:{$market->id}:name:{$unknown['key']}", [
+                    $candidates[] = new AlertCandidate(AlertType::NewCompetitor, $brand->id, "market:{$market->id}:name:".md5($unknown['key']), [
                         'market_id' => $market->id,
                         'name' => $unknown['name'],
                         'share' => $metric->toArray(),

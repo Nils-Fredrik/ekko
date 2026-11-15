@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * The daily alert run of one tenant (docs/spec.md 11.1, ADR 0017). Started every hour. Before the evaluation
  * time (ekko.alerts.evaluate_after, tenant-local) it does nothing, and until ekko.alerts.evaluate_wait_until it
- * waits while answers from yesterday are still being collected or extracted (only extracted answers count, ADR
+ * waits while runs planned yesterday are still being collected or extracted (only extracted answers count, ADR
  * 0012). The first run after that claims the local day (alert_evaluations), evaluates the alert types and
  * delivers the digest. Later runs the same day only retry channels that failed.
  *
@@ -92,11 +92,14 @@ class EvaluateTenantAlerts extends TenantJob
     private function awaitsExtraction(CarbonImmutable $local): bool
     {
         if ($local->lt($this->at($local, (string) config('ekko.alerts.evaluate_wait_until')))) {
-            $since = $local->startOfDay()->subDay()->utc();
+            // Runs planned yesterday: today's batch (dispatch-due, 01:00) is not in the windows, which end yesterday.
+            $today = $local->startOfDay();
 
             return Run::query()
                 ->whereIn('status', self::UNFINISHED)
-                ->whereHas('runBatch', fn ($batch) => $batch->where('scheduled_for', '>=', $since))
+                ->whereHas('runBatch', fn ($batch) => $batch
+                    ->where('scheduled_for', '>=', $today->subDay()->utc())
+                    ->where('scheduled_for', '<', $today->utc()))
                 ->exists();
         }
 

@@ -418,7 +418,7 @@ test('a channel that still fails when its day is over is given up and the alert 
 });
 
 test('the evaluation waits for yesterday\'s runs to be extracted until noon', function () {
-    $batch = RunBatch::factory()->create(['market_id' => $this->w->market->id, 'scheduled_for' => '2026-11-15 23:30:00']);
+    $batch = RunBatch::factory()->create(['market_id' => $this->w->market->id, 'scheduled_for' => '2026-11-15 10:00:00']);
     Run::factory()->create(['run_batch_id' => $batch->id, 'prompt_id' => $this->w->p1->id, 'engine_key' => $this->w->engine->key, 'status' => 'collected']);
     makeAlert($this->w, 'visibility_drop', visibilityPayload($this->w));
 
@@ -437,7 +437,7 @@ test('the evaluation waits for yesterday\'s runs to be extracted until noon', fu
 });
 
 test('the evaluation does not wait once the runs are extracted', function () {
-    $batch = RunBatch::factory()->create(['market_id' => $this->w->market->id, 'scheduled_for' => '2026-11-15 23:30:00']);
+    $batch = RunBatch::factory()->create(['market_id' => $this->w->market->id, 'scheduled_for' => '2026-11-15 10:00:00']);
     Run::factory()->create(['run_batch_id' => $batch->id, 'prompt_id' => $this->w->p1->id, 'engine_key' => $this->w->engine->key, 'status' => 'extracted']);
 
     runAlertJob($this->w);
@@ -464,4 +464,14 @@ test('two runs never deliver the same alerts at once', function () {
     runAlertJob($this->w);
     Http::assertSentCount(1);
     Mail::assertSent(AlertDigestMail::class, 2);
+});
+
+test('a run planned today that is not finished does not hold back the evaluation', function () {
+    // 2026-11-16 00:00 UTC is 01:00 in Oslo: the batch of dispatch-due, still being collected at 08:00.
+    $batch = RunBatch::factory()->create(['market_id' => $this->w->market->id, 'scheduled_for' => '2026-11-16 00:00:00']);
+    Run::factory()->create(['run_batch_id' => $batch->id, 'prompt_id' => $this->w->p1->id, 'engine_key' => $this->w->engine->key, 'status' => 'submitted']);
+
+    runAlertJob($this->w);
+
+    expect(AlertEvaluation::query()->count())->toBe(1);
 });

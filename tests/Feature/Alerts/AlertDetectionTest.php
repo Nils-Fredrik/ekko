@@ -386,3 +386,9 @@ test('core prompts in an inactive market give no alerts', function () {
 
     expect(evaluated())->toBe([]);
 });
+
+test('a very long unknown brand name still gives an alert', function () {
+    answersWithUnknown($this->w, 30, 10, str_repeat('Lang ', 50));
+
+    expect(evaluated())->toBe(['new_competitor']);
+});
