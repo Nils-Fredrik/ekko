@@ -1,0 +1,33 @@
+{
+    "id": "resp_fixture_no",
+    "object": "response",
+    "status": "completed",
+    "model": "gpt-5-mini-2025-08-07",
+    "output": [
+        {"type": "web_search_call", "status": "completed", "action": {"type": "search", "query": "eksempel i Oslo"}},
+        {"type": "web_search_call", "status": "completed", "action": {"type": "open_page", "url": "https://example.test/oslo"}},
+        {
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [
+                {
+                    "type": "output_text",
+                    "text": "Et norsk eksempel.",
+                    "annotations": [
+                        {"type": "url_citation", "url": "https://example.test/oslo", "title": "Oslo", "start_index": 0, "end_index": 18}
+                    ]
+                },
+                {
+                    "type": "output_text",
+                    "text": "Et annet eksempel.",
+                    "annotations": [
+                        {"type": "url_citation", "url": "https://example.test/norge", "title": "Norge", "start_index": 0, "end_index": 18},
+                        {"type": "file_citation", "file_id": "file_fixture"}
+                    ]
+                }
+            ]
+        }
+    ],
+    "usage": {"input_tokens": 120, "output_tokens": 44}
+}
