@@ -103,7 +103,7 @@ test('a clickhouse host must be on the allowlist and the stored config stays off
 
 test('alerts can be acknowledged and a rule rejects an invalid threshold', function () {
     $world = MetricsWorld::create();
-    $rule = AlertRule::factory()->create(['brand_id' => $world->brand->id, 'type' => 'quota', 'threshold' => '10']);
+    $rule = AlertRule::factory()->create(['brand_id' => $world->brand->id, 'type' => 'visibility_drop', 'threshold' => '10']);
     $alert = Alert::factory()->create(['alert_rule_id' => $rule->id, 'subject' => 'Quota']);
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
@@ -121,6 +121,33 @@ test('alerts can be acknowledged and a rule rejects an invalid threshold', funct
         ->put(route('alerts.rules.update', $rule), ['threshold' => '250', 'is_active' => true])
         ->assertRedirect()
         ->assertSessionHasErrors('threshold');
+
+    $this->actingAs($owner)->post(route('alerts.rules.store'), [
+        'brand_id' => $world->brand->id,
+        'type' => 'quota',
+        'threshold' => '80',
+        'is_active' => true,
+    ])->assertRedirect();
+    expect(AlertRule::query()->where('type', 'quota')->whereNull('brand_id')->count())->toBe(1);
+
+    $this->actingAs($owner)
+        ->from(route('alerts.index'))
+        ->post(route('alerts.rules.store'), [
+            'type' => 'quota',
+            'is_active' => true,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('type');
+
+    $this->actingAs($owner)
+        ->from(route('alerts.index'))
+        ->post(route('alerts.rules.store'), [
+            'brand_id' => $world->brand->id,
+            'type' => 'visibility_drop',
+            'is_active' => true,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('type');
 });
 
 test('report schedules validate recipients and downloads stay inside the tenant prefix', function () {
@@ -134,14 +161,18 @@ test('report schedules validate recipients and downloads stay inside the tenant 
     $report->forceFill(['pdf_uri' => $path])->save();
     Storage::disk('local')->put($path, "%PDF-1.4\nreport");
 
+    $this->actingAs($owner)->get(route('reports.index'))->assertOk()->assertInertia(fn ($page) => $page
+        ->where('reportLocales.0', 'nb')
+        ->where('locales.0.code', 'nb'));
+
     $this->actingAs($owner)
         ->from(route('reports.index'))
         ->put(route('reports.schedules.update', $schedule), [
             'cadence' => 'monthly',
-            'recipients' => ['not-an-email'],
+            'recipients' => ['owner@example.test', 'not-an-email'],
             'locale' => 'nb',
             'branding' => 'tenant',
-        ])->assertRedirect()->assertSessionHasErrors('recipients.0');
+        ])->assertRedirect()->assertSessionHasErrors('recipients.1');
 
     $this->actingAs($owner)->put(route('reports.schedules.update', $schedule), [
         'cadence' => 'monthly',
@@ -175,9 +206,12 @@ test('usage shows the month against the quota and is hidden from a reader', func
     $this->actingAs($owner)->get(route('usage.index'))->assertOk()->assertInertia(fn ($page) => $page
         ->component('Usage/Index')
         ->where('usage.calls', 4)
-        ->where('engines.0.calls', 4));
+        ->where('engines.0.calls', 4)
+        ->where('canViewUsage', true));
 
     $this->actingAs($reader)->get(route('usage.index'))->assertForbidden();
+    $this->actingAs($reader)->get(route('alerts.index'))->assertOk()->assertInertia(fn ($page) => $page
+        ->where('canViewUsage', false));
 });
 
 test('team settings store a slack webhook and an api key without sending either back', function () {

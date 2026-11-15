@@ -110,8 +110,16 @@ class BrandSettingsController extends Controller
         ], [], [
             'name' => __('app.workspace.name'),
             'primary_domain' => __('app.workspace.primary_domain'),
+            'aliases' => __('app.workspace.aliases'),
             'aliases.*.alias' => __('app.workspace.alias'),
+            'aliases.*.match_mode' => __('app.workspace.match_mode'),
+            'domains' => __('app.workspace.domains'),
             'domains.*.domain' => __('app.workspace.domain'),
+            'domains.*.include_subdomains' => __('app.workspace.include_subdomains'),
+            'markets.*.location_label' => __('app.workspace.location'),
+            'engines.*.frequency' => __('app.workspace.frequency'),
+            'engines.*.prompt_scope' => __('app.workspace.prompt_scope'),
+            'engines.*.repetitions' => __('app.workspace.repetitions'),
             'clickhouse_host' => __('app.workspace.clickhouse_host'),
         ]);
 
@@ -231,6 +239,7 @@ class BrandSettingsController extends Controller
                     "markets.{$index}.id" => __('app.workspace.unknown_market'),
                 ]);
             }
+            Gate::authorize('update', $market);
             $label = $row['location_label'] ?? null;
             $market->fill([
                 'location_label' => is_string($label) && $label !== '' ? $label : null,
@@ -258,6 +267,7 @@ class BrandSettingsController extends Controller
                     "engines.{$index}.id" => __('app.workspace.unknown_engine'),
                 ]);
             }
+            Gate::authorize('update', $engine);
             $engine->fill([
                 'frequency' => $row['frequency'],
                 'prompt_scope' => $row['prompt_scope'],

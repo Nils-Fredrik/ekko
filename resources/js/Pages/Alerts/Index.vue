@@ -3,6 +3,7 @@ import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
 const props = defineProps({
     alerts: { type: Array, required: true },
@@ -19,13 +20,17 @@ const form = useForm({
 });
 const receipt = useForm({});
 
+const tenantWide = computed(() => form.type === 'quota' || form.type === 'model_change');
 const field = 'rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
 
 function addRule() {
-    form.post(route('alerts.rules.store'), {
-        preserveScroll: true,
-        preserveState: (page) => Object.keys(page.props.errors).length > 0,
-    });
+    form.transform((data) => (tenantWide.value ? { ...data, brand_id: null } : data)).post(
+        route('alerts.rules.store'),
+        {
+            preserveScroll: true,
+            preserveState: (page) => Object.keys(page.props.errors).length > 0,
+        },
+    );
 }
 
 function saveRule(rule) {
@@ -87,7 +92,10 @@ const editable = props.rules.map((rule) => ({
                     class="grid gap-2 border-t border-line pt-3 sm:grid-cols-[1fr_8rem_auto_auto]"
                     @submit.prevent="saveRule(rule)"
                 >
-                    <p class="text-sm">{{ rule.brand }} · {{ $t(`app.alert_types.${rule.type}`) }}</p>
+                    <p class="text-sm">
+                        {{ rule.brand ?? $t('app.workspace.tenant_wide') }} ·
+                        {{ $t(`app.alert_types.${rule.type}`) }}
+                    </p>
                     <input v-model="rule.form.threshold" :disabled="!canManage" :class="field" />
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="rule.form.is_active" :disabled="!canManage" type="checkbox" />
@@ -96,14 +104,18 @@ const editable = props.rules.map((rule) => ({
                     <PrimaryButton v-if="canManage" :disabled="rule.form.processing">
                         {{ $t('app.workspace.save') }}
                     </PrimaryButton>
-                    <InputError class="sm:col-span-4" :message="rule.form.errors.threshold" />
+                    <InputError
+                        class="sm:col-span-4"
+                        :message="rule.form.errors.threshold || rule.form.errors.is_active"
+                    />
                 </form>
 
                 <form v-if="canManage" class="grid gap-2 border-t border-line pt-3" @submit.prevent="addRule">
                     <h4 class="text-sm font-medium">{{ $t('app.workspace.add_rule') }}</h4>
-                    <select v-model="form.brand_id" :class="field">
+                    <select v-if="!tenantWide" v-model="form.brand_id" :class="field">
                         <option v-for="brand in brands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
                     </select>
+                    <p v-else class="text-sm text-ink-soft">{{ $t('app.workspace.tenant_wide') }}</p>
                     <InputError :message="form.errors.brand_id" />
                     <select v-model="form.type" :class="field">
                         <option value="visibility_drop">{{ $t('app.alert_types.visibility_drop') }}</option>
@@ -114,12 +126,14 @@ const editable = props.rules.map((rule) => ({
                         <option value="quota">{{ $t('app.alert_types.quota') }}</option>
                         <option value="integration_error">{{ $t('app.alert_types.integration_error') }}</option>
                     </select>
+                    <InputError :message="form.errors.type" />
                     <input v-model="form.threshold" :class="field" :placeholder="$t('app.workspace.threshold')" />
                     <InputError :message="form.errors.threshold" />
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="form.is_active" type="checkbox" />
                         {{ $t('app.workspace.active') }}
                     </label>
+                    <InputError :message="form.errors.is_active" />
                     <PrimaryButton :disabled="form.processing">{{ $t('app.workspace.add_rule') }}</PrimaryButton>
                 </form>
             </section>

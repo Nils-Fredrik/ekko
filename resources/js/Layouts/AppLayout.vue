@@ -85,7 +85,11 @@ const logout = () => {
                                 <NavLink :href="route('reports.index')" :active="route().current('reports.*')">
                                     {{ $t('app.nav.reports') }}
                                 </NavLink>
-                                <NavLink :href="route('usage.index')" :active="route().current('usage.index')">
+                                <NavLink
+                                    v-if="page.props.canViewUsage"
+                                    :href="route('usage.index')"
+                                    :active="route().current('usage.index')"
+                                >
                                     {{ $t('app.nav.usage') }}
                                 </NavLink>
                             </div>
@@ -310,6 +314,7 @@ const logout = () => {
                         {{ $t('app.nav.reports') }}
                     </Link>
                     <Link
+                        v-if="page.props.canViewUsage"
                         :href="route('usage.index')"
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="

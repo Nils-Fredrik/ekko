@@ -2,13 +2,13 @@
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Link, useForm } from '@inertiajs/vue3';
+import { useForm } from '@inertiajs/vue3';
 
 const props = defineProps({
     schedules: { type: Array, required: true },
     reports: { type: Array, required: true },
     brands: { type: Array, required: true },
-    locales: { type: Array, required: true },
+    reportLocales: { type: Array, required: true },
     canManage: { type: Boolean, required: true },
 });
 
@@ -19,7 +19,7 @@ function blank(brandId) {
         brand_id: brandId ?? '',
         cadence: 'monthly',
         recipients: '',
-        locale: props.locales[0] ?? 'nb',
+        locale: props.reportLocales[0] ?? 'nb',
         branding: 'tenant',
     });
 }
@@ -45,6 +45,16 @@ function payload(data) {
             .map((line) => line.trim())
             .filter((line) => line !== ''),
     };
+}
+
+function recipientError(errors) {
+    if (errors.recipients) {
+        return errors.recipients;
+    }
+
+    const key = Object.keys(errors).find((name) => name.startsWith('recipients.'));
+
+    return key ? errors[key] : '';
 }
 
 function save(row) {
@@ -100,10 +110,9 @@ function add() {
                         />
                     </label>
                     <p class="text-xs text-ink-soft">{{ $t('app.workspace.recipients_help') }}</p>
-                    <InputError :message="row.form.errors.recipients || row.form.errors['recipients.0']" />
-                    <InputError :message="row.form.errors['recipients.0']" />
+                    <InputError :message="recipientError(row.form.errors)" />
                     <select v-model="row.form.locale" :disabled="!canManage" :class="field">
-                        <option v-for="locale in locales" :key="locale" :value="locale">{{ locale }}</option>
+                        <option v-for="locale in reportLocales" :key="locale" :value="locale">{{ locale }}</option>
                     </select>
                     <select v-model="row.form.branding" :disabled="!canManage" :class="field">
                         <option value="tenant">{{ $t('app.workspace.branding_tenant') }}</option>
@@ -125,9 +134,9 @@ function add() {
                         <option value="monthly">{{ $t('app.workspace.cadence_monthly') }}</option>
                     </select>
                     <textarea v-model="created.recipients" :class="field" rows="3" />
-                    <InputError :message="created.errors.recipients || created.errors['recipients.0']" />
+                    <InputError :message="recipientError(created.errors)" />
                     <select v-model="created.locale" :class="field">
-                        <option v-for="locale in locales" :key="locale" :value="locale">{{ locale }}</option>
+                        <option v-for="locale in reportLocales" :key="locale" :value="locale">{{ locale }}</option>
                     </select>
                     <select v-model="created.branding" :class="field">
                         <option value="tenant">{{ $t('app.workspace.branding_tenant') }}</option>
@@ -149,9 +158,9 @@ function add() {
                         {{ report.brand }} ·
                         {{ $t('app.workspace.period_range', { start: report.period_start, end: report.period_end }) }}
                     </p>
-                    <Link v-if="report.downloadable" :href="route('reports.download', report.id)" class="text-sm">
+                    <a v-if="report.downloadable" :href="route('reports.download', report.id)" class="text-sm">
                         {{ $t('app.workspace.download') }}
-                    </Link>
+                    </a>
                     <p v-else class="text-ink-soft">
                         {{ report.sent_at ? report.sent_at : $t('app.workspace.not_sent') }}
                     </p>

@@ -46,7 +46,7 @@ class ReportController extends Controller
                 'downloadable' => $this->storedPath($report) !== null,
             ])->values(),
             'brands' => Brand::query()->orderBy('name')->get(['id', 'name']),
-            'locales' => array_values(array_filter(
+            'reportLocales' => array_values(array_filter(
                 config()->array('ekko.locales'),
                 fn (mixed $locale): bool => is_string($locale),
             )),

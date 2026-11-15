@@ -26,7 +26,11 @@ function saveSlack() {
             webhook_url: data.clear ? '' : data.webhook_url,
             clear: data.clear,
         }))
-        .put(route('teams.slack.update', props.team.id), { preserveScroll: true, errorBag: 'slack' });
+        .put(route('teams.slack.update', props.team.id), {
+            preserveScroll: true,
+            errorBag: 'slack',
+            onSuccess: () => slack.reset('webhook_url', 'clear'),
+        });
 }
 
 function saveBranding() {

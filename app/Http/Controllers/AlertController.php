@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Alerts\AlertType;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
@@ -9,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -49,25 +51,52 @@ class AlertController extends Controller
     public function storeRule(Request $request): RedirectResponse
     {
         Gate::authorize('create', AlertRule::class);
+        $type = AlertType::tryFrom((string) $request->input('type'));
+        $tenantWide = $type?->isTenantWide() ?? false;
         $data = $request->validate([
-            'brand_id' => ['required', 'integer'],
-            'type' => ['required', Rule::in([
-                'visibility_drop', 'competitor_takeover', 'citation_lost', 'new_competitor', 'model_change', 'quota', 'integration_error',
-            ])],
+            'brand_id' => [Rule::requiredIf(! $tenantWide), 'nullable', 'integer'],
+            'type' => ['required', Rule::enum(AlertType::class)],
             'threshold' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'is_active' => ['required', 'boolean'],
         ], [], [
             'brand_id' => __('app.workspace.brand'),
+            'type' => __('app.workspace.type'),
             'threshold' => __('app.workspace.threshold'),
+            'is_active' => __('app.workspace.active'),
         ]);
 
-        $brand = Brand::query()->findOrFail($data['brand_id']);
-        $brand->alertRules()->create([
+        // Quota and model changes belong to the tenant. A brand id is still checked when one is
+        // sent, so a foreign brand cannot be used to slip past the tenant scope.
+        $brand = null;
+        if (isset($data['brand_id'])) {
+            $brand = Brand::query()->findOrFail($data['brand_id']);
+        }
+        $brandId = $tenantWide ? null : $brand?->id;
+        $exists = AlertRule::query()
+            ->where('type', $data['type'])
+            ->when($brandId === null, fn ($query) => $query->whereNull('brand_id'), fn ($query) => $query->where('brand_id', $brandId))
+            ->exists();
+        if ($exists) {
+            throw ValidationException::withMessages([
+                'type' => __('app.workspace.rule_exists'),
+            ]);
+        }
+
+        $attributes = [
             'type' => $data['type'],
             'threshold' => $data['threshold'] ?? null,
             'channels' => ['in_app'],
             'is_active' => $data['is_active'],
-        ]);
+        ];
+        if ($tenantWide) {
+            AlertRule::query()->create($attributes);
+        } elseif ($brand instanceof Brand) {
+            $brand->alertRules()->create($attributes);
+        } else {
+            throw ValidationException::withMessages([
+                'brand_id' => __('validation.required', ['attribute' => __('app.workspace.brand')]),
+            ]);
+        }
 
         return back();
     }
@@ -79,8 +108,8 @@ class AlertController extends Controller
             'threshold' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'is_active' => ['required', 'boolean'],
         ], [], [
-            'brand_id' => __('app.workspace.brand'),
             'threshold' => __('app.workspace.threshold'),
+            'is_active' => __('app.workspace.active'),
         ]);
 
         $alertRule->fill([

@@ -80,7 +80,10 @@ function save() {
                     >
                         {{ $t('app.workspace.remove') }}
                     </button>
-                    <InputError class="sm:col-span-3" :message="form.errors[`aliases.${index}.alias`]" />
+                    <InputError
+                        class="sm:col-span-3"
+                        :message="form.errors[`aliases.${index}.alias`] || form.errors[`aliases.${index}.match_mode`]"
+                    />
                 </div>
                 <button
                     v-if="can.manage"
@@ -90,6 +93,7 @@ function save() {
                 >
                     {{ $t('app.workspace.add_alias') }}
                 </button>
+                <InputError :message="form.errors.aliases" />
             </section>
 
             <section class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink">
@@ -108,7 +112,12 @@ function save() {
                     >
                         {{ $t('app.workspace.remove') }}
                     </button>
-                    <InputError class="sm:col-span-3" :message="form.errors[`domains.${index}.domain`]" />
+                    <InputError
+                        class="sm:col-span-3"
+                        :message="
+                            form.errors[`domains.${index}.domain`] || form.errors[`domains.${index}.include_subdomains`]
+                        "
+                    />
                 </div>
                 <button
                     v-if="can.manage"
@@ -118,6 +127,7 @@ function save() {
                 >
                     {{ $t('app.workspace.add_domain') }}
                 </button>
+                <InputError :message="form.errors.domains" />
             </section>
 
             <section class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink">
@@ -131,7 +141,13 @@ function save() {
                         <input v-model="row.is_active" :disabled="!can.manage" type="checkbox" />
                         {{ $t('app.workspace.active') }}
                     </label>
-                    <InputError :message="form.errors[`markets.${index}.id`]" />
+                    <InputError
+                        :message="
+                            form.errors[`markets.${index}.id`] ||
+                            form.errors[`markets.${index}.location_label`] ||
+                            form.errors[`markets.${index}.is_active`]
+                        "
+                    />
                 </div>
             </section>
 
@@ -152,7 +168,15 @@ function save() {
                     <select v-model.number="row.repetitions" :disabled="!can.manage" :class="field">
                         <option v-for="count in [1, 2, 3]" :key="count" :value="count">{{ count }}</option>
                     </select>
-                    <InputError class="sm:col-span-4" :message="form.errors[`engines.${index}.id`]" />
+                    <InputError
+                        class="sm:col-span-4"
+                        :message="
+                            form.errors[`engines.${index}.id`] ||
+                            form.errors[`engines.${index}.frequency`] ||
+                            form.errors[`engines.${index}.prompt_scope`] ||
+                            form.errors[`engines.${index}.repetitions`]
+                        "
+                    />
                 </div>
             </section>
 

@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Engines\Credentials\ApiKeyProvider;
 use App\Models\Team;
 use App\Models\TenantApiKey;
+use App\Models\UsageEvent;
 use App\Models\User;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantContext;
@@ -67,6 +68,11 @@ class HandleInertiaRequests extends Middleware
                 fn (string $provider) => filled(config("services.{$provider}.client_id")) && filled(config("services.{$provider}.client_secret")),
             )),
             'actingAs' => fn () => $this->actingAs($request),
+            'canViewUsage' => function () use ($request): bool {
+                $user = $request->user();
+
+                return $user instanceof User && Gate::forUser($user)->allows('viewAny', UsageEvent::class);
+            },
             // Only the team page. Secrets stay on the server: the webhook and API keys are present or absent.
             'teamProfile' => fn () => $this->teamProfile($request),
         ];
