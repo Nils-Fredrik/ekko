@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
@@ -18,6 +19,8 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Jetstream\HasProfilePhoto;
 use Laravel\Jetstream\HasTeams;
 use Laravel\Sanctum\HasApiTokens;
+use Laravel\Sanctum\PersonalAccessToken;
+use Laravel\Sanctum\Sanctum;
 
 /**
  * @property string|null $locale
@@ -95,6 +98,18 @@ class User extends Authenticatable implements MustVerifyEmail
     public function hasConfirmedTwoFactor(): bool
     {
         return $this->two_factor_secret !== null && $this->two_factor_confirmed_at !== null;
+    }
+
+    /**
+     * The user's own API tokens (Jetstream's API token page). The access tokens of Claude connections (ability
+     * "mcp", ADR 0016) are left out: they are managed under "Claude" and cannot be renamed or given API rights.
+     *
+     * @return MorphMany<PersonalAccessToken, $this>
+     */
+    public function tokens(): MorphMany
+    {
+        return $this->morphMany(Sanctum::$personalAccessTokenModel, 'tokenable')
+            ->where(fn ($query) => $query->whereNull('abilities')->orWhereRaw("NOT (abilities::jsonb @> '[\"mcp\"]'::jsonb)"));
     }
 
     /**

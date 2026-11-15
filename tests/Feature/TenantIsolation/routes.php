@@ -146,6 +146,30 @@ return [
         own: fn (Scenario $s) => ['params' => ['invitation' => $s->invitationForAdminA()->id]],
     )->signed(),
 
+    // The Claude connection (docs/spec.md 15.2, ADR 0016). The MCP server takes only access tokens of a Claude
+    // connection; its tools are checked tool by tool in McpToolIsolationTest (register: mcp-tools.php).
+    'mcp' => RouteAccess::user(),
+    'GET mcp' => RouteAccess::public(),
+    'DELETE mcp' => RouteAccess::public(),
+    // OAuth metadata, registration, token and revocation: Claude calls these without a session. A token or
+    // refresh token only reaches its own connection (McpOAuthTest).
+    'mcp.oauth.protected-resource' => RouteAccess::public(),
+    'mcp.oauth.protected-resource.nested' => RouteAccess::public(),
+    'mcp.oauth.authorization-server' => RouteAccess::public(),
+    'mcp.oauth.authorization-server.nested' => RouteAccess::public(),
+    'mcp.oauth.register' => RouteAccess::public(),
+    'mcp.oauth.token' => RouteAccess::public(),
+    'mcp.oauth.revoke' => RouteAccess::public(),
+    // Consent: the tenant must be one the user can select (McpOAuthTest).
+    'mcp.oauth.authorize' => RouteAccess::user(),
+    'mcp.oauth.decide' => RouteAccess::user(),
+    // The user's own Claude connections.
+    'mcp.connections' => RouteAccess::user(),
+    'mcp.connections.destroy' => RouteAccess::user(
+        foreign: fn (Scenario $s) => ['params' => ['connection' => $s->mcpConnectionOf($s->ownerB, $s->tenantB)->id]],
+        own: fn (Scenario $s) => ['params' => ['connection' => $s->mcpConnectionOf($s->adminA, $s->tenantA)->id]],
+    ),
+
     // Platform admin only.
     'teams.create' => RouteAccess::platformAdmin(),
     'teams.store' => RouteAccess::platformAdmin(fn (Scenario $s) => ['data' => ['name' => 'New tenant']]),
