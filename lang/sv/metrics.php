@@ -23,5 +23,6 @@ return [
         'queued' => 'Aggregeringen är lagd i kön för :tenants tenanter.',
         'done' => 'Aggregeringen är klar för :tenants tenanter.',
         'bad_date' => 'Ogiltigt datum eller datumintervall. Använd formatet ÅÅÅÅ-MM-DD.',
+        'failed' => 'Aggregeringen misslyckades för :failed av :tenants tenanter (id :ids). De andra är klara.',
     ],
 ];
