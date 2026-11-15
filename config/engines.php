@@ -6,4 +6,9 @@ return [
     'chatgpt_api' => [
         'model' => env('OPENAI_CHATGPT_MODEL', 'gpt-5-mini'),
     ],
+
+    'perplexity_api' => [
+        'api_key' => env('PERPLEXITY_API_KEY', ''),
+        'model' => env('PERPLEXITY_MODEL', 'perplexity/sonar'),
+    ],
 ];

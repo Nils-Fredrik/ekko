@@ -26,6 +26,7 @@ class AggSourceDaily extends Model
         'date',
         'citations',
         'responses_with_domain',
+        'gap_responses',
     ];
 
     /** @return BelongsTo<Brand, $this> */

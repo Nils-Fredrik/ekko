@@ -59,9 +59,9 @@ it('reports precision and hit rate for is_recommended and list_position against 
     expect($report->responses)->toBe(80)
         ->and($report->responsesByLanguage)->toBe(['nb' => 39, 'nn' => 13, 'sv' => 28])
         // The recording has one false positive and two misses for is_recommended, and the failed answer.
-        ->and([$recommended->truePositives, $recommended->predicted, $recommended->expected])->toBe([46, 47, 48])
-        ->and(round($recommended->precision(), 3))->toBe(0.979)
-        ->and(round($recommended->hitRate(), 3))->toBe(0.958)
+        ->and([$recommended->truePositives, $recommended->predicted, $recommended->expected])->toBe([68, 69, 70])
+        ->and(round($recommended->precision(), 3))->toBe(0.986)
+        ->and(round($recommended->hitRate(), 3))->toBe(0.971)
         // One wrong and one missed position, and the failed answer.
         ->and([$position->truePositives, $position->predicted, $position->expected])->toBe([47, 49, 50])
         ->and(round($position->precision(), 3))->toBe(0.959)
@@ -92,7 +92,7 @@ it('prints the report from the artisan command, offline with a recording', funct
     $output = Artisan::output();
 
     expect($output)->toContain('80')->toContain('is_recommended')->toContain('list_position')
-        ->toContain('97.9 %')->toContain('95.8 %')->toContain('95.9 %')->toContain('94.0 %')->toContain('100.0 %')
+        ->toContain('98.6 %')->toContain('97.1 %')->toContain('95.9 %')->toContain('94.0 %')->toContain('100.0 %')
         ->toContain('source_type');
 });
 
@@ -105,7 +105,7 @@ it('records the model output of a run so that it can be replayed', function () {
 
     $replayed = (new GoldSetEvaluator)->evaluate(goldPath(), new ExtractionRunner(RecordedExtractionClient::fromFile($copy)));
     unlink($copy);
-    expect([$replayed->model['recommended']->truePositives, $replayed->model['recommended']->predicted])->toBe([46, 47])
+    expect([$replayed->model['recommended']->truePositives, $replayed->model['recommended']->predicted])->toBe([68, 69])
         ->and($replayed->failedIds)->toBe(['nn-09']);
 });
 

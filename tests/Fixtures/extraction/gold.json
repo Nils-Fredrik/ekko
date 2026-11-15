@@ -414,7 +414,7 @@
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
      "list_position": 1,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
@@ -426,13 +426,13 @@
      "entity": "competitor:nordlys",
      "surface": "Nordlys Rosteri",
      "list_position": 2,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
      "list_position": 3,
-     "is_recommended": false
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -447,13 +447,13 @@
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
      "list_position": 2,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
      "list_position": 1,
-     "is_recommended": false
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -633,7 +633,7 @@
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
      "list_position": 2,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
@@ -681,19 +681,19 @@
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
      "list_position": 1,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
      "list_position": 2,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
      "list_position": 3,
-     "is_recommended": false
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -860,13 +860,13 @@
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
      "list_position": 1,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:aasen",
      "surface": "Åsen Kaffe",
      "list_position": 2,
-     "is_recommended": false
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -881,13 +881,13 @@
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergen Brenneri",
      "list_position": 1,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
      "list_position": 2,
-     "is_recommended": false
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -902,19 +902,19 @@
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
      "list_position": 1,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Bjørnkaffe",
      "list_position": 2,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:aasen",
      "surface": "Åsen Kaffe",
      "list_position": 3,
-     "is_recommended": false
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -1156,19 +1156,19 @@
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
      "list_position": 1,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
      "list_position": 2,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:bergensbrenneriet",
      "surface": "Bergensbrenneriet",
      "list_position": 3,
-     "is_recommended": false
+     "is_recommended": true
     }
    ],
    "citations": [],
@@ -1265,19 +1265,19 @@
      "entity": "brand:fjordkaffe",
      "surface": "Fjordkaffe",
      "list_position": 1,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:bjornkaffe",
      "surface": "Björnkaffe",
      "list_position": 2,
-     "is_recommended": false
+     "is_recommended": true
     },
     {
      "entity": "competitor:kaffekompaniet",
      "surface": "Kaffekompaniet",
      "list_position": 3,
-     "is_recommended": false
+     "is_recommended": true
     }
    ],
    "citations": [],
