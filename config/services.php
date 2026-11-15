@@ -42,4 +42,10 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
     ],
 
+    // Anthropic Messages API and Message Batches for model-based extraction (docs/spec.md 8.2, 12.5).
+    // The key is Ekko's own workspace key and only ever comes from the environment.
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+    ],
+
 ];

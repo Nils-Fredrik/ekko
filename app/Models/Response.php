@@ -29,6 +29,8 @@ class Response extends Model
         'search_calls',
         'cost_usd',
         'collected_at',
+        'answer_type',
+        'llm_failed',
     ];
 
     /** @return BelongsTo<Run, $this> */
@@ -61,6 +63,7 @@ class Response extends Model
         return [
             'cost_usd' => 'decimal:8',
             'collected_at' => 'datetime',
+            'llm_failed' => 'boolean',
         ];
     }
 }
