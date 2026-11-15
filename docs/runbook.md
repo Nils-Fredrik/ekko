@@ -85,3 +85,28 @@ Miljøreglene følger [GitHubs dokumenterte GITHUB_REF-kontroll](https://docs.gi
 Test-PR #46–#48 bekreftet App-identiteten og at miljøet avviser `refs/pull/48/merge` før runner/steps starter. Kommentar-POST på PR krever Pull requests: write for både den dedikerte App-en og trigger-tokenet; Issues: write med Pull requests: read ga 403. Claude-actionens tokenbytte ga 401 «Invalid OIDC token» på pull_request_target, som i [upstream #713](https://github.com/anthropics/claude-code-action/issues/713). Derfor flyttes selve Claude-kjøringen til workflow_run med verifisert kilde. Den pinnede actionen støtter denne automation-hendelsen, men full live godkjenning må fortsatt testes etter eierens merge. Gamle workflow-kjøringer bruker gammel kode; opprett en ny testhendelse etter merge.
 
 Etter #49 virket Claude OIDC på workflow_run, men `Read(~/**)` nektet alle filene under `/home/runner/work/ekko/ekko`. En ekte CLI-test med versjon 2.1.325 gjenskapte feilen under en syntetisk arbeidsmappe i hjemmemappen. Med den rettede regelen kunne Read lese testfilen; `.git` og filen utenfor arbeidsmappen ble fortsatt nektet. En separat CLI/MCP-test med den ekte publiseringsfunksjonen og en simulert HTTP-transport bekreftet at hele retur-objektet blir identisk med strukturert output. Den deterministiske testen avviser fortsatt et omformulert sammendrag. Ingen rettigheter til shell, skriving eller eksterne filer er lagt til.
+
+## Tilbakekall migreringslegitimasjon fra web (T39-F1)
+
+`ekko-web` skal bare få `DB_USERNAME=ekko_app` og `DB_PASSWORD` fra `ekko-db-password`. Den skal verken få `DB_ADMIN_*` eller Secret Manager-lesetilgang til `ekko-db-admin-password`. Migreringsjobben beholder `ekko_migrate` og sitt separate passord. En endring i Terraform-filen alene tilbakekaller ikke en allerede opprettet IAM-grant.
+
+### Kontrollert plan og apply
+
+1. Bruk den gjennomgåtte konfigurasjonen etter eierens merge. Behold all allerede utrullet T10-konfigurasjon: `deploy.tf` og `sts.googleapis.com` fra T10-revisjon `85e387b` finnes i live state selv om PR #31 ennå er åpen. En isolert plan på main uten dette kan foreslå å fjerne T10-ressurser. Den planen skal ikke brukes.
+2. Initialiser mot `ekko-514612-tfstate`, prefix `ekko/production`. Lag en lagret plan avgrenset til den eksisterende granten:
+
+    ```sh
+    terraform plan -input=false \
+      '-target=google_secret_manager_secret_iam_member.read["web/db-admin-password"]' \
+      -out=/tmp/ekko-web-admin-revoke.tfplan
+    ```
+
+    Dette er et avgrenset unntak for å tilbakekalle en konkret feilgrant mens T10 venter på merge. Kontroller planen med `terraform show`: nøyaktig **0 add, 0 change, 1 destroy**, der eneste sletting er web-medlemskapet på `ekko-db-admin-password`. Hemmeligheten, versjonene og migreringskontoens tilgang skal beholdes. Ikke bruk workload-forhåndsvisningen som apply-plan.
+
+3. Etter review/merge brukes akkurat den kontrollerte planen: `terraform apply /tmp/ekko-web-admin-revoke.tfplan`. Kontroller IAM med `gcloud secrets get-iam-policy ekko-db-admin-password --project=ekko-514612`; web skal være borte og migrate fortsatt til stede. Kontroller også at web ikke har en bredere arvet rolle som gir tilgang. Les aldri selve hemmelighetsverdien for å teste dette.
+4. Kjør den samme avgrensede planen igjen med `-detailed-exitcode`; forvent returkode 0. Dette beviser bare den avgrensede IAM-endringen. Full plan og eventuell annen drift gjennomgås separat sammen med T10.
+5. Når web opprettes under T10, kontroller faktisk revisjonsmiljø uten å skrive ut verdier: ingen `DB_ADMIN_*`, og databasepassordets referanse er `ekko-db-password`.
+
+### Bevis 15.11.2026
+
+Før apply viste live IAM både web og migrate som lesere av migreringspassordet; det fantes ingen Cloud Run-webtjeneste. Plan med bevart T10-konfigurasjon og målretting viste kun sletting av web-granten. En separat, ikke anvendt plan med workloads aktivert viste vanlig databasebruker/passordreferanse og ingen `DB_ADMIN_*` eller admin-grant for web, mens migreringsjobben beholdt sin innlogging. Full plan hadde dessuten en uvedkommende Cloud SQL-oppdatering og ble ikke brukt. Ingen passordverdier ble lest eller lagret. **Apply gjenstår etter eierens merge; funnet er ikke lukket i produksjon ennå.**

@@ -34,7 +34,6 @@ locals {
   web_secrets = {
     APP_KEY                 = "app-key"
     DB_PASSWORD             = "db-password"
-    DB_ADMIN_PASSWORD       = "db-admin-password"
     GOOGLE_CLIENT_SECRET    = "google-oauth-client-secret"
     MICROSOFT_CLIENT_SECRET = "microsoft-oauth-client-secret"
   }
@@ -64,7 +63,7 @@ resource "google_cloud_run_v2_service" "web" {
       image = var.image
       resources { limits = { cpu = "1", memory = "1Gi" } }
       dynamic "env" {
-        for_each = merge(local.common_env, { DB_USERNAME = var.app_db_user, DB_ADMIN_USERNAME = var.admin_db_user, EKKO_SCHEDULER_SERVICE_ACCOUNT = google_service_account.component["scheduler"].email, EKKO_SCHEDULER_AUDIENCE = var.app_url })
+        for_each = merge(local.common_env, { DB_USERNAME = var.app_db_user, EKKO_SCHEDULER_SERVICE_ACCOUNT = google_service_account.component["scheduler"].email, EKKO_SCHEDULER_AUDIENCE = var.app_url })
         content {
           name  = env.key
           value = env.value
