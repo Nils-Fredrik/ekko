@@ -3,98 +3,104 @@
 name: CI
 
 on:
-  pull_request:
-  push:
-    branches: [main]
+    pull_request:
+    push:
+        branches: [main]
 
 permissions:
-  contents: read
+    contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+    group: ci-${{ github.ref }}
+    cancel-in-progress: true
 
 jobs:
-  test:
-    name: test
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    test:
+        name: test
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
 
-    services:
-      postgres:
-        image: postgres:16
+        services:
+            postgres:
+                image: postgres:16
+                env:
+                    POSTGRES_USER: postgres
+                    POSTGRES_PASSWORD: postgres
+                    POSTGRES_DB: ekko_testing
+                    # Not UTC on purpose: TZ sets the server's default time zone, and the app must store
+                    # timestamps in UTC whatever it is (docs/spec.md 6). The session-time-zone test from #14
+                    # checks that the connection runs in UTC.
+                    TZ: Europe/Oslo
+                ports:
+                    - 5432:5432
+                options: >-
+                    --health-cmd "pg_isready -U postgres"
+                    --health-interval 5s
+                    --health-timeout 5s
+                    --health-retries 10
+
+        # The postgres service user is a superuser, so the migrations can create the ekko_app role,
+        # and TenantRls switches to it in every request and job: row-level security is really tested.
         env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: ekko_testing
-          # Not UTC on purpose: TZ sets the server's default time zone, and the app must store
-          # timestamps in UTC whatever it is (docs/spec.md 6). The session-time-zone test from #14
-          # checks that the connection runs in UTC.
-          TZ: Europe/Oslo
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
+            DB_CONNECTION: pgsql
+            DB_HOST: 127.0.0.1
+            DB_PORT: 5432
+            DB_USERNAME: postgres
+            DB_PASSWORD: postgres
+            DB_DATABASE: ekko_testing
+            DB_TEST_DATABASE: ekko_testing
 
-    # The postgres service user is a superuser, so the migrations can create the ekko_app role,
-    # and TenantRls switches to it in every request and job: row-level security is really tested.
-    env:
-      DB_CONNECTION: pgsql
-      DB_HOST: 127.0.0.1
-      DB_PORT: 5432
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
-      DB_DATABASE: ekko_testing
-      DB_TEST_DATABASE: ekko_testing
+        steps:
+            - uses: actions/checkout@v4
 
-    steps:
-      - uses: actions/checkout@v4
+            - uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.4'
+                  extensions: pdo_pgsql, pgsql, intl, bcmath, mbstring
+                  coverage: none
+                  tools: composer:v2
 
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: pdo_pgsql, pgsql, intl, bcmath, mbstring
-          coverage: none
-          tools: composer:v2
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: '24'
+                  cache: npm
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
+            - name: Find the Composer cache directory
+              id: composer-cache
+              run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
-      - name: Find the Composer cache directory
-        id: composer-cache
-        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+            - name: Cache Composer packages
+              uses: actions/cache@v4
+              with:
+                  path: ${{ steps.composer-cache.outputs.dir }}
+                  key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.lock') }}
+                  restore-keys: composer-${{ runner.os }}-php8.4-
 
-      - name: Cache Composer packages
-        uses: actions/cache@v4
-        with:
-          path: ${{ steps.composer-cache.outputs.dir }}
-          key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-${{ runner.os }}-php8.4-
+            - name: Install PHP dependencies
+              run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Install PHP dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
+            - name: Install Node dependencies
+              run: npm ci --no-audit --no-fund
 
-      - name: Install Node dependencies
-        run: npm ci --no-audit --no-fund
+            - name: Prepare environment
+              run: |
+                  cp .env.example .env
+                  php artisan key:generate --ansi
 
-      - name: Prepare environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate --ansi
+            - name: Build frontend (the tests need the Vite manifest)
+              run: npm run build
 
-      - name: Build frontend (the tests need the Vite manifest)
-        run: npm run build
+            - name: Pint and Larastan
+              run: composer lint
 
-      - name: Pint and Larastan
-        run: composer lint
+            - name: ESLint and Prettier
+              run: npm run lint
 
-      - name: ESLint and Prettier
-        run: npm run lint
+            - name: Pest, including the tenant isolation suite
+              run: composer test
 
-      - name: Pest, including the tenant isolation suite
-        run: composer test
+            - name: Agent review security contracts
+              run: node --test tests/agent-review/*.test.mjs
+
+            - name: Performance measurement contract
+              run: python3 -m unittest discover -s tests/performance -v

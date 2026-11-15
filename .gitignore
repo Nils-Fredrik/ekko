@@ -35,3 +35,13 @@ Thumbs.db
 *.tfvars
 *.tfvars.json
 crash.log
+
+# Untrusted review inputs are temporary data, never source files.
+/.review/
+
+__pycache__/
+/performance-result.json
+
+# Synthetic performance identities and local measurement reports.
+/fixture-*.json
+/performance-result.json

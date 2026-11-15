@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/** @property string $cost_usd Exact decimal:8 cast, never a binary float. */
 class UsageEvent extends Model
 {
     use BelongsToTenant;
@@ -17,6 +18,7 @@ class UsageEvent extends Model
 
     /** @var list<string> */
     protected $fillable = [
+        'collection_attempt_token',
         'occurred_at',
         'kind',
         'engine_key',

@@ -220,7 +220,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled`, `monthly_call_quota_override`, `monthly_byok_budget_usd` |
+| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled`, `monthly_call_quota_override`, `monthly_byok_budget_usd`, `billing_markup_percent` (nullable desimal; ADR 0021) |
 | `users` (utvidet) | `is_platform_admin`, `locale`, `current_team_id` |
 | `plans` | `name`, `max_brands`, `max_markets_per_brand`, `max_prompts_per_market`, `allowed_engines` (jsonb), `max_frequency`, `engine_max_frequencies` (jsonb), `max_repetitions`, `monthly_call_quota`, `monthly_budget_usd` |
 | `tenant_api_keys` | `tenant_id`, `provider`, `key` (kryptert), `last_verified_at` |
@@ -297,6 +297,8 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 
 **Fordeling over uka:** Ved ukentlig frekvens kjøres et prompt på ukedagen `crc32(prompt_id) % 7`. Ved månedlig frekvens kjøres det på dag `crc32(prompt_id) % 28 + 1`. Prompts med `priority = core` kan ha høyere frekvens enn resten av markedet, begrenset av pakken. Dette gir jevn belastning og jevn kostnad.
 
+Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-autentisering står i [ADR 0020](decisions/0020-dispatch-og-worker.md). Køoppgaver som fortsatt venter seks timer etter den ene nye innsendingen, avsluttes som feilet. Produksjonsstart verifiseres med T10 etter bootstrap.
+
 **Rettferdig kø:** Dispatcheren legger jobbene i køen flettet per tenant (rundgang), slik at én stor tenant ikke blokkerer andre.
 
 ### 7.2 Kvotekontroll før kjøring
@@ -363,7 +365,7 @@ For slike motorer settes `runs.status` til `submitted` etter innsending. `extrac
 - **Kilder:** hentes fra leverandørens egne annotasjoner der de finnes, og `from_annotation` settes til `true`.
 - **Timeout:** 120 sekunder per kall.
 - **Feilhåndtering:** inntil 3 forsøk med eksponentiell ventetid for 429 og 5xx. 4xx ellers markeres `failed` med `error_code`.
-- **Rate limiting:** hver motor har grense for samtidige kall og kall per minutt, implementert med Laravel `RateLimited`-jobbmiddleware (database-lås).
+- **Rate limiting:** hver motor har grense for samtidige kall og kall per minutt, implementert med `EngineThrottle` og delte PostgreSQL-låser (ADR 0020).
 - **Råsvar:** hele leverandørsvaret lagres i `gs://ekko-raw/{tenant_id}/{yyyy}/{mm}/{run_id}.json`.
 - **Tester:** hver adapter har kontraktstester mot innspilte svar (fixtures). CI gjør aldri levende kall.
 
@@ -611,7 +613,7 @@ Plattformadmin har en månedlig eksport (CSV) per tenant med:
 - sum
 - påslag (prosent per tenant)
 
-Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres kunde-tenantene under partneren, med én linje per kunde.
+Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres kunde-tenantene under partneren, med én linje per kunde. UTC-måned, desimalavrunding, BYOK, eksplisitt påslag og CSV-format følger [ADR 0021](decisions/0021-fakturagrunnlag.md). Pakke, partner og påslag er dagens oppsett, ikke historiske fakturaavtaler. Uavklart påslag (NULL) stopper eksport til satsen er valgt av plattformadmin.
 
 ### 12.4 Egne API-nøkler
 
@@ -1057,11 +1059,11 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 1. Leser merkelappen i PR-tittelen og de endrede filene.
 2. For `[Codex]`- og `[Cursor]`-PR-er kjøres `claude-code-action` med Opus 5.5 og en review-instruks som viser til `AGENTS.md`, `docs/spec.md` og akseptkriteriene i Board-oppgaven.
 3. For `[Claude Code]`-PR-er og følsomme endringer postes kommentaren `@codex review` på PR-en.
-4. Hver reviewer avslutter med en tydelig konklusjon: «GODKJENT» eller «ENDRINGER KREVES», med konkrete punkter.
+4. Hver reviewer avslutter med en tydelig konklusjon: «GODKJENT» eller «ENDRINGER KREVES», med konkrete punkter. Claude leverer en strukturert konklusjon. For Codex validerer gaten botens SHA-bundne status og en fersk reviewkvittering; bare fullført kodereview uten funn oversettes til «GODKJENT». Ukjent format blokkerer (ADR 0022).
 
-**Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre runder uten godkjenning postes en `blocker` på Board, og eieren avgjør.
+**Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre runder med ulike head-SHA-er uten godkjenning postes en `blocker` på Board, og eieren avgjør. Omkjøring av samme kode teller ikke som en ny runde; en godkjenning nullstiller tellingen (ADR 0022).
 
-**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI og grønn `agent-review` før eieren kan merge.
+**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test`), grønn `agent-review` og oppdatert base før eieren kan merge. Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
 
 **Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
 

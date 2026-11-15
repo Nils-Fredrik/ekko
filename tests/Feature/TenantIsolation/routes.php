@@ -118,6 +118,10 @@ foreach (['brands', 'alerts', 'usage'] as $resource) {
 }
 
 return [
+    'admin.billing.index' => RouteAccess::platformAdmin(),
+    'admin.billing.export' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['data' => ['month' => '2026-10']]),
+    'admin.billing.markup' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id], 'data' => ['markup_percent' => '10.0000']]),
+    'internal.extraction-poll' => RouteAccess::service(),
     ...$apiEntries,
     // Public and system routes.
     'home' => RouteAccess::public(),
