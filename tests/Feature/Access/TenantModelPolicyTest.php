@@ -68,6 +68,8 @@ function tenantModelRights(): array
         Models\ExtractionJob::class => $system(POLICY_NO_ROLE),
 
         // Usage (6.5): "se forbruk" is the admin's.
+        Models\AnthropicBudgetPlan::class => $system(POLICY_ADMINS),
+        Models\AnthropicInsightAllocation::class => $system(POLICY_ADMINS),
         Models\UsageEvent::class => $system(POLICY_ADMINS),
         Models\UsageMonthly::class => $system(POLICY_ADMINS),
 

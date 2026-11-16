@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\AnthropicBudget\Account;
+use App\AnthropicBudget\CreditExhausted;
 use App\Detection\DetectionCatalog;
 use App\Detection\DeterministicDetector;
 use App\Extraction\ExtractionPromptBuilder;
@@ -33,6 +35,13 @@ class SubmitExtractionBatch extends TenantJob implements ShouldBeUniqueUntilProc
 
     /** Seconds a queued submit job holds the lock if it never starts. */
     public int $uniqueFor = 3600;
+
+    public function failed(?\Throwable $failure): void
+    {
+        if ($failure instanceof CreditExhausted) {
+            app(Account::class)->markExhausted();
+        }
+    }
 
     public function uniqueId(): string
     {

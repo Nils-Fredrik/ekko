@@ -93,7 +93,7 @@ Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lok
 |---|---|---|
 | Web, API og MCP | Cloud Run service `ekko-web` | min 0, maks 4 instanser, 1 vCPU / 1 GiB, Cloud SQL-tilkobling via Unix-socket |
 | Dispatcher | Cloud Run Job `ekko-dispatch` | `php artisan ekko:dispatch-due` |
-| Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid (av dispatcheren eller av `extraction-poll`). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300 --timeout=420`-prosesser. Ved oppstart settes `taskCount` til `ceil(jobber i kø / 2000)`, maks 8, med automatisk parallellisme i Cloud Run. Databasekøen reserverer jobber i 450 sekunder. |
+| Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid: av dispatcheren, av `extraction-poll` og av veiviseren når en analyse legges i kø (ADR 0018). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300 --timeout=420`-prosesser. Ved oppstart settes `taskCount` til `ceil(jobber i kø / 2000)`, maks 8, med automatisk parallellisme i Cloud Run. Databasekøen reserverer jobber i 450 sekunder. |
 | Planlagte oppgaver | Cloud Run Job `ekko-task` | samme image, kommando settes per Scheduler-trigger. Kjører timevis aggregering og forbruksoppdatering samt øvrige planlagte oppgaver (se 7.1). |
 | Lette periodiske oppgaver | Interne endepunkter på `ekko-web` | Cloud Scheduler kaller `POST /internal/tick/{oppgave}` med OIDC-token fra en egen tjenestekonto. Endepunktene gjør kun korte kontroller og legger tyngre arbeid i køen. |
 | Migrering | Cloud Run Job `ekko-migrate` | `php artisan migrate --force`, kjøres i deploy-pipeline |
@@ -648,6 +648,8 @@ Ekko bruker de månedlige API-kredittene som følger med konsernets Claude Team-
 - Ledig beløp ut over prognosen fordeles på nivå 2-tiltakene i rekkefølgen over, fordelt jevnt på dagene som gjenstår.
 - De siste 3 dagene i perioden kan bufferen også brukes.
 
+Implementasjonen er presisert i ADR 0023: faktureringsankeret er i UTC, korte måneder avkorter dag 29–31 uten varig forskyvning, og ventende kall reserverer estimert kapasitet. Pakkegrenser overstyres ikke av tillegg. Variasjon måles som variasjon i merkevareomtale siste 14 dager. Månedlig innsikt tildeles én gang per merkevare/periode og konsumeres av T32. Plattformens anonyme kostnadsbok beholdes ved tenantsletting. Console-grensen og deaktivert automatisk påfylling er fortsatt den harde ytre grensen; simuleringsbeviset gjelder estimert planlegging, ikke en feilkonfigurert leverandørkonto.
+
 `Admin/Usage.vue` viser forbruk mot pott i inneværende periode, prognose, hva som er lagt inn som tillegg og om redusert modus er aktiv.
 
 **Skalering:** Grunnlasten koster om lag 20–30 dollar per merkevare og marked i måneden. Potten dekker dermed grunnlasten for om lag 15–20 merkevarer. Ut over det kan kjerneprompts kjøres daglig og resten ukentlig for Claude (`prompt_scope`), noe som omtrent halverer forbruket per merkevare. Alternativt betales overskytende forbruk via kjøpte kreditter.
@@ -669,6 +671,12 @@ Veiviseren gjør at en ny merkevare er klar til første kjøring på få minutte
 6. **Første kjøring:** startes umiddelbart for kjerneprompts. Resten følger ordinær plan.
 
 For et nytt marked på en eksisterende merkevare foreslår veiviseren prompts på det nye språket ut fra eksisterende temaer (`cross_market_key`). Promptene skal formuleres slik brukere i markedet faktisk spør, ikke som oversettelser.
+
+**Backend (T25, [ADR 0018](decisions/0018-veiviser-backend.md)):**
+- Analysen er asynkron: `POST /onboarding/analyses` (ny merkevare) og `POST /brands/{brand}/market-proposals` (nytt marked) svarer `202` med et id, og `GET /onboarding/analyses/{id}` gir status og forslag som strukturert JSON. Forslaget ligger bare i cachen i 24 timer og lagres ikke i konfigurasjonen før brukeren bekrefter.
+- Sonnet-kallet bruker strukturert utdata (`output_config.format`), og sidetekst sendes som data i escapede tagger (16). Telling og lengder håndheves ved parsing: høyst 10 konkurrenter, 8 temaer, 50 prompts, 10 kjerneprompts. Prompts med e-postadresse eller telefonnummer forkastes.
+- Kostnadsestimatet (`POST /onboarding/cost-estimate`) regnes fra `engine_prices`, pakken, egne nøkler og månedens forbruk, og viser avvik fra pakken og kvoten som advarsler.
+- Hvert modellkall føres i `usage_events` med `kind = onboarding` (plattformen betaler) og kontrolleres mot kvote og budsjett før start (`429` når de er brukt opp).
 
 ---
 ## 14. Brukergrensesnitt
@@ -825,17 +833,22 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - API-nøkler i Secret Manager, montert som miljøvariabler.
   - Tenant-nøkler, webhooker og integrasjonskonfigurasjon krypteres i databasen med Laravels `encrypted`-cast.
   - Ingen hemmeligheter i repo, logger eller råsvar.
-- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP).
+- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP). Bak Cloud Run er klientens IP-adresse den siste i `X-Forwarded-For`, den som Googles front la til (`TRUSTED_PROXIES=*`, `config/trustedproxy.php`). Host, port og prefiks hentes aldri fra proxyen.
+- **Konto og økt (T39-F4):** å bytte e-postadresse krever passordet, og den gamle adressen får varsel. Brukere som bare logger inn med Google, setter først et passord med «Glemt passord». En økt logges ut på alle ruter, også Fortifys, når passordet er byttet eller andre økter er logget ut. Alle passordsjekker (bekreft passord, e-postbytte, passordbytte, logg ut andre økter, slett konto) begrenses til 5 per minutt per bruker og IP. «Glemt passord» gir samme svar for kjente og ukjente adresser, og begrenses til 5 per minutt per IP og 5 per time per adresse. Kjent ulempe: fem kall kan sperre «Glemt passord» for én adresse i en time. Innlogging med passord og Google virker fortsatt.
 - **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
 
 **Sporbarhet:**
 - **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler.
 - **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke.
 
+**Nettlesersikkerhet og Claude-tilkoblingen (T39-F5):**
+- **Innramming:** ingen side kan vises i en ramme på et annet nettsted (`X-Frame-Options: DENY` og `frame-ancestors 'none'` på alle svar). Dette gjelder særlig samtykkesiden `/oauth/authorize`.
+- **Klientregistrering:** begrenset per IP per døgn. Klienter uten tilkobling slettes etter en time, og bare de teller mot taket for hele appen (ADR 0016).
+
 **Inndata og innhold:**
 - **Innhold fra motorene behandles som data.** Svartekster vises escaped. Lenker åpnes med `rel="noopener noreferrer nofollow"`.
 - **Svartekster sendes til uttrekksmodellen med instruks** om at innholdet er data og ikke instruksjoner.
-- **Veiviserens nettsidehenting:** kun `https`, maks 2 MB per side, ingen private IP-adresser (SSRF-vern) og maks 6 sider.
+- **Veiviserens nettsidehenting:** kun `https` på standardporten, maks 2 MB per side, ingen private IP-adresser (SSRF-vern) og maks 6 sider. Vertsnavnet slås opp og alle adressene må være offentlige, adressen som ble sjekket festes for tilkoblingen, og hver omdirigering (høyst 3) kontrolleres på nytt. Nettkartet er én ekstra forespørsel og regnes ikke som side (ADR 0018).
 
 **Personvern:**
 - **Region:** alle data i EU (`europe-west1`).
@@ -1051,11 +1064,13 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 |---|---|---|
 | `[Codex]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
 | `[Cursor]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
-| `[Claude Code]` | Codex med GPT-6.1 Sol | ChatGPT Codex-tilkoblingen med kodereview slått på |
+| `[Claude Code]` | Codex, ønsket GPT-6.1 Sol (se modellbegrensning under) | ChatGPT Codex-tilkoblingen med kodereview slått på |
 
-**Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex GPT-6.1 Sol, uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
+**Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex (ønsket GPT-6.1 Sol; se modellbegrensning under), uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
 
-**Workflow** (`.github/workflows/agent-review.yml`), som kjører når en PR åpnes eller oppdateres:
+**Modellbegrensning i Codex-integrasjonen (verifisert 15.11.2026):** GPT-6.1 Sol er ønsket reviewer-modell, men repoets Codex-innstillinger tilbyr ikke modellvalg, og GitHub-kvitteringen oppgir ikke modellidentitet. Aktiveringen bruker derfor integrasjonens leverandørstyrte modell med verifisert bot-identitet, aktuell head-SHA og fersk kvittering. Dette er et dokumentert avvik fra modellkravet over, ikke bevis på GPT-6.1 Sol. Hvis modellvalg eller pålitelig modellmetadata blir tilgjengelig, skal ønsket modell velges og verifiseres.
+
+**Workflows:** `.github/workflows/agent-review.yml` setter pending når en PR åpnes eller oppdateres (`pull_request_target`). `.github/workflows/agent-review-execute.yml` fortsetter på `workflow_run` fra betrodd main, etter kontroll av kildekjøring, workflow-ID/sti og uendret PR-head/base (ADR 0022). Dette unngår Anthropics observerte OIDC-feil på pull_request_target; PR-kode og kilde-artifacts kjøres aldri. Reviewet:
 1. Leser merkelappen i PR-tittelen og de endrede filene.
 2. For `[Codex]`- og `[Cursor]`-PR-er kjøres `claude-code-action` med Opus 5.5 og en review-instruks som viser til `AGENTS.md`, `docs/spec.md` og akseptkriteriene i Board-oppgaven.
 3. For `[Claude Code]`-PR-er og følsomme endringer postes kommentaren `@codex review` på PR-en.
@@ -1241,6 +1256,8 @@ Alle typer i 11.1, samling per døgn, levering til Slack og e-post, og kvitterin
 ### T25 – Veiviser, backend
 Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kapittel 13, kostnadsestimat og forslag for nytt marked basert på `cross_market_key`.
 - Forslagene returneres som strukturert JSON og lagres ikke før bekreftelse.
+- Sidehentingen avviser private, loopback-, link-local- og metadata-adresser (IPv4 og IPv6), også etter omdirigering, og er dekket av tester (ADR 0018).
+- Bekreftelsen som lagrer forslaget (merkevare, konkurrenter, temaer, prompts og motoroppsett) er ikke en del av T25 og leveres sammen med veiviser-UI-et (T29).
 
 ### T26 – Oversikt og merkevare-dashboard
 `Home.vue`, `Brands/Index.vue` og `Brands/Show.vue` med filtre, nøkkeltall, trendgrafer, share of voice, motor-sammenligning og modellbytte-markører.
@@ -1316,7 +1333,7 @@ Konsernets tenants (Maksimer AS, Maksimer AB, Mediebruket, Funbit) og én partne
 - Redusert modus slår inn og ut riktig i test.
 
 ### T42 – Kryssreview i GitHub
-Workflowen `agent-review.yml`, `.github/review-paths.yml`, status-sjekken `agent-review` og grenbeskyttelse på `main` etter 19.5. Installasjon av Claude GitHub App og ChatGPT Codex-tilkoblingen dokumenteres i `docs/runbook.md`.
+Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-paths.yml`, status-sjekken `agent-review` og grenbeskyttelse på `main` etter 19.5. Installasjon av Claude GitHub App og ChatGPT Codex-tilkoblingen dokumenteres i `docs/runbook.md`.
 - En testPR merket `[Codex]` får review fra Claude, og en merket `[Claude Code]` får review fra Codex.
 - En testPR som endrer en følsom sti får review fra begge.
 - `main` kan ikke merges uten grønn CI og grønn `agent-review`.

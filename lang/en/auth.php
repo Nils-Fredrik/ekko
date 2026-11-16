@@ -17,4 +17,11 @@ return [
     'two_factor' => [
         'required' => 'Your account level requires two-factor authentication. Turn it on before you continue.',
     ],
+    'email_changed' => [
+        'subject' => 'The e-mail address of your Ekko account has changed',
+        'greeting' => 'Hi :name,',
+        'line' => 'The e-mail address of your Ekko account has been changed to :email. This address no longer receives e-mail about the account.',
+        'not_you' => 'Was this not you? Contact your administrator at once, so the account can be locked.',
+        'password_hint' => 'Enter your password to change the e-mail address.',
+    ],
 ];

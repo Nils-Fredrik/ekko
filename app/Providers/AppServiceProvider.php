@@ -2,17 +2,29 @@
 
 namespace App\Providers;
 
+use App\AnthropicBudget\Account;
+use App\AnthropicBudget\BudgetedExtractionClient;
+use App\AnthropicBudget\Estimator;
 use App\Engines\EngineRegistry;
 use App\Engines\GcsRawResponseStore;
 use App\Engines\RawResponseStore;
 use App\Extraction\AnthropicExtractionClient;
 use App\Extraction\ExtractionClient;
 use App\Mcp\McpTokens;
+use App\Onboarding\Analysis;
+use App\Onboarding\Fetch\DnsHostResolver;
+use App\Onboarding\Fetch\HostResolver;
+use App\Onboarding\Fetch\HttpPageTransport;
+use App\Onboarding\Fetch\PageTransport;
+use App\Onboarding\Model\AnthropicOnboardingClient;
+use App\Onboarding\Model\OnboardingModelClient;
+use App\Policies\OnboardingPolicy;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -32,7 +44,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(EngineRegistry::class, EngineRegistry::discover(...));
         $this->app->bind(RawResponseStore::class, GcsRawResponseStore::class);
         // Resolved lazily: without ANTHROPIC_API_KEY the app boots, and only extraction fails.
-        $this->app->bind(ExtractionClient::class, fn (): ExtractionClient => AnthropicExtractionClient::fromConfig());
+        $this->app->bind(ExtractionClient::class, fn (): ExtractionClient => new BudgetedExtractionClient(AnthropicExtractionClient::fromConfig(), app(Account::class), app(Estimator::class)));
+        // The wizard (ADR 0018): the model client is resolved lazily for the same reason.
+        $this->app->bind(OnboardingModelClient::class, fn (): OnboardingModelClient => AnthropicOnboardingClient::fromConfig());
+        $this->app->bind(HostResolver::class, DnsHostResolver::class);
+        $this->app->bind(PageTransport::class, HttpPageTransport::class);
     }
 
     /**
@@ -40,6 +56,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // The wizard's proposals are not models, so their policy is registered by hand (ADR 0009, ADR 0018).
+        Gate::policy(Analysis::class, OnboardingPolicy::class);
+
+        // Each analysis fetches a site and calls the model, so starting them is limited per user.
+        RateLimiter::for('onboarding', fn (Request $request): Limit => Limit::perMinute((int) config('ekko.wizard.analyses_per_minute'))
+            ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
         RateLimiter::for('api-v1', function (Request $request) {
             $token = $request->user()?->currentAccessToken();
 
@@ -56,5 +78,8 @@ class AppServiceProvider extends ServiceProvider
         Sanctum::authenticateAccessTokensUsing(fn (PersonalAccessToken $token, bool $isValid): bool => $isValid && ! in_array(McpTokens::READ, (array) $token->abilities, true));
         RateLimiter::for('mcp-oauth', fn (Request $request) => Limit::perMinute((int) config('ekko.mcp.oauth_per_minute'))
             ->by('mcp-oauth:'.$request->ip()));
+        // Client registration per address per day (T39-F5), so one address cannot fill the ceiling for everyone.
+        RateLimiter::for('mcp-register', fn (Request $request) => Limit::perDay((int) config('ekko.mcp.clients_per_ip_per_day'))
+            ->by('mcp-register:'.$request->ip()));
     }
 }
