@@ -32,6 +32,8 @@ locals {
     EKKO_START_WORKER              = "true"
     EKKO_RAW_BUCKET                = google_storage_bucket.raw.name
     EKKO_REPORTS_BUCKET            = google_storage_bucket.reports.name
+    # Verify every forwarding hop before opening the production load balancer.
+    TRUSTED_PROXIES = "*"
   }
   web_secrets = {
     APP_KEY              = "app-key"

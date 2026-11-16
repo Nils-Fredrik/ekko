@@ -24,11 +24,11 @@ return Application::configure(basePath: dirname(__DIR__))
         then: fn () => require __DIR__.'/../routes/internal.php',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Cloud Run terminates TLS before Apache. Trust only its external scheme;
-        // forwarded host/port must not redirect assets or OAuth metadata elsewhere.
-        $middleware->trustProxies(at: '*', headers: Request::HEADER_X_FORWARDED_PROTO);
-
         $middleware->alias(['two-factor.required' => EnsureTwoFactorEnabled::class]);
+
+        // The client's address and scheme from the proxies in config/trustedproxy.php (T39-F3). Host, Port and
+        // Prefix are never trusted, so a forwarded header cannot change the URLs the app generates.
+        $middleware->trustProxies(headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO);
 
         $middleware->web(append: [
             SetLocale::class,
