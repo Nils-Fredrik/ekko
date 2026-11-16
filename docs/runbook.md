@@ -7,6 +7,13 @@
 - **Verifiser etter første utrulling:** to forespørsler fra ulike nett skal gi ulik `ip()` i loggen, og ti feilede SSO-forsøk fra ett nett skal ikke gi 429 fra et annet.
 - **Legges det en lastbalanserer foran Cloud Run** (egen domenekobling via HTTPS-lastbalanserer), kommer det et ekstra ledd i `X-Forwarded-For`. Da må `TRUSTED_PROXIES` liste **alle** ledd som legger til en adresse: både adressen som kobler til containeren (Cloud Runs interne front, ofte `169.254.0.0/16`) og lastbalansererens adresser. Står bare lastbalansererens adresser der, er ikke den tilkoblende adressen betrodd, og alle klienter blir én adresse igjen. Test dette under verifiseringen, og noter hvordan `X-Forwarded-For` faktisk ser ut på `run.app` (antall ledd).
 
+## Stenging og sletting av tenant (T39-F6)
+
+- «Slett tenant» i teaminnstillingene stenger tenanten. Den slettes ikke. Brukerne mister tilgang med en gang, og `closed_at` settes.
+- Jobben `ekko-tenant-purge` (Cloud Scheduler, kl. 03.30) kjører `php artisan ekko:purge-closed-tenants` i `ekko-task`. Den sletter tenanter stengt for minst 30 dager siden, først råsvarene i GCS og så databasen.
+- Feiler GCS-slettingen, blir tenanten stående, og jobben feiler. Neste kjøring prøver igjen. Se `tenant.purged` og feil i Cloud Logging.
+- Skal en stengt tenant gjenåpnes før sletting, sett `status` tilbake og `closed_at` til `null` i databasen.
+
 ## Kryssreview i GitHub (T42)
 
 ### Integrasjoner og identiteter
