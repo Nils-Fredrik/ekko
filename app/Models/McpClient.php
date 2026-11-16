@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -24,5 +25,15 @@ class McpClient extends Model
     protected function casts(): array
     {
         return ['redirect_uris' => 'array'];
+    }
+
+    /**
+     * Clients that never gave a connection: registered, but the token exchange was not completed.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeUnused(Builder $query): void
+    {
+        $query->whereNotExists(fn ($sub) => $sub->selectRaw('1')->from('mcp_connections')->whereColumn('mcp_connections.client_id', 'mcp_clients.id'));
     }
 }
