@@ -196,6 +196,21 @@ Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og
 
 Plattformadmin-operasjoner og migreringer bruker en egen databaserolle med `BYPASSRLS`. Den brukes kun av jobben `ekko-migrate` og av eksplisitte admin-handlinger som logges.
 
+Innloggingsrollen sjekkes ved oppstart i produksjon (T39-F2, `App\Tenancy\Rls\DatabaseRoleCheck`). Kode utenfor `TenantRls::run()` kjører som innloggingsrollen, så en feil `DB_USERNAME` ville ellers latt RLS stoppe ingenting uten at noen merket det. Rollen er usikker hvis minst ett av disse gjelder:
+- Den er superbruker eller har `BYPASSRLS`, `CREATEROLE` eller `CREATEDB`.
+- Den er medlem av en rolle som er superbruker, har `BYPASSRLS` eller er `cloudsqlsuperuser`. Et medlem kan bytte til rollen med `SET ROLE` (ADR 0007).
+- Den eier, eller er medlem av eieren av, en tabell med `tenant_id` eller `team_id`.
+
+En usikker rolle gir dette:
+- `/up` feiler. Det er oppstartsproben til `ekko-web`, så revisjonen får aldri trafikk.
+- Køarbeideren (`queue:work`) og alle `ekko:*`-kommandoer stopper før de starter.
+
+Migreringene sjekkes ikke, fordi de skal kjøre som eieren av tabellene. Sjekken styres med `DB_VERIFY_LOGIN_ROLE` og er på når `APP_ENV=production`. Rollen sjekkes bare når en instans eller kommando starter. `ekko-web` har ingen liveness-probe mot `/up`, så endres rollen mens en revisjon kjører, merkes det først ved neste revisjon.
+
+Tilkoblingen `pgsql_admin` har bare én inngang, `App\Tenancy\AdminConnection`. Bare den innloggede brukeren kan bruke den, og bare hvis hen er plattformadmin. Brukeren hentes fra økten, aldri fra et argument. Hver bruk og hvert avvist forsøk logges med hvem og hvorfor. En test i `CodebaseGuardsTest` feiler hvis andre filer i `app`, `routes`, `config`, `database`, `bootstrap` eller visningene nevner tilkoblingen.
+
+Tabellene `team_user`, `team_invitations`, `mcp_connections` og `mcp_auth_codes` hører til en tenant gjennom `team_id` og står bevisst utenfor RLS. De leses for å finne ut hvilke tenants noen har tilgang til, før tenantkonteksten er satt, så appen filtrerer dem selv. Begrunnelsen står i `RlsAudit::TEAM_TABLES_OUTSIDE_RLS`. En ny tabell med `team_id` må føres opp der med begrunnelse, eller få `tenant_id` og RLS. Ellers feiler testene.
+
 **Krav:** Testsuiten `tests/Feature/TenantIsolation` skal bevise at:
 - ingen rute, ingen API-endepunkt og ingen MCP-tool returnerer data fra en annen tenant
 - ingen jobb skriver data til feil tenant
@@ -838,7 +853,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
 
 **Sporbarhet:**
-- **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler.
+- **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler. Det gjelder også sendte og kansellerte invitasjoner (rolle og hvem), opprettelse, nytt navn og stenging av tenant, og opprettelse, endring og sletting av API-tokens. E-postadresser og tokenverdier logges ikke (T39-F6).
 - **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke.
 
 **Nettlesersikkerhet og Claude-tilkoblingen (T39-F5):**
@@ -858,6 +873,11 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - Råsvar slettes etter 400 dager.
   - Aggregater beholdes så lenge tenanten er aktiv.
   - Ved stenging av en tenant slettes alle data etter 30 dager, med mulighet for eksport (CSV og JSON) før sletting.
+    - «Slett tenant» stenger tenanten (status `closed`, `closed_at`) og krever nylig bekreftet passord. Alle mister tilgang med en gang.
+    - `ekko:purge-closed-tenants` (daglig, Cloud Scheduler) sletter tenanten 30 dager etter `closed_at`, først alle versjoner av råsvarene i GCS under `{tenantId}/` og så databasen. Tenantens revisjonslogg følger med, så selve slettingen logges i applikasjonsloggen (`tenant.purged`).
+    - En tenant som ble stengt før `closed_at` fantes, slettes ikke automatisk (T39-F6).
+    - Køede innsamlinger for en stengt tenant stoppes før kallet til motoren (`error_code` `tenant_closed`), slik at stengingen ikke gir nye kostnader.
+    - Avvik: eksport av en hel tenant (CSV og JSON) finnes ikke ennå. De 30 dagene gir rom for den når den kommer.
   - Brukere kan slette egen konto (Jetstream).
 
 ---

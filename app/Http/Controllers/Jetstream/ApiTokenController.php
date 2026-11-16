@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Jetstream;
 use App\Api\TokenTenant;
 use App\Models\Team;
 use App\Models\User;
+use App\Tenancy\AuditLog;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
@@ -54,6 +55,7 @@ class ApiTokenController extends JetstreamApiTokenController
             ...Jetstream::validPermissions($validated['permissions'] ?? []),
             'tenant:'.$tenant->id,
         ]);
+        app(AuditLog::class)->apiTokenCreated($user, $tenant, $token->accessToken->id, $validated['name'], array_values($token->accessToken->abilities));
 
         return back()->with('flash', ['token' => explode('|', $token->plainTextToken, 2)[1]]);
     }
@@ -66,11 +68,13 @@ class ApiTokenController extends JetstreamApiTokenController
         ]);
         $token = $request->user()->tokens()->whereKey($tokenId)->firstOrFail();
         $tenantId = TokenTenant::id($token);
+        $from = array_values($token->abilities ?? []);
         // Never bind a legacy token implicitly, and never rebind a token after a team switch.
         $token->forceFill(['abilities' => [
             ...Jetstream::validPermissions($validated['permissions'] ?? []),
             ...($tenantId === null ? [] : ['tenant:'.$tenantId]),
         ]])->save();
+        $this->audit($tenantId, fn (Team $tenant) => app(AuditLog::class)->apiTokenUpdated($request->user(), $tenant, $token->id, $from, array_values($token->abilities)));
 
         return back(303);
     }
@@ -80,8 +84,24 @@ class ApiTokenController extends JetstreamApiTokenController
      */
     public function destroy(Request $request, $tokenId): RedirectResponse
     {
-        $request->user()->tokens()->where('id', $tokenId)->firstOrFail()->delete();
+        $token = $request->user()->tokens()->where('id', $tokenId)->firstOrFail();
+        $token->delete();
+        $this->audit(TokenTenant::id($token), fn (Team $tenant) => app(AuditLog::class)->apiTokenDeleted($request->user(), $tenant, $token->id, $token->name));
 
         return back(303);
+    }
+
+    /**
+     * Token changes are logged in the tenant the token is bound to (T39-F6). A legacy token without a binding,
+     * or one for a tenant that is gone, has no tenant log to go to.
+     *
+     * @param  callable(Team): void  $write
+     */
+    private function audit(?int $tenantId, callable $write): void
+    {
+        $tenant = $tenantId === null ? null : Team::query()->find($tenantId);
+        if ($tenant instanceof Team) {
+            $write($tenant);
+        }
     }
 }

@@ -7,6 +7,20 @@
 - **Verifiser etter første utrulling:** to forespørsler fra ulike nett skal gi ulik `ip()` i loggen, og ti feilede SSO-forsøk fra ett nett skal ikke gi 429 fra et annet.
 - **Legges det en lastbalanserer foran Cloud Run** (egen domenekobling via HTTPS-lastbalanserer), kommer det et ekstra ledd i `X-Forwarded-For`. Da må `TRUSTED_PROXIES` liste **alle** ledd som legger til en adresse: både adressen som kobler til containeren (Cloud Runs interne front, ofte `169.254.0.0/16`) og lastbalansererens adresser. Står bare lastbalansererens adresser der, er ikke den tilkoblende adressen betrodd, og alle klienter blir én adresse igjen. Test dette under verifiseringen, og noter hvordan `X-Forwarded-For` faktisk ser ut på `run.app` (antall ledd).
 
+## Databaserollen ved oppstart (T39-F2)
+
+- I produksjon feiler `/up`, køarbeideren og `ekko:*`-kommandoene hvis innloggingsrollen (`DB_USERNAME`) kan omgå RLS. Det gjelder en superbruker, en rolle med `BYPASSRLS`, `CREATEROLE` eller `CREATEDB`, et medlem av `cloudsqlsuperuser` eller av en annen privilegert rolle, og en rolle som eier tenanttabellene. Feilen `Unsafe database login role` i loggen sier hva som er galt, for eksempel at `DB_USERNAME` peker på `ekko_migrate`.
+- Er databasen utilgjengelig ved oppstart, feiler sjekken også, med en databasefeil (`QueryException`) i stedet. Sjekk da tilkoblingen før rollen.
+- Rett `DB_USERNAME` til appens rolle (`ekko_app`). Ikke slå av sjekken med `DB_VERIFY_LOGIN_ROLE=false`.
+- En ny `ekko-web`-revisjon med feil rolle blir ikke klar, fordi `/up` er oppstartsproben. Trafikken blir værende på forrige revisjon.
+
+## Stenging og sletting av tenant (T39-F6)
+
+- «Slett tenant» i teaminnstillingene stenger tenanten. Den slettes ikke. Brukerne mister tilgang med en gang, og `closed_at` settes.
+- Jobben `ekko-tenant-purge` (Cloud Scheduler, kl. 03.30) kjører `php artisan ekko:purge-closed-tenants` i `ekko-task`. Den sletter tenanter stengt for minst 30 dager siden, først råsvarene i GCS og så databasen.
+- Feiler GCS-slettingen, blir tenanten stående, og jobben feiler. Neste kjøring prøver igjen. Se `tenant.purged` og feil i Cloud Logging.
+- Skal en stengt tenant gjenåpnes før sletting, sett `status` tilbake og `closed_at` til `null` i databasen.
+
 ## Kryssreview i GitHub (T42)
 
 ### Integrasjoner og identiteter

@@ -208,4 +208,11 @@ return [
     'account' => [
         'owns_tenants' => 'You own a tenant and cannot delete your account. Ask the platform admin to transfer or delete the tenant first.',
     ],
+    'tenant_close' => [
+        'title' => 'Close tenant',
+        'description' => 'Close the tenant and delete all data after 30 days.',
+        'body' => 'When the tenant is closed, all users lose access at once. The tenant and all data, stored raw answers included, are deleted for good after 30 days. Export the data you want to keep before then.',
+        'confirm' => 'Are you sure you want to close the tenant? Everyone loses access at once, and all data is deleted after 30 days.',
+        'confirm_password' => 'Confirm your password before closing the tenant.',
+    ],
 ];

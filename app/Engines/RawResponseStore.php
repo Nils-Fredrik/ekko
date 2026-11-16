@@ -13,4 +13,7 @@ interface RawResponseStore
      * The stored provider payload, or null when the URI is not readable.
      */
     public function read(string $uri): ?string;
+
+    /** Deletes every raw answer of the tenant, when the tenant itself is deleted (T39-F6). Returns the count. */
+    public function deleteTenant(int $tenantId): int;
 }
