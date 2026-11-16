@@ -16,6 +16,49 @@ use Illuminate\Support\Facades\DB;
 final class RlsAudit
 {
     /**
+     * Tables that belong to a tenant through team_id and are deliberately outside RLS (T39-F2). They are
+     * read to find out which tenants someone may use, before there is a tenant context to filter on, so
+     * the application filters them itself. A new table with team_id must be added here with a reason, or
+     * get tenant_id and RLS instead (tests/Feature/Tenancy/RlsCoverageTest.php).
+     *
+     * @var array<string, string>
+     */
+    public const TEAM_TABLES_OUTSIDE_RLS = [
+        'team_user' => 'memberships decide which tenants a user may see (TenantAccess), so they are read before the tenant context is set',
+        'team_invitations' => 'read by the invited person, who is not yet a member, when the invitation is accepted',
+        'mcp_connections' => 'resolved from the access token on /mcp before the tenant context is set (AuthenticateMcp)',
+        'mcp_auth_codes' => 'exchanged for a token on /oauth/token, where there is no user or tenant context',
+    ];
+
+    /**
+     * Tables with a team_id column that are not in TEAM_TABLES_OUTSIDE_RLS, and entries in it for tables
+     * that no longer have the column.
+     *
+     * @return array<string, string> table => what is wrong
+     */
+    public static function undocumentedTeamTables(): array
+    {
+        $tables = array_column(DB::select(<<<'SQL'
+            SELECT c.relname AS name
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
+            JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'team_id' AND NOT a.attisdropped
+            WHERE c.relkind IN ('r', 'p', 'v', 'm')
+            ORDER BY c.relname
+            SQL), 'name');
+
+        $problems = [];
+        foreach (array_diff($tables, array_keys(self::TEAM_TABLES_OUTSIDE_RLS)) as $table) {
+            $problems[$table] = 'team_id without RLS and not in RlsAudit::TEAM_TABLES_OUTSIDE_RLS';
+        }
+        foreach (array_diff(array_keys(self::TEAM_TABLES_OUTSIDE_RLS), $tables) as $table) {
+            $problems[$table] = 'listed in RlsAudit::TEAM_TABLES_OUTSIDE_RLS but has no team_id column';
+        }
+
+        return $problems;
+    }
+
+    /**
      * @return array<string, string> table => what is missing
      */
     public static function tablesMissingRls(): array

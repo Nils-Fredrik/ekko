@@ -196,6 +196,16 @@ Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og
 
 Plattformadmin-operasjoner og migreringer bruker en egen databaserolle med `BYPASSRLS`. Den brukes kun av jobben `ekko-migrate` og av eksplisitte admin-handlinger som logges.
 
+Innloggingsrollen sjekkes ved oppstart i produksjon (T39-F2, `App\Tenancy\Rls\DatabaseRoleCheck`). Kode utenfor `TenantRls::run()` kjører som innloggingsrollen, så en feil `DB_USERNAME` ville ellers latt RLS stoppe ingenting uten at noen merket det. Er rollen superbruker, har `BYPASSRLS`, eller eier (eller er medlem av eieren av) en tabell med `tenant_id` eller `team_id`, gjelder dette:
+- `/up` feiler. Det er oppstartsproben til `ekko-web`, så revisjonen får aldri trafikk.
+- Køarbeideren (`queue:work`) og alle `ekko:*`-kommandoer stopper før de starter.
+
+Migreringene sjekkes ikke, fordi de skal kjøre som eieren av tabellene. Sjekken styres med `DB_VERIFY_LOGIN_ROLE` og er på når `APP_ENV=production`.
+
+Tilkoblingen `pgsql_admin` har bare én inngang, `App\Tenancy\AdminConnection`. Bare plattformadmin kan bruke den, og hver bruk logges med hvem og hvorfor. En test i `CodebaseGuardsTest` feiler hvis andre filer i `app`, `routes`, `config`, `database`, `bootstrap` eller visningene nevner tilkoblingen.
+
+Tabellene `team_user`, `team_invitations`, `mcp_connections` og `mcp_auth_codes` hører til en tenant gjennom `team_id` og står bevisst utenfor RLS. De leses for å finne ut hvilke tenants noen har tilgang til, før tenantkonteksten er satt, så appen filtrerer dem selv. Begrunnelsen står i `RlsAudit::TEAM_TABLES_OUTSIDE_RLS`. En ny tabell med `team_id` må føres opp der med begrunnelse, eller få `tenant_id` og RLS. Ellers feiler testene.
+
 **Krav:** Testsuiten `tests/Feature/TenantIsolation` skal bevise at:
 - ingen rute, ingen API-endepunkt og ingen MCP-tool returnerer data fra en annen tenant
 - ingen jobb skriver data til feil tenant

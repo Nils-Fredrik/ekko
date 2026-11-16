@@ -25,7 +25,8 @@ Lokalt og i CI kobler appen til som superbruker, og superbrukere hopper alltid o
 7. **Web og API:** `ApplyTenantRls` ligger i web- og API-gruppen, etter autentisering og `SetCurrentTenant` og før route-binding (`SubstituteBindings`), så bundne modeller lastes under RLS. Transaksjonen rulles tilbake ved serverfeil (5xx) og ved unntak. Ved 4xx (for eksempel `abort(403)` eller `ValidationException`) committes den, så skriving som skjedde før feilen, blir lagret. Kontrollere skal derfor validere og autorisere før de skriver. Tenantene er nåværende tenant. T05 utvider med partnerens kunde-tenants.
 8. **Jobber:** `TenantJob` har `SetTenantContext` og `ApplyTenantRls` som middleware. Jobben ser bare sin egen tenant.
 9. **Nestede kall:** `SET LOCAL` overlever en frigitt savepoint. Når `run()` kjøres inne i en annen transaksjon (en jobb som sendes synkront fra en forespørsel, eller tester i en `RefreshDatabase`-transaksjon), settes forrige rolle og tenants tilbake etterpå.
-10. **Admin:** Tilkoblingen `pgsql_admin` (`DB_ADMIN_USERNAME`, `DB_ADMIN_PASSWORD`) er for plattformadmin-handlinger med en rolle som har `BYPASSRLS`. Tomme verdier, som i `.env.example`, faller tilbake til vanlig innlogging (lokalt). Bruken og loggingen kommer i T05.
+10. **Admin:** Tilkoblingen `pgsql_admin` (`DB_ADMIN_USERNAME`, `DB_ADMIN_PASSWORD`) er for plattformadmin-handlinger med en rolle som har `BYPASSRLS`. Tomme verdier, som i `.env.example`, faller tilbake til vanlig innlogging (lokalt). All bruk går gjennom `App\Tenancy\AdminConnection`, som krever plattformadmin og logger hvem og hvorfor (T39-F2).
+11. **Innloggingsrollen:** I produksjon stopper oppstarten hvis innloggingsrollen kan omgå RLS. Det gjelder superbruker, `BYPASSRLS` eller eier av tenanttabeller. Sjekken ligger i `App\Tenancy\Rls\DatabaseRoleCheck`, se `docs/spec.md` 5.3 (T39-F2).
 
 ## Konsekvenser
 

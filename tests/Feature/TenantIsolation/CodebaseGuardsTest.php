@@ -162,3 +162,24 @@ test('the isolation tests cannot be skipped or excluded', function () {
 
     expect($offenders)->toBe([], 'Skipped or excluded isolation tests: '.implode(', ', $offenders));
 });
+
+test('only AdminConnection may name the pgsql_admin connection', function () {
+    // The connection's role has BYPASSRLS (T39-F2). config/database.php defines it, AdminConnection is the one
+    // entry point and logs every use. Any other mention, also through config('database.connections…'), fails.
+    $allowed = ['config/database.php', 'app/Tenancy/AdminConnection.php'];
+    $offenders = [];
+
+    foreach (['app', 'bootstrap', 'config', 'database', 'routes', 'resources/views'] as $directory) {
+        foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(base_path($directory))) as $file) {
+            if (! $file->isFile() || $file->getExtension() !== 'php') {
+                continue;
+            }
+            $relative = substr($file->getPathname(), strlen(base_path()) + 1);
+            if (! in_array($relative, $allowed, true) && str_contains((string) file_get_contents($file->getPathname()), 'pgsql_admin')) {
+                $offenders[] = $relative;
+            }
+        }
+    }
+
+    expect($offenders)->toBe([], 'pgsql_admin outside AdminConnection: '.implode(', ', $offenders));
+});
