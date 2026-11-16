@@ -7,8 +7,10 @@ use App\Engines\EngineCollector;
 use App\Engines\EngineRegistry;
 use App\Engines\QueuedEngineAdapter;
 use App\Engines\QueuedEngineCollector;
+use App\Enums\TenantStatus;
 use App\Jobs\Middleware\SetTenantContext;
 use App\Models\Run;
+use App\Models\Team;
 use App\Scheduling\EngineThrottle;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
@@ -45,6 +47,13 @@ final class CollectEngineRun extends TenantJob
         if (! in_array($run->status, ['queued', 'running', 'submitted'], true)) {
             return;
         }
+        // A tenant closed after the run was queued gets no more provider calls (T39-F6): the dispatcher only
+        // stops future runs, and a queued job could otherwise still be billed while the tenant waits to be deleted.
+        if (Team::query()->whereKey($this->tenantId)->value('status') === TenantStatus::Closed) {
+            $this->stop('tenant_closed');
+
+            return;
+        }
         $lease = $throttle->acquire($run->engine);
         if ($lease === null) {
             $this->release(15);
@@ -74,9 +83,14 @@ final class CollectEngineRun extends TenantJob
 
     public function failed(?Throwable $failure): void
     {
-        app(TenantContext::class)->run($this->tenantId, fn () => app(TenantRls::class)->run([$this->tenantId], function (): void {
+        $this->stop('engine_collection_failed');
+    }
+
+    private function stop(string $errorCode): void
+    {
+        app(TenantContext::class)->run($this->tenantId, fn () => app(TenantRls::class)->run([$this->tenantId], function () use ($errorCode): void {
             Run::query()->whereKey($this->runId)->whereIn('status', ['queued', 'running', 'submitted'])->update([
-                'status' => 'failed', 'error_code' => 'engine_collection_failed', 'finished_at' => now(),
+                'status' => 'failed', 'error_code' => $errorCode, 'finished_at' => now(),
                 'enqueued_at' => null, 'provider_api_key' => null,
                 'quota_reservation_token' => null, 'quota_reserved_at' => null,
                 'quota_reserved_cost_usd' => null, 'quota_reserved_billed_to' => null,

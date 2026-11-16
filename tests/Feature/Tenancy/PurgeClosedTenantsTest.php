@@ -55,14 +55,14 @@ test('when the raw answers cannot be deleted, the tenant stays for the next run'
     expect(Team::query()->find($due->id))->not->toBeNull();
 });
 
-test('GCS deletes exactly the objects under the tenant prefix', function () {
+test('GCS deletes every version of the objects under the tenant prefix', function () {
     config(['engines.raw_bucket' => 'test-raw']);
     $objects = [Mockery::mock(StorageObject::class), Mockery::mock(StorageObject::class)];
     foreach ($objects as $object) {
         $object->expects('delete');
     }
     $bucket = Mockery::mock(Bucket::class);
-    $bucket->expects('objects')->with(['prefix' => '12/'])->andReturn(new ArrayIterator($objects));
+    $bucket->expects('objects')->with(['prefix' => '12/', 'versions' => true])->andReturn(new ArrayIterator($objects));
     $storage = Mockery::mock(StorageClient::class);
     $storage->expects('bucket')->with('test-raw')->andReturn($bucket);
 
