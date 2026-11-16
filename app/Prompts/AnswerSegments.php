@@ -2,6 +2,7 @@
 
 namespace App\Prompts;
 
+use App\Detection\EntityMatcher;
 use App\Models\Mention;
 
 /**
@@ -67,7 +68,8 @@ final class AnswerSegments
 
     /**
      * A stored mention is only the first span. Later copies of the same surface are highlighted too,
-     * unless they overlap a span already kept.
+     * when they are whole words (docs/spec.md 8.1): no letter or digit directly beside the name,
+     * except a trailing possessive s. A name inside another word, such as "apple" in "pineapple", is left plain.
      *
      * @param  list<array{offset: int, length: int, kind: string, surface: string}>  $marks
      * @return list<array{offset: int, length: int, kind: string, surface: string}>
@@ -84,7 +86,7 @@ final class AnswerSegments
             $seen[$key] = true;
 
             $from = 0;
-            while (($found = mb_stripos($answer, $mark['surface'], $from)) !== false) {
+            while (($found = self::findBounded($answer, $mark['surface'], $from)) !== null) {
                 if (! self::overlaps($marks, $found, $mark['length'])) {
                     $marks[] = [
                         'offset' => $found,
@@ -122,9 +124,50 @@ final class AnswerSegments
             return (int) $stored;
         }
 
-        $found = mb_stripos($answer, $surface);
+        return self::findBounded($answer, $surface, 0);
+    }
 
-        return $found === false ? null : $found;
+    /**
+     * The next case-insensitive copy that stands as its own word, or null.
+     */
+    private static function findBounded(string $answer, string $surface, int $from): ?int
+    {
+        $length = mb_strlen($surface);
+        if ($length === 0) {
+            return null;
+        }
+
+        while (($found = mb_stripos($answer, $surface, $from)) !== false) {
+            if (self::bounded($answer, $found, $length)) {
+                return $found;
+            }
+            $from = $found + 1;
+        }
+
+        return null;
+    }
+
+    /**
+     * Same boundary as {@see EntityMatcher}: no letter or digit on either side.
+     * A single trailing possessive s is allowed (Volvos), a longer word is not (Volvoer, pineapple).
+     */
+    private static function bounded(string $answer, int $offset, int $length): bool
+    {
+        if ($offset > 0 && self::isLetterOrDigit(mb_substr($answer, $offset - 1, 1))) {
+            return false;
+        }
+
+        $tail = mb_substr($answer, $offset + $length);
+        if ($tail === '' || ! self::isLetterOrDigit(mb_substr($tail, 0, 1))) {
+            return true;
+        }
+
+        return preg_match('/^s(?![\p{L}\p{N}])/iu', $tail) === 1;
+    }
+
+    private static function isLetterOrDigit(string $char): bool
+    {
+        return preg_match('/[\p{L}\p{N}]/u', $char) === 1;
     }
 
     private static function kind(string $entityType): string
