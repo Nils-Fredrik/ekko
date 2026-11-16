@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Jetstream;
 
 use App\Models\TeamInvitation;
+use App\Models\User;
+use App\Tenancy\AuditLog;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -41,6 +43,24 @@ class TeamInvitationController extends JetstreamTeamInvitationController
         // An invited user without a current tenant lands in the tenant just joined, not nowhere.
         if ($user->current_team_id === null) {
             $user->switchTeam($invitation->team);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Jetstream's cancel, logged with the role and who cancelled it (T39-F6).
+     *
+     * @param  int|string  $invitationId
+     */
+    public function destroy(Request $request, $invitationId)
+    {
+        $invitation = TeamInvitation::query()->whereKey($invitationId)->firstOrFail();
+        $response = parent::destroy($request, $invitationId);
+
+        $user = $request->user();
+        if ($user instanceof User) {
+            app(AuditLog::class)->invitationCancelled($user, $invitation->team, $invitation->id, $invitation->role);
         }
 
         return $response;

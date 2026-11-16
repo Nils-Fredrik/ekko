@@ -22,4 +22,18 @@ final readonly class GcsRawResponseStore implements RawResponseStore
 
         return "gs://{$bucketName}/{$path}";
     }
+
+    public function deleteTenant(int $tenantId): int
+    {
+        $bucket = $this->storage->bucket(config()->string('engines.raw_bucket'));
+        $deleted = 0;
+        // The trailing slash keeps tenant 1 from matching tenant 12. The bucket keeps versions, so every version is
+        // listed and deleted by its generation: deleting only the live one would leave the data as an archived version.
+        foreach ($bucket->objects(['prefix' => "{$tenantId}/", 'versions' => true]) as $object) {
+            $object->delete();
+            $deleted++;
+        }
+
+        return $deleted;
+    }
 }

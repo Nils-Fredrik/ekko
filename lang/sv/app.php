@@ -128,4 +128,11 @@ return [
     'account' => [
         'owns_tenants' => 'Du äger en tenant och kan inte radera ditt konto. Be plattformsadministratören att först överföra eller radera tenanten.',
     ],
+    'tenant_close' => [
+        'title' => 'Stäng tenant',
+        'description' => 'Stäng tenanten och radera all data efter 30 dagar.',
+        'body' => 'När tenanten stängs förlorar alla användare åtkomst direkt. Tenanten och all data, även sparade råsvar, raderas permanent efter 30 dagar. Exportera data du vill behålla innan dess.',
+        'confirm' => 'Är du säker på att du vill stänga tenanten? Alla förlorar åtkomst direkt, och all data raderas efter 30 dagar.',
+        'confirm_password' => 'Bekräfta ditt lösenord innan du stänger tenanten.',
+    ],
 ];

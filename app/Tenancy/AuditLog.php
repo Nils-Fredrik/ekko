@@ -53,6 +53,55 @@ final class AuditLog
         $this->record($tenant, 'member.removed', $by, $member, ['role' => $role]);
     }
 
+    /** The e-mail address is kept out of the entry; the invitation row has it while it exists (T39-F6). */
+    public function invitationSent(User $by, Team $tenant, int $invitationId, ?string $role): void
+    {
+        $this->record($tenant, 'invitation.sent', $by, null, ['invitation_id' => $invitationId, 'role' => $role]);
+    }
+
+    public function invitationCancelled(User $by, Team $tenant, int $invitationId, ?string $role): void
+    {
+        $this->record($tenant, 'invitation.cancelled', $by, null, ['invitation_id' => $invitationId, 'role' => $role]);
+    }
+
+    public function tenantCreated(User $by, Team $tenant): void
+    {
+        $this->record($tenant, 'tenant.created', $by, null, ['name' => $tenant->name]);
+    }
+
+    public function tenantRenamed(User $by, Team $tenant, string $from): void
+    {
+        $this->record($tenant, 'tenant.renamed', $by, null, ['from' => $from, 'to' => $tenant->name]);
+    }
+
+    /** Closing starts the 30 days before the tenant and its data are deleted (docs/spec.md 16). */
+    public function tenantClosed(User $by, Team $tenant): void
+    {
+        $this->record($tenant, 'tenant.closed', $by, null, ['purge_after' => $tenant->closed_at?->addDays(Team::PURGE_AFTER_DAYS)->toIso8601String()]);
+    }
+
+    /**
+     * @param  list<string>  $abilities  The token's permissions and tenant binding, never the token itself.
+     */
+    public function apiTokenCreated(User $by, Team $tenant, int $tokenId, string $name, array $abilities): void
+    {
+        $this->record($tenant, 'api_token.created', $by, null, ['token_id' => $tokenId, 'name' => $name, 'abilities' => $abilities]);
+    }
+
+    /**
+     * @param  list<string>  $from
+     * @param  list<string>  $to
+     */
+    public function apiTokenUpdated(User $by, Team $tenant, int $tokenId, array $from, array $to): void
+    {
+        $this->record($tenant, 'api_token.updated', $by, null, ['token_id' => $tokenId, 'from' => $from, 'to' => $to]);
+    }
+
+    public function apiTokenDeleted(User $by, Team $tenant, int $tokenId, string $name): void
+    {
+        $this->record($tenant, 'api_token.deleted', $by, null, ['token_id' => $tokenId, 'name' => $name]);
+    }
+
     public function billingMarkupChanged(User $by, Team $tenant, ?string $previous): void
     {
         $this->record($tenant, 'billing.markup_changed', $by, null, ['from' => $previous, 'to' => $tenant->billing_markup_percent]);
