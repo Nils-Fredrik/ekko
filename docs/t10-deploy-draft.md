@@ -1,6 +1,6 @@
 # T10 – gjenstående produksjonsvalidering
 
-PR #31 er fortsatt et utkast. CI bygger web- og jobbimage, kjører alle kodekontroller og Chromium-testene for innlogging og dashboard. `ci.yml` inneholder nå deploy-jobben, men produksjonskjøring er eksplisitt sperret til repository-variabelen `EKKO_DEPLOY_ENABLED=true` settes etter bootstrap og akseptbevis. Variabelen er ikke satt. Pågående main-kjøringer kanselleres ikke av nye push. Avvik og gjenstående akseptkriterier står i spec 17.2 og på Board task:35.
+PR #31 avventer siste kryssreview og eierens merge. CI bygger web- og jobbimage, kjører alle kodekontroller og Chromium-testene for innlogging og dashboard. `ci.yml` inneholder nå deploy-jobben, men produksjonskjøring styres av repository-variabelen `EKKO_DEPLOY_ENABLED=true`. Den er nå satt etter bootstrap og offentlig akseptbevis. Første automatiske main-utrulling kontrolleres etter eierens merge. Pågående main-kjøringer kanselleres ikke av nye push. Avvik og gjenstående akseptkriterier står i spec 17.2 og på Board task:35.
 
 ## Røyktestkontrakt
 
@@ -146,3 +146,14 @@ En separat gjennomgått Terraform-plan opprettet kun `roles/run.invoker` for `al
 Vanlig Chrome åpnet domenets innloggingsside og fulgte Google-knappen. Valg av den allerede inviterte testkontoen ga direkte testtenantens dashboard. Ingen request-interception, IAM-header, mellomside eller manuell omlasting ble brukt. Dette fullfører offentlig positiv Google-test. Offentlig negativ test må fortsatt bruke en annen, uinvitert Google-konto; eieren velger denne. Den tidligere private negative testen står som separat bevis, ikke som erstatning for offentlig kontroll.
 
 T10s kodeutrulling og aktivering av innsamling er separate porter. Alle **ni schedules er PAUSED**, og Gemini-grounding er fortsatt deaktivert. A7-priser/pakker og A4-avklaring må være på plass før innsamling aktiveres. Disse kravene kan beholdes mens web og kodeutrullinger brukes. `EKKO_DEPLOY_ENABLED` er ennå ikke satt. PR-en er utkast mens offentlig negativ test og siste kryssreview gjenstår. Den første automatiske GitHub-utrullingen fra main kan først observeres etter eierens merge; den er ikke erklært verifisert på forhånd.
+
+
+### Fullført offentlig Google-aksept og aktivert deploy
+
+Eieren fullførte innlogging med en annen Google-konto i den vanlige Chrome-fanen etter at det første adresseforsøket ikke ble gjenkjent av Google. Fanen viste deretter Ekkos melding om manglende tilgang/invitasjon. Dette var den offentlige flyten uten lokal IAM-transport. Kontroll etterpå viste fortsatt totalt tre brukere og én Google-kobling; avslaget opprettet ingen bruker eller kobling. Den inviterte testen over nådde dashboardet, mens denne negative testen ble avvist. Kontoidentifikatorer og OAuth-data er ikke lagret i repo/Board.
+
+`EKKO_DEPLOY_ENABLED=true` er satt og lest tilbake fra GitHub. Main/push/WIF-betingelsene er uendret, og det gjøres ingen bypass eller agent-merge for å simulere den første main-kjøringen. Denne siste automatiske utrullingen kan først observeres etter eierens merge; da kontrolleres auth/publisering, backup, migrering, kandidatsmoke, promotering og jobbimages. Schedules forblir pauset gjennom hele kontrollen.
+
+Main `7c2211e` (#65, T39-F2) er integrert før slutt-review. Den eksakte nye `DatabaseRoleCheck`-klassen er kjørt lesende mot Cloud SQL med produksjonens appinnlogging og bestod, uten endring av roller eller data. Terraform-planen endrer bare webens startup-probe fra TCP til HTTP `/up`; den flytter ikke eksisterende trafikk. Koden i #65 kommer i neste CI-image og må bestå den nye startup-proben før promotering. Det allerede utrullede `f022d2d`-imaget inneholder ikke #65, og rolleklassens databasekontroll er derfor et separat bevis, ikke en påstand om allerede utrullet kode.
+
+Terraform-endringen av startup-proben er anvendt; etterplanen er **No changes**, og 100 % trafikk er fortsatt låst til `ekko-web-t10-public-f022d2d`. Etter main-integreringen består **1699 tester / 9651 assertions**, Pint/Larastan, frontend-lint (fire eksisterende advarsler), fire Chromium-tester og Terraform fmt/validate.
