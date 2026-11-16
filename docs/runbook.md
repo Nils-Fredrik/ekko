@@ -108,9 +108,9 @@ Test-PR #46–#48 bekreftet App-identiteten og at miljøet avviser `refs/pull/48
 
 Etter #49 virket Claude OIDC på workflow_run, men `Read(~/**)` nektet alle filene under `/home/runner/work/ekko/ekko`. En ekte CLI-test med versjon 2.1.325 gjenskapte feilen under en syntetisk arbeidsmappe i hjemmemappen. Med den rettede regelen kunne Read lese testfilen; `.git` og filen utenfor arbeidsmappen ble fortsatt nektet. En separat CLI/MCP-test med den ekte publiseringsfunksjonen og en simulert HTTP-transport bekreftet at hele retur-objektet blir identisk med strukturert output. Den deterministiske testen avviser fortsatt et omformulert sammendrag. Ingen rettigheter til shell, skriving eller eksterne filer er lagt til.
 
-# Operations runbook
+## Utrulling og tilbakeføring
 
-## Retry a deployment
+### Kjør en utrulling på nytt
 
 Verified container artifacts expire after one day. If an artifact has expired,
 rerun the entire CI workflow so that the images are rebuilt, checked and
@@ -119,7 +119,7 @@ The image job has a 30-minute limit and deploy has a 90-minute limit. After a
 timeout, inspect the backup, migration, traffic and job-image state before retrying:
 termination may leave a migration or Cloud Run operation running independently.
 
-## Roll back web traffic
+### Tilbakefør webtrafikk
 
 This procedure applies only after the deployment pipeline is completed and
 approved for production. Identify a previously verified `ekko-web` revision

@@ -3,8 +3,11 @@
 This directory targets the existing `ekko-514612` project in `europe-west1`.
 It does not manage the GCP project, billing, secret versions, database users,
 the Terraform state bucket, application builds, or alert policies. Workload
-Identity Federation is defined in `deploy.tf`; the deployment workflow remains
-an inactive T10 draft. Alert policies are T36. No Terraform resource should
+Identity Federation is defined in `deploy.tf`. The deployment workflow runs on
+push to `main` when `EKKO_DEPLOY_ENABLED=true`; this repository variable is now
+enabled after the documented public acceptance checks. The first automatic
+main deployment is verified after the owner's merge of T10. Collection schedules
+remain paused independently. Alert policies are T36. No Terraform resource should
 ever contain a secret value.
 
 ## Bootstrap and prerequisites
