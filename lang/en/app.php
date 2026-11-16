@@ -179,6 +179,8 @@ return [
         'invalid_row' => 'Invalid row.',
         'quota' => 'The market has reached its prompt quota.',
         'bad_header' => 'The CSV file must include the text and market columns.',
+        'bad_encoding' => 'The CSV file must be UTF-8.',
+        'too_many_rows' => 'The import stops after 1000 rows.',
         'row_error' => 'Row :row: :message',
         'truncated' => 'Showing the :count newest answers.',
         'share' => 'Source share',

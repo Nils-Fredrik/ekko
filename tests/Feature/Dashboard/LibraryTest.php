@@ -56,7 +56,7 @@ test('the prompt table shows visibility, position and stability, and hides anoth
 
 test('a prompt shows highlighted mentions, sources and a raw answer', function () {
     $world = MetricsWorld::create();
-    $text = 'Vi anbefaler Kaffebønna fremfor Fjordkaffe.';
+    $text = 'Vi anbefaler Kaffebønna fremfor Fjordkaffe, og fjordkaffe igjen.';
     $response = $world->answer($world->p1, now()->toIso8601String());
     $response->update(['answer_text' => $text]);
     Mention::factory()->create([
@@ -80,11 +80,14 @@ test('a prompt shows highlighted mentions, sources and a raw answer', function (
         ->assertInertia(fn ($page) => $page
             ->component('Brands/PromptShow')
             ->where('engines.0.answers', function ($answers) {
-                return collect($answers)->contains(fn ($answer) => collect($answer['segments'])->contains(
-                    fn ($part) => $part['kind'] === 'brand' && $part['text'] === 'Fjordkaffe',
-                ) && collect($answer['segments'])->contains(
-                    fn ($part) => $part['kind'] === 'unknown' && $part['text'] === 'Kaffebønna',
-                ));
+                return collect($answers)->contains(function ($answer) {
+                    $brand = collect($answer['segments'])->where('kind', 'brand')->pluck('text');
+
+                    return $brand->all() === ['Fjordkaffe', 'fjordkaffe']
+                        && collect($answer['segments'])->contains(
+                            fn ($part) => $part['kind'] === 'unknown' && $part['text'] === 'Kaffebønna',
+                        );
+                });
             }));
 
     $this->get(route('brands.responses.raw', [$world->brand, $response]))
@@ -116,10 +119,12 @@ test('an unknown brand that recurs can be added as a competitor in one click', f
             ->where('competitors', fn ($rows) => collect($rows)->firstWhere('name', 'Nordlys')['domains'] === ['nordlys.example.test']));
 
     $this->post(route('brands.competitors.store', $world->brand), ['name' => 'Kaffebønna'])->assertRedirect();
+    $this->post(route('brands.competitors.store', $world->brand), ['name' => 'Kaffebønna'])->assertSessionHasErrors('name');
 
     app(TenantContext::class)->run($world->tenant->id, function () use ($world) {
         $competitor = Competitor::query()->where('brand_id', $world->brand->id)->where('name', 'Kaffebønna')->first();
         expect($competitor)->not->toBeNull()
+            ->and(Competitor::query()->where('brand_id', $world->brand->id)->where('name', 'Kaffebønna')->count())->toBe(1)
             ->and($competitor->aliases()->where('alias', 'Kaffebønna')->where('match_mode', 'case_insensitive')->exists())->toBeTrue();
     });
 
@@ -208,6 +213,67 @@ test('csv import shows a personal-data warning for the imported row', function (
             'importResult.warnings.0',
             __('app.library.personal_data_row', ['row' => 2]),
         ));
+});
+
+test('csv import rejects a file that is not utf-8, and a row that is empty of usable text', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\nKaff\xE6,NO\nHvem brenner den?,NO\n"])
+        ->assertRedirect();
+
+    $this->actingAs($owner)->get(route('brands.prompts.index', $world->brand))
+        ->assertInertia(fn ($page) => $page->where('importResult.errors.0', __('app.library.bad_encoding')));
+
+    app(TenantContext::class)->run($world->tenant->id, function () use ($world) {
+        expect(Prompt::query()->where('market_id', $world->market->id)->where('text', 'Hvem brenner den?')->exists())->toBeFalse();
+    });
+
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\nKaffe\x00,NO\n".str_repeat('a', Prompt::TEXT_MAX + 1).",NO\nHvem brenner den?,NO\n"])
+        ->assertRedirect();
+
+    $this->actingAs($owner)->get(route('brands.prompts.index', $world->brand))
+        ->assertInertia(fn ($page) => $page
+            ->where('importResult.errors.0', __('app.library.row_error', ['row' => 2, 'message' => __('app.library.invalid_row')]))
+            ->where('importResult.errors.1', __('app.library.row_error', ['row' => 3, 'message' => __('app.library.invalid_row')]))
+            ->where('importResult.created', 1));
+
+    $rows = str_repeat(",NO\n", 1001);
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\n".$rows])
+        ->assertRedirect();
+
+    $this->actingAs($owner)->get(route('brands.prompts.index', $world->brand))
+        ->assertInertia(fn ($page) => $page->where(
+            'importResult.errors',
+            fn ($errors) => collect($errors)->contains(__('app.library.row_error', ['row' => 1002, 'message' => __('app.library.too_many_rows')]))
+                && collect($errors)->doesntContain(fn ($error) => str_contains((string) $error, __('app.library.quota'))),
+        ));
+});
+
+test('inline editing accepts the same prompt length as the api and rejects a null byte', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $text = str_repeat('a', Prompt::TEXT_MAX);
+
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => $text])
+        ->assertRedirect();
+
+    app(TenantContext::class)->run($world->tenant->id, function () use ($world, $text) {
+        expect($world->p1->refresh()->text)->toBe($text);
+    });
+
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => $text.'a'])
+        ->assertSessionHasErrors('text');
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => "kaf\0fe"])
+        ->assertSessionHasErrors('text');
 });
 
 test('reactivation and csv import count only active prompts against the plan', function () {

@@ -3,6 +3,7 @@ import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 const props = defineProps({
     brand: { type: Object, required: true },
@@ -14,8 +15,24 @@ const props = defineProps({
     canManage: { type: Boolean, required: true },
 });
 
+const pending = ref([]);
+
 function add(suggestion) {
-    router.post(route('brands.competitors.store', props.brand.id), { name: suggestion.name }, { preserveScroll: true });
+    if (pending.value.includes(suggestion.name)) {
+        return;
+    }
+
+    pending.value = [...pending.value, suggestion.name];
+    router.post(
+        route('brands.competitors.store', props.brand.id),
+        { name: suggestion.name },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                pending.value = pending.value.filter((name) => name !== suggestion.name);
+            },
+        },
+    );
 }
 </script>
 
@@ -56,7 +73,8 @@ function add(suggestion) {
                             <button
                                 v-if="canManage"
                                 type="button"
-                                class="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary-deep"
+                                class="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary-deep disabled:opacity-40"
+                                :disabled="pending.includes(suggestion.name)"
                                 @click="add(suggestion)"
                             >
                                 {{ $t('app.library.add_competitor') }}

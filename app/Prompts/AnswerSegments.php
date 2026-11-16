@@ -35,8 +35,11 @@ final class AnswerSegments
                 'offset' => $offset,
                 'length' => $span,
                 'kind' => self::kind((string) $mention->entity_type),
+                'surface' => $surface,
             ];
         }
+
+        $marks = self::withLaterOccurrences($answer, $marks);
 
         usort($marks, fn (array $a, array $b): int => $a['offset'] <=> $b['offset']);
 
@@ -60,6 +63,57 @@ final class AnswerSegments
         }
 
         return $segments === [] ? [['text' => $answer, 'kind' => 'plain']] : $segments;
+    }
+
+    /**
+     * A stored mention is only the first span. Later copies of the same surface are highlighted too,
+     * unless they overlap a span already kept.
+     *
+     * @param  list<array{offset: int, length: int, kind: string, surface: string}>  $marks
+     * @return list<array{offset: int, length: int, kind: string, surface: string}>
+     */
+    private static function withLaterOccurrences(string $answer, array $marks): array
+    {
+        $seen = [];
+        $stored = $marks;
+        foreach ($stored as $mark) {
+            $key = mb_strtolower($mark['surface']).'|'.$mark['kind'];
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
+            $from = 0;
+            while (($found = mb_stripos($answer, $mark['surface'], $from)) !== false) {
+                if (! self::overlaps($marks, $found, $mark['length'])) {
+                    $marks[] = [
+                        'offset' => $found,
+                        'length' => $mark['length'],
+                        'kind' => $mark['kind'],
+                        'surface' => mb_substr($answer, $found, $mark['length']),
+                    ];
+                }
+                $from = $found + $mark['length'];
+            }
+        }
+
+        return $marks;
+    }
+
+    /**
+     * @param  list<array{offset: int, length: int, kind: string, surface: string}>  $marks
+     */
+    private static function overlaps(array $marks, int $offset, int $length): bool
+    {
+        $end = $offset + $length;
+        foreach ($marks as $mark) {
+            $markEnd = $mark['offset'] + $mark['length'];
+            if ($offset < $markEnd && $mark['offset'] < $end) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function offset(string $answer, string $surface, mixed $stored): ?int

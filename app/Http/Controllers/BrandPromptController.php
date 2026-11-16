@@ -110,7 +110,7 @@ class BrandPromptController extends Controller
         $this->promptOf($brand, $prompt);
 
         $validated = $request->validate([
-            'text' => ['sometimes', 'required', 'string', 'max:2000'],
+            'text' => ['sometimes', 'required', 'string', 'max:'.Prompt::TEXT_MAX, Prompt::nullByteRule()],
             'intent' => ['sometimes', 'required', Rule::in(Prompt::INTENTS)],
             'funnel_stage' => ['sometimes', 'required', Rule::in(Prompt::FUNNELS)],
             'priority' => ['sometimes', 'required', Rule::in(Prompt::PRIORITIES)],

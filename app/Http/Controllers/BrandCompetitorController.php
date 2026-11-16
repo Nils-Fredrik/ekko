@@ -8,6 +8,7 @@ use App\Models\Competitor;
 use App\Prompts\UnknownBrands;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -58,18 +59,23 @@ class BrandCompetitorController extends Controller
             'name' => ['required', 'string', 'max:200'],
         ])['name']);
 
-        if ($name === '' || isset(UnknownBrands::knownNames($brand)[mb_strtolower($name)])) {
-            throw ValidationException::withMessages(['name' => __('app.library.duplicate')]);
-        }
+        DB::transaction(function () use ($brand, $name): void {
+            // One lock per brand, so two clicks cannot both pass the duplicate check.
+            Brand::query()->whereKey($brand->id)->lockForUpdate()->first();
 
-        $competitor = $brand->competitors()->create([
-            'name' => $name,
-            'is_active' => true,
-        ]);
-        $competitor->aliases()->create([
-            'alias' => $name,
-            'match_mode' => 'case_insensitive',
-        ]);
+            if ($name === '' || isset(UnknownBrands::knownNames($brand)[mb_strtolower($name)])) {
+                throw ValidationException::withMessages(['name' => __('app.library.duplicate')]);
+            }
+
+            $competitor = $brand->competitors()->create([
+                'name' => $name,
+                'is_active' => true,
+            ]);
+            $competitor->aliases()->create([
+                'alias' => $name,
+                'match_mode' => 'case_insensitive',
+            ]);
+        });
 
         return back();
     }

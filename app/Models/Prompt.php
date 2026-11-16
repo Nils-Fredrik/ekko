@@ -28,9 +28,26 @@ class Prompt extends Model
     /** @var list<string> */
     public const PRIORITIES = ['core', 'standard'];
 
+    /**
+     * The same limit on every way a prompt is saved, so a prompt created through the API can still be edited.
+     */
+    public const TEXT_MAX = 10000;
+
     public static function hashText(string $text): string
     {
         return hash('sha256', $text);
+    }
+
+    /**
+     * A regular expression cannot carry a NUL byte, so the check is a string search.
+     */
+    public static function nullByteRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail): void {
+            if (is_string($value) && str_contains($value, "\0")) {
+                $fail('validation.regex')->translate(['attribute' => $attribute]);
+            }
+        };
     }
 
     /** @var list<string> */

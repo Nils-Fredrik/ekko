@@ -179,6 +179,8 @@ return [
         'invalid_row' => 'Ugyldig rad.',
         'quota' => 'Markedets promptkvote er nådd.',
         'bad_header' => 'CSV-filen må ha kolonnene text og market.',
+        'bad_encoding' => 'CSV-filen må være UTF-8.',
+        'too_many_rows' => 'Importen stopper etter 1000 rader.',
         'row_error' => 'Rad :row: :message',
         'truncated' => 'Viser de :count nyeste svarene.',
         'share' => 'Kildeandel',

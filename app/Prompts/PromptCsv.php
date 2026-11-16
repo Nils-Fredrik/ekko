@@ -73,6 +73,10 @@ final class PromptCsv
      */
     public static function import(Brand $brand, string $csv): array
     {
+        if (! mb_check_encoding($csv, 'UTF-8')) {
+            return ['created' => 0, 'skipped' => 0, 'errors' => [__('app.library.bad_encoding')], 'warnings' => []];
+        }
+
         return DB::transaction(function () use ($brand, $csv): array {
             Market::query()->where('brand_id', $brand->id)->orderBy('id')->lockForUpdate()->get(['id']);
 
@@ -112,13 +116,22 @@ final class PromptCsv
                 continue;
             }
             if ($rowNumber > 1001) {
-                $result['errors'][] = __('app.library.row_error', ['row' => $rowNumber, 'message' => __('app.library.quota')]);
+                $result['errors'][] = __('app.library.row_error', ['row' => $rowNumber, 'message' => __('app.library.too_many_rows')]);
                 break;
             }
 
             $values = [];
+            $hasNull = false;
             foreach ($columns as $index => $column) {
-                $values[$column] = self::fromSpreadsheet(trim((string) ($row[$index] ?? '')));
+                $cell = (string) ($row[$index] ?? '');
+                $hasNull = $hasNull || str_contains($cell, "\0");
+                $values[$column] = self::fromSpreadsheet(trim($cell));
+            }
+            if ($hasNull) {
+                $result['skipped']++;
+                $result['errors'][] = __('app.library.row_error', ['row' => $rowNumber, 'message' => __('app.library.invalid_row')]);
+
+                continue;
             }
 
             $error = self::storeRow($brand, $values);
@@ -144,7 +157,7 @@ final class PromptCsv
     private static function storeRow(Brand $brand, array $values): ?string
     {
         $text = $values['text'] ?? '';
-        if ($text === '') {
+        if ($text === '' || str_contains($text, "\0") || mb_strlen($text) > Prompt::TEXT_MAX) {
             return __('app.library.invalid_row');
         }
 
