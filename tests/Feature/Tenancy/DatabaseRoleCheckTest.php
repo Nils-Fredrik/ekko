@@ -5,6 +5,7 @@ use App\Tenancy\AdminConnection;
 use App\Tenancy\Rls\DatabaseRoleCheck;
 use App\Tenancy\Rls\RlsAudit;
 use App\Tenancy\Rls\UnsafeDatabaseRoleException;
+use App\Tenancy\TenantSchema;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Database\ConnectionInterface;
@@ -46,6 +47,29 @@ test('a role with BYPASSRLS, or that owns a tenant-owned table, is reported', fu
         // A member of the owner role can act as the owner, so it counts too.
         ->and($check->problemsFor('ekko_test_member'))->toBe(['role ekko_test_member owns tenant-owned tables: test_owned'])
         ->and($check->problemsFor('ekko_test_missing'))->toBe(['role ekko_test_missing does not exist']);
+});
+
+test('a role that can switch to a privileged role, or create roles or databases, is reported', function () {
+    // Attributes are not inherited, but a member can SET ROLE to the privileged role (ADR 0007).
+    DB::statement('CREATE ROLE ekko_test_bypass NOLOGIN BYPASSRLS');
+    DB::statement('CREATE ROLE ekko_test_via_bypass NOLOGIN IN ROLE ekko_test_bypass');
+    DB::statement('CREATE ROLE ekko_test_creator NOLOGIN CREATEROLE CREATEDB');
+
+    $check = app(DatabaseRoleCheck::class);
+
+    expect($check->problemsFor('ekko_test_via_bypass'))->toBe(['role ekko_test_via_bypass is a member of privileged roles: ekko_test_bypass'])
+        ->and($check->problemsFor('ekko_test_creator'))->toBe(['role ekko_test_creator has CREATEROLE', 'role ekko_test_creator has CREATEDB']);
+});
+
+test('a member of cloudsqlsuperuser is reported', function () {
+    // Cloud SQL makes built-in users members of cloudsqlsuperuser unless told otherwise (ADR 0007).
+    if (DB::selectOne("SELECT 1 AS found FROM pg_roles WHERE rolname = 'cloudsqlsuperuser'") === null) {
+        DB::statement('CREATE ROLE cloudsqlsuperuser NOLOGIN');
+    }
+    DB::statement('CREATE ROLE ekko_test_cloudsql NOLOGIN IN ROLE cloudsqlsuperuser');
+
+    expect(app(DatabaseRoleCheck::class)->problemsFor('ekko_test_cloudsql'))
+        ->toBe(['role ekko_test_cloudsql is a member of privileged roles: cloudsqlsuperuser']);
 });
 
 test('the migrating role owns the tables, so it would be refused as login role', function () {
@@ -98,6 +122,17 @@ test('every team_id table outside RLS is documented with a reason', function () 
     expect(RlsAudit::undocumentedTeamTables())->toBe([]);
 });
 
+test('a team_id table that also has tenant_id is left to the RLS audit', function () {
+    Schema::create('test_team_and_tenant', function (Blueprint $table) {
+        $table->id();
+        $table->foreignId('team_id');
+        TenantSchema::tenantColumn($table);
+    });
+
+    expect(RlsAudit::undocumentedTeamTables())->toBe([])
+        ->and(RlsAudit::tablesMissingRls())->toHaveKey('test_team_and_tenant');
+});
+
 test('a new team_id table without a reason is reported', function () {
     Schema::create('test_team_owned', function (Blueprint $table) {
         $table->id();
@@ -109,22 +144,31 @@ test('a new team_id table without a reason is reported', function () {
     ]);
 });
 
-test('only a platform admin can use the admin connection, and every use is logged', function () {
+test('the signed-in platform admin can use the admin connection, and every use is logged', function () {
     Log::spy();
     $admin = User::factory()->create();
     $admin->forceFill(['is_platform_admin' => true])->save();
+    $this->actingAs($admin);
 
-    $name = app(AdminConnection::class)->run($admin, 'billing overview', fn (ConnectionInterface $db) => $db->getName());
+    $name = app(AdminConnection::class)->run('billing overview', fn (ConnectionInterface $db) => $db->getName());
 
     expect($name)->toBe('pgsql_admin');
     Log::shouldHaveReceived('notice')->with('admin_connection.used', ['user_id' => $admin->id, 'purpose' => 'billing overview'])->once();
 });
 
-test('a user who is not platform admin cannot use the admin connection', function () {
+test('someone who is not a signed-in platform admin cannot use the admin connection, and the attempt is logged', function (bool $signedIn) {
+    Log::spy();
+    $user = User::factory()->create();
+    if ($signedIn) {
+        $this->actingAs($user);
+    }
     $called = false;
 
-    expect(fn () => app(AdminConnection::class)->run(User::factory()->create(), 'look around', function () use (&$called) {
+    expect(fn () => app(AdminConnection::class)->run('look around', function () use (&$called) {
         $called = true;
     }))->toThrow(AuthorizationException::class);
+
     expect($called)->toBeFalse();
-});
+    Log::shouldHaveReceived('warning')->with('admin_connection.denied', ['user_id' => $signedIn ? $user->id : null, 'purpose' => 'look around'])->once();
+    Log::shouldNotHaveReceived('notice');
+})->with(['signed in, not admin' => true, 'nobody signed in' => false]);

@@ -9,7 +9,8 @@
 
 ## Databaserollen ved oppstart (T39-F2)
 
-- I produksjon feiler `/up`, køarbeideren og `ekko:*`-kommandoene hvis innloggingsrollen (`DB_USERNAME`) er superbruker, har `BYPASSRLS` eller eier tenanttabellene. Feilen `Unsafe database login role` i loggen betyr at `DB_USERNAME` peker på feil rolle, for eksempel `ekko_migrate`.
+- I produksjon feiler `/up`, køarbeideren og `ekko:*`-kommandoene hvis innloggingsrollen (`DB_USERNAME`) kan omgå RLS. Det gjelder en superbruker, en rolle med `BYPASSRLS`, `CREATEROLE` eller `CREATEDB`, et medlem av `cloudsqlsuperuser` eller av en annen privilegert rolle, og en rolle som eier tenanttabellene. Feilen `Unsafe database login role` i loggen sier hva som er galt, for eksempel at `DB_USERNAME` peker på `ekko_migrate`.
+- Er databasen utilgjengelig ved oppstart, feiler sjekken også, med en databasefeil (`QueryException`) i stedet. Sjekk da tilkoblingen før rollen.
 - Rett `DB_USERNAME` til appens rolle (`ekko_app`). Ikke slå av sjekken med `DB_VERIFY_LOGIN_ROLE=false`.
 - En ny `ekko-web`-revisjon med feil rolle blir ikke klar, fordi `/up` er oppstartsproben. Trafikken blir værende på forrige revisjon.
 

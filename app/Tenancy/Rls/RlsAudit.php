@@ -19,7 +19,8 @@ final class RlsAudit
      * Tables that belong to a tenant through team_id and are deliberately outside RLS (T39-F2). They are
      * read to find out which tenants someone may use, before there is a tenant context to filter on, so
      * the application filters them itself. A new table with team_id must be added here with a reason, or
-     * get tenant_id and RLS instead (tests/Feature/Tenancy/RlsCoverageTest.php).
+     * also get tenant_id, which tablesMissingRls() then holds to complete RLS
+     * (tests/Feature/Tenancy/DatabaseRoleCheckTest.php).
      *
      * @var array<string, string>
      */
@@ -31,8 +32,9 @@ final class RlsAudit
     ];
 
     /**
-     * Tables with a team_id column that are not in TEAM_TABLES_OUTSIDE_RLS, and entries in it for tables
-     * that no longer have the column.
+     * Tables and views with a team_id column and no tenant_id column that are not in TEAM_TABLES_OUTSIDE_RLS,
+     * and entries in it for tables that no longer have the column. Views are included on purpose: a view
+     * with team_id exposes the same rows. One with tenant_id is left to tablesMissingRls().
      *
      * @return array<string, string> table => what is wrong
      */
@@ -44,6 +46,7 @@ final class RlsAudit
             JOIN pg_namespace n ON n.oid = c.relnamespace AND n.nspname = 'public'
             JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'team_id' AND NOT a.attisdropped
             WHERE c.relkind IN ('r', 'p', 'v', 'm')
+              AND NOT EXISTS (SELECT 1 FROM pg_attribute t WHERE t.attrelid = c.oid AND t.attname = 'tenant_id' AND NOT t.attisdropped)
             ORDER BY c.relname
             SQL), 'name');
 

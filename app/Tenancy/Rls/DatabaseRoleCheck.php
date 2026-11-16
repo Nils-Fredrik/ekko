@@ -7,8 +7,10 @@ use Illuminate\Support\Facades\DB;
 /**
  * Checks the role the application logs in with (T39-F2). Code outside TenantRls::run() runs as that
  * role, so with a wrong DB_USERNAME row-level security would stop nothing and nobody would notice.
- * A safe login role is no superuser, has no BYPASSRLS, and neither owns nor is a member of the owner
- * of a tenant-owned table (an owner can turn RLS off). In production the check runs when an instance
+ * A safe login role is no superuser, has no BYPASSRLS, CREATEROLE or CREATEDB (ADR 0007), is no member of a
+ * role that is a superuser, has BYPASSRLS or is cloudsqlsuperuser (a member can SET ROLE to it, attributes are
+ * not inherited), and neither owns nor is a member of the owner of a tenant-owned table (an owner can turn RLS
+ * off). In production the check runs when an instance
  * starts (the /up startup probe) and before the worker and the ekko:* commands (AppServiceProvider).
  */
 class DatabaseRoleCheck
@@ -31,7 +33,7 @@ class DatabaseRoleCheck
      */
     public function problemsFor(string $role): array
     {
-        $flags = DB::selectOne('SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = ?', [$role]);
+        $flags = DB::selectOne('SELECT rolsuper, rolbypassrls, rolcreaterole, rolcreatedb FROM pg_roles WHERE rolname = ?', [$role]);
         if ($flags === null) {
             return ["role {$role} does not exist"];
         }
@@ -42,6 +44,23 @@ class DatabaseRoleCheck
         }
         if ($flags->rolbypassrls) {
             $problems[] = "role {$role} has BYPASSRLS";
+        }
+        if ($flags->rolcreaterole) {
+            $problems[] = "role {$role} has CREATEROLE";
+        }
+        if ($flags->rolcreatedb) {
+            $problems[] = "role {$role} has CREATEDB";
+        }
+
+        $privileged = DB::select(<<<'SQL'
+            SELECT r.rolname AS name
+            FROM pg_roles r
+            WHERE r.rolname <> ? AND (r.rolsuper OR r.rolbypassrls OR r.rolname = 'cloudsqlsuperuser')
+              AND pg_has_role(?, r.oid, 'MEMBER')
+            ORDER BY r.rolname
+            SQL, [$role, $role]);
+        if ($privileged !== []) {
+            $problems[] = "role {$role} is a member of privileged roles: ".implode(', ', array_column($privileged, 'name'));
         }
 
         $owned = DB::select(<<<'SQL'
