@@ -34,7 +34,7 @@ final class PromptCsv
         }
 
         fwrite($handle, "\xEF\xBB\xBF");
-        fputcsv($handle, self::COLUMNS);
+        self::writeRow($handle, self::COLUMNS);
 
         $prompts = Prompt::query()
             ->whereIn('market_id', $brand->markets->pluck('id'))
@@ -47,7 +47,7 @@ final class PromptCsv
                 continue;
             }
 
-            fputcsv($handle, [
+            self::writeRow($handle, [
                 self::spreadsheetCell($prompt->text),
                 $prompt->market->country,
                 $prompt->market->language,
@@ -99,7 +99,7 @@ final class PromptCsv
 
         fwrite($handle, ltrim($csv, "\xEF\xBB\xBF"));
         rewind($handle);
-        $header = fgetcsv($handle);
+        $header = self::readRow($handle);
         $columns = is_array($header) ? array_map(fn ($column) => strtolower(trim((string) $column)), $header) : [];
 
         if (! in_array('text', $columns, true) || ! in_array('market', $columns, true)) {
@@ -110,7 +110,7 @@ final class PromptCsv
         }
 
         $rowNumber = 1;
-        while (($row = fgetcsv($handle)) !== false) {
+        while (($row = self::readRow($handle)) !== false) {
             $rowNumber++;
             if ($row === [null]) {
                 continue;
@@ -274,6 +274,27 @@ final class PromptCsv
         }
 
         return in_array($value, $allowed, true) ? $value : null;
+    }
+
+    /**
+     * An empty escape keeps a trailing backslash in the cell. The default escape would swallow the
+     * closing quote and join the next prompt into this one on import.
+     *
+     * @param  resource  $handle
+     * @param  list<int|string|null>  $fields
+     */
+    private static function writeRow($handle, array $fields): void
+    {
+        fputcsv($handle, $fields, ',', '"', '');
+    }
+
+    /**
+     * @param  resource  $handle
+     * @return list<string|null>|false
+     */
+    private static function readRow($handle): array|false
+    {
+        return fgetcsv($handle, null, ',', '"', '');
     }
 
     /**

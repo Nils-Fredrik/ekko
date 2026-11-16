@@ -448,3 +448,36 @@ test('csv export keeps formula-like prompt text from being evaluated in a spread
             ->and(Prompt::query()->where('market_id', $world->market->id)->where('text', '=1+1')->count())->toBe(1);
     });
 });
+
+test('csv export keeps a trailing backslash from joining the next prompt', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => 'What about C:\\'])
+        ->assertRedirect();
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p2]), ['text' => 'Neste prompt'])
+        ->assertRedirect();
+
+    $export = $this->actingAs($owner)->get(route('brands.prompts.export', $world->brand))->assertOk()->getContent();
+
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => 'Midlertidig'])
+        ->assertRedirect();
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p2]), ['text' => 'Midlertidig to'])
+        ->assertRedirect();
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => $export])
+        ->assertRedirect();
+
+    app(TenantContext::class)->run($world->tenant->id, function () use ($world) {
+        $texts = Prompt::query()->where('market_id', $world->market->id)->pluck('text');
+
+        expect($texts)->toContain('What about C:\\')
+            ->and($texts)->toContain('Neste prompt')
+            ->and($texts->contains(fn (string $text): bool => str_contains($text, 'What about C:\\') && str_contains($text, 'Neste prompt')))->toBeFalse();
+    });
+});
