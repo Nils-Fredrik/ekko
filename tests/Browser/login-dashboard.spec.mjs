@@ -49,6 +49,6 @@ test('private deployment smoke refuses to send its IAM token over HTTP', async (
         (failure) => failure,
     );
     expect(error?.code).toBe(1);
-    expect(error?.stderr).toContain('configuration');
+    expect(error?.stderr).toContain('Cloud Run IAM transport');
     expect(`${error?.stdout}${error?.stderr}`).not.toContain(token);
 });

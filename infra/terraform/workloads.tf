@@ -32,8 +32,8 @@ locals {
     EKKO_START_WORKER              = "true"
     EKKO_RAW_BUCKET                = google_storage_bucket.raw.name
     EKKO_REPORTS_BUCKET            = google_storage_bucket.reports.name
-    # Verify every forwarding hop before opening the production load balancer.
-    TRUSTED_PROXIES = "*"
+    # Laravel resolves REMOTE_ADDR per request; trust the fixed ALB hop as well.
+    TRUSTED_PROXIES = var.enable_https ? "REMOTE_ADDR,${google_compute_global_address.web[0].address}" : "*"
   }
   web_secrets = {
     APP_KEY              = "app-key"
@@ -100,7 +100,7 @@ resource "google_cloud_run_v2_service" "web" {
   }
   lifecycle {
     # T10 deploys image revisions and manages traffic after bootstrap.
-    ignore_changes = [client, client_version, template[0].containers[0].image, template[0].revision, traffic]
+    ignore_changes = [client, client_version, template[0].containers[0].image, traffic]
     precondition {
       condition     = can(regex("^${var.region}-docker[.]pkg[.]dev/${var.project_id}/ekko/web@sha256:[a-f0-9]{64}$", var.image))
       error_message = "Set image to an immutable web digest in this project's Ekko Artifact Registry repository."

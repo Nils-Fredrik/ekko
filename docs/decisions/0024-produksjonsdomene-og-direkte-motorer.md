@@ -10,6 +10,8 @@ Google [anbefaler en global ekstern Application Load Balancer](https://docs.clou
 
 Cloud Run beholder `INGRESS_TRAFFIC_ALL` for eksisterende kandidatadresser og Scheduler. Dette betyr at `run.app` også er tilgjengelig når public IAM aktiveres; lastbalansereren er ingen egen tilgangsgrense. Eventuell senere Cloud Armor/bypass-sperre krever at kandidat-røyktest og Scheduler tilpasses. Klient-IP-kjeden må testes både direkte og via lastbalansereren før offentlig åpning. `TRUSTED_PROXIES=*` alene fra T39-F3 er ikke automatisk riktig for den nye kjeden. Host/Port skal fortsatt ikke stoles på fra klienten.
 
+Live-test 16.11.2026 bekreftet at `*` gav lastbalansererens IP på domenet. Terraform setter derfor `REMOTE_ADDR` og den faste ALB-adressen når HTTPS er aktivert. Laravel erstatter plassholderen med faktisk tilkoblingsadresse; ingen intern CIDR eller antall ledd gjettes. Tester dekker falske klient- og ALB-adresser gjennom både direkte kjede og ALB-kjede. Status for kontroll mot ekte klientadresser står i T10-statusdokumentet.
+
 Lastbalanserer, ekstern IPv4 og databehandling gir løpende kostnader i tillegg til det gamle anslaget i spec 17.3. Ingen kostnadsfri domenetilknytning er forutsatt.
 
 ## OpenAI og nøkler

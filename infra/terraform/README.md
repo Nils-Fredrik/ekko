@@ -53,8 +53,12 @@ ever contain a secret value.
    and versions at deployment. The image must implement the web process and
    job commands described in the specification. Subsequent image changes need
    coordinated Terraform and deployment ownership (T10). After initial creation
-   Terraform ignores image changes, web traffic, web revision names and deploy
-   client metadata, which are managed by T10.
+   Terraform ignores image changes, web traffic and deploy client metadata,
+   which are managed by T10. Do not ignore `template.revision`: reusing a named
+   CLI revision when changing configuration fails with Cloud Run HTTP 409.
+   Terraform leaves the revision name unset so the API can generate one.
+   After a named CLI deployment, a plan may therefore clear that name; review
+   it with the other infrastructure changes while traffic stays pinned.
    T10 must pin production traffic to a tested revision before infrastructure
    updates that create revisions; otherwise a `LATEST` traffic target can expose
    an untested revision. Never apply infrastructure changes without reviewing

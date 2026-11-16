@@ -30,7 +30,9 @@ try {
     const origin = base.origin;
     // Optional IAM authentication while Cloud Run remains private during bootstrap.
     const cloudRunToken = process.env.SMOKE_CLOUD_RUN_ID_TOKEN;
+    stage = 'Cloud Run IAM transport';
     check(!cloudRunToken || base.protocol === 'https:', 'Cloud Run IAM requires HTTPS');
+    stage = 'configuration';
     const extraHTTPHeaders = cloudRunToken ? { 'X-Serverless-Authorization': `Bearer ${cloudRunToken}` } : {};
     const brand = Number(process.env.SMOKE_BRAND_ID);
     const tenant = Number(process.env.SMOKE_TENANT_ID);
