@@ -38,7 +38,7 @@ return [
         'redirect_not_claude' => 'Ekko godtar bare Claudes callback-adresser.',
         'grants' => 'Bare authorization_code og refresh_token støttes.',
         'response_types' => 'Bare response_type code støttes.',
-        'too_many_clients' => 'For mange klienter er registrert siste døgn. Prøv igjen senere.',
+        'too_many_clients' => 'For mange ubrukte klienter er registrert. Prøv igjen senere.',
     ],
 
     'authorize' => [

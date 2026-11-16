@@ -55,11 +55,15 @@ return [
     ],
 
     /*
-    | The Claude connection (MCP, docs/spec.md 15.2, ADR 0016). Clients Claude may register per day for the
-    | whole application, tool calls per minute per user and OAuth calls per minute per address.
+    | The Claude connection (MCP, docs/spec.md 15.2, ADR 0016). Client registration: per address per day,
+    | and a ceiling for unused clients in the whole application (T39-F5). An unused client (no connection
+    | yet) is deleted after unused_client_minutes. Also tool calls per minute per user and OAuth calls per
+    | minute per address.
     */
     'mcp' => [
-        'clients_per_day' => 500,
+        'clients_per_ip_per_day' => 20,
+        'unused_clients_max' => 500,
+        'unused_client_minutes' => 60,
         'calls_per_minute' => 120,
         'oauth_per_minute' => 30,
         // Items per page for tools that page their results with a cursor.
