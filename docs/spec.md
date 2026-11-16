@@ -770,7 +770,7 @@ Ekko skal se ut og oppføre seg som Varde og Borg. Tokenene under er hentet fra 
 | `Pages/Alerts/Index.vue` | Varsler med kvittering, og regler per merkevare |
 | `Pages/Reports/Index.vue` | Rapportplaner, mottakere, historikk og nedlasting |
 | `Pages/Usage/Index.vue` | Tenantens forbruk per måned og motor, mot kvote og budsjett |
-| `Pages/Team/Show.vue` | Jetstream team-administrasjon: medlemmer, roller, invitasjoner, Slack-webhook, profil for rapporter, egne API-nøkler |
+| `Pages/Teams/Show.vue` | Jetstream team-administrasjon: medlemmer, roller, invitasjoner, Slack-webhook, profil for rapporter, egne API-nøkler. Jetstream bruker flertall i mappen. |
 | `Pages/Admin/Tenants.vue` | Plattformadmin: opprette, endre, stenge tenants, sette partner og pakke |
 | `Pages/Admin/Plans.vue` | Pakker og grenser |
 | `Pages/Admin/Engines.vue` | Motorer, modell-ID, priser, aktivering, helsestatus |
@@ -1291,7 +1291,7 @@ Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kap
 - Forslag om ukjente merkevarer kan legges til som konkurrent med ett klikk.
 
 ### T28 – Innstillinger, varsler, rapporter, forbruk, team
-`Brands/Settings.vue`, `Alerts/Index.vue`, `Reports/Index.vue`, `Usage/Index.vue` og utvidelser i `Team/Show.vue` (Slack, rapportprofil, egne nøkler).
+`Brands/Settings.vue`, `Alerts/Index.vue`, `Reports/Index.vue`, `Usage/Index.vue` og utvidelser i `Teams/Show.vue` (Slack, rapportprofil, egne nøkler).
 - Alle skjemaer har validering og feilvisning som i Varde.
 
 ### T29 – Veiviser, UI

@@ -79,7 +79,7 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * @return array{can_update: bool, slack_configured: bool, primary: string, byok_enabled: bool, byok_budget: string|null, keys: list<array{provider: string, configured: bool, verified_at: string|null}>}|null
+     * @return array{can_update: bool, slack_configured: bool, primary: string, byok_enabled: bool, byok_budget?: string|null, keys?: list<array{provider: string, configured: bool, verified_at: string|null}>}|null
      */
     private function teamProfile(Request $request): ?array
     {
@@ -100,18 +100,20 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        $stored = TenantApiKey::query()->get(['provider', 'last_verified_at'])->keyBy(
-            fn (TenantApiKey $key): string => $key->provider->value,
-        );
         $primary = $team->branding['primary'] ?? null;
-
-        return [
+        $profile = [
             'can_update' => Gate::forUser($user)->allows('update', $team),
             'slack_configured' => filled($team->getAttributes()['slack_webhook_url'] ?? null),
             'primary' => is_string($primary) ? $primary : '',
             'byok_enabled' => $team->byok_enabled,
-            'byok_budget' => $team->monthly_byok_budget_usd,
-            'keys' => array_map(function (ApiKeyProvider $provider) use ($stored): array {
+        ];
+
+        // Key status is tenant administration. The budget is usage. Readers and editors have neither.
+        if (Gate::forUser($user)->allows('viewAny', TenantApiKey::class)) {
+            $stored = TenantApiKey::query()->get(['provider', 'last_verified_at'])->keyBy(
+                fn (TenantApiKey $key): string => $key->provider->value,
+            );
+            $profile['keys'] = array_map(function (ApiKeyProvider $provider) use ($stored): array {
                 $key = $stored->get($provider->value);
 
                 return [
@@ -119,8 +121,13 @@ class HandleInertiaRequests extends Middleware
                     'configured' => $key instanceof TenantApiKey,
                     'verified_at' => $key instanceof TenantApiKey ? $key->last_verified_at?->toIso8601String() : null,
                 ];
-            }, ApiKeyProvider::cases()),
-        ];
+            }, ApiKeyProvider::cases());
+        }
+        if (Gate::forUser($user)->allows('viewUsage', $team)) {
+            $profile['byok_budget'] = $team->monthly_byok_budget_usd;
+        }
+
+        return $profile;
     }
 
     /**

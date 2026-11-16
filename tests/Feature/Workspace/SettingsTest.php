@@ -297,9 +297,15 @@ test('team settings store a slack webhook and an api key without sending either 
         'https://api.openai.com/v1/models' => Http::response(['data' => []]),
     ]);
     $world = MetricsWorld::create();
-    $world->tenant->forceFill(['byok_enabled' => true])->save();
+    $world->tenant->forceFill(['byok_enabled' => true, 'monthly_byok_budget_usd' => '15.00'])->save();
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
+    $reader = User::factory()->create();
+    $editor = User::factory()->create();
+    $world->tenant->users()->attach($reader, ['role' => 'reader']);
+    $world->tenant->users()->attach($editor, ['role' => 'editor']);
+    $reader->switchTeam($world->tenant);
+    $editor->switchTeam($world->tenant);
     $webhook = 'https://hooks.slack.com/services/T000/B000/secret-webhook';
 
     $this->actingAs($owner)
@@ -328,8 +334,18 @@ test('team settings store a slack webhook and an api key without sending either 
         ->assertInertia(fn ($page) => $page
             ->where('teamProfile.slack_configured', true)
             ->where('teamProfile.primary', '#112233')
+            ->where('teamProfile.byok_budget', '15.00')
             ->where('teamProfile.keys.0.configured', true))
         ->assertDontSee($webhook)
         ->assertDontSee('sk-test-secret')
         ->assertDontSee('secret-webhook');
+
+    foreach ([$reader, $editor] as $member) {
+        $this->actingAs($member)->get(route('teams.show', $world->tenant))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('teamProfile.can_update', false)
+                ->missing('teamProfile.keys')
+                ->missing('teamProfile.byok_budget'));
+    }
 });

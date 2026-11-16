@@ -117,7 +117,7 @@ function saveBudget() {
             <template #form>
                 <div class="col-span-6 space-y-2 sm:col-span-4">
                     <p v-if="!profile.byok_enabled" class="text-sm text-gray-600">{{ $t('app.workspace.byok_off') }}</p>
-                    <p v-for="item in profile.keys" :key="item.provider" class="text-sm text-gray-700">
+                    <p v-for="item in profile.keys ?? []" :key="item.provider" class="text-sm text-gray-700">
                         {{ $t(`app.workspace.providers.${item.provider}`) }}:
                         {{
                             item.configured
@@ -134,7 +134,7 @@ function saveBudget() {
                             v-model="key.provider"
                             class="mt-1 block w-full rounded-md border-gray-300"
                         >
-                            <option v-for="item in profile.keys" :key="item.provider" :value="item.provider">
+                            <option v-for="item in profile.keys ?? []" :key="item.provider" :value="item.provider">
                                 {{ $t(`app.workspace.providers.${item.provider}`) }}
                             </option>
                         </select>
@@ -157,7 +157,7 @@ function saveBudget() {
             </template>
         </FormSection>
 
-        <FormSection v-if="profile.byok_enabled" @submitted="saveBudget">
+        <FormSection v-if="profile.byok_enabled && profile.byok_budget !== undefined" @submitted="saveBudget">
             <template #title>{{ $t('app.workspace.budget') }}</template>
             <template #description>{{ $t('app.workspace.byok_budget') }}</template>
             <template #form>
