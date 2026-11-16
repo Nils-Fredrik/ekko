@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import ActionMessage from '@/Components/ActionMessage.vue';
 import FormSection from '@/Components/FormSection.vue';
@@ -17,8 +17,12 @@ const form = useForm({
     _method: 'PUT',
     name: props.user.name,
     email: props.user.email,
+    current_password: '',
     photo: null,
 });
+
+// A new e-mail address needs the password (T39-F4).
+const changesEmail = computed(() => form.email.trim().toLowerCase() !== props.user.email);
 
 const verificationLinkSent = ref(null);
 const photoPreview = ref(null);
@@ -33,6 +37,7 @@ const updateProfileInformation = () => {
         errorBag: 'updateProfileInformation',
         preserveScroll: true,
         onSuccess: () => clearPhotoFileInput(),
+        onFinish: () => form.reset('current_password'),
     });
 };
 
@@ -139,6 +144,20 @@ const clearPhotoFileInput = () => {
                     autocomplete="username"
                 />
                 <InputError :message="form.errors.email" class="mt-2" />
+
+                <div v-if="changesEmail" class="mt-4">
+                    <InputLabel for="current_password_email" :value="$t('Current Password')" />
+                    <TextInput
+                        id="current_password_email"
+                        v-model="form.current_password"
+                        type="password"
+                        class="mt-1 block w-full"
+                        required
+                        autocomplete="current-password"
+                    />
+                    <p class="mt-1 text-sm text-gray-600">{{ $t('auth.email_changed.password_hint') }}</p>
+                    <InputError :message="form.errors.current_password" class="mt-2" />
+                </div>
 
                 <div v-if="$page.props.jetstream.hasEmailVerification && user.email_verified_at === null">
                     <p class="text-sm mt-2">
