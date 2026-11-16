@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Jetstream;
 
 use App\Api\TokenTenant;
+use App\Mcp\McpTokens;
 use App\Models\Team;
 use App\Models\User;
 use App\Tenancy\AuditLog;
@@ -10,12 +11,16 @@ use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Laravel\Jetstream\Http\Controllers\Inertia\ApiTokenController as JetstreamApiTokenController;
 use Laravel\Jetstream\Jetstream;
+use Laravel\Sanctum\NewAccessToken;
 
 /**
  * Jetstream's API token controller. Jetstream's destroy() calls first()->delete(), so another
- * user's token id gave a 500; here it gives 404, like update().
+ * user's token id gave a 500; here it gives 404, like update(). A new token expires after
+ * ekko.api.token_days, and a user holds at most ekko.api.tokens_per_user live tokens (T39-F10).
  */
 class ApiTokenController extends JetstreamApiTokenController
 {
@@ -32,6 +37,7 @@ class ApiTokenController extends JetstreamApiTokenController
 
                 return $token->toArray() + [
                     'last_used_ago' => $token->last_used_at?->diffForHumans(),
+                    'expires_on' => $token->expires_at?->toDateString(),
                     'tenant_name' => $tenant instanceof Team && $access->canSelect($user, $tenant) ? $tenant->name : null,
                 ];
             }),
@@ -51,10 +57,24 @@ class ApiTokenController extends JetstreamApiTokenController
         $user = $request->user();
         $tenant = Team::query()->find(app(TenantContext::class)->id()) ?? $user?->currentTeam;
         abort_unless($user instanceof User && $tenant instanceof Team && app(TenantAccess::class)->canSelect($user, $tenant), 403);
-        $token = $user->createToken($validated['name'], [
-            ...Jetstream::validPermissions($validated['permissions'] ?? []),
-            'tenant:'.$tenant->id,
-        ]);
+        // A ceiling on live tokens per user, and every new token expires (T39-F10). The user row is locked so two
+        // requests cannot both pass the count.
+        $token = DB::transaction(function () use ($user, $tenant, $validated): NewAccessToken {
+            User::query()->whereKey($user->id)->lockForUpdate()->first();
+            $max = (int) config('ekko.api.tokens_per_user');
+            $live = $user->tokens()
+                ->whereJsonDoesntContain('abilities', McpTokens::READ)
+                ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                ->count();
+            if ($live >= $max) {
+                throw ValidationException::withMessages(['name' => __('api.token_limit', ['max' => $max])]);
+            }
+
+            return $user->createToken($validated['name'], [
+                ...Jetstream::validPermissions($validated['permissions'] ?? []),
+                'tenant:'.$tenant->id,
+            ], now()->addDays((int) config('ekko.api.token_days')));
+        });
         app(AuditLog::class)->apiTokenCreated($user, $tenant, $token->accessToken->id, $validated['name'], array_values($token->accessToken->abilities));
 
         return back()->with('flash', ['token' => explode('|', $token->plainTextToken, 2)[1]]);

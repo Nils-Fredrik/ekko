@@ -171,6 +171,18 @@ it('lets deterministic matches win and only enriches them with the model values'
         ->and($unknown->listPosition)->toBe(3);
 });
 
+it('drops an unknown company whose name is not in the answer', function () {
+    $model = ExtractionResult::fromJson(modelJson([
+        modelMention(['surface_name' => 'Kaffebønna AS', 'entity' => ['type' => 'unknown', 'id' => null]]),
+        modelMention(['surface_name' => 'Oppdiktet AS', 'entity' => ['type' => 'unknown', 'id' => null], 'is_recommended' => true]),
+    ]));
+
+    $assembled = assembler()->assemble('Prøv kaffebønna as i sentrum.', [], $model, knownAliases());
+
+    expect(array_map(fn ($mention) => $mention->surfaceName, $assembled->mentions))->toBe(['Kaffebønna AS'])
+        ->and($assembled->mentions[0]->firstCharOffset)->toBe(5);
+});
+
 it('keeps the deterministic mentions untouched when the model stage failed', function () {
     $deterministic = [new DetectedMention('brand', 1, 'Fjordkaffe', 0, null)];
 
