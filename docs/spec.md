@@ -833,7 +833,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - API-nøkler i Secret Manager, montert som miljøvariabler.
   - Tenant-nøkler, webhooker og integrasjonskonfigurasjon krypteres i databasen med Laravels `encrypted`-cast.
   - Ingen hemmeligheter i repo, logger eller råsvar.
-- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP).
+- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP). Bak Cloud Run er klientens IP-adresse den siste i `X-Forwarded-For`, den som Googles front la til (`TRUSTED_PROXIES=*`, `config/trustedproxy.php`). Host, port og prefiks hentes aldri fra proxyen.
 - **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
 
 **Sporbarhet:**
