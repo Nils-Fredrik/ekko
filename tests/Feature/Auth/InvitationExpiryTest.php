@@ -97,7 +97,7 @@ test('finding 140: a user who changed e-mail to the invited address cannot accep
     $link = acceptUrl($invitation);
 
     // Changing the address through the profile clears the verification.
-    $this->actingAs($attacker)->put('/user/profile-information', ['name' => $attacker->name, 'email' => 'victim@example.test']);
+    $this->actingAs($attacker)->put('/user/profile-information', ['name' => $attacker->name, 'email' => 'victim@example.test', 'current_password' => 'password']);
 
     expect($attacker->fresh()->email)->toBe('victim@example.test')
         ->and($attacker->fresh()->hasVerifiedEmail())->toBeFalse();
@@ -126,7 +126,7 @@ test('a verified user who changes e-mail address gets a verification mail and lo
     Notification::fake();
     $user = User::factory()->create();
 
-    $this->actingAs($user)->put('/user/profile-information', ['name' => $user->name, 'email' => 'new@example.test']);
+    $this->actingAs($user)->put('/user/profile-information', ['name' => $user->name, 'email' => 'new@example.test', 'current_password' => 'password']);
 
     expect($user->fresh()->hasVerifiedEmail())->toBeFalse();
     Notification::assertSentTo($user->fresh(), VerifyEmail::class);
@@ -194,7 +194,7 @@ test('changing the profile e-mail to a different-case variant of another address
     User::factory()->create(['email' => 'victim@example.test']);
     $attacker = User::factory()->create(['email' => 'attacker@example.test']);
 
-    $this->actingAs($attacker)->put('/user/profile-information', ['name' => $attacker->name, 'email' => 'Victim@Example.test'])
+    $this->actingAs($attacker)->put('/user/profile-information', ['name' => $attacker->name, 'email' => 'Victim@Example.test', 'current_password' => 'password'])
         ->assertSessionHasErrorsIn('updateProfileInformation', 'email');
 
     expect($attacker->fresh()->email)->toBe('attacker@example.test')
@@ -212,7 +212,7 @@ test('the database refuses two addresses that differ only in case', function () 
 test('the invitation for a mixed-case address cannot land on a look-alike user', function () {
     $victim = User::factory()->create(['email' => 'victim@example.test']);
     $attacker = User::factory()->create(['email' => 'attacker@example.test']);
-    $this->actingAs($attacker)->put('/user/profile-information', ['name' => 'x', 'email' => 'Victim@example.test']);
+    $this->actingAs($attacker)->put('/user/profile-information', ['name' => 'x', 'email' => 'Victim@example.test', 'current_password' => 'password']);
 
     $team = Team::factory()->tenant()->create();
     $invitation = $team->teamInvitations()->create(['email' => 'Victim@example.test', 'role' => 'admin']);

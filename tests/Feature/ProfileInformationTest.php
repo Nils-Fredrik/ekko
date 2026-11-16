@@ -8,6 +8,7 @@ test('profile information can be updated', function () {
     $this->put('/user/profile-information', [
         'name' => 'Test Name',
         'email' => 'test@example.com',
+        'current_password' => 'password',
     ]);
 
     expect($user->fresh())

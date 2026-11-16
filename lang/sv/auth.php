@@ -17,4 +17,11 @@ return [
     'two_factor' => [
         'required' => 'Din kontonivå kräver tvåfaktorsautentisering. Aktivera den innan du fortsätter.',
     ],
+    'email_changed' => [
+        'subject' => 'E-postadressen för ditt Ekko-konto har ändrats',
+        'greeting' => 'Hej :name,',
+        'line' => 'E-postadressen för ditt Ekko-konto har ändrats till :email. Den här adressen får inte längre e-post om kontot.',
+        'not_you' => 'Var det inte du? Kontakta din administratör direkt så att kontot kan spärras.',
+        'password_hint' => 'Ange ditt lösenord för att ändra e-postadressen.',
+    ],
 ];
