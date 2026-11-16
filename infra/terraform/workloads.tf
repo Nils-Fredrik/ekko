@@ -30,6 +30,8 @@ locals {
     EKKO_START_WORKER     = "true"
     EKKO_RAW_BUCKET       = google_storage_bucket.raw.name
     EKKO_REPORTS_BUCKET   = google_storage_bucket.reports.name
+    # Google's front end appends the client's address to X-Forwarded-For (config/trustedproxy.php, T39-F3).
+    TRUSTED_PROXIES = "*"
   }
   web_secrets = {
     APP_KEY                 = "app-key"
