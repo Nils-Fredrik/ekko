@@ -121,7 +121,6 @@ En separat levende SSO-rategrensetest brukte tvungen IPv4 via domenet og IPv6 di
 
 Siste lokale kontroller: **1657 tester / 9523 assertions**, Pint/Larastan, frontend-lint, fire Chromium-tester, deploy-mocktester og Terraform fmt/validate består. Én lokal kjøring ble forstyrret fordi PHP- og nettlesertestene brukte samme testdatabase samtidig; de ble kjørt sekvensielt etterpå. En senere kjøring traff Composers prosesstidsgrense; siste fulltest brukte bare en høyere lokal tidsgrense, uten å endre tester eller CI. IAM/HTTP-testen har nå et eget transporttrinn, slik at den ikke kan bestå på grunn av manglende fixturekonfigurasjon.
 
-
 ### Ekte Google-konto før og etter invitasjon
 
 16.11.2026 fullførte eieren Googles ekte innlogging og samtykke i et separat testvindu. Kontoen hadde først verken bruker, invitasjon eller Google-kobling i Ekko. Callbacken ga appens melding om manglende invitasjon. Databasen hadde fortsatt bare de to syntetiske brukerne, ingen Google-koblinger og ingen invitasjon til testkontoen: avslaget opprettet ingenting.
