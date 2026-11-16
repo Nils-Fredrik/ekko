@@ -128,4 +128,11 @@ return [
     'account' => [
         'owns_tenants' => 'Du eier en tenant og kan ikke slette kontoen din. Be plattformadministratoren om å overføre eller slette tenanten først.',
     ],
+    'tenant_close' => [
+        'title' => 'Steng tenant',
+        'description' => 'Steng tenanten og slett alle data etter 30 dager.',
+        'body' => 'Når tenanten stenges, mister alle brukerne tilgang med en gang. Tenanten og alle data, også lagrede råsvar, slettes for godt etter 30 dager. Eksporter data du vil beholde før det.',
+        'confirm' => 'Er du sikker på at du vil stenge tenanten? Alle mister tilgang med en gang, og alle data slettes etter 30 dager.',
+        'confirm_password' => 'Bekreft passordet ditt før du stenger tenanten.',
+    ],
 ];

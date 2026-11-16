@@ -6,16 +6,10 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Laravel\Jetstream\Contracts\DeletesTeams;
 use Laravel\Jetstream\Contracts\DeletesUsers;
 
 class DeleteUser implements DeletesUsers
 {
-    /**
-     * Create a new action instance.
-     */
-    public function __construct(protected DeletesTeams $deletesTeams) {}
-
     /**
      * Delete the given user.
      */
@@ -45,8 +39,8 @@ class DeleteUser implements DeletesUsers
     {
         $user->teams()->detach();
 
-        $user->ownedTeams->each(function (Team $team) {
-            $this->deletesTeams->delete($team);
-        });
+        // Only personal teams are left here (tenants are refused above). They have no tenant data and are deleted
+        // at once; DeletesTeams closes a tenant for 30 days instead (T39-F6).
+        $user->ownedTeams->each(fn (Team $team) => $team->purge());
     }
 }

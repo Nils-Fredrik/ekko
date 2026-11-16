@@ -8,6 +8,13 @@ Med HTTPS-lastbalansereren har `ekko-web` `TRUSTED_PROXIES=REMOTE_ADDR,35.190.63
 - **Ved endret proxykjede:** test både direkte `run.app` og domenet med forfalskede innledende adresser, inkludert en falsk lastbalansereradresse. `*` alene ga lastbalansererens IP for alle på domenet i live-testen 16.11.2026. Sammenlign appens sesjons-IP med Googles forespørselslogg for hver vei; klienten kan bruke IPv6 direkte og IPv4 via domenet, så ulike adresser er ikke alene en feil. Registrer bare testresultatet på Board, ikke klientens IP eller sesjonsdata.
 - **Ved IPv6 på lastbalansereren:** legg også den nye forwarding-adressen inn i `TRUSTED_PROXIES` og gjenta kontrollen. Dagens ALB har bare IPv4; direkte IPv6-trafikk til Cloud Run går ikke gjennom et eget ALB-IPv6-ledd.
 
+## Stenging og sletting av tenant (T39-F6)
+
+- «Slett tenant» i teaminnstillingene stenger tenanten. Den slettes ikke. Brukerne mister tilgang med en gang, og `closed_at` settes.
+- Jobben `ekko-tenant-purge` (Cloud Scheduler, kl. 03.30) kjører `php artisan ekko:purge-closed-tenants` i `ekko-task`. Den sletter tenanter stengt for minst 30 dager siden, først råsvarene i GCS og så databasen.
+- Feiler GCS-slettingen, blir tenanten stående, og jobben feiler. Neste kjøring prøver igjen. Se `tenant.purged` og feil i Cloud Logging.
+- Skal en stengt tenant gjenåpnes før sletting, sett `status` tilbake og `closed_at` til `null` i databasen.
+
 ## Kryssreview i GitHub (T42)
 
 ### Integrasjoner og identiteter

@@ -90,8 +90,10 @@ class OAuthController extends Controller
         $name = $request->json('client_name');
         $name = is_string($name) && trim($name) !== '' ? Str::limit(strip_tags(trim($name)), 200, '') : 'Claude';
 
-        // A ceiling for the whole application, not only per address: many addresses could fill mcp_clients.
-        if (McpClient::query()->where('created_at', '>=', now()->subDay())->count() >= (int) config('ekko.mcp.clients_per_day')) {
+        // Unused clients are deleted after a while, and only they count against the ceiling for the whole
+        // application: many addresses could fill mcp_clients, but cannot block connections for a day (T39-F5).
+        McpClient::query()->unused()->where('created_at', '<', now()->subMinutes((int) config('ekko.mcp.unused_client_minutes')))->delete();
+        if (McpClient::query()->unused()->count() >= (int) config('ekko.mcp.unused_clients_max')) {
             return response()->json(
                 ['error' => 'temporarily_unavailable', 'error_description' => __('mcp.oauth.too_many_clients')],
                 429,

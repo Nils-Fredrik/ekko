@@ -78,5 +78,8 @@ class AppServiceProvider extends ServiceProvider
         Sanctum::authenticateAccessTokensUsing(fn (PersonalAccessToken $token, bool $isValid): bool => $isValid && ! in_array(McpTokens::READ, (array) $token->abilities, true));
         RateLimiter::for('mcp-oauth', fn (Request $request) => Limit::perMinute((int) config('ekko.mcp.oauth_per_minute'))
             ->by('mcp-oauth:'.$request->ip()));
+        // Client registration per address per day (T39-F5), so one address cannot fill the ceiling for everyone.
+        RateLimiter::for('mcp-register', fn (Request $request) => Limit::perDay((int) config('ekko.mcp.clients_per_ip_per_day'))
+            ->by('mcp-register:'.$request->ip()));
     }
 }

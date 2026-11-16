@@ -831,8 +831,12 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
 
 **Sporbarhet:**
-- **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler.
+- **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler. Det gjelder også sendte og kansellerte invitasjoner (rolle og hvem), opprettelse, nytt navn og stenging av tenant, og opprettelse, endring og sletting av API-tokens. E-postadresser og tokenverdier logges ikke (T39-F6).
 - **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke.
+
+**Nettlesersikkerhet og Claude-tilkoblingen (T39-F5):**
+- **Innramming:** ingen side kan vises i en ramme på et annet nettsted (`X-Frame-Options: DENY` og `frame-ancestors 'none'` på alle svar). Dette gjelder særlig samtykkesiden `/oauth/authorize`.
+- **Klientregistrering:** begrenset per IP per døgn. Klienter uten tilkobling slettes etter en time, og bare de teller mot taket for hele appen (ADR 0016).
 
 **Inndata og innhold:**
 - **Innhold fra motorene behandles som data.** Svartekster vises escaped. Lenker åpnes med `rel="noopener noreferrer nofollow"`.
@@ -847,6 +851,11 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - Råsvar slettes etter 400 dager.
   - Aggregater beholdes så lenge tenanten er aktiv.
   - Ved stenging av en tenant slettes alle data etter 30 dager, med mulighet for eksport (CSV og JSON) før sletting.
+    - «Slett tenant» stenger tenanten (status `closed`, `closed_at`) og krever nylig bekreftet passord. Alle mister tilgang med en gang.
+    - `ekko:purge-closed-tenants` (daglig, Cloud Scheduler) sletter tenanten 30 dager etter `closed_at`, først alle versjoner av råsvarene i GCS under `{tenantId}/` og så databasen. Tenantens revisjonslogg følger med, så selve slettingen logges i applikasjonsloggen (`tenant.purged`).
+    - En tenant som ble stengt før `closed_at` fantes, slettes ikke automatisk (T39-F6).
+    - Køede innsamlinger for en stengt tenant stoppes før kallet til motoren (`error_code` `tenant_closed`), slik at stengingen ikke gir nye kostnader.
+    - Avvik: eksport av en hel tenant (CSV og JSON) finnes ikke ennå. De 30 dagene gir rom for den når den kommer.
   - Brukere kan slette egen konto (Jetstream).
 
 ---

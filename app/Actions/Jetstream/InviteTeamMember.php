@@ -4,6 +4,7 @@ namespace App\Actions\Jetstream;
 
 use App\Models\Team;
 use App\Models\User;
+use App\Tenancy\AuditLog;
 use Closure;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\Gate;
@@ -47,6 +48,8 @@ class InviteTeamMember implements InvitesTeamMembers
         ]);
 
         Mail::to($email)->send(new TeamInvitation($invitation));
+
+        app(AuditLog::class)->invitationSent($user, $team, $invitation->id, $role);
     }
 
     /**

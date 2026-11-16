@@ -3,6 +3,7 @@
 use App\Http\Middleware\ApiJsonResponse;
 use App\Http\Middleware\ApiTokenContext;
 use App\Http\Middleware\ApplyTenantRls;
+use App\Http\Middleware\DenyFraming;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\SetCurrentTenant;
@@ -29,6 +30,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // The client's address and scheme from the proxies in config/trustedproxy.php (T39-F3). Host, Port and
         // Prefix are never trusted, so a forwarded header cannot change the URLs the app generates.
         $middleware->trustProxies(headers: Request::HEADER_X_FORWARDED_FOR | Request::HEADER_X_FORWARDED_PROTO);
+
+        // On every response, not only the web group: error pages and the OAuth pages are not to be framed either.
+        $middleware->append(DenyFraming::class);
 
         $middleware->web(append: [
             SetLocale::class,

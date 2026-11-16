@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TenantStatus;
 use App\Tenancy\InvalidPartnerException;
+use Carbon\CarbonImmutable;
 use Database\Factories\TeamFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,11 +34,15 @@ use Laravel\Jetstream\Team as JetstreamTeam;
  * @property bool $byok_enabled
  * @property int|null $monthly_call_quota_override
  * @property string|null $monthly_byok_budget_usd
+ * @property CarbonImmutable|null $closed_at
  */
 class Team extends JetstreamTeam
 {
     /** @use HasFactory<TeamFactory> */
     use HasFactory;
+
+    /** Days from closing until the tenant and all its data are deleted (docs/spec.md 16, T39-F6). */
+    public const PURGE_AFTER_DAYS = 30;
 
     /**
      * The attributes that are mass assignable.
@@ -192,6 +197,7 @@ class Team extends JetstreamTeam
             'monthly_call_quota_override' => 'integer',
             'monthly_byok_budget_usd' => 'decimal:2',
             'billing_markup_percent' => 'decimal:4',
+            'closed_at' => 'immutable_datetime',
         ];
     }
 

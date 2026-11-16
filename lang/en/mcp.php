@@ -37,7 +37,7 @@ return [
         'redirect_not_claude' => 'Ekko only accepts Claude\'s callback addresses.',
         'grants' => 'Only authorization_code and refresh_token are supported.',
         'response_types' => 'Only response_type code is supported.',
-        'too_many_clients' => 'Too many clients were registered in the last day. Try again later.',
+        'too_many_clients' => 'Too many unused clients are registered. Try again later.',
     ],
 
     'authorize' => [

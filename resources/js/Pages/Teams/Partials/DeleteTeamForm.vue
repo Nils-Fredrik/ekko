@@ -3,6 +3,8 @@ import { ref } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import ActionSection from '@/Components/ActionSection.vue';
 import ConfirmationModal from '@/Components/ConfirmationModal.vue';
+import ConfirmsPassword from '@/Components/ConfirmsPassword.vue';
+import InputError from '@/Components/InputError.vue';
 import DangerButton from '@/Components/DangerButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 
@@ -20,40 +22,33 @@ const confirmTeamDeletion = () => {
 const deleteTeam = () => {
     form.delete(route('teams.destroy', props.team), {
         errorBag: 'deleteTeam',
+        onFinish: () => (confirmingTeamDeletion.value = false),
     });
 };
 </script>
 
 <template>
     <ActionSection>
-        <template #title>{{ $t('Delete Team') }}</template>
+        <template #title>{{ $t('app.tenant_close.title') }}</template>
 
-        <template #description>{{ $t('Permanently delete this team.') }}</template>
+        <template #description>{{ $t('app.tenant_close.description') }}</template>
 
         <template #content>
-            <div class="max-w-xl text-sm text-gray-600">
-                {{
-                    $t(
-                        'Once a team is deleted, all of its resources and data will be permanently deleted. Before deleting this team, please download any data or information regarding this team that you wish to retain.',
-                    )
-                }}
-            </div>
+            <div class="max-w-xl text-sm text-gray-600">{{ $t('app.tenant_close.body') }}</div>
 
+            <!-- Closing needs a recently confirmed password (T39-F6). -->
             <div class="mt-5">
-                <DangerButton @click="confirmTeamDeletion">{{ $t('Delete Team') }}</DangerButton>
+                <ConfirmsPassword @confirmed="confirmTeamDeletion">
+                    <DangerButton type="button">{{ $t('app.tenant_close.title') }}</DangerButton>
+                </ConfirmsPassword>
+                <InputError :message="form.errors.password" class="mt-2" />
             </div>
 
             <!-- Delete Team Confirmation Modal -->
             <ConfirmationModal :show="confirmingTeamDeletion" @close="confirmingTeamDeletion = false">
-                <template #title>{{ $t('Delete Team') }}</template>
+                <template #title>{{ $t('app.tenant_close.title') }}</template>
 
-                <template #content>
-                    {{
-                        $t(
-                            'Are you sure you want to delete this team? Once a team is deleted, all of its resources and data will be permanently deleted.',
-                        )
-                    }}
-                </template>
+                <template #content>{{ $t('app.tenant_close.confirm') }}</template>
 
                 <template #footer>
                     <SecondaryButton @click="confirmingTeamDeletion = false">{{ $t('Cancel') }}</SecondaryButton>
@@ -64,7 +59,7 @@ const deleteTeam = () => {
                         :disabled="form.processing"
                         @click="deleteTeam"
                     >
-                        {{ $t('Delete Team') }}
+                        {{ $t('app.tenant_close.title') }}
                     </DangerButton>
                 </template>
             </ConfirmationModal>

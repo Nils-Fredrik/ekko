@@ -5,6 +5,7 @@ use App\Engines\Credentials\TenantApiKeys;
 use App\Engines\EngineCallFailed;
 use App\Engines\EngineCollector;
 use App\Engines\RawResponseStore;
+use App\Enums\TenantStatus;
 use App\Jobs\CollectEngineRun;
 use App\Models\Engine;
 use App\Models\EnginePrice;
@@ -251,4 +252,26 @@ test('known billable usage survives a storage failure and a new provider attempt
         });
     });
     Http::assertSentCount(2);
+});
+
+test('a run queued before the tenant was closed makes no provider call (T39-F6)', function () {
+    Http::preventStrayRequests()->fake();
+    $rawStore = Mockery::mock(RawResponseStore::class);
+    $rawStore->expects('put')->never();
+    app()->instance(RawResponseStore::class, $rawStore);
+    $tenant = Team::factory()->tenant()->create();
+    $engine = quotaEngine();
+    $context = app(TenantContext::class);
+    $rls = app(TenantRls::class);
+    [$run] = $context->run($tenant->id, fn () => $rls->run([$tenant->id], fn () => quotaRuns($engine)));
+    $tenant->forceFill(['status' => TenantStatus::Closed, 'closed_at' => now()])->save();
+
+    dispatch_sync(new CollectEngineRun($tenant->id, $run->id));
+
+    Http::assertNothingSent();
+    $context->run($tenant->id, fn () => $rls->run([$tenant->id], function () use ($run) {
+        expect($run->refresh()->status)->toBe('failed')
+            ->and($run->error_code)->toBe('tenant_closed')
+            ->and($run->quota_reservation_token)->toBeNull();
+    }));
 });
