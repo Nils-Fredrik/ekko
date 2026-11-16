@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuthenticateSessionAcrossGuards;
 use Laravel\Fortify\Features;
 
 return [
@@ -101,7 +102,9 @@ return [
     |
     */
 
-    'middleware' => ['web'],
+    // The password-hash check runs on the Fortify routes too, so a session hijacked before a password
+    // change cannot change the e-mail address or two-factor settings (T39-F4).
+    'middleware' => ['web', AuthenticateSessionAcrossGuards::class],
 
     /*
     |--------------------------------------------------------------------------

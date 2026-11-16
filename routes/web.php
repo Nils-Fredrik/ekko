@@ -10,7 +10,12 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Middleware\AuthenticateSessionAcrossGuards;
 use Illuminate\Support\Facades\Route;
+use Laravel\Fortify\Http\Controllers\ConfirmablePasswordController;
+use Laravel\Fortify\Http\Controllers\PasswordController;
+use Laravel\Fortify\Http\Controllers\PasswordResetLinkController;
+use Laravel\Fortify\Http\Controllers\ProfileInformationController;
 
 // No public landing page: guests are sent to the login page by the auth middleware.
 Route::redirect('/', '/dashboard')->name('home');
@@ -22,6 +27,21 @@ Route::put('/locale', [LocaleController::class, 'update'])->name('locale.update'
 Route::middleware(['guest', 'throttle:sso'])->prefix('auth/{provider}')->whereIn('provider', config('ekko.sso_providers'))->group(function () {
     Route::get('redirect', [SocialLoginController::class, 'redirect'])->name('social.redirect');
     Route::get('callback', [SocialLoginController::class, 'callback'])->name('social.callback');
+});
+
+// Fortify routes that check a password or send a mail, defined again with a rate limit (T39-F4). The app
+// routes load after Fortify's, so these replace the routes with the same method and path. Same
+// controllers, names and middleware as Fortify, plus throttle.
+Route::middleware(AuthenticateSessionAcrossGuards::class)->group(function () {
+    Route::post('/forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware(['guest:'.config('fortify.guard'), 'throttle:forgot-password'])
+        ->name('password.email');
+
+    Route::middleware(['auth:'.config('fortify.guard'), 'throttle:password-check'])->group(function () {
+        Route::post('/user/confirm-password', [ConfirmablePasswordController::class, 'store'])->name('password.confirm.store');
+        Route::put('/user/profile-information', [ProfileInformationController::class, 'update'])->name('user-profile-information.update');
+        Route::put('/user/password', [PasswordController::class, 'update'])->name('user-password.update');
+    });
 });
 
 Route::middleware([

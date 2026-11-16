@@ -834,6 +834,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - Tenant-nøkler, webhooker og integrasjonskonfigurasjon krypteres i databasen med Laravels `encrypted`-cast.
   - Ingen hemmeligheter i repo, logger eller råsvar.
 - **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP).
+- **Konto og økt (T39-F4):** å bytte e-postadresse krever passordet, og den gamle adressen får varsel. Brukere som bare logger inn med Google, setter først et passord med «Glemt passord». En økt logges ut på alle ruter, også Fortifys, når passordet er byttet eller andre økter er logget ut. Passordsjekker (bekreft passord, e-postbytte, passordbytte) begrenses til 5 per minutt per bruker og IP. «Glemt passord» gir samme svar for kjente og ukjente adresser, og begrenses til 5 per minutt per IP og 5 per time per adresse.
 - **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
 
 **Sporbarhet:**
