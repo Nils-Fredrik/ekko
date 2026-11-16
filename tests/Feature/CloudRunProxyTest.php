@@ -1,5 +1,9 @@
 <?php
 
+beforeEach(function () {
+    config(['trustedproxy.proxies' => '*']);
+});
+
 test('forwarded HTTPS produces secure OAuth metadata and frontend URLs', function () {
     $this->withHeaders(['X-Forwarded-Proto' => 'https'])
         ->getJson('http://candidate.example.test/.well-known/oauth-authorization-server')
