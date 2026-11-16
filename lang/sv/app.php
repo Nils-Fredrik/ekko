@@ -159,6 +159,7 @@ return [
         'prompt_scope' => 'Prompter',
         'scope_all' => 'Alla',
         'scope_core' => 'Kärna',
+        'scope_conflict' => 'Den här motorn har redan det omfånget på marknaden.',
         'repetitions' => 'Upprepningar',
         'integrations' => 'Integrationer',
         'integration_clickhouse' => 'ClickHouse',

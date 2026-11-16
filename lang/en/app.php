@@ -159,6 +159,7 @@ return [
         'prompt_scope' => 'Prompts',
         'scope_all' => 'All',
         'scope_core' => 'Core',
+        'scope_conflict' => 'This engine already uses that scope in the market.',
         'repetitions' => 'Repetitions',
         'integrations' => 'Integrations',
         'integration_clickhouse' => 'ClickHouse',

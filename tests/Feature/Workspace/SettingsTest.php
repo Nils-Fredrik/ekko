@@ -49,6 +49,61 @@ test('brand settings save aliases domains markets and engines and keep a regex a
         ->and($engine->fresh()->repetitions)->toBe(3);
 });
 
+test('two engines in one market cannot share a scope, and a blank threshold uses the default', function () {
+    $world = MetricsWorld::create();
+    $all = MarketEngine::factory()->create([
+        'market_id' => $world->market->id,
+        'engine_key' => $world->engine->key,
+        'prompt_scope' => 'all',
+        'frequency' => 'daily',
+    ]);
+    $core = MarketEngine::factory()->create([
+        'market_id' => $world->market->id,
+        'engine_key' => $world->engine->key,
+        'prompt_scope' => 'core',
+        'frequency' => 'daily',
+    ]);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $original = $world->brand->name;
+
+    $this->actingAs($owner)
+        ->from(route('brands.settings', $world->brand))
+        ->put(route('brands.settings.update', $world->brand), [
+            'name' => 'Skal ikke lagres',
+            'engines' => [
+                ['id' => $all->id, 'frequency' => 'weekly', 'prompt_scope' => 'core', 'repetitions' => 1],
+                ['id' => $core->id, 'frequency' => 'daily', 'prompt_scope' => 'core', 'repetitions' => 1],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('engines.1.prompt_scope');
+
+    expect($world->brand->fresh()->name)->toBe($original)
+        ->and($all->fresh()->prompt_scope)->toBe('all')
+        ->and($all->fresh()->frequency)->toBe('daily');
+
+    $this->actingAs($owner)->post(route('alerts.rules.store'), [
+        'brand_id' => $world->brand->id,
+        'type' => 'competitor_takeover',
+        'is_active' => true,
+    ])->assertRedirect();
+    $rule = AlertRule::query()->where('type', 'competitor_takeover')->firstOrFail();
+    expect((float) $rule->threshold)->toBe(50.0);
+
+    $rule->forceFill(['threshold' => null])->save();
+    $this->actingAs($owner)->put(route('alerts.rules.update', $rule), ['is_active' => true])->assertRedirect();
+    expect((float) $rule->fresh()->threshold)->toBe(50.0);
+
+    $this->actingAs($owner)->post(route('alerts.rules.store'), [
+        'brand_id' => $world->brand->id,
+        'type' => 'new_competitor',
+        'threshold' => '0',
+        'is_active' => true,
+    ])->assertRedirect();
+    expect((float) AlertRule::query()->where('type', 'new_competitor')->firstOrFail()->threshold)->toBe(0.0);
+});
+
 test('brand settings show validation errors and refuse a reader or another tenant', function () {
     $world = MetricsWorld::create();
     $owner = $world->tenant->owner;

@@ -9,6 +9,7 @@ use App\Models\Market;
 use App\Models\MarketEngine;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -257,6 +258,7 @@ class BrandSettingsController extends Controller
 
         $ids = $brand->markets()->pluck('id');
         $engines = MarketEngine::query()->whereIn('market_id', $ids)->get()->keyBy('id');
+        $this->guardEngineScopes($engines, $data['engines']);
         foreach ($data['engines'] as $index => $row) {
             if (! is_array($row)) {
                 continue;
@@ -273,6 +275,48 @@ class BrandSettingsController extends Controller
                 'prompt_scope' => $row['prompt_scope'],
                 'repetitions' => $row['repetitions'],
             ])->save();
+        }
+    }
+
+    /**
+     * The same market and engine can have all and core, but not two rows with one scope.
+     * A conflicting choice is rejected before anything is written.
+     *
+     * @param  Collection<int, MarketEngine>  $engines
+     * @param  array<mixed>  $rows
+     */
+    private function guardEngineScopes(Collection $engines, array $rows): void
+    {
+        $final = [];
+        $submitted = [];
+        $messages = [];
+        foreach ($rows as $index => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $engine = $engines->get($row['id'] ?? null);
+            if (! $engine instanceof MarketEngine) {
+                continue;
+            }
+            $scope = is_string($row['prompt_scope'] ?? null) ? $row['prompt_scope'] : '';
+            $key = $engine->market_id.'|'.$engine->engine_key.'|'.$scope;
+            if (isset($final[$key])) {
+                $messages["engines.{$index}.prompt_scope"] = __('app.workspace.scope_conflict');
+            }
+            $final[$key] = $index;
+            $submitted[$engine->id] = true;
+        }
+        foreach ($engines as $engine) {
+            if (isset($submitted[$engine->id])) {
+                continue;
+            }
+            $key = $engine->market_id.'|'.$engine->engine_key.'|'.$engine->prompt_scope;
+            if (isset($final[$key])) {
+                $messages['engines.'.$final[$key].'.prompt_scope'] = __('app.workspace.scope_conflict');
+            }
+        }
+        if ($messages !== []) {
+            throw ValidationException::withMessages($messages);
         }
     }
 

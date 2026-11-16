@@ -84,7 +84,7 @@ class AlertController extends Controller
 
         $attributes = [
             'type' => $data['type'],
-            'threshold' => $data['threshold'] ?? null,
+            'threshold' => $this->threshold($type, $data['threshold'] ?? null),
             'channels' => ['in_app'],
             'is_active' => $data['is_active'],
         ];
@@ -113,11 +113,25 @@ class AlertController extends Controller
         ]);
 
         $alertRule->fill([
-            'threshold' => $data['threshold'] ?? null,
+            'threshold' => $this->threshold(AlertType::from($alertRule->type), $data['threshold'] ?? null),
             'is_active' => $data['is_active'],
         ])->save();
 
         return back();
+    }
+
+    /**
+     * An empty threshold uses the type default. Stored null is cast to 0 by the detectors, so a
+     * visibility drop would alert on any positive change instead of the documented default.
+     */
+    private function threshold(?AlertType $type, mixed $given): ?string
+    {
+        if ($given !== null && $given !== '') {
+            return is_numeric($given) ? (string) $given : null;
+        }
+        $default = $type?->defaultThreshold();
+
+        return $default === null ? null : (string) $default;
     }
 
     public function acknowledge(Alert $alert): RedirectResponse

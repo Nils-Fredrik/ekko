@@ -159,6 +159,7 @@ return [
         'prompt_scope' => 'Prompter',
         'scope_all' => 'Alle',
         'scope_core' => 'Kjerne',
+        'scope_conflict' => 'Denne motoren har allerede det omfanget i markedet.',
         'repetitions' => 'Gjentakelser',
         'integrations' => 'Integrasjoner',
         'integration_clickhouse' => 'ClickHouse',
