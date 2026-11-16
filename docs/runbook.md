@@ -7,6 +7,20 @@
 - **Verifiser etter første utrulling:** to forespørsler fra ulike nett skal gi ulik `ip()` i loggen, og ti feilede SSO-forsøk fra ett nett skal ikke gi 429 fra et annet.
 - **Legges det en lastbalanserer foran Cloud Run** (egen domenekobling via HTTPS-lastbalanserer), kommer det et ekstra ledd i `X-Forwarded-For`. Da må `TRUSTED_PROXIES` liste **alle** ledd som legger til en adresse: både adressen som kobler til containeren (Cloud Runs interne front, ofte `169.254.0.0/16`) og lastbalansererens adresser. Står bare lastbalansererens adresser der, er ikke den tilkoblende adressen betrodd, og alle klienter blir én adresse igjen. Test dette under verifiseringen, og noter hvordan `X-Forwarded-For` faktisk ser ut på `run.app` (antall ledd).
 
+## Databaserollen ved oppstart (T39-F2)
+
+- I produksjon feiler `/up`, køarbeideren og `ekko:*`-kommandoene hvis innloggingsrollen (`DB_USERNAME`) kan omgå RLS. Det gjelder en superbruker, en rolle med `BYPASSRLS`, `CREATEROLE` eller `CREATEDB`, et medlem av `cloudsqlsuperuser` eller av en annen privilegert rolle, og en rolle som eier tenanttabellene. Feilen `Unsafe database login role` i loggen sier hva som er galt, for eksempel at `DB_USERNAME` peker på `ekko_migrate`.
+- Er databasen utilgjengelig ved oppstart, feiler sjekken også, med en databasefeil (`QueryException`) i stedet. Sjekk da tilkoblingen før rollen.
+- Rett `DB_USERNAME` til appens rolle (`ekko_app`). Ikke slå av sjekken med `DB_VERIFY_LOGIN_ROLE=false`.
+- En ny `ekko-web`-revisjon med feil rolle blir ikke klar, fordi `/up` er oppstartsproben. Trafikken blir værende på forrige revisjon.
+
+## Stenging og sletting av tenant (T39-F6)
+
+- «Slett tenant» i teaminnstillingene stenger tenanten. Den slettes ikke. Brukerne mister tilgang med en gang, og `closed_at` settes.
+- Jobben `ekko-tenant-purge` (Cloud Scheduler, kl. 03.30) kjører `php artisan ekko:purge-closed-tenants` i `ekko-task`. Den sletter tenanter stengt for minst 30 dager siden, først råsvarene i GCS og så databasen.
+- Feiler GCS-slettingen, blir tenanten stående, og jobben feiler. Neste kjøring prøver igjen. Se `tenant.purged` og feil i Cloud Logging.
+- Skal en stengt tenant gjenåpnes før sletting, sett `status` tilbake og `closed_at` til `null` i databasen.
+
 ## Kryssreview i GitHub (T42)
 
 ### Integrasjoner og identiteter
@@ -99,8 +113,9 @@ Etter #49 virket Claude OIDC på workflow_run, men `Read(~/**)` nektet alle file
 
 ### Kontrollert plan og apply
 
-1. Bruk den gjennomgåtte konfigurasjonen etter eierens merge. Behold all allerede utrullet T10-konfigurasjon: `deploy.tf` og `sts.googleapis.com` fra T10-revisjon `85e387b` finnes i live state selv om PR #31 ennå er åpen. En isolert plan på main uten dette kan foreslå å fjerne T10-ressurser. Den planen skal ikke brukes.
-2. Initialiser mot `ekko-514612-tfstate`, prefix `ekko/production`. Lag en lagret plan avgrenset til den eksisterende granten:
+1. Kontroller dagens webrevisjoner, trafikk, hemmelighetsreferanser og IAM uten å lese hemmelighetsverdier. Web er nå opprettet gjennom T10. Bruk en gjennomgått konfigurasjon som kombinerer F1 med den faktisk utrullede T10-konfigurasjonen og bevarer andre ressurser. En isolert plan på main uten hele den utrullede T10-konfigurasjonen kan foreslå utilsiktede slettinger og skal ikke brukes.
+2. Opprett og test først en webrevisjon uten `DB_ADMIN_*`, med riktig vanlig passordreferanse. Behold trafikken på en verifisert revisjon til røyktesten består, og kontroller etter promotering at ingen revisjon med trafikk fortsatt refererer til migreringshemmeligheten. Ellers kan tilbakekalling av tilgangen hindre oppstart eller skalering av en eksisterende revisjon. Gjennomfør dette som del av det kontrollerte deployløpet for T10.
+3. Initialiser mot `ekko-514612-tfstate`, prefix `ekko/production`. Kontroller IAM og lag en ny, lagret plan avgrenset til den eksisterende granten:
 
     ```sh
     terraform plan -input=false \
@@ -108,12 +123,11 @@ Etter #49 virket Claude OIDC på workflow_run, men `Read(~/**)` nektet alle file
       -out=/tmp/ekko-web-admin-revoke.tfplan
     ```
 
-    Dette er et avgrenset unntak for å tilbakekalle en konkret feilgrant mens T10 venter på merge. Kontroller planen med `terraform show`: nøyaktig **0 add, 0 change, 1 destroy**, der eneste sletting er web-medlemskapet på `ekko-db-admin-password`. Hemmeligheten, versjonene og migreringskontoens tilgang skal beholdes. Ikke bruk workload-forhåndsvisningen som apply-plan.
+    Dette er et avgrenset unntak for å tilbakekalle en konkret feilgrant. Hvis granten fortsatt finnes, kontroller med `terraform show` at planen viser nøyaktig **0 add, 0 change, 1 destroy**, der eneste sletting er web-medlemskapet på `ekko-db-admin-password`. Hemmeligheten, versjonene og migreringskontoens tilgang skal beholdes. Hvis planen er tom, kontroller faktisk IAM før tiltaket erklæres fullført. Ikke bruk en gammel plan eller workload-forhåndsvisningen som apply-plan.
 
-3. Etter review/merge brukes akkurat den kontrollerte planen: `terraform apply /tmp/ekko-web-admin-revoke.tfplan`. Kontroller IAM med `gcloud secrets get-iam-policy ekko-db-admin-password --project=ekko-514612`; web skal være borte og migrate fortsatt til stede. Kontroller også at web ikke har en bredere arvet rolle som gir tilgang. Les aldri selve hemmelighetsverdien for å teste dette.
-4. Kjør den samme avgrensede planen igjen med `-detailed-exitcode`; forvent returkode 0. Dette beviser bare den avgrensede IAM-endringen. Full plan og eventuell annen drift gjennomgås separat sammen med T10.
-5. Når web opprettes under T10, kontroller faktisk revisjonsmiljø uten å skrive ut verdier: ingen `DB_ADMIN_*`, og databasepassordets referanse er `ekko-db-password`.
+4. Etter review/merge og kontrollene over brukes akkurat den nykontrollerte planen: `terraform apply /tmp/ekko-web-admin-revoke.tfplan`. Kontroller IAM med `gcloud secrets get-iam-policy ekko-db-admin-password --project=ekko-514612`; web skal være borte og migrate fortsatt til stede. Kontroller også at web ikke har en bredere arvet rolle som gir tilgang. Les aldri selve hemmelighetsverdien for å teste dette.
+5. Kjør den samme avgrensede planen igjen med `-detailed-exitcode`; forvent returkode 0. Kontroller revisjonsmiljø og røyktest etter endringen. Full plan og eventuell annen drift gjennomgås separat sammen med T10.
 
 ### Bevis 15.11.2026
 
-Før apply viste live IAM både web og migrate som lesere av migreringspassordet; det fantes ingen Cloud Run-webtjeneste. Plan med bevart T10-konfigurasjon og målretting viste kun sletting av web-granten. En separat, ikke anvendt plan med workloads aktivert viste vanlig databasebruker/passordreferanse og ingen `DB_ADMIN_*` eller admin-grant for web, mens migreringsjobben beholdt sin innlogging. Full plan hadde dessuten en uvedkommende Cloud SQL-oppdatering og ble ikke brukt. Ingen passordverdier ble lest eller lagret. **Apply gjenstår etter eierens merge; funnet er ikke lukket i produksjon ennå.**
+Den 15.11.2026 viste live IAM både web og migrate som lesere av migreringspassordet; da fantes ingen Cloud Run-webtjeneste. En målrettet plan med datidens T10-konfigurasjon viste bare sletting av web-granten. En separat, ikke anvendt workload-plan viste riktig skille mellom web og migreringsjobben. Dette er historisk bevis, ikke en gyldig plan for dagens produksjon. Ingen passordverdier ble lest eller lagret. **Ny plan og kontroll av faktisk tilgang og revisjon kreves før funnet kan lukkes.**

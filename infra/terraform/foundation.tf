@@ -183,6 +183,13 @@ resource "google_storage_bucket_iam_member" "raw_web" {
   member = "serviceAccount:${google_service_account.component["web"].email}"
 }
 
+# ekko:purge-closed-tenants deletes a deleted tenant's raw answers (T39-F6): list and delete.
+resource "google_storage_bucket_iam_member" "raw_task" {
+  bucket = google_storage_bucket.raw.name
+  role   = "roles/storage.objectUser"
+  member = "serviceAccount:${google_service_account.component["task"].email}"
+}
+
 resource "google_storage_bucket_iam_member" "reports_worker" {
   bucket = google_storage_bucket.reports.name
   role   = "roles/storage.objectUser"

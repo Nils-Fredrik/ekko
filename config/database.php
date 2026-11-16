@@ -44,6 +44,10 @@ return [
 
     'rls' => [
         'role' => env('DB_RLS_ROLE', 'ekko_app'),
+        // Refuse to start (the /up probe, the worker and the ekko:* commands) when the login role could bypass
+        // row-level security (T39-F2, App\Tenancy\Rls\DatabaseRoleCheck). On in production. Locally and in
+        // tests the login is a superuser that only switches to the RLS role inside TenantRls::run().
+        'verify_login_role' => (bool) env('DB_VERIFY_LOGIN_ROLE', env('APP_ENV') === 'production'),
     ],
 
     'connections' => [
@@ -121,7 +125,7 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
-        // Platform admin actions only (docs/spec.md 5.3): a role with BYPASSRLS. Every use is logged (T05).
+        // Restricted to logged platform admin actions; web falls back to the ordinary RLS role (T39-F1/F2).
         'pgsql_admin' => [
             'driver' => 'pgsql',
             'url' => env('DB_ADMIN_URL'),

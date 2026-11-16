@@ -64,6 +64,14 @@ resource "google_cloud_run_v2_service" "web" {
     containers {
       image = var.image
       resources { limits = { cpu = "1", memory = "1Gi" } }
+      # /up fails when the database login role could bypass row-level security (T39-F2,
+      # App\Tenancy\Rls\DatabaseRoleCheck), so such a revision never receives traffic.
+      startup_probe {
+        http_get { path = "/up" }
+        period_seconds    = 5
+        timeout_seconds   = 3
+        failure_threshold = 12
+      }
       dynamic "env" {
         for_each = merge(local.common_env, { DB_USERNAME = var.app_db_user, EKKO_SCHEDULER_SERVICE_ACCOUNT = google_service_account.component["scheduler"].email, EKKO_SCHEDULER_AUDIENCE = var.app_url })
         content {

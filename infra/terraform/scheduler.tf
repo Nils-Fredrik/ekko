@@ -13,6 +13,8 @@ locals {
     ] }
     weekly_reports  = { schedule = "30 6 * * 1", job = "task", args = ["php artisan ekko:send-reports"] }
     monthly_reports = { schedule = "30 6 1 * *", job = "task", args = ["php artisan ekko:send-reports"] }
+    # Tenants closed 30 days ago are deleted with their raw answers (T39-F6).
+    tenant_purge = { schedule = "30 3 * * *", job = "task", args = ["php artisan ekko:purge-closed-tenants"] }
   } : {}
   ticks = var.enable_workloads ? {
     extraction-poll = "*/15 * * * *"
