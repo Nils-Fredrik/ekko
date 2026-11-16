@@ -83,13 +83,36 @@ test('two engines in one market cannot share a scope, and a blank threshold uses
         ->and($all->fresh()->prompt_scope)->toBe('all')
         ->and($all->fresh()->frequency)->toBe('daily');
 
+    $this->actingAs($owner)
+        ->put(route('brands.settings.update', $world->brand), [
+            'name' => $original,
+            'engines' => [
+                ['id' => $all->id, 'frequency' => 'weekly', 'prompt_scope' => 'core', 'repetitions' => 2],
+                ['id' => $core->id, 'frequency' => 'monthly', 'prompt_scope' => 'all', 'repetitions' => 3],
+            ],
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $swapped = MarketEngine::query()
+        ->where('market_id', $world->market->id)
+        ->where('engine_key', $world->engine->key)
+        ->get()
+        ->keyBy('prompt_scope');
+    expect($swapped)->toHaveCount(2)
+        ->and($swapped['core']->frequency)->toBe('weekly')
+        ->and($swapped['core']->repetitions)->toBe(2)
+        ->and($swapped['all']->frequency)->toBe('monthly')
+        ->and($swapped['all']->repetitions)->toBe(3);
+
     $this->actingAs($owner)->post(route('alerts.rules.store'), [
         'brand_id' => $world->brand->id,
         'type' => 'competitor_takeover',
         'is_active' => true,
     ])->assertRedirect();
     $rule = AlertRule::query()->where('type', 'competitor_takeover')->firstOrFail();
-    expect((float) $rule->threshold)->toBe(50.0);
+    expect((float) $rule->threshold)->toBe(50.0)
+        ->and($rule->channels)->toBe(config('ekko.alerts.default_channels'));
 
     $rule->forceFill(['threshold' => null])->save();
     $this->actingAs($owner)->put(route('alerts.rules.update', $rule), ['is_active' => true])->assertRedirect();

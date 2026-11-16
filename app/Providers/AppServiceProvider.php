@@ -20,10 +20,14 @@ use App\Onboarding\Model\AnthropicOnboardingClient;
 use App\Onboarding\Model\OnboardingModelClient;
 use App\Policies\OnboardingPolicy;
 use App\Tenancy\ActingAs;
+use App\Tenancy\Rls\DatabaseRoleCheck;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -56,6 +60,21 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // A login role that could bypass row-level security stops the instance (T39-F2): /up is the web service's
+        // startup probe, and the worker and the ekko:* commands check before they start. The migrations run as
+        // the owner of the tables on purpose, so migrate and the other commands are not checked.
+        Event::listen(DiagnosingHealth::class, function (): void {
+            if (DatabaseRoleCheck::enforced()) {
+                app(DatabaseRoleCheck::class)->assertSafe();
+            }
+        });
+        Event::listen(CommandStarting::class, function (CommandStarting $event): void {
+            $command = (string) $event->command;
+            if (DatabaseRoleCheck::enforced() && (in_array($command, ['queue:work', 'queue:listen'], true) || str_starts_with($command, 'ekko:'))) {
+                app(DatabaseRoleCheck::class)->assertSafe();
+            }
+        });
+
         // The wizard's proposals are not models, so their policy is registered by hand (ADR 0009, ADR 0018).
         Gate::policy(Analysis::class, OnboardingPolicy::class);
 
@@ -78,5 +97,8 @@ class AppServiceProvider extends ServiceProvider
         Sanctum::authenticateAccessTokensUsing(fn (PersonalAccessToken $token, bool $isValid): bool => $isValid && ! in_array(McpTokens::READ, (array) $token->abilities, true));
         RateLimiter::for('mcp-oauth', fn (Request $request) => Limit::perMinute((int) config('ekko.mcp.oauth_per_minute'))
             ->by('mcp-oauth:'.$request->ip()));
+        // Client registration per address per day (T39-F5), so one address cannot fill the ceiling for everyone.
+        RateLimiter::for('mcp-register', fn (Request $request) => Limit::perDay((int) config('ekko.mcp.clients_per_ip_per_day'))
+            ->by('mcp-register:'.$request->ip()));
     }
 }

@@ -259,6 +259,10 @@ class BrandSettingsController extends Controller
         $ids = $brand->markets()->pluck('id');
         $engines = MarketEngine::query()->whereIn('market_id', $ids)->get()->keyBy('id');
         $this->guardEngineScopes($engines, $data['engines']);
+
+        // A scope change is removed before it is written back. Two rows can then trade all and core
+        // without the unique key seeing both of them on the same scope in between.
+        $moves = [];
         foreach ($data['engines'] as $index => $row) {
             if (! is_array($row)) {
                 continue;
@@ -270,10 +274,31 @@ class BrandSettingsController extends Controller
                 ]);
             }
             Gate::authorize('update', $engine);
+            if ($engine->prompt_scope !== $row['prompt_scope']) {
+                $moves[] = [$engine, $row];
+
+                continue;
+            }
             $engine->fill([
                 'frequency' => $row['frequency'],
                 'prompt_scope' => $row['prompt_scope'],
                 'repetitions' => $row['repetitions'],
+            ])->save();
+        }
+
+        foreach ($moves as [$engine]) {
+            $engine->delete();
+        }
+        foreach ($moves as [$engine, $row]) {
+            $replacement = new MarketEngine;
+            $replacement->forceFill([
+                'id' => $engine->id,
+                'market_id' => $engine->market_id,
+                'engine_key' => $engine->engine_key,
+                'frequency' => $row['frequency'],
+                'prompt_scope' => $row['prompt_scope'],
+                'repetitions' => $row['repetitions'],
+                'created_at' => $engine->created_at,
             ])->save();
         }
     }

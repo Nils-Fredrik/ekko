@@ -103,7 +103,7 @@ test('an existing user with an unverified address is refused, linked to nothing 
 test('finding 140 variant: a user who changed e-mail to an invited address cannot take over the invitee login', function () {
     invite('victim@example.test');
     $attacker = User::factory()->create(['email' => 'attacker@example.test']);
-    $this->actingAs($attacker)->put('/user/profile-information', ['name' => $attacker->name, 'email' => 'victim@example.test']);
+    $this->actingAs($attacker)->put('/user/profile-information', ['name' => $attacker->name, 'email' => 'victim@example.test', 'current_password' => 'password']);
     auth()->logout();
     fakeProviderUser('google', 'victim@example.test');
 

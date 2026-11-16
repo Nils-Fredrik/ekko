@@ -196,6 +196,21 @@ Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og
 
 Plattformadmin-operasjoner og migreringer bruker en egen databaserolle med `BYPASSRLS`. Den brukes kun av jobben `ekko-migrate` og av eksplisitte admin-handlinger som logges.
 
+Innloggingsrollen sjekkes ved oppstart i produksjon (T39-F2, `App\Tenancy\Rls\DatabaseRoleCheck`). Kode utenfor `TenantRls::run()` kjører som innloggingsrollen, så en feil `DB_USERNAME` ville ellers latt RLS stoppe ingenting uten at noen merket det. Rollen er usikker hvis minst ett av disse gjelder:
+- Den er superbruker eller har `BYPASSRLS`, `CREATEROLE` eller `CREATEDB`.
+- Den er medlem av en rolle som er superbruker, har `BYPASSRLS` eller er `cloudsqlsuperuser`. Et medlem kan bytte til rollen med `SET ROLE` (ADR 0007).
+- Den eier, eller er medlem av eieren av, en tabell med `tenant_id` eller `team_id`.
+
+En usikker rolle gir dette:
+- `/up` feiler. Det er oppstartsproben til `ekko-web`, så revisjonen får aldri trafikk.
+- Køarbeideren (`queue:work`) og alle `ekko:*`-kommandoer stopper før de starter.
+
+Migreringene sjekkes ikke, fordi de skal kjøre som eieren av tabellene. Sjekken styres med `DB_VERIFY_LOGIN_ROLE` og er på når `APP_ENV=production`. Rollen sjekkes bare når en instans eller kommando starter. `ekko-web` har ingen liveness-probe mot `/up`, så endres rollen mens en revisjon kjører, merkes det først ved neste revisjon.
+
+Tilkoblingen `pgsql_admin` har bare én inngang, `App\Tenancy\AdminConnection`. Bare den innloggede brukeren kan bruke den, og bare hvis hen er plattformadmin. Brukeren hentes fra økten, aldri fra et argument. Hver bruk og hvert avvist forsøk logges med hvem og hvorfor. En test i `CodebaseGuardsTest` feiler hvis andre filer i `app`, `routes`, `config`, `database`, `bootstrap` eller visningene nevner tilkoblingen.
+
+Tabellene `team_user`, `team_invitations`, `mcp_connections` og `mcp_auth_codes` hører til en tenant gjennom `team_id` og står bevisst utenfor RLS. De leses for å finne ut hvilke tenants noen har tilgang til, før tenantkonteksten er satt, så appen filtrerer dem selv. Begrunnelsen står i `RlsAudit::TEAM_TABLES_OUTSIDE_RLS`. En ny tabell med `team_id` må føres opp der med begrunnelse, eller få `tenant_id` og RLS. Ellers feiler testene.
+
 **Krav:** Testsuiten `tests/Feature/TenantIsolation` skal bevise at:
 - ingen rute, ingen API-endepunkt og ingen MCP-tool returnerer data fra en annen tenant
 - ingen jobb skriver data til feil tenant
@@ -833,12 +848,17 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - API-nøkler i Secret Manager, montert som miljøvariabler.
   - Tenant-nøkler, webhooker og integrasjonskonfigurasjon krypteres i databasen med Laravels `encrypted`-cast.
   - Ingen hemmeligheter i repo, logger eller råsvar.
-- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP).
+- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP). Bak Cloud Run er klientens IP-adresse den siste i `X-Forwarded-For`, den som Googles front la til (`TRUSTED_PROXIES=*`, `config/trustedproxy.php`). Host, port og prefiks hentes aldri fra proxyen.
+- **Konto og økt (T39-F4):** å bytte e-postadresse krever passordet, og den gamle adressen får varsel. Brukere som bare logger inn med Google, setter først et passord med «Glemt passord». En økt logges ut på alle ruter, også Fortifys, når passordet er byttet eller andre økter er logget ut. Alle passordsjekker (bekreft passord, e-postbytte, passordbytte, logg ut andre økter, slett konto) begrenses til 5 per minutt per bruker og IP. «Glemt passord» gir samme svar for kjente og ukjente adresser, og begrenses til 5 per minutt per IP og 5 per time per adresse. Kjent ulempe: fem kall kan sperre «Glemt passord» for én adresse i en time. Innlogging med passord og Google virker fortsatt.
 - **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
 
 **Sporbarhet:**
-- **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler.
+- **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler. Det gjelder også sendte og kansellerte invitasjoner (rolle og hvem), opprettelse, nytt navn og stenging av tenant, og opprettelse, endring og sletting av API-tokens. E-postadresser og tokenverdier logges ikke (T39-F6).
 - **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke.
+
+**Nettlesersikkerhet og Claude-tilkoblingen (T39-F5):**
+- **Innramming:** ingen side kan vises i en ramme på et annet nettsted (`X-Frame-Options: DENY` og `frame-ancestors 'none'` på alle svar). Dette gjelder særlig samtykkesiden `/oauth/authorize`.
+- **Klientregistrering:** begrenset per IP per døgn. Klienter uten tilkobling slettes etter en time, og bare de teller mot taket for hele appen (ADR 0016).
 
 **Inndata og innhold:**
 - **Innhold fra motorene behandles som data.** Svartekster vises escaped. Lenker åpnes med `rel="noopener noreferrer nofollow"`.
@@ -853,6 +873,11 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - Råsvar slettes etter 400 dager.
   - Aggregater beholdes så lenge tenanten er aktiv.
   - Ved stenging av en tenant slettes alle data etter 30 dager, med mulighet for eksport (CSV og JSON) før sletting.
+    - «Slett tenant» stenger tenanten (status `closed`, `closed_at`) og krever nylig bekreftet passord. Alle mister tilgang med en gang.
+    - `ekko:purge-closed-tenants` (daglig, Cloud Scheduler) sletter tenanten 30 dager etter `closed_at`, først alle versjoner av råsvarene i GCS under `{tenantId}/` og så databasen. Tenantens revisjonslogg følger med, så selve slettingen logges i applikasjonsloggen (`tenant.purged`).
+    - En tenant som ble stengt før `closed_at` fantes, slettes ikke automatisk (T39-F6).
+    - Køede innsamlinger for en stengt tenant stoppes før kallet til motoren (`error_code` `tenant_closed`), slik at stengingen ikke gir nye kostnader.
+    - Avvik: eksport av en hel tenant (CSV og JSON) finnes ikke ennå. De 30 dagene gir rom for den når den kommer.
   - Brukere kan slette egen konto (Jetstream).
 
 ---
@@ -1059,9 +1084,11 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 |---|---|---|
 | `[Codex]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
 | `[Cursor]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
-| `[Claude Code]` | Codex med GPT-6.1 Sol | ChatGPT Codex-tilkoblingen med kodereview slått på |
+| `[Claude Code]` | Codex, ønsket GPT-6.1 Sol (se modellbegrensning under) | ChatGPT Codex-tilkoblingen med kodereview slått på |
 
-**Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex GPT-6.1 Sol, uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
+**Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex (ønsket GPT-6.1 Sol; se modellbegrensning under), uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
+
+**Modellbegrensning i Codex-integrasjonen (verifisert 15.11.2026):** GPT-6.1 Sol er ønsket reviewer-modell, men repoets Codex-innstillinger tilbyr ikke modellvalg, og GitHub-kvitteringen oppgir ikke modellidentitet. Aktiveringen bruker derfor integrasjonens leverandørstyrte modell med verifisert bot-identitet, aktuell head-SHA og fersk kvittering. Dette er et dokumentert avvik fra modellkravet over, ikke bevis på GPT-6.1 Sol. Hvis modellvalg eller pålitelig modellmetadata blir tilgjengelig, skal ønsket modell velges og verifiseres.
 
 **Workflows:** `.github/workflows/agent-review.yml` setter pending når en PR åpnes eller oppdateres (`pull_request_target`). `.github/workflows/agent-review-execute.yml` fortsetter på `workflow_run` fra betrodd main, etter kontroll av kildekjøring, workflow-ID/sti og uendret PR-head/base (ADR 0022). Dette unngår Anthropics observerte OIDC-feil på pull_request_target; PR-kode og kilde-artifacts kjøres aldri. Reviewet:
 1. Leser merkelappen i PR-tittelen og de endrede filene.

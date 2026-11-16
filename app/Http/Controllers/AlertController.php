@@ -85,7 +85,7 @@ class AlertController extends Controller
         $attributes = [
             'type' => $data['type'],
             'threshold' => $this->threshold($type, $data['threshold'] ?? null),
-            'channels' => ['in_app'],
+            'channels' => config('ekko.alerts.default_channels'),
             'is_active' => $data['is_active'],
         ];
         if ($tenantWide) {
