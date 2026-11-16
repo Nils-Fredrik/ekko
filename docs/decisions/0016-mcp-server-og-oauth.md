@@ -55,7 +55,7 @@ Passport kan ikke brukes på samme `User` som Sanctum. Begge `HasApiTokens`-trai
    - **`propose_prompts`:** skriver ingenting og kaller ingen modell. Verktøyet gir grunnlaget (promptene som finnes, dekningen per intensjon og trakttrinn, plassen i pakken og reglene), og Claude lager forslagene.
    - **`upsert_prompts`:** et prompt kan ikke flyttes til et annet marked, fordi svarene og aggregatene hører til markedet og merkevaren. Pakkens `max_prompts_per_market` håndheves. Et kall som øker antallet aktive prompts over grensen, avvises, og da lagres ingenting. Et marked som allerede er over grensen, kan fortsatt redigeres.
 8. **Tilkoblingsoversikten** ligger på `/claude` (`Pages/Mcp/Connections.vue`, lenke i brukermenyen). Brukeren ser bare egne tilkoblinger og kan koble dem fra.
-9. **Grenser.** Kall til `/mcp` er begrenset per bruker (`ekko.mcp.calls_per_minute`). OAuth-endepunktene er begrenset per adresse. Klientregistreringen har et tak per døgn for hele appen (`ekko.mcp.clients_per_day`).
+9. **Grenser.** Kall til `/mcp` er begrenset per bruker (`ekko.mcp.calls_per_minute`). OAuth-endepunktene er begrenset per adresse. Klientregistreringen er begrenset per adresse per døgn (`ekko.mcp.clients_per_ip_per_day`). Klienter uten tilkobling slettes etter en time (`ekko.mcp.unused_client_minutes`), og bare de teller mot taket for hele appen (`ekko.mcp.unused_clients_max`). Fyller mange adresser taket, sperres nye tilkoblinger i høyst en time, ikke et døgn (T39-F5).
 
 ## Konsekvenser
 

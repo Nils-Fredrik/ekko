@@ -26,7 +26,7 @@ Route::get('/.well-known/oauth-authorization-server/{path}', [OAuthController::c
 
 // Without session and CSRF: Claude calls these directly.
 Route::middleware('throttle:mcp-oauth')->group(function () {
-    Route::post('/oauth/register', [OAuthController::class, 'register'])->name('mcp.oauth.register');
+    Route::post('/oauth/register', [OAuthController::class, 'register'])->middleware('throttle:mcp-register')->name('mcp.oauth.register');
     Route::post('/oauth/token', [OAuthController::class, 'token'])->name('mcp.oauth.token');
     Route::post('/oauth/revoke', [OAuthController::class, 'revoke'])->name('mcp.oauth.revoke');
 });
