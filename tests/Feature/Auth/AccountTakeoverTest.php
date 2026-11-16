@@ -147,6 +147,31 @@ test('password confirmation is rate limited', function () {
     $this->actingAs($user)->post('/user/confirm-password', ['password' => 'password'])->assertStatus(429);
 });
 
+test('logging out other sessions is rate limited, so it is no way to guess the password', function () {
+    $user = User::factory()->withPersonalTeam()->create();
+
+    foreach (range(1, 5) as $_) {
+        $this->actingAs($user)->delete('/user/other-browser-sessions', ['password' => 'wrong'])->assertSessionHasErrors();
+    }
+
+    $this->actingAs($user)->delete('/user/other-browser-sessions', ['password' => 'password'])->assertStatus(429);
+});
+
+test('deleting the account is rate limited, so it is no way to guess the password', function () {
+    $user = User::factory()->withPersonalTeam()->create();
+
+    foreach (range(1, 5) as $_) {
+        $this->actingAs($user)->delete('/user', ['password' => 'wrong'])->assertSessionHasErrors();
+    }
+
+    $this->actingAs($user)->delete('/user', ['password' => 'password'])->assertStatus(429);
+    expect($user->fresh())->not->toBeNull();
+});
+
+test('an e-mail field sent as a list gives a validation error, not a server error', function () {
+    $this->post('/forgot-password', ['email' => ['a@example.test']])->assertSessionHasErrors('email');
+});
+
 test('the forgot-password answer is the same for a known and an unknown address', function () {
     $user = User::factory()->create(['email' => 'known@example.test']);
 

@@ -58,7 +58,7 @@ class FortifyServiceProvider extends ServiceProvider
         // Reset links: per IP and per address. The answer is the same whether the address exists or not.
         RateLimiter::for('forgot-password', fn (Request $request) => [
             Limit::perMinute(5)->by('ip|'.$request->ip()),
-            Limit::perHour(5)->by('email|'.Str::lower((string) $request->input('email'))),
+            Limit::perHour(5)->by('email|'.Str::lower(is_string($request->input('email')) ? $request->input('email') : '')),
         ]);
 
         RateLimiter::for('two-factor', function (Request $request) {
