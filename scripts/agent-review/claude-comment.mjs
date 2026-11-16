@@ -46,7 +46,7 @@ export async function publishClaudeReview(input, { env = process.env, request = 
     const comment = await posted.json();
     if (comment.user?.id !== 209825114 || !Number.isSafeInteger(comment.id))
         throw new Error('Expected Claude App identity');
-    return { comment_id: comment.id };
+    return { conclusion: result.conclusion, summary: result.summary, comment_id: comment.id };
 }
 
 async function serve() {
@@ -69,7 +69,7 @@ async function serve() {
                         {
                             name: 'publish_review',
                             description:
-                                'Publish your final review on the current PR as Claude. Return the comment_id with your structured conclusion.',
+                                'Publish your final review on the current PR as Claude. Return the complete tool result unchanged as your structured result, including the exact summary.',
                             inputSchema: {
                                 type: 'object',
                                 properties: {

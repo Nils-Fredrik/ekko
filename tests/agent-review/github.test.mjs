@@ -265,12 +265,44 @@ test('Claude publication is bound to the PR and revision and uses the authentica
         }
         return Response.json(pr);
     };
-    assert.deepEqual(await publishClaudeReview(input, { env, request }), { comment_id: 123 });
+    assert.deepEqual(await publishClaudeReview(input, { env, request }), { ...input, comment_id: 123 });
     assert.equal(calls[1].url, 'https://api.github.com/repos/Nils-Fredrik/ekko/issues/42/comments');
     await assert.rejects(publishClaudeReview(input, { env: { ...env, GITHUB_REPOSITORY: 'someone/else' }, request }));
     await assert.rejects(
         publishClaudeReview(input, { env, request: async () => Response.json({ ...pr, head: { sha: base } }) }),
         /changed/,
+    );
+});
+
+test('the canonical publication result passes verdict unchanged and rejects a rephrased summary', async (t) => {
+    const h = await harness(t);
+    const captured = JSON.parse(Buffer.from(h.env.SNAPSHOT, 'base64').toString());
+    captured.started_at = '2026-01-01T00:00:00Z';
+    h.env.SNAPSHOT = Buffer.from(JSON.stringify(captured)).toString('base64');
+    const input = { conclusion: 'GODKJENT', summary: 'Reviewed the complete diff.\nNo findings.' };
+    let comment;
+    const request = async (url, options) => {
+        if (options.method === 'POST') {
+            comment = {
+                id: 123,
+                user: { id: 209825114 },
+                issue_url: 'https://api.github.com/repos/Nils-Fredrik/ekko/issues/42',
+                created_at: '2026-01-01T00:00:01Z',
+                body: JSON.parse(options.body).body,
+            };
+            return Response.json(comment);
+        }
+        return Response.json(url.endsWith('/issues/comments/123') ? comment : pr);
+    };
+    const published = await publishClaudeReview(input, { env: h.env, request });
+    await runReview('verdict', { env: { ...h.env, REVIEW_OUTPUT: JSON.stringify(published) }, request });
+    assert.match(await readFile(h.env.GITHUB_OUTPUT, 'utf8'), /verdict=success/);
+    await assert.rejects(
+        runReview('verdict', {
+            env: { ...h.env, REVIEW_OUTPUT: JSON.stringify({ ...published, summary: 'A rewritten summary.' }) },
+            request,
+        }),
+        /receipt does not match/,
     );
 });
 

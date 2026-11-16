@@ -1059,9 +1059,11 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 |---|---|---|
 | `[Codex]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
 | `[Cursor]` | Claude Code med Claude Opus 5.5 | Claude GitHub App med `anthropics/claude-code-action` |
-| `[Claude Code]` | Codex med GPT-6.1 Sol | ChatGPT Codex-tilkoblingen med kodereview slått på |
+| `[Claude Code]` | Codex, ønsket GPT-6.1 Sol (se modellbegrensning under) | ChatGPT Codex-tilkoblingen med kodereview slått på |
 
-**Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex GPT-6.1 Sol, uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
+**Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex (ønsket GPT-6.1 Sol; se modellbegrensning under), uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
+
+**Modellbegrensning i Codex-integrasjonen (verifisert 15.11.2026):** GPT-6.1 Sol er ønsket reviewer-modell, men repoets Codex-innstillinger tilbyr ikke modellvalg, og GitHub-kvitteringen oppgir ikke modellidentitet. Aktiveringen bruker derfor integrasjonens leverandørstyrte modell med verifisert bot-identitet, aktuell head-SHA og fersk kvittering. Dette er et dokumentert avvik fra modellkravet over, ikke bevis på GPT-6.1 Sol. Hvis modellvalg eller pålitelig modellmetadata blir tilgjengelig, skal ønsket modell velges og verifiseres.
 
 **Workflows:** `.github/workflows/agent-review.yml` setter pending når en PR åpnes eller oppdateres (`pull_request_target`). `.github/workflows/agent-review-execute.yml` fortsetter på `workflow_run` fra betrodd main, etter kontroll av kildekjøring, workflow-ID/sti og uendret PR-head/base (ADR 0022). Dette unngår Anthropics observerte OIDC-feil på pull_request_target; PR-kode og kilde-artifacts kjøres aldri. Reviewet:
 1. Leser merkelappen i PR-tittelen og de endrede filene.
