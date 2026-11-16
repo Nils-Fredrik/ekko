@@ -28,15 +28,19 @@ try {
         'Candidate origin required',
     );
     const origin = base.origin;
+    // Optional IAM authentication while Cloud Run remains private during bootstrap.
+    const cloudRunToken = process.env.SMOKE_CLOUD_RUN_ID_TOKEN;
+    check(!cloudRunToken || base.protocol === 'https:', 'Cloud Run IAM requires HTTPS');
+    const extraHTTPHeaders = cloudRunToken ? { 'X-Serverless-Authorization': `Bearer ${cloudRunToken}` } : {};
     const brand = Number(process.env.SMOKE_BRAND_ID);
     const tenant = Number(process.env.SMOKE_TENANT_ID);
     check(
         Number.isSafeInteger(brand) && brand > 0 && Number.isSafeInteger(tenant) && tenant > 0,
         'Invalid fixture IDs',
     );
-    api = await request.newContext({ baseURL: origin, timeout: 20000, maxRedirects: 0 });
+    api = await request.newContext({ baseURL: origin, timeout: 20000, maxRedirects: 0, extraHTTPHeaders });
     browser = await chromium.launch();
-    const context = await browser.newContext({ baseURL: origin });
+    const context = await browser.newContext({ baseURL: origin, extraHTTPHeaders });
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
     let browserError = false;

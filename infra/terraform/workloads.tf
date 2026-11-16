@@ -53,6 +53,11 @@ resource "google_cloud_run_v2_service" "web" {
   ingress             = "INGRESS_TRAFFIC_ALL"
   deletion_protection = true
 
+  # The API materializes this block on creation; declare it to avoid perpetual drift.
+  scaling {
+    min_instance_count = 0
+  }
+
   template {
     service_account = google_service_account.component["web"].email
     scaling {

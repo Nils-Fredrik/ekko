@@ -38,3 +38,17 @@ test('deployment smoke exercises login, REST, OAuth and MCP and revokes its conn
     });
     expect(result.stdout).toContain('passed');
 });
+
+test('private deployment smoke refuses to send its IAM token over HTTP', async ({ baseURL }) => {
+    const token = 'synthetic-iam-token-never-sent';
+    const error = await promisify(execFile)(process.execPath, ['scripts/smoke.mjs', baseURL], {
+        env: { ...process.env, SMOKE_CLOUD_RUN_ID_TOKEN: token },
+        timeout: 10000,
+    }).then(
+        () => null,
+        (failure) => failure,
+    );
+    expect(error?.code).toBe(1);
+    expect(error?.stderr).toContain('configuration');
+    expect(`${error?.stdout}${error?.stderr}`).not.toContain(token);
+});

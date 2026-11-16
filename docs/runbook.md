@@ -114,6 +114,14 @@ or restore job images; assess and restore those separately if needed. Migrations
 must remain backward compatible so that an earlier revision can run against the
 current schema. Exercise this procedure in an isolated environment before use.
 
+The private production exercise on 16 November 2026 confirmed that a failed
+`gcloud run jobs update` can leave the rejected image in the job configuration.
+After a partial deployment, inspect and restore **all three** application jobs
+(`ekko-dispatch`, `ekko-worker`, `ekko-task`), including the job whose update failed.
+Check each image and Ready condition before resuming schedules. Restoring web
+traffic alone does not repair the worker. See the evidence in
+[T10 deployment status](t10-deploy-draft.md).
+
 ## Produksjonsdomene og OAuth (T10)
 
 Kanonisk URL er `https://ekko.maksimer.com`; Google-callback er `/auth/google/callback` på samme vert. Terraform klargjør IP, DNS-autorisert sertifikat og global ekstern lastbalanserer, med HTTP→HTTPS og TLS ≥1.2. DNS-postene og kontrollert bootstrapstatus står i [T10-status](t10-deploy-draft.md); oppsett og OAuth-prosedyre står i [Terraform-README](../infra/terraform/README.md).

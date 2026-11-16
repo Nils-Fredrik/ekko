@@ -1040,13 +1040,13 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
 
 ### 19.4 Oppsett per agent
 
-Alle tre agentene kobles til Board-MCP (`https://board.maksimer.com/mcp`) og til GitHub.
+Board brukes via CLI etter eierens beslutning 16.11.2026, ikke via Board-MCP. Les først `board read vn4w66vc` og `board events vn4w66vc --for-me`. Oppgave- og postkommandoer bruker `--board vn4w66vc`; `board --help` beskriver syntaksen. GitHub-integrasjonene er uendret.
 
-| Agent | Board-MCP | Instruksjoner | Modell |
+| Agent | Board | Instruksjoner | Modell |
 |---|---|---|---|
-| Claude Code | `claude mcp add --transport http board https://board.maksimer.com/mcp` | `CLAUDE.md` (importerer `AGENTS.md`) | velges per økt: Opus 5.5 eller Sonnet 5.5 etter oppgaven |
-| Codex | Board legges inn som MCP-server i `~/.codex/config.toml` | `AGENTS.md` | GPT-6.1 Sol eller Terra etter oppgaven |
-| Cursor | `.cursor/mcp.json` i repoet med Board som server | `.cursor/rules/ekko.mdc`, som peker til `AGENTS.md` og `docs/spec.md` | Grok 4.7 valgt i modellvelgeren |
+| Claude Code | Board CLI | `CLAUDE.md` (importerer `AGENTS.md`) | velges per økt: Opus 5.5 eller Sonnet 5.5 etter oppgaven |
+| Codex | Board CLI | `AGENTS.md` | GPT-6.1 Sol eller Terra etter oppgaven |
+| Cursor | Board CLI | `.cursor/rules/ekko.mdc`, som peker til `AGENTS.md` og `docs/spec.md` | Grok 4.7 valgt i modellvelgeren |
 
 
 `AGENTS.md` inneholder arbeidsflyten i 19.3 med agentens merkelapp. Hver agent får i tillegg beskjed i sin egen instruksjonsfil om hvilken merkelapp den skal ta.
@@ -1343,6 +1343,6 @@ Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-pa
 | A2 | Repo | https://github.com/Nils-Fredrik/ekko. Varde (https://github.com/Nils-Fredrik/varde) brukes som referanse med lesetilgang for agentene (4.1). |
 | A3 | Google Cloud | Prosjekt `ekko-514612` er opprettet. |
 | A4 | Leverandørkontoer og API-nøkler | Anthropic, OpenAI og Gemini direkte. Versjon 1 finnes i Secret Manager. OpenAI Europe-endepunkt er verifisert med syntetisk websøk. Gemini-grounding må avklares før aktivering. Perplexity og DataForSEO er utsatt. |
-| A5 | App-registrering for Google-innlogging | Web OAuth-klient og hemmelighetsversjon gjenstår; callback `https://ekko.maksimer.com/auth/google/callback`. Forutsetning for å ta T07 i bruk. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0008). |
+| A5 | App-registrering for Google-innlogging | Web OAuth-klient for `ekko-514612` er opprettet og validert 16.11.2026; klienthemmeligheten har aktiv versjon 1 i Secret Manager. Callback er `https://ekko.maksimer.com/auth/google/callback`. Ekte innlogging og avvisning av uinvitert konto gjenstår før T07 tas i bruk. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0008). |
 | A6 | E-posttjeneste og avsenderadresse for varsler og rapporter | Avklares underveis. Forutsetning for T24 og T32. |
 | A7 | Startpriser og påslag per pakke | Avklares underveis. Forutsetning for T19 og T31. |

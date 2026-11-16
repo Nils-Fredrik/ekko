@@ -15,6 +15,8 @@ Container-jobben kontrollerer både web- og jobbimaget, lagrer dem sammen i et k
 
 Brukernavn/passord/token hentes fra CI-hemmeligheter, aldri argumenter eller repo. Testen logger bare bestått eller navnet på feilet trinn. Ingen trace, skjermbilder, cookie-filer eller responsinnhold lagres. Nettleseren blokkerer andre opprinnelser. REST/MCP bruker separat HTTP-kontekst uten innloggingscookies og følger ikke redirects.
 
+Under privat bootstrap kan operatøren gi `SMOKE_CLOUD_RUN_ID_TOKEN` som et kortlevd Google ID-token i prosessmiljøet. Testen sender det i `X-Serverless-Authorization`, slik at REST/MCP beholder sin egen `Authorization`. Dette krever HTTPS, følger samme opprinnelsesgrense og logger aldri tokenet. Vanlig offentlig deploy trenger ikke variabelen. Se [Googles autentiseringsdokumentasjon](https://docs.cloud.google.com/run/docs/authenticating/service-to-service).
+
 Testen logger inn gjennom den ekte Vue-siden, kontrollerer synlig merkevare og Inertia-data i dashboardet, henter REST-metrikker og krever 401 uten token. Den gjennomfører OAuth authorization code med PKCE og lesesamtykke for testtenanten, initialize, whoami og tools/list. Koden sendes aldri til callback-adressen. MCP-tilkoblingen tilbakekalles i finally. Dersom prosessen termineres før opprydding, må operatøren tilbakekalle testtilkoblingen på `/claude`; access-token varer én time.
 
 Installer Node-avhengigheter og Chromium før kjøring (`npm ci`, `npx playwright install --with-deps chromium`). Manglende konfigurasjon, redirect, HTTP-feil, feil tenant, ugyldig kontrakt eller feil ved tilbakekall stopper utrulling.
@@ -73,3 +75,32 @@ Lokalt består `composer test` med 1635 tester / 9382 assertions (512 MB PHP-min
 
 
 [CI 43762928988](https://github.com/Nils-Fredrik/ekko/actions/runs/43762928988) er grønn for `8486e18` (test og containerbygg). Claude fant ingen blokkerende kodefeil; Codex fant ingen vesentlige feil. Claude opprettholder kravet om produksjonsaksept. Småmerknadene om `trim(null)` og mellomrom i leverandørlisten er rettet i oppfølgingscommit. Gemini-aktiveringens to steg og gjennomgang av eksisterende pakker står allerede i Terraform-README. Klient-IP må fortsatt verifiseres for begge innkommende veier; ikke bruk et fast antall videresendte ledd.
+
+## Fortsettelse 16. november: privat oppstart og ekte røyktest
+
+Eierens Google Web OAuth-fil ble validert lokalt mot prosjektet og den eksakte callbacken. Client secret ble overført direkte til Secret Manager som aktiv versjon 1; klient-ID ligger i ignorert Terraform-konfigurasjon. Ingen hemmelighetsverdi er lagt i Terraform, chat, Git eller Board. DNS er kontrollert som DNS only, og sertifikat og sertifikatkartoppføring er ACTIVE.
+
+Web- og jobbimage fra [CI 43763898222](https://github.com/Nils-Fredrik/ekko/actions/runs/43763898222), commit `337188a`, artifact `14181665621`, er publisert uten nytt bygg etter kontroll av arkivsjekksum og begge containernes innhold:
+
+- Web: `europe-west1-docker.pkg.dev/ekko-514612/ekko/web@sha256:27f0770c2a11720f3be4e24b861c994a644e0583dc2a1246c44efffc7ddec22d`.
+- Jobs: `europe-west1-docker.pkg.dev/ekko-514612/ekko/jobs@sha256:acf6f2342661bc8fa88943cae5ce315e309c006247ed9f879ac197e24ecec921`.
+
+Gjennomgått full Terraform-apply opprettet 34 ressurser og fjernet tre ubrukte IAM-tilganger (Microsoft på web, DataForSEO/Perplexity på worker). SQL-endringen hadde identiske konfigurasjonsverdier før/etter. Cloud Run opprettet automatisk en skaleringsblokk på tjenesten; eksplisitt `scaling.min_instance_count = 0` gjør koden lik faktisk tilstand. Ny full plan gir **No changes** (exitkode 0). Én tidligere etterkontroll ble gjentatt etter en nettverksfeil ved IAM-lesing.
+
+Web er privat, og alle åtte Scheduler-jobber er PAUSED. Backup `1794815852453` er SUCCESSFUL. Cloud Run-kjøringen `ekko-migrate-fg8dv` fullførte migreringen med det nye jobbimaget. Produksjonsseeding opprettet standardpakker og direkte motorer uten eksempelpriser. En egen syntetisk tenant har null innsamlingskvote, en lesebruker uten admin-/eierrettigheter, en syntetisk merkevare, et tenantbundet read-token og en MCP-klient med loopback-callback. Brukerens innlogging og REST-token er lagret som GitHub Actions-hemmeligheter; tenant-/brand-/client-ID er repository-variabler. `EKKO_DEPLOY_ENABLED` er fortsatt ikke satt.
+
+Ekte Chromium-røyktest bestod gjennom både `https://ekko-web-rdj2oacpcq-ew.a.run.app` og `https://ekko.maksimer.com`: innlogging, rendret dashboard, REST-metrikker, avvisning uten app-token, OAuth/PKCE, MCP initialize/whoami/tools/list og tilbakekalling av tilkoblingen. Privat transport brukte Google ID-token i `X-Serverless-Authorization`; alle eksisterende app-kontroller ble beholdt. Først ble kun transportheaderen lagt til i en midlertidig kopi; dette støttes nå direkte i `scripts/smoke.mjs`.
+
+HTTP-kontroller på begge adresser bekreftet IAM 403 uten Google-token, helse/login 200 med token, sikre `__Host-`-sesjonscookies, korrekt Google-redirect med identitetsscopes, REST 401 uten app-token og intern Scheduler-rute 401 uten Scheduler OIDC. HTTP på domenet omdirigerer til HTTPS. Sertifikatet ble tilgjengelig på lastbalansereren noen minutter etter opprettelse. Trafikken ble deretter låst til den testede revisjonen `ekko-web-00001-qpq`, uten LATEST.
+
+Dette beviser appens private oppstart og den syntetiske innloggingsflyten, ikke ekte Google-innlogging med invitert/uinvitert konto. Klient-IP/spoofing via begge innkommende veier (T39-F3/#55), godkjente priser og Gemini-vilkårsavklaring gjenstår før offentlig åpning og innsamling. Board CLI 1.1.0 er testet med lesing/hendelser og posting som Codex; CLI erstatter Board-MCP etter eierens instruks.
+
+### Feilende kandidat og delvis jobboppdatering
+
+`deploy.sh` ble kjørt mot ekte Cloud Run med Google IAM-headeren fra miljøet. En lokal feilinjeksjon endret bare `DB_HOST` i `gcloud run deploy` til en syntetisk, ikke-eksisterende socket. Backup og migreringsjobb fullførte. Revisjon `ekko-web-t10-negative-20261116` ble Ready med 0 % trafikk; røyktesten feilet på login og skriptet stoppet med exitkode 1. `ekko-web-00001-qpq` hadde 100 % både før og etter. Ingen applikasjonsjobber ble oppdatert.
+
+Deretter ble de tre pausede applikasjonsjobbene satt til det tidligere verifiserte `6a5ea9c`-imaget som kontrollert utgangspunkt; ingen av dem ble kjørt. Neste deploy opprettet `ekko-web-t10-partial-20261116` med korrekt DB-host. Full smoke bestod, web ble promotert til 100 %, og dispatch ble oppdatert. Feilinjeksjonen erstattet kun image-argumentet ved worker-oppdateringen med en ikke-eksisterende digest. Cloud Run avviste denne med `Image not found`, og deploy stoppet med exitkode 1 før task-oppdateringen.
+
+Etterkontroll viste web på den nye revisjonen, dispatch på nytt image, task på tidligere image og worker med den ugyldige referansen i lagret konfigurasjon. `rollback-traffic.sh ekko-web-00001-qpq` tilbakeførte web til 100 %. Alle tre applikasjonsjobber ble eksplisitt gjenopprettet til `337188a`-digesten. Runbooken beskriver nå at en feilet jobboppdatering også kan kreve reparasjon. Dette var virkelig Cloud Run-oppførsel med kontrollert feilinjeksjon, ikke mocks; offentlig tilgang og schedules var av hele tiden.
+
+Lokale kontroller etter endringene: 1635 PHP-tester / 9382 assertions, Pint/Larastan, frontend-lint, fire Chromium-tester og deploy-mocktester består. Den nye Chromium-testen avviser IAM-token over HTTP uten å skrive tokenet i output.
