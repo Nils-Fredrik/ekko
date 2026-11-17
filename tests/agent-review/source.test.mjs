@@ -79,9 +79,6 @@ test('a same-named PR workflow, untrusted path, failed run or stale attempt cann
         (f) => {
             f.run.pull_requests.push(structuredClone(f.source));
         },
-        (f) => {
-            f.run.head_sha = 'c'.repeat(40);
-        },
     ];
     for (const mutate of mutations) {
         const f = fixture();
@@ -90,10 +87,13 @@ test('a same-named PR workflow, untrusted path, failed run or stale attempt cann
     }
 });
 
-test('old head, changed base, draft or closed PR cannot reuse a trusted request', async () => {
-    const mutations = [
+test('obsolete head, base, draft or closed PR stops without granting any review', async () => {
+    for (const mutate of [
         (f) => {
             f.pr.head.sha = 'c'.repeat(40);
+        },
+        (f) => {
+            f.run.head_sha = 'c'.repeat(40);
         },
         (f) => {
             f.pr.base.sha = 'c'.repeat(40);
@@ -102,16 +102,38 @@ test('old head, changed base, draft or closed PR cannot reuse a trusted request'
             f.env.GITHUB_SHA = 'c'.repeat(40);
         },
         (f) => {
+            f.pr.draft = true;
+        },
+        (f) => {
+            f.pr.state = 'closed';
+        },
+    ]) {
+        const f = fixture();
+        mutate(f);
+        assert.equal(await f.check(), null);
+    }
+});
+
+test('a main merge before execution captures a fresh base without trusting PR code', async () => {
+    const f = fixture();
+    f.pr.base.sha = f.env.GITHUB_SHA = 'c'.repeat(40);
+    assert.deepEqual(await f.check(), { number: 42, head, base: 'c'.repeat(40) });
+    assert.ok(f.calls.every(({ options }) => !options.method || options.method === 'GET'));
+});
+
+test('malformed source and wrong repository/base still fail closed', async () => {
+    for (const mutate of [
+        (f) => {
             f.source.base.ref = 'untrusted';
+        },
+        (f) => {
+            f.source.base.sha = 'untrusted';
         },
         (f) => {
             f.pr.base.repo.id = 999;
         },
         (f) => {
-            f.pr.draft = true;
-        },
-        (f) => {
-            f.pr.state = 'closed';
+            f.pr.base.ref = 'untrusted';
         },
         (f) => {
             f.pr.number = 43;
@@ -119,8 +141,7 @@ test('old head, changed base, draft or closed PR cannot reuse a trusted request'
         (f) => {
             f.source.number = '42\nhead=untrusted';
         },
-    ];
-    for (const mutate of mutations) {
+    ]) {
         const f = fixture();
         mutate(f);
         await assert.rejects(f.check());

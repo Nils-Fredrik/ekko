@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { codexApproved, requiredReviewers } from '../../scripts/agent-review/policy.mjs';
+import { codexApproved, codexReviewState, requiredReviewers } from '../../scripts/agent-review/policy.mjs';
 
 const paths = ['app/Tenancy/**', 'infra/**'];
 const sha = 'a'.repeat(40);
@@ -42,4 +42,16 @@ test('only a fresh complete clean result from the authenticated bot on the exact
     assert.equal(codexApproved([summary({ status: 'running' }), receipt], sha, request), false);
     assert.equal(codexApproved([summary({}, 199175422, request), receipt], sha, request), false);
     assert.equal(codexApproved([summary(), summary(), receipt], sha, request), false);
+});
+
+test('unknown and stale Codex data cannot be misclassified as a factual rejection', () => {
+    for (const comments of [
+        [summary({ has_any_findings: true })],
+        [summary({ has_any_findings: true }, 1), receipt],
+        [summary({ has_any_findings: true, commit_sha: 'b'.repeat(40) }), receipt],
+        [summary({ has_any_findings: 'true' }), receipt],
+        [summary({ has_any_findings: true, status: 'running' }), receipt],
+    ])
+        assert.equal(codexReviewState(comments, sha, request), 'pending');
+    assert.equal(codexReviewState([summary({ has_any_findings: true }), receipt], sha, request), 'changes_requested');
 });

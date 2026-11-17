@@ -289,6 +289,21 @@ test('stability is the mean share of repetitions that mention the brand per prom
         ->and(service()->stability(metricsFilter($w, ['from' => '2026-12-01', 'to' => '2026-12-02']))['mean']->value)->toBeNull();
 });
 
+test('stability per prompt and engine is the mean of that prompt and engine only', function () {
+    ['w' => $w, 'engine2' => $engine2] = metricsData();
+
+    $cells = service()->stabilityByPromptEngine(metricsFilter($w));
+    $cell = fn (int $promptId, string $engine) => collect($cells)->first(
+        fn (array $row) => $row['prompt_id'] === $promptId && $row['engine_key'] === $engine,
+    );
+
+    expect($cells)->toHaveCount(3)
+        ->and($cell($w->p1->id, $w->engine->key)['mean']->value)->toEqualWithDelta(0.5, 1e-9)
+        ->and($cell($w->p1->id, $w->engine->key)['mean']->n)->toBe(1)
+        ->and($cell($w->p1->id, $engine2->key)['mean']->value)->toEqualWithDelta(1.0, 1e-9)
+        ->and($cell($w->p2->id, $w->engine->key)['mean']->value)->toEqualWithDelta(0.3, 1e-9);
+});
+
 /**
  * @return array<string, mixed>
  */

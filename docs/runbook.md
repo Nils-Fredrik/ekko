@@ -51,7 +51,7 @@ Kortlivede App-tokens opprettes med den pinnede `actions/create-github-app-token
 
 ### Hva sjekken kontrollerer
 
-`agent-review.yml` («Agent review request») kjører på `pull_request_target`, sjekker bare ut betrodd base og setter status til pending. `agent-review-execute.yml` starter deretter på `workflow_run` og bruker bare sin betrodde main-commit (`github.sha`). `source.mjs` verifiserer kildekjøringens repo, workflow-ID/sti, event, vellykket resultat og forsøksnummer via GitHub API. Det må finnes nøyaktig én PR med samme head og base som den betrodde checkout-en. Et workflow-navn alene er ikke tilstrekkelig: PR-kode kan lage en workflow med samme navn. Ingen artifacts fra kildekjøringen lastes ned. PR-kode kjøres aldri. Diff og PR-beskrivelse hentes som data; endret head, base, merge-commit, tittel eller draft-status underveis gjør sjekken rød. Filer som er flyttet fra følsomme stier regnes fortsatt som følsomme. Feil eller trunkert filliste gir aldri fritak fra review.
+`agent-review.yml` («Agent review request») kjører på `pull_request_target`, sjekker bare ut betrodd base og setter status til pending. `agent-review-execute.yml` starter deretter på `workflow_run` og bruker bare sin betrodde main-commit (`github.sha`). `source.mjs` verifiserer kildekjøringens repo, workflow-ID/sti, event, vellykket resultat og forsøksnummer via GitHub API. Det må finnes nøyaktig én PR med samme head som kildekjøringens uforanderlige head-SHA. Gjeldende PR-base må være execution-jobbens betrodde checkout. Hvis main ble oppdatert mens request ventet, tas et nytt snapshot av denne basen og begge nødvendige reviewere kjører på nytt. Foreldet head, lukket PR eller utkast stopper før reviewer og App-token opprettes. Et workflow-navn alene er ikke tilstrekkelig: PR-kode kan lage en workflow med samme navn. Ingen artifacts fra kildekjøringen lastes ned. PR-kode kjøres aldri. Diff og PR-beskrivelse hentes som data; endret head, base, merge-commit, tittel eller draft-status underveis gjør sjekken rød. Filer som er flyttet fra følsomme stier regnes fortsatt som følsomme. Feil eller trunkert filliste gir aldri fritak fra review.
 
 Claude kjører i restricted-modus og har bare Read/Glob/Grep avgrenset til arbeidsmappen og ett avgrenset MCP-verktøy for å publisere sin konklusjon på den aktuelle PR-en som Claude App. Verktøyet binder repo, PR og revisjon til workflowens kontekst; modellen kan ikke velge URL eller mottaker. Diff og kontekst ligger i `.review/` i arbeidsmappen. `--restricted` sperrer filer utenfor arbeidsmappen; `/proc`, `/tmp` og `.git` er i tillegg eksplisitt avvist. Ikke bruk `Read(~/**)` som deny: GitHub-runnerens repo ligger også under hjemmemappen. Tillat verktøynavnene Read/Glob/Grep; Glob(path)/Grep(path) avgrenser ikke filer, mens restricted håndhever arbeidsmappen. Publiseringsverktøyet avviser kjente tokenmønstre og verdier på minst 16 tegn fra miljøvariabler med TOKEN, SECRET, KEY, PASSWORD eller CREDENTIAL i navnet i oppsummeringen. Ingen shell- eller filskriveverktøy er tilgjengelige. Publiseringsverktøyet returnerer hele objektet med conclusion, summary og comment_id, som revieweren skal kopiere uendret til sitt strukturerte resultat. Verdict-steget validerer fortsatt at strukturert konklusjon og oppsummering er identiske med kommentaren fra bot-ID 209825114, på riktig PR og full head-SHA. `track_progress` er av. Eksplisitt prompt bruker agent-modus på workflow_run og beholder main-checkout. Claude får fortsatt sitt eget App-token fra Anthropic; vi erstatter det ikke med den delte GitHub Actions-identiteten.
 
@@ -66,7 +66,7 @@ Den gamle automatiske `claude-code-review.yml` erstattes av denne workflowen. `c
 1. Valider review-koden, CI, secrets og integrasjoner. Eieren merger T42 etter uavhengig kryssreview; Begge workflows må finnes på main før ende-til-ende-testen kan kjøre. En PR som retter selve oppstartsfeilen vurderes med eksplisitt uavhengig review og grønn test-CI før eierens merge; en rød automatisk oppstartssjekk er ikke et godkjent review. Utkastet er ikke bevis på aktiv beskyttelse.
 2. Opprett tre små test-PR-er: en ufølsom `[Codex]`, en ufølsom `[Claude Code]`, og en følsom endring. Kontroller henholdsvis Claude, Codex og begge. Gi alle beskrivelse med Board-oppgave og akseptkriterier. Bruk ingen kundedata. Ta med en push fra en av de tillatte botene `claude`, `chatgpt-codex-connector` eller `cursor`; kontroller at review-jobben faktisk starter. Lukk test-PR-ene uten merge.
 3. Kontroller synlig Claude-botkommentar, strukturert konklusjon, fersk Codex-kvittering, korrekt head/merge-SHA og grønn `agent-review`. Test en ny commit og en endret base: gammel godkjenning må ikke godta ny kode. Test tre mislykkede runder og kontroller én Board-blocker.
-4. Først når testene fungerer, aktiver grenbeskyttelse på `main`: krev `test` og `agent-review` (bundet til `AGENT_REVIEW_APP_ID`), oppdatert base, håndheving også for administratorer, og ingen force-push eller sletting. Behold eventuelle strengere eksisterende regler. Ikke sett krav om menneskelig egen-PR-godkjenning som eieren ikke kan oppfylle; agent-godkjenning håndheves av `agent-review`.
+4. Først når testene fungerer, aktiver grenbeskyttelse på `main`: krev `test` og `container build` fra GitHub Actions (App-ID 15368), samt `agent-review` (bundet til `AGENT_REVIEW_APP_ID`), oppdatert base, håndheving også for administratorer, og ingen force-push eller sletting. Behold eventuelle strengere eksisterende regler. Ikke sett krav om menneskelig egen-PR-godkjenning som eieren ikke kan oppfylle; agent-godkjenning håndheves av `agent-review`.
 5. Hent metadata uten å endre noe og kontroller også at PR-workflows ikke får App-nøkkelen:
 
 ```sh
@@ -81,11 +81,13 @@ jq -n --argjson app_id "$AGENT_REVIEW_APP_ID" \
   | node scripts/agent-review/check-protection.mjs
 ```
 
-6. Dokumenter test-PR-er, revisjoner, CI og beskyttelseskontroll på Board. T42 lukkes først når hele aksepten er bekreftet. Eieren er fortsatt den eneste som merger.
+6. Dokumenter test-PR-er, revisjoner, CI og beskyttelseskontroll på Board. T42 lukkes først når hele aksepten er bekreftet. Inntil generell køaktivering merger eieren, eller GitHub med auto-merge eieren har aktivert per PR. Etter kontrollert aktivering kan mergekøen merge etter de samme beskyttelseskravene (ADR 0026).
 
 ### Akseptbevis fra 15.11.2026
 
-Aktivert 15.11.2026: `main` krever `strict: true`, `test` fra GitHub Actions (App-ID `15368`) og `agent-review` fra Ekko Agent Review NF (App-ID `5773706`, bot-ID `357077641`). Kravene gjelder også administratorer. Force-push og sletting er av. `check-protection.mjs` består mot metadata hentet etter aktivering, inkludert miljøets eneste tillatte branch `main`.
+Etterkontroll 17.11.2026 ved retting av PR #68: GitHub-metadata bekrefter nå også `container build` bundet til App 15368, i tillegg til `test` og `agent-review`. Dette erstatter ikke live aksept av den generelle mergekøen, som fortsatt kreves før aktivering.
+
+Historisk aksept 15.11.2026 (før mergekø-utvidelsen): `main` krever `strict: true`, `test` fra GitHub Actions (App-ID `15368`) og `agent-review` fra Ekko Agent Review NF (App-ID `5773706`, bot-ID `357077641`). Kravene gjelder også administratorer. Force-push og sletting er av. `check-protection.mjs` består mot metadata hentet etter aktivering, inkludert miljøets eneste tillatte branch `main`.
 
 Testene ble kjørt i to omganger: `88fac6b` etter #49 og `6f6ebdc` etter #54, som angitt per rad nedenfor. #54 endret bare Claudes lesetilgang og publiseringskvittering (samt tilhørende test/dokumentasjon). Codex-ruting, kildekontroll, eskalering, request-workflow og miljøregel var uendret. Derfor beholdes bevisene for disse kontrollene fra `88fac6b`, mens Claude- og dobbelreview ble kjørt på nytt mot `6f6ebdc`. De midlertidige PR-ene er lukket uten merge. Modellen bak Codex-integrasjonen er ikke eksponert; se avviket i spec 19.5 og Board #457.
 
@@ -102,7 +104,42 @@ Testene ble kjørt i to omganger: `88fac6b` etter #49 og `6f6ebdc` etter #54, so
 
 Claude CLI 2.1.325 ble også testet med syntetiske filer: repo-lesing virket, mens `.git` og filer utenfor arbeidsmappen ble avvist. En separat CLI/MCP-rundtur brukte den ekte publiseringsfunksjonen med syntetisk API og viste identisk publisert og strukturert resultat. Ingen produksjonshemmeligheter ble brukt i disse lokale probene. De 24 deterministiske Node-testene består; funksjonstestene over erstatter ikke CI.
 
+### Drift og stopp av mergekøen (T42, task:61)
+
+Køen er av som standard. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før `EKKO_MERGE_QUEUE_ENABLED=true`. Utvid først grenbeskyttelsen med `container build` fra App 15368, behold `test`, `agent-review`, strict og administratorhåndheving, og kjør metadataauditen over. Aksepten fra 15.11 beviser bare det opprinnelige oppsettet med to sjekker; den er ikke bevis for den utvidede auditen eller aktiv mergekø.
+
+Sett repo-variabelen `MERGE_QUEUE_BOT_SLUG` til kø-Appens eksakte slug uten `[bot]`, uten miljøoverstyringer. Review tillater denne boten i tillegg til de eksisterende. Køen verifiserer at tokenets App har samme slug før den endrer en PR. Isolert aksept må vise at akkurat denne Appens grenoppdatering starter både CI og Claude-review. Tom slug er tillatt for review før aktivering, men stopper køen.
+
+Før aktivering kjøres også denne separate, lesende auditen av kømiljøet. Den opprinnelige auditen over dekker bare review-miljøet. Manglende miljø, jokertegn, tag-regler og ekstra grener skal feile:
+
+```sh
+gh api repos/Nils-Fredrik/ekko/environments/merge-queue > /tmp/ekko-queue-environment.json
+gh api repos/Nils-Fredrik/ekko/environments/merge-queue/deployment-branch-policies > /tmp/ekko-queue-policies.json
+jq -n --slurpfile environment /tmp/ekko-queue-environment.json \
+  --slurpfile policies /tmp/ekko-queue-policies.json \
+  '{environment: $environment[0], policies: $policies[0]}' \
+  | node scripts/merge-queue/config.mjs audit-environment
+```
+
+Denne auditen må bestå etter at kømiljøet er opprettet; den er ikke del av det historiske review-akseptbeviset.
+
+Actions-workflowen «Merge queue» skriver utfallet og PR-nummeret i kjøringssammendraget. Ved failure/conflict/review rettes PR-en i samme gren. Køen oppdaterer heller ikke røde eller ventende heads. Ved main-failure undersøkes siste CI/deploy før en ny merge. `native-auto-merge-pending` betyr at en PR med GitHubs auto-merge holder køen; også en ukvalifisert PR kan gjøre dette. Rett PR-en eller slå av dens native auto-merge.
+
+Stopp ved å sette `EKKO_MERGE_QUEUE_ENABLED=false`. En pågående GitHub-operasjon kan fullføres. Native auto-merge per PR må eventuelt slås av separat; denne bryteren stopper bare den egne køen. Ukvalifiserte App-boter med NONE/CONTRIBUTOR får ikke unntak fra forfatterkravet, og feilende eller kansellerte sjekker fra andre Apps stopper også køen.
+
 ### Feil og gjenoppretting
+
+Rettelsen i ADR 0027 skiller disse utfallene i `agent-review` og jobboppsummeringen:
+
+| Utfall | Status | Tiltak |
+|---|---|---|
+| Alle påkrevde reviewere godkjenner | `success` | Vanlig mergeflyt med grønn CI |
+| Verifiserte reviewfunn | `failure` | Rett funnene i samme gren; teller som faglig avslagsrunde |
+| Claude-krasj, tidsgrense eller ugyldig kvittering | `error` | Les Claude-/verdict-loggen og kjør igjen etter retting; teller ikke som faglig avslag |
+| Codex-kvittering mangler/har ukjent format etter 45 minutter | `error` | Kontroller integrasjonen og bestill ny review; ingen faglig avslagsrunde |
+| Head/base/tittel eller reviewforespørsel endret | Ingen overskriving av nyere status; egen foreldet status kan bli `error` | Oppdater PR-grenen for ny request; gamle reviewkvitteringer kan ikke brukes |
+
+Claude-steget har 20 minutters tidsgrense og jobben 25 minutter. Det finnes ingen `--max-turns`-grense: action v1.0.276 avviser ellers selv et fullført resultat når SDK-et rapporterer flere steg enn grensen. Dette ble observert ved 31, 36 og 42 steg. Ingen feil ignoreres med `continue-on-error`, og en publisert kommentar alene kan ikke erstatte vellykket jobb og eksakt strukturert kvittering. Etter merge av denne rettelsen må live-kjøring verifiseres; CI på PR-en tester koden, mens review-workflowen selv bruker eksisterende main.
 
 Manglende eller utløpt token: roter den aktuelle GitHub-hemmeligheten og kjør workflowen igjen. Ikke senk godkjenningskravene for å få grønt. Ved endret Codex-format: hold sjekken rød, hent en ny anonymisert kvittering, oppdater parser og tester gjennom review. Ved endret base: oppdater PR-grenen og kjør ny review. En annullert kjøring eller formatfeil gir ingen godkjenning. Sjekk Board og PR før en ny runde etter eskalering.
 
