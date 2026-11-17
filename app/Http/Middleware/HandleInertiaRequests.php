@@ -7,6 +7,7 @@ use App\Models\Team;
 use App\Models\TenantApiKey;
 use App\Models\UsageEvent;
 use App\Models\User;
+use App\Onboarding\Analysis;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
@@ -68,6 +69,11 @@ class HandleInertiaRequests extends Middleware
                 fn (string $provider) => filled(config("services.{$provider}.client_id")) && filled(config("services.{$provider}.client_secret")),
             )),
             'actingAs' => fn () => $this->actingAs($request),
+            'canOnboard' => function () use ($request): bool {
+                $user = $request->user();
+
+                return $user instanceof User && Gate::forUser($user)->allows('createBrandAnalysis', Analysis::class);
+            },
             'canViewUsage' => function () use ($request): bool {
                 $user = $request->user();
 

@@ -79,6 +79,13 @@ const logout = () => {
                                 <NavLink :href="route('brands.index')" :active="route().current('brands.*')">
                                     {{ $t('app.nav.brands') }}
                                 </NavLink>
+                                <NavLink
+                                    v-if="page.props.canOnboard"
+                                    :href="route('onboarding.wizard')"
+                                    :active="route().current('onboarding.wizard')"
+                                >
+                                    {{ $t('app.nav.wizard') }}
+                                </NavLink>
                                 <NavLink :href="route('alerts.index')" :active="route().current('alerts.*')">
                                     {{ $t('app.nav.alerts') }}
                                 </NavLink>
@@ -296,6 +303,19 @@ const logout = () => {
                         @click="menuOpen = false"
                     >
                         {{ $t('app.nav.brands') }}
+                    </Link>
+                    <Link
+                        v-if="page.props.canOnboard"
+                        :href="route('onboarding.wizard')"
+                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
+                        :class="
+                            route().current('onboarding.wizard')
+                                ? 'bg-light-beige font-medium text-ink'
+                                : 'text-ink-soft'
+                        "
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('app.nav.wizard') }}
                     </Link>
                     <Link
                         :href="route('alerts.index')"

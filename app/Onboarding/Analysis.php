@@ -24,6 +24,8 @@ final class Analysis
 
     public const FAILED = 'failed';
 
+    public const CONFIRMED = 'confirmed';
+
     /**
      * @param  array<string, mixed>  $input  what the user entered (names, domain, country, language, brand id)
      * @param  array<string, mixed>|null  $proposal
@@ -79,6 +81,6 @@ final class Analysis
 
     public function isFinished(): bool
     {
-        return in_array($this->status, [self::READY, self::FAILED], true);
+        return in_array($this->status, [self::READY, self::FAILED, self::CONFIRMED], true);
     }
 }

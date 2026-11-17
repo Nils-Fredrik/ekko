@@ -210,7 +210,7 @@ final class ProposalParser
         return str_starts_with($host, 'www.') ? substr($host, 4) : $host;
     }
 
-    private function hasPersonalData(string $text): bool
+    public function hasPersonalData(string $text): bool
     {
         if (preg_match('/[^\s@]+@[^\s@]+\.[^\s@]+/u', $text) === 1) {
             return true;

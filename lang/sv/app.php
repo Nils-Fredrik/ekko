@@ -24,6 +24,7 @@ return [
             'system' => 'Följ systemet',
         ],
         'brands' => 'Varumärken',
+        'wizard' => 'Guiden',
         'settings' => 'Inställningar',
         'alerts' => 'Varningar',
         'reports' => 'Rapporter',

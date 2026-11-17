@@ -12,10 +12,17 @@ export default defineConfig({
     timeout: 30000,
     use: { baseURL: `http://127.0.0.1:${port}`, trace: 'off', screenshot: 'off', video: 'off' },
     webServer: {
-        command: `php artisan serve --host=127.0.0.1 --port=${port}`,
+        command: `php -S 127.0.0.1:${port} -t public tests/Browser/router.php`,
         url: `http://127.0.0.1:${port}/up`,
         reuseExistingServer: false,
         timeout: 30000,
-        env: { ...databaseEnv, APP_URL: `http://127.0.0.1:${port}`, SESSION_SECURE_COOKIE: 'false' },
+        env: {
+            ...databaseEnv,
+            APP_URL: `http://127.0.0.1:${port}`,
+            SESSION_SECURE_COOKIE: 'false',
+            EKKO_BROWSER_TEST: '1',
+            QUEUE_CONNECTION: 'sync',
+            CLOUD_RUN_ENABLED: 'false',
+        },
     },
 });

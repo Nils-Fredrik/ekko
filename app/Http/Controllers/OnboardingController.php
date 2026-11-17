@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Dashboard\DashboardLabels;
 use App\Jobs\RunOnboardingAnalysis;
 use App\Models\Brand;
+use App\Models\Engine;
 use App\Models\Market;
 use App\Models\Plan;
 use App\Models\Prompt;
@@ -13,6 +15,8 @@ use App\Onboarding\Analysis;
 use App\Onboarding\AnalysisStore;
 use App\Onboarding\CostEstimator;
 use App\Onboarding\Fetch\SiteUrl;
+use App\Onboarding\Model\OnboardingSchema;
+use App\Onboarding\ProposalConfirmer;
 use App\Scheduling\WorkerLauncher;
 use App\Tenancy\TenantContext;
 use App\Usage\BillingAccount;
@@ -23,10 +27,14 @@ use Brick\Math\BigDecimal;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Inertia\Inertia;
+use Inertia\Response;
 use Throwable;
 
 /**
@@ -39,6 +47,97 @@ use Throwable;
 class OnboardingController extends Controller
 {
     private const LANGUAGE = '/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/';
+
+    /** The wizard page (docs/spec.md 13, T29). Engines are preselected from the plan. */
+    public function create(): Response
+    {
+        Gate::authorize('createBrandAnalysis', Analysis::class);
+
+        return $this->wizard();
+    }
+
+    public function createMarket(Brand $brand): Response
+    {
+        Gate::authorize('createMarketAnalysis', Analysis::class);
+
+        return $this->wizard($brand);
+    }
+
+    private function wizard(?Brand $brand = null): Response
+    {
+        $plan = $this->tenant()->plan()->first();
+        $engines = Engine::query()->orderBy('key')->get()
+            ->filter(fn (Engine $engine): bool => $engine->isAvailable() && $plan instanceof Plan && $plan->allowsEngine($engine->key))
+            ->map(fn (Engine $engine): array => [
+                'engine_key' => $engine->key,
+                'name' => DashboardLabels::engines([$engine->key])[$engine->key],
+                'max_repetitions' => $plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1,
+                'max_frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'off',
+                'frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'weekly',
+                'repetitions' => $plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1,
+            ])->values();
+
+        return Inertia::render('Onboarding/Wizard', [
+            'engines' => $engines,
+            'maxCore' => (int) config('ekko.wizard.suggestions.max_core_prompts'),
+            'brand' => $brand === null ? null : [
+                'id' => $brand->id,
+                'name' => $brand->name,
+                'primary_domain' => $brand->primary_domain,
+                'topics' => $brand->topics()->whereNotNull('cross_market_key')->get(['name', 'cross_market_key']),
+            ],
+        ]);
+    }
+
+    /**
+     * Saves the edited proposal and starts the first run of its core prompts.
+     */
+    public function confirm(Request $request, string $analysis, AnalysisStore $store, ProposalConfirmer $confirmer): RedirectResponse
+    {
+        $tenantId = app(TenantContext::class)->id();
+        abort_if($tenantId === null, 403);
+        $found = $store->find($tenantId, $analysis);
+        abort_if($found === null, 404);
+        Gate::authorize('confirm', $found);
+
+        $brand = $found->kind === Analysis::BRAND;
+        $data = $request->validate([
+            'name' => [$brand ? 'required' : 'sometimes', 'nullable', 'string', 'max:120'],
+            'primary_domain' => [$brand ? 'required' : 'sometimes', 'nullable', 'string', 'max:255'],
+            'country' => ['required', 'string', 'regex:/^[a-zA-Z]{2}$/'],
+            'language' => ['required', 'string', 'max:35', 'regex:'.self::LANGUAGE],
+            'name_variants' => ['sometimes', 'array', 'max:10'],
+            'name_variants.*' => ['string', 'max:120'],
+            'competitors' => ['sometimes', 'array', 'max:10'],
+            'competitors.*.name' => ['required', 'string', 'max:120'],
+            'competitors.*.domain' => ['required', 'string', 'max:255'],
+            'topics' => ['sometimes', 'array', 'max:8'],
+            'topics.*.name' => ['required', 'string', 'max:100'],
+            'topics.*.cross_market_key' => ['required', 'string', 'max:100'],
+            'prompts' => ['sometimes', 'array', 'max:50'],
+            'prompts.*.text' => ['required', 'string', 'max:'.Prompt::TEXT_MAX, Prompt::nullByteRule()],
+            'prompts.*.cross_market_key' => ['required', 'string', 'max:100'],
+            'prompts.*.intent' => ['required', Rule::in(OnboardingSchema::INTENTS)],
+            'prompts.*.funnel_stage' => ['required', Rule::in(OnboardingSchema::FUNNEL_STAGES)],
+            'prompts.*.priority' => ['required', Rule::in(['core', 'standard'])],
+            'engines' => ['sometimes', 'array', 'max:20'],
+            'engines.*.engine_key' => ['required', 'string', 'max:64'],
+            'engines.*.frequency' => ['required', Rule::in(['daily', 'weekly', 'monthly', 'off'])],
+            'engines.*.repetitions' => ['required', 'integer', 'between:1,3'],
+        ], [], [
+            'name' => __('onboarding.ui.name'),
+            'primary_domain' => __('onboarding.ui.domain'),
+            'country' => __('onboarding.ui.country'),
+            'language' => __('onboarding.ui.language'),
+            'prompts.*.text' => __('onboarding.ui.prompt'),
+        ]);
+        $data['language'] = $this->language((string) $data['language']);
+        $data['country'] = strtoupper((string) $data['country']);
+
+        $result = $confirmer->confirm($this->tenant(), $found, $data);
+
+        return redirect()->route('brands.show', $result['brand']);
+    }
 
     /** A new brand: reads the site and proposes industry, name variants, competitors, topics and prompts. */
     public function storeBrandAnalysis(Request $request, AnalysisStore $store): JsonResponse
@@ -85,6 +184,9 @@ class OnboardingController extends Controller
         $plan = $tenant->plan()->first();
         if ($plan instanceof Plan && $plan->max_markets_per_brand !== null && $brand->markets()->count() >= $plan->max_markets_per_brand) {
             return $this->refuse('market_limit', 422);
+        }
+        if ($brand->markets()->where('country', strtoupper($data['country']))->where('language', $this->language($data['language']))->exists()) {
+            throw ValidationException::withMessages(['country' => __('onboarding.errors.market_exists')]);
         }
         if (! Topic::query()->where('brand_id', $brand->id)->whereNotNull('cross_market_key')->exists()) {
             return $this->refuse('no_topics', 422);

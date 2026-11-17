@@ -4,7 +4,10 @@ namespace App\Onboarding;
 
 use App\Scheduling\CollectionLocks;
 use Closure;
+use Illuminate\Cache\DatabaseStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -64,24 +67,51 @@ final class AnalysisStore
             return null;
         }
 
-        return Analysis::fromArray($data);
+        $analysis = Analysis::fromArray($data);
+        if ($this->confirmations()->has($this->key($tenantId, $id))) {
+            $analysis->status = Analysis::CONFIRMED;
+        }
+
+        return $analysis;
+    }
+
+    /** The marker commits with the configuration and queue, even when proposals use Redis/array cache. */
+    public function markConfirmed(Analysis $analysis): void
+    {
+        $this->confirmations()->put($this->key($analysis->tenantId, $analysis->id), true,
+            now()->addHours((int) config('ekko.wizard.proposal_ttl_hours')));
+    }
+
+    private function confirmations(): Repository
+    {
+        return new Repository(new DatabaseStore(DB::connection(), 'cache', 'onboarding-confirmed:'));
     }
 
     public function save(Analysis $analysis): void
+    {
+        $this->write($analysis);
+
+        if ($analysis->isFinished()) {
+            CollectionLocks::make($this->lockKey($analysis->tenantId), 10)->block(5, function () use ($analysis): void {
+                $this->forgetPending($analysis);
+            });
+        }
+    }
+
+    private function write(Analysis $analysis): void
     {
         Cache::put(
             $this->key($analysis->tenantId, $analysis->id),
             $analysis->toArray(),
             now()->addHours((int) config('ekko.wizard.proposal_ttl_hours')),
         );
+    }
 
-        if ($analysis->isFinished()) {
-            CollectionLocks::make($this->lockKey($analysis->tenantId), 10)->block(5, function () use ($analysis): void {
-                $pending = $this->pendingList($analysis->tenantId);
-                unset($pending[$analysis->id]);
-                Cache::put($this->pendingKey($analysis->tenantId), $pending, now()->addDay());
-            });
-        }
+    private function forgetPending(Analysis $analysis): void
+    {
+        $pending = $this->pendingList($analysis->tenantId);
+        unset($pending[$analysis->id]);
+        Cache::put($this->pendingKey($analysis->tenantId), $pending, now()->addDay());
     }
 
     /** @return array<string, int> Analysis id => when the reservation runs out (Unix time). */

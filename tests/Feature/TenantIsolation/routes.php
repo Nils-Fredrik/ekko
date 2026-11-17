@@ -323,8 +323,55 @@ return [
             return ['data' => ['name' => 'Eksempel', 'primary_domain' => 'eksempel.no', 'country' => 'NO', 'language' => 'nb']];
         },
     ),
-    // The proposal is addressed by id and kept per tenant: B's id is not found from A (404), and A's role
-    // without brands.manage gets 403.
+    'brands.markets.create' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'onboarding.wizard' => RouteAccess::user(own: fn () => [], deniedRoles: ['editor', 'reader']),
+    // Confirmation writes only in the current tenant; foreign proposals are 404, readers/editors 403.
+    'onboarding.analyses.confirm' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => [
+            'params' => ['analysis' => app(AnalysisStore::class)->create($s->tenantB->id, $s->ownerB->id, 'brand', ['name' => $s->marker])->id],
+            'data' => [
+                'name' => 'Eksempel',
+                'primary_domain' => 'eksempel.no',
+                'country' => 'NO',
+                'language' => 'nb',
+            ],
+        ],
+        own: function (Scenario $s) {
+            $store = app(AnalysisStore::class);
+            $analysis = $store->create($s->tenantA->id, $s->adminA->id, 'brand', [
+                'name' => 'Eksempel',
+                'primary_domain' => 'eksempel.no',
+                'country' => 'NO',
+                'language' => 'nb',
+            ]);
+            $analysis->status = 'ready';
+            $store->save($analysis);
+
+            return [
+                'params' => ['analysis' => $analysis->id],
+                'data' => [
+                    'name' => 'Eksempel',
+                    'primary_domain' => 'eksempel.no',
+                    'country' => 'NO',
+                    'language' => 'nb',
+                    'topics' => [['name' => 'Sko', 'cross_market_key' => 'shoes']],
+                    'prompts' => [[
+                        'text' => 'Hvilke sko er best?',
+                        'cross_market_key' => 'shoes',
+                        'intent' => 'category',
+                        'funnel_stage' => 'awareness',
+                        'priority' => 'core',
+                    ]],
+                ],
+            ];
+        },
+        deniedRoles: ['editor', 'reader'],
+    ),
+    // Proposals are addressed by id under their tenant; a foreign id is not found.
     'onboarding.analyses.show' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['analysis' => app(AnalysisStore::class)->create($s->tenantB->id, $s->ownerB->id, 'brand', ['name' => $s->marker])->id]],
         own: fn (Scenario $s) => ['params' => ['analysis' => app(AnalysisStore::class)->create($s->tenantA->id, $s->adminA->id, 'brand', ['name' => 'Own'])->id]],
