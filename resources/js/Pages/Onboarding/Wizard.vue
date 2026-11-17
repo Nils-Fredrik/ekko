@@ -372,11 +372,7 @@ function confirm() {
                                     {{ $t(`app.intents.${intent}`) }}
                                 </option>
                             </select>
-                            <select
-                                v-model="prompt.funnel_stage"
-                                :aria-label="$t('app.library.funnel')"
-                                :class="field"
-                            >
+                            <select v-model="prompt.funnel_stage" :aria-label="$t('app.library.funnel')" :class="field">
                                 <option v-for="stage in stages" :key="stage" :value="stage">
                                     {{ $t(`app.funnel_stages.${stage}`) }}
                                 </option>
