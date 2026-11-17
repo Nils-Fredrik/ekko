@@ -8,6 +8,8 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 const props = defineProps({
     engines: { type: Array, required: true },
+    brand: { type: Object, default: null },
+    maxCore: { type: Number, required: true },
 });
 
 const field = 'rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
@@ -24,7 +26,15 @@ const estimatedPayload = ref('');
 let estimateRequest = 0;
 let poll = null;
 
-const basis = ref({ name: '', primary_domain: '', country: 'NO', language: 'nb' });
+const basis = ref({
+    name: props.brand?.name ?? '',
+    primary_domain: props.brand?.primary_domain ?? '',
+    country: 'NO',
+    language: 'nb',
+});
+const basisFields = computed(() =>
+    props.brand ? ['country', 'language'] : ['name', 'primary_domain', 'country', 'language'],
+);
 const draft = ref(emptyDraft());
 const setup = ref(props.engines.map((engine) => ({ ...engine, enabled: true })));
 
@@ -59,7 +69,10 @@ async function start() {
     error.value = '';
     step.value = 'wait';
     try {
-        const response = await window.axios.post(route('onboarding.analyses.store'), basis.value);
+        const response = await window.axios.post(
+            props.brand ? route('brands.market-proposals.store', props.brand.id) : route('onboarding.analyses.store'),
+            basis.value,
+        );
         analysis.value = response.data;
         if (response.data.status === 'ready') {
             fill(response.data);
@@ -100,7 +113,7 @@ function fill(payload) {
         category: proposal.category ?? '',
         name_variants: [...(proposal.name_variants ?? [])],
         competitors: (proposal.competitors ?? []).map((row) => ({ ...row })),
-        topics: (proposal.topics ?? []).map((row) => ({ ...row })),
+        topics: (props.brand?.topics ?? proposal.topics ?? []).map((row) => ({ ...row })),
         prompts: (proposal.prompts ?? []).map((row) => ({ ...row })),
     };
     step.value = 'edit';
@@ -208,10 +221,10 @@ function confirm() {
 </script>
 
 <template>
-    <AppLayout :title="$t('onboarding.ui.title')">
+    <AppLayout :title="$t(brand ? 'onboarding.ui.market_title' : 'onboarding.ui.title')">
         <template #header>
             <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">
-                {{ $t('onboarding.ui.title') }}
+                {{ $t(brand ? 'onboarding.ui.market_title' : 'onboarding.ui.title') }}
             </h2>
         </template>
 
@@ -228,11 +241,12 @@ function confirm() {
                 class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink"
                 @submit.prevent="start"
             >
-                <label class="block text-sm">
+                <p v-if="brand" class="font-medium">{{ brand.name }}</p>
+                <label v-if="!brand" class="block text-sm">
                     {{ $t('onboarding.ui.name') }}
                     <input v-model="basis.name" required :class="field" class="mt-1 w-full" />
                 </label>
-                <label class="block text-sm">
+                <label v-if="!brand" class="block text-sm">
                     {{ $t('onboarding.ui.domain') }}
                     <input v-model="basis.primary_domain" required :class="field" class="mt-1 w-full" />
                 </label>
@@ -259,17 +273,13 @@ function confirm() {
             </section>
 
             <section v-else-if="step === 'edit'" class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
-                <label
-                    v-for="key in ['name', 'primary_domain', 'country', 'language']"
-                    :key="key"
-                    class="block text-sm"
-                >
+                <label v-for="key in basisFields" :key="key" class="block text-sm">
                     {{ $t(`onboarding.ui.${key === 'primary_domain' ? 'domain' : key}`) }}
                     <input v-model="basis[key]" :class="field" class="mt-1 w-full" />
                 </label>
                 <p v-if="draft.industry" class="text-sm">{{ $t('onboarding.ui.industry') }}: {{ draft.industry }}</p>
                 <p v-if="draft.category" class="text-sm">{{ draft.category }}</p>
-                <div>
+                <div v-if="!brand">
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.variants') }}</h3>
                     <div v-for="(variant, index) in draft.name_variants" :key="index" class="mt-2 flex gap-2">
                         <input v-model="draft.name_variants[index]" :class="field" class="w-full" />
@@ -281,7 +291,7 @@ function confirm() {
                         {{ $t('onboarding.ui.add') }}
                     </button>
                 </div>
-                <div>
+                <div v-if="!brand">
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.competitors') }}</h3>
                     <div
                         v-for="(competitor, index) in draft.competitors"
@@ -295,10 +305,15 @@ function confirm() {
                         </button>
                     </div>
                 </div>
-                <button type="button" class="text-sm" @click="draft.competitors.push({ name: '', domain: '' })">
+                <button
+                    v-if="!brand"
+                    type="button"
+                    class="text-sm"
+                    @click="draft.competitors.push({ name: '', domain: '' })"
+                >
                     {{ $t('onboarding.ui.add_competitor') }}
                 </button>
-                <div>
+                <div v-if="!brand">
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.topics') }}</h3>
                     <div v-for="(topic, index) in draft.topics" :key="topic.cross_market_key" class="mt-2">
                         <input v-model="topic.name" :class="field" class="w-full" />
@@ -307,7 +322,9 @@ function confirm() {
                         </button>
                     </div>
                 </div>
-                <button type="button" class="text-sm" @click="addTopic">{{ $t('onboarding.ui.add_topic') }}</button>
+                <button v-if="!brand" type="button" class="text-sm" @click="addTopic">
+                    {{ $t('onboarding.ui.add_topic') }}
+                </button>
                 <div>
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.prompts') }}</h3>
                     <div
@@ -342,6 +359,7 @@ function confirm() {
                                     type="checkbox"
                                     true-value="core"
                                     false-value="standard"
+                                    :disabled="prompt.priority !== 'core' && coreCount >= maxCore"
                                 />
                                 {{ $t('onboarding.ui.core') }}
                             </label>
@@ -368,10 +386,18 @@ function confirm() {
                 >
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="engine.enabled" type="checkbox" />
-                        {{ engine.engine_key }}
+                        {{ engine.name }}
                     </label>
                     <select v-model="engine.frequency" :class="field">
-                        <option v-for="frequency in frequencies" :key="frequency" :value="frequency">
+                        <option
+                            v-for="frequency in frequencies.filter(
+                                (item) =>
+                                    ['off', 'monthly', 'weekly', 'daily'].indexOf(item) <=
+                                    ['off', 'monthly', 'weekly', 'daily'].indexOf(engine.max_frequency),
+                            )"
+                            :key="frequency"
+                            :value="frequency"
+                        >
                             {{ $t(`onboarding.frequencies.${frequency}`) }}
                         </option>
                     </select>

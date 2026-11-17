@@ -5,6 +5,7 @@
 return [
     'invalid_domain' => 'Ange en giltig domän, till exempel exempel.se.',
     'errors' => [
+        'core_limit' => 'Du kan välja högst :max kärnprompter.',
         'brand_limit' => 'Paketet tillåter inte fler varumärken.',
         'market_limit' => 'Paketet tillåter inte fler marknader för det här varumärket.',
         'no_topics' => 'Varumärket har inga teman som kan kopplas mellan marknader.',
@@ -56,6 +57,8 @@ return [
         'off' => 'Av',
     ],
     'ui' => [
+        'add_market' => 'Lägg till marknad',
+        'market_title' => 'Ny marknad',
         'add_competitor' => 'Lägg till konkurrent',
         'add_topic' => 'Lägg till ämne',
         'estimating' => 'Beräknar kostnad…',
@@ -86,17 +89,6 @@ return [
         'back' => 'Tillbaka',
         'next' => 'Nästa',
         'cost' => ':amount USD',
-        'stages' => [
-            'awareness' => 'Medvetenhet',
-            'consideration' => 'Övervägande',
-            'decision' => 'Beslut',
-        ],
-        'frequencies' => [
-            'daily' => 'Dagligen',
-            'weekly' => 'Veckovis',
-            'monthly' => 'Månadsvis',
-            'off' => 'Av',
-        ],
         'estimate_unavailable' => 'Kostnadsberäkningen kunde inte hämtas.',
     ],
 ];

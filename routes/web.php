@@ -100,6 +100,7 @@ Route::middleware([
             ->name('analyses.confirm');
         Route::post('cost-estimate', [OnboardingController::class, 'estimate'])->name('cost-estimate');
     });
+    Route::get('/brands/{brand}/markets/create', [OnboardingController::class, 'createMarket'])->name('brands.markets.create');
     Route::post('/brands/{brand}/market-proposals', [OnboardingController::class, 'storeMarketAnalysis'])
         ->middleware('throttle:onboarding')
         ->name('brands.market-proposals.store');

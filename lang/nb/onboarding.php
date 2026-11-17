@@ -5,6 +5,7 @@
 return [
     'invalid_domain' => 'Oppgi et gyldig domene, for eksempel eksempel.no.',
     'errors' => [
+        'core_limit' => 'Du kan velge maksimalt :max kjerneprompts.',
         'brand_limit' => 'Pakken tillater ikke flere merkevarer.',
         'market_limit' => 'Pakken tillater ikke flere markeder for denne merkevaren.',
         'no_topics' => 'Merkevaren har ingen temaer som kan kobles på tvers av markeder.',
@@ -56,6 +57,8 @@ return [
         'off' => 'Av',
     ],
     'ui' => [
+        'add_market' => 'Legg til marked',
+        'market_title' => 'Nytt marked',
         'add_competitor' => 'Legg til konkurrent',
         'add_topic' => 'Legg til tema',
         'estimating' => 'Beregner kostnad…',
@@ -86,17 +89,6 @@ return [
         'back' => 'Tilbake',
         'next' => 'Neste',
         'cost' => ':amount USD',
-        'stages' => [
-            'awareness' => 'Bevissthet',
-            'consideration' => 'Vurdering',
-            'decision' => 'Beslutning',
-        ],
-        'frequencies' => [
-            'daily' => 'Daglig',
-            'weekly' => 'Ukentlig',
-            'monthly' => 'Månedlig',
-            'off' => 'Av',
-        ],
         'estimate_unavailable' => 'Kostnadsestimatet kunne ikke hentes.',
     ],
 ];

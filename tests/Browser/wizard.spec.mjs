@@ -61,4 +61,26 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     expect(saved.queued).toBe(saved.due);
     expect(saved.jobs).toBe(saved.due);
     expect(saved.competitors).toBe(3);
+
+    await page.getByRole('link', { name: 'Add market', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'New market', exact: true })).toBeVisible();
+    await expect(page.getByLabel('Name', { exact: true })).toHaveCount(0);
+    await page.getByLabel('Country').fill('SE');
+    await page.getByLabel('Language').fill('sv');
+    await page.getByRole('button', { name: 'Analyse the site' }).click();
+    await expect(page.getByRole('heading', { name: 'Prompts', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Competitors', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await page.getByRole('button', { name: 'Save and start the first run' }).click();
+    await expect(page).toHaveURL(/\/brands\/\d+$/);
+    const markets = JSON.parse(
+        execFileSync('php', ['tests/Browser/verify-wizard.php'], {
+            env: { ...process.env, ...databaseEnv, EKKO_BROWSER_TEST: '1' },
+            encoding: 'utf8',
+        }),
+    );
+    expect(markets.markets).toBe(2);
+    expect(markets.swedish_queued).toBeGreaterThan(0);
+    expect(markets.competitors).toBe(3);
 });

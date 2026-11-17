@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Dashboard\DashboardLabels;
 use App\Jobs\RunOnboardingAnalysis;
 use App\Models\Brand;
 use App\Models\Engine;
@@ -50,17 +51,39 @@ class OnboardingController extends Controller
     public function create(): Response
     {
         Gate::authorize('createBrandAnalysis', Analysis::class);
+
+        return $this->wizard();
+    }
+
+    public function createMarket(Brand $brand): Response
+    {
+        Gate::authorize('createMarketAnalysis', Analysis::class);
+
+        return $this->wizard($brand);
+    }
+
+    private function wizard(?Brand $brand = null): Response
+    {
         $plan = $this->tenant()->plan()->first();
         $engines = Engine::query()->orderBy('key')->get()
-            ->filter(fn (Engine $engine): bool => $engine->isAvailable() && (! $plan instanceof Plan || $plan->allowsEngine($engine->key)))
+            ->filter(fn (Engine $engine): bool => $engine->isAvailable() && $plan instanceof Plan && $plan->allowsEngine($engine->key))
             ->map(fn (Engine $engine): array => [
                 'engine_key' => $engine->key,
+                'name' => DashboardLabels::engines([$engine->key])[$engine->key],
+                'max_frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'off',
                 'frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'weekly',
                 'repetitions' => $plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1,
             ])->values();
 
         return Inertia::render('Onboarding/Wizard', [
             'engines' => $engines,
+            'maxCore' => (int) config('ekko.wizard.suggestions.max_core_prompts'),
+            'brand' => $brand === null ? null : [
+                'id' => $brand->id,
+                'name' => $brand->name,
+                'primary_domain' => $brand->primary_domain,
+                'topics' => $brand->topics()->whereNotNull('cross_market_key')->get(['name', 'cross_market_key']),
+            ],
         ]);
     }
 

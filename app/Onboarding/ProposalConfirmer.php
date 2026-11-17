@@ -173,8 +173,10 @@ final class ProposalConfirmer
             throw ValidationException::withMessages(['prompts' => __('onboarding.errors.prompt_limit')]);
         }
 
-        $core = 0;
         $maxCore = (int) config('ekko.wizard.suggestions.max_core_prompts');
+        if (count(array_filter($rows, fn ($row) => is_array($row) && ($row['priority'] ?? 'standard') === 'core')) > $maxCore) {
+            throw ValidationException::withMessages(['prompts' => __('onboarding.errors.core_limit', ['max' => $maxCore])]);
+        }
         $seen = [];
         foreach ($rows as $index => $row) {
             if (! is_array($row)) {
@@ -195,10 +197,7 @@ final class ProposalConfirmer
                 throw ValidationException::withMessages(["prompts.{$index}.text" => __('onboarding.errors.duplicate_prompt')]);
             }
             $seen[$hash] = true;
-            $priority = ($row['priority'] ?? 'standard') === 'core' && $core < $maxCore ? 'core' : 'standard';
-            if ($priority === 'core') {
-                $core++;
-            }
+            $priority = ($row['priority'] ?? 'standard') === 'core' ? 'core' : 'standard';
             Prompt::query()->create([
                 'market_id' => $market->id,
                 'topic_id' => $topics[$key]->id,

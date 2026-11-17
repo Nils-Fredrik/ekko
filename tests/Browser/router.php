@@ -23,7 +23,7 @@ $app->booted(function () use ($app): void {
         throw new RuntimeException('Browser server requires the dedicated test database.');
     }
     Http::preventStrayRequests();
-    OnboardingFakes::bind();
+    OnboardingFakes::bind(Request::capture()->is('brands/*/market-proposals') ? OnboardingFakes::marketJson(['running_shoes', 'shoe_stores']) : null);
     config(['collection.cloud_run.enabled' => false]);
 });
 $app->handleRequest(Request::capture());

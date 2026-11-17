@@ -5,6 +5,7 @@
 return [
     'invalid_domain' => 'Enter a valid domain, for example example.com.',
     'errors' => [
+        'core_limit' => 'You can select at most :max core prompts.',
         'brand_limit' => 'The plan does not allow more brands.',
         'market_limit' => 'The plan does not allow more markets for this brand.',
         'no_topics' => 'The brand has no topics that can be linked across markets.',
@@ -56,10 +57,11 @@ return [
         'off' => 'Off',
     ],
     'ui' => [
+        'add_market' => 'Add market',
+        'market_title' => 'New market',
         'add_competitor' => 'Add competitor',
         'add_topic' => 'Add topic',
         'estimating' => 'Calculating cost…',
-
         'title' => 'Wizard',
         'name' => 'Name',
         'domain' => 'Domain',
@@ -86,17 +88,6 @@ return [
         'back' => 'Back',
         'next' => 'Next',
         'cost' => ':amount USD',
-        'stages' => [
-            'awareness' => 'Awareness',
-            'consideration' => 'Consideration',
-            'decision' => 'Decision',
-        ],
-        'frequencies' => [
-            'daily' => 'Daily',
-            'weekly' => 'Weekly',
-            'monthly' => 'Monthly',
-            'off' => 'Off',
-        ],
         'estimate_unavailable' => 'The cost estimate could not be loaded.',
     ],
 ];

@@ -163,3 +163,13 @@ test('an unpriced engine returns a recoverable validation error without saving t
     expect(Brand::query()->count())->toBe(0)->and(Run::query()->count())->toBe(0)
         ->and(app(AnalysisStore::class)->find($tenant->id, $analysis->id)->status)->toBe(Analysis::READY);
 });
+
+test('confirmation rejects excess core prompts instead of silently changing the plan', function () {
+    [$tenant, $owner, $analysis, $data] = confirmationFixture();
+    config(['ekko.wizard.suggestions.max_core_prompts' => 1]);
+    $data['prompts'][] = array_replace($data['prompts'][0], ['text' => 'Which shoes are most durable?']);
+    $this->actingAs($owner)->postJson(route('onboarding.analyses.confirm', $analysis->id), $data)
+        ->assertUnprocessable()->assertJsonValidationErrors('prompts');
+    expect(Brand::query()->count())->toBe(0)->and(Run::query()->count())->toBe(0)
+        ->and(app(AnalysisStore::class)->find($tenant->id, $analysis->id)->status)->toBe(Analysis::READY);
+});

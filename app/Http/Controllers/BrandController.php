@@ -10,6 +10,7 @@ use App\Metrics\MetricsSummary;
 use App\Models\Brand;
 use App\Models\MarketEngine;
 use App\Models\Prompt;
+use App\Onboarding\Analysis;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -65,6 +66,7 @@ class BrandController extends Controller
         $summary = $metrics->summary($filter);
 
         return Inertia::render('Brands/Show', [
+            'canCreateMarket' => Gate::allows('createMarketAnalysis', Analysis::class),
             'brand' => [
                 'id' => $brand->id,
                 'name' => $brand->name,

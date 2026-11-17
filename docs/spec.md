@@ -1300,7 +1300,7 @@ Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kap
 
 ### T29 – Veiviser, UI
 `Onboarding/Wizard.vue` etter kapittel 13, med redigerbare forslag og kostnadsestimat. Bekreftelsen lagrer merkevare, alias, domene, konkurrenter, marked, temaer, prompts og motorer i én transaksjon, og starter første kjøring for kjerneprompts. Tenantlåsen og en midlertidig bekreftelsesmarkør på samme PostgreSQL-forbindelse hindrer doble bekreftelser; oppsett, kvotebeslutning, køjobber og markør rulles tilbake samlet ved feil (ADR 0028). Dagens forfalte standardprompts planlegges sammen med de umiddelbare kjernepromptene, slik at den ordinære dispatcheren ikke hopper over dem. Første kjøring følger plattform/BYOK-kvoter og Sonnet sin delte ukentlige kredittplan. Workeren startes etter commit. Kostnadsestimatet oppdateres når motorvalg, repetisjoner eller promptantall endres, og må være tilgjengelig før bekreftelse.
-- Nettlesertest fra start til første kjøring.
+- Nettlesertest fra start til første kjøring, både ny merkevare og nytt marked på eksisterende merkevare. Markedsflyten åpnes fra merkevaresiden og gjenbruker merkevarens temaer. For mange kjerneprompts avvises med feltfeil, og UI begrenser valget til samme tak.
 - ClickHouse, loggopplasting og GA4 settes opp når merkevaresidene for det finnes (T28). Veiviseren har et steg som hopper over dem.
 
 ### T30 – Admin-sider

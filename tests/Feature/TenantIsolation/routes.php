@@ -242,6 +242,11 @@ return [
             return ['data' => ['name' => 'Eksempel', 'primary_domain' => 'eksempel.no', 'country' => 'NO', 'language' => 'nb']];
         },
     ),
+    'brands.markets.create' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+        deniedRoles: ['editor', 'reader'],
+    ),
     'onboarding.wizard' => RouteAccess::user(own: fn () => []),
     // Confirmation writes only in the current tenant; foreign proposals are 404, readers/editors 403.
     'onboarding.analyses.confirm' => RouteAccess::tenant(

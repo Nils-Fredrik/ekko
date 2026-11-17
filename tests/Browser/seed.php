@@ -40,7 +40,7 @@ $owner->forceFill(['email' => 'browser-wizard@example.test', 'password' => Hash:
 $owner->switchTeam($team);
 $engine = Engine::factory()->create(['key' => 'browser_wizard', 'provider' => 'openai', 'is_enabled' => true]);
 EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subDay(), 'price_per_call_usd' => '0.01000000']);
-$plan = Plan::factory()->create(['allowed_engines' => [$engine->key], 'max_brands' => 5, 'max_frequency' => 'weekly', 'max_repetitions' => 1, 'monthly_call_quota' => 1000, 'monthly_budget_usd' => '100']);
+$plan = Plan::factory()->create(['allowed_engines' => [$engine->key], 'max_brands' => 5, 'max_markets_per_brand' => 3, 'max_frequency' => 'weekly', 'max_repetitions' => 1, 'monthly_call_quota' => 1000, 'monthly_budget_usd' => '100']);
 $team->forceFill(['plan_id' => $plan->id])->save();
 $values = ['SMOKE_EMAIL' => $user->email, 'SMOKE_PASSWORD' => $password, 'SMOKE_TENANT_ID' => (string) $team->id, 'SMOKE_BRAND_ID' => (string) $brand->id, 'SMOKE_WIZARD_EMAIL' => $owner->email];
 // The integrated T33/T34 contracts are exercised by the deployment smoke test.

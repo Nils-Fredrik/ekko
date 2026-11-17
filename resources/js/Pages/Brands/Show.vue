@@ -5,10 +5,11 @@ import MetricValue from '@/Components/Dashboard/MetricValue.vue';
 import TrendChart from '@/Components/Dashboard/TrendChart.vue';
 import VoiceChart from '@/Components/Dashboard/VoiceChart.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 
 const props = defineProps({
+    canCreateMarket: { type: Boolean, default: false },
     brand: { type: Object, required: true },
     period: { type: Object, required: true },
     filters: { type: Object, required: true },
@@ -78,6 +79,13 @@ function shareText(share) {
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
                 <BrandNav :brand-id="brand.id" />
+                <Link
+                    v-if="canCreateMarket"
+                    :href="route('brands.markets.create', brand.id)"
+                    class="text-sm text-shell-text"
+                >
+                    {{ $t('onboarding.ui.add_market') }}
+                </Link>
                 <div class="hidden flex-wrap items-end gap-3 sm:flex">
                     <label class="flex flex-col gap-1 text-xs text-shell-text/70">
                         {{ $t('app.dashboard.period') }}
