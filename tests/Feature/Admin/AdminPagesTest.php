@@ -5,7 +5,9 @@ use App\Models\Engine;
 use App\Models\EnginePrice;
 use App\Models\Plan;
 use App\Models\Team;
+use App\Models\UsageEvent;
 use App\Models\User;
+use App\Tenancy\TenantContext;
 
 it('lets a platform admin manage tenants, plans and engines', function () {
     $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
@@ -46,21 +48,49 @@ it('lets a platform admin manage tenants, plans and engines', function () {
         'model_id' => 'gpt-test',
         'is_enabled' => false,
     ])->assertRedirect();
+    $future = now('UTC')->addDay()->format('Y-m-d H:i:s');
     $this->post(route('admin.engines.prices.store', $engine), [
-        'valid_from' => '2026-11-01 00:00:00',
+        'valid_from' => now('UTC')->subDay()->format('Y-m-d H:i:s'),
+        'price_per_call_usd' => '0.02',
+        'price_per_1k_input_tokens_usd' => '0',
+        'price_per_1k_output_tokens_usd' => '0',
+        'price_per_search_usd' => '0',
+    ])->assertSessionHasErrors('valid_from');
+    $this->post(route('admin.engines.prices.store', $engine), [
+        'valid_from' => $future,
         'price_per_call_usd' => '0.02',
         'price_per_1k_input_tokens_usd' => '0',
         'price_per_1k_output_tokens_usd' => '0',
         'price_per_search_usd' => '0',
     ])->assertRedirect();
+    $this->post(route('admin.engines.prices.store', $engine), [
+        'valid_from' => $future,
+        'price_per_call_usd' => '9',
+        'price_per_1k_input_tokens_usd' => '0',
+        'price_per_1k_output_tokens_usd' => '0',
+        'price_per_search_usd' => '0',
+    ])->assertSessionHasErrors('valid_from');
 
     expect($engine->fresh()->is_enabled)->toBeFalse()
         ->and($engine->fresh()->model_id)->toBe('gpt-test')
-        ->and(EnginePrice::query()->where('engine_key', $engine->key)->count())->toBe(1);
+        ->and(EnginePrice::query()->where('engine_key', $engine->key)->value('price_per_call_usd'))->toBe('0.02000000');
+
+    app(TenantContext::class)->set($tenant->id);
+    UsageEvent::withoutEvents(fn () => UsageEvent::query()->create([
+        'occurred_at' => now('UTC'),
+        'kind' => 'engine_call',
+        'engine_key' => $engine->key,
+        'calls' => 3,
+        'cost_usd' => '1.25000000',
+        'billed_to' => 'platform',
+    ]));
+    app(TenantContext::class)->forget();
 
     $this->get(route('admin.usage'))->assertOk()->assertInertia(fn ($page) => $page
         ->component('Admin/Usage')
-        ->where('tenants.0.name', 'Nordic'));
+        ->where('tenants.0.name', 'Nordic')
+        ->where('engines.0.engine_key', $engine->key)
+        ->where('engines.0.calls', 3));
 
     $this->actingAs(User::factory()->withPersonalTeam()->create());
     $this->get(route('admin.tenants.index'))->assertForbidden();

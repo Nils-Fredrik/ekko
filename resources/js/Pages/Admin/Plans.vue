@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AdminNav from '@/Components/AdminNav.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -26,7 +26,17 @@ function blank(plan = {}) {
 }
 
 const creating = useForm(blank());
-const editing = Object.fromEntries(props.plans.map((plan) => [plan.id, useForm(blank(plan))]));
+const editing = reactive({});
+function ensurePlan(plan) {
+    if (!editing[plan.id]) {
+        editing[plan.id] = useForm(blank(plan));
+    }
+}
+props.plans.forEach(ensurePlan);
+watch(
+    () => props.plans,
+    (plans) => plans.forEach(ensurePlan),
+);
 const rows = computed(() => [
     { key: 'new', form: creating, label: 'admin.plans.create' },
     ...props.plans.map((plan) => ({ key: plan.id, form: editing[plan.id], label: 'admin.plans.save' })),
@@ -107,7 +117,7 @@ function toggle(form, key) {
                         {{ $t('admin.plans.frequency') }}
                         <select v-model="row.form.max_frequency" :class="field">
                             <option v-for="frequency in frequencies" :key="frequency" :value="frequency">
-                                {{ frequency }}
+                                {{ $t(`admin.plans.frequencies.${frequency}`) }}
                             </option>
                         </select>
                     </label>
@@ -138,14 +148,14 @@ function toggle(form, key) {
                             :class="field"
                             class="!mt-0"
                         >
-                            <option value="">{{ row.form.max_frequency }}</option>
+                            <option value="">{{ $t(`admin.plans.frequencies.${row.form.max_frequency}`) }}</option>
                             <option v-for="frequency in frequencies" :key="frequency" :value="frequency">
-                                {{ frequency }}
+                                {{ $t(`admin.plans.frequencies.${frequency}`) }}
                             </option>
                         </select>
                     </label>
                 </fieldset>
-                <InputError :message="row.form.errors.name" />
+                <InputError v-for="(message, key) in row.form.errors" :key="key" :message="message" />
                 <PrimaryButton :disabled="row.form.processing">{{ $t(row.label) }}</PrimaryButton>
             </form>
         </div>

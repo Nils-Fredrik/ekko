@@ -1,4 +1,5 @@
 <script setup>
+import { reactive, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AdminNav from '@/Components/AdminNav.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -12,17 +13,26 @@ const field = 'mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text
 
 const creating = useForm({ name: '', plan_id: props.plans[0]?.id ?? '', partner_team_id: '' });
 const acting = useForm({ team_id: props.tenants[0]?.id ?? '', reason: '' });
-const editing = Object.fromEntries(
-    props.tenants.map((tenant) => [
-        tenant.id,
-        useForm({
-            name: tenant.name,
-            plan_id: tenant.plan_id ?? '',
-            partner_team_id: tenant.partner_team_id ?? '',
-            status: tenant.status,
-            monthly_call_quota_override: tenant.monthly_call_quota_override ?? '',
-        }),
-    ]),
+function tenantForm(tenant) {
+    return useForm({
+        name: tenant.name,
+        plan_id: tenant.plan_id ?? '',
+        partner_team_id: tenant.partner_team_id ?? '',
+        status: tenant.status,
+        monthly_call_quota_override: tenant.monthly_call_quota_override ?? '',
+    });
+}
+
+const editing = reactive({});
+function ensureTenant(tenant) {
+    if (!editing[tenant.id]) {
+        editing[tenant.id] = tenantForm(tenant);
+    }
+}
+props.tenants.forEach(ensureTenant);
+watch(
+    () => props.tenants,
+    (tenants) => tenants.forEach(ensureTenant),
 );
 
 function create() {
@@ -77,9 +87,7 @@ function act() {
                         </select>
                     </label>
                 </div>
-                <InputError :message="creating.errors.name" />
-                <InputError :message="creating.errors.plan_id" />
-                <InputError :message="creating.errors.partner_team_id" />
+                <InputError v-for="(message, key) in creating.errors" :key="key" :message="message" />
                 <PrimaryButton :disabled="creating.processing">{{ $t('admin.tenants.create') }}</PrimaryButton>
             </form>
             <p v-if="!tenants.length" class="text-sm text-ink-soft">{{ $t('admin.tenants.empty') }}</p>
@@ -116,7 +124,9 @@ function act() {
                     <label class="text-sm">
                         {{ $t('admin.tenants.status') }}
                         <select v-model="editing[tenant.id].status" :class="field">
-                            <option v-for="status in statuses" :key="status" :value="status">{{ status }}</option>
+                            <option v-for="status in statuses" :key="status" :value="status">
+                                {{ $t(`admin.tenants.statuses.${status}`) }}
+                            </option>
                         </select>
                     </label>
                     <label class="text-sm">
@@ -129,8 +139,7 @@ function act() {
                         />
                     </label>
                 </div>
-                <InputError :message="editing[tenant.id].errors.name" />
-                <InputError :message="editing[tenant.id].errors.partner_team_id" />
+                <InputError v-for="(message, key) in editing[tenant.id].errors" :key="key" :message="message" />
                 <PrimaryButton :disabled="editing[tenant.id].processing">{{ $t('admin.tenants.save') }}</PrimaryButton>
             </form>
             <form

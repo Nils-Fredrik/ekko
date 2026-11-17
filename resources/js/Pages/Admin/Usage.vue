@@ -1,7 +1,12 @@
 <script setup>
 import AdminNav from '@/Components/AdminNav.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-defineProps({ anthropic: { type: Object, required: true }, month: String, tenants: Array });
+defineProps({
+    anthropic: { type: Object, required: true },
+    month: String,
+    tenants: Array,
+    engines: Array,
+});
 function usd(value) {
     return new Intl.NumberFormat(document.documentElement.lang || 'nb', {
         minimumFractionDigits: 2,
@@ -34,8 +39,26 @@ function usd(value) {
                         <tr v-for="tenant in tenants" :key="tenant.id" class="border-t border-line-soft">
                             <td class="p-2">{{ tenant.name }}</td>
                             <td class="p-2 text-right tabular-nums">{{ tenant.calls }}</td>
-                            <td class="p-2 text-right tabular-nums">{{ tenant.cost_usd }}</td>
-                            <td class="p-2 text-right tabular-nums">{{ tenant.byok_cost_usd }}</td>
+                            <td class="p-2 text-right tabular-nums">{{ usd(tenant.cost_usd) }}</td>
+                            <td class="p-2 text-right tabular-nums">{{ usd(tenant.byok_cost_usd) }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <h3 class="mt-6 font-medium">{{ $t('admin.usage.engines') }}</h3>
+                <p v-if="!engines.length" class="mt-3 text-sm text-ink-soft">{{ $t('admin.usage.empty') }}</p>
+                <table v-else class="mt-3 w-full text-left text-sm">
+                    <thead class="text-xs text-ink-soft">
+                        <tr>
+                            <th class="p-2">{{ $t('admin.plans.engines') }}</th>
+                            <th class="p-2 text-right">{{ $t('admin.usage.calls') }}</th>
+                            <th class="p-2 text-right">{{ $t('admin.usage.cost') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="engine in engines" :key="engine.engine_key" class="border-t border-line-soft">
+                            <td class="p-2">{{ engine.engine_key }}</td>
+                            <td class="p-2 text-right tabular-nums">{{ engine.calls }}</td>
+                            <td class="p-2 text-right tabular-nums">{{ usd(engine.cost_usd) }}</td>
                         </tr>
                     </tbody>
                 </table>

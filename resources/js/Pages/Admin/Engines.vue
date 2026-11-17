@@ -71,6 +71,7 @@ const prices = Object.fromEntries(
                     <PrimaryButton :disabled="settings[engine.key].processing">
                         {{ $t('admin.engines.save') }}
                     </PrimaryButton>
+                    <InputError v-for="(message, key) in settings[engine.key].errors" :key="key" :message="message" />
                 </form>
                 <p class="text-sm text-ink-soft">
                     {{ $t('admin.engines.price') }}:
@@ -141,7 +142,7 @@ const prices = Object.fromEntries(
                         <PrimaryButton :disabled="prices[engine.key].processing">
                             {{ $t('admin.engines.save_price') }}
                         </PrimaryButton>
-                        <InputError :message="prices[engine.key].errors.valid_from" />
+                        <InputError v-for="(message, key) in prices[engine.key].errors" :key="key" :message="message" />
                     </div>
                 </form>
             </section>

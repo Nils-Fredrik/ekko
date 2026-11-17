@@ -21,6 +21,11 @@ return [
         'act' => 'Opptre som tenant',
         'reason' => 'Årsak',
         'invalid_partner' => 'Partneren må være en tenant uten egen partner.',
+        'statuses' => [
+            'active' => 'Aktiv',
+            'paused' => 'Pauset',
+            'closed' => 'Stengt',
+        ],
         'empty' => 'Ingen tenants ennå.',
     ],
     'plans' => [
@@ -36,6 +41,11 @@ return [
         'repetitions' => 'Gjentakelser',
         'engines' => 'Motorer',
         'unlimited' => 'Tomt felt betyr ubegrenset.',
+        'frequencies' => [
+            'daily' => 'Daglig',
+            'weekly' => 'Ukentlig',
+            'monthly' => 'Månedlig',
+        ],
         'create' => 'Opprett pakke',
         'save' => 'Lagre',
     ],
@@ -51,7 +61,9 @@ return [
         'unavailable' => 'Ikke tilgjengelig',
         'price' => 'Gjeldende pris',
         'no_price' => 'Ingen pris',
-        'valid_from' => 'Gyldig fra',
+        'valid_from' => 'Gyldig fra (UTC)',
+        'future_price' => 'Ny pris må gjelde fra et tidspunkt fram i tid, i UTC.',
+        'existing_price' => 'Det finnes allerede en pris fra dette tidspunktet. Historiske priser endres ikke.',
         'per_call' => 'Per kall',
         'input' => 'Per 1 000 inndata-tokener',
         'output' => 'Per 1 000 utdata-tokener',
@@ -66,5 +78,6 @@ return [
         'byok' => 'BYOK-kostnad',
         'empty' => 'Ingen tenants.',
         'export' => 'Eksporter fakturagrunnlag',
+        'engines' => 'Kostnad per motor',
     ],
 ];

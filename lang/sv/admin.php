@@ -21,6 +21,11 @@ return [
         'act' => 'Agera som tenant',
         'reason' => 'Orsak',
         'invalid_partner' => 'Partnern måste vara en tenant utan egen partner.',
+        'statuses' => [
+            'active' => 'Aktiv',
+            'paused' => 'Pausad',
+            'closed' => 'Stängd',
+        ],
         'empty' => 'Inga tenants ännu.',
     ],
     'plans' => [
@@ -36,6 +41,11 @@ return [
         'repetitions' => 'Upprepningar',
         'engines' => 'Motorer',
         'unlimited' => 'Ett tomt fält betyder obegränsat.',
+        'frequencies' => [
+            'daily' => 'Dagligen',
+            'weekly' => 'Veckovis',
+            'monthly' => 'Månadsvis',
+        ],
         'create' => 'Skapa paket',
         'save' => 'Spara',
     ],
@@ -51,7 +61,9 @@ return [
         'unavailable' => 'Inte tillgänglig',
         'price' => 'Gällande pris',
         'no_price' => 'Inget pris',
-        'valid_from' => 'Gäller från',
+        'valid_from' => 'Gäller från (UTC)',
+        'future_price' => 'Ett nytt pris måste gälla från en tidpunkt framåt, i UTC.',
+        'existing_price' => 'Det finns redan ett pris från den tidpunkten. Historiska priser ändras inte.',
         'per_call' => 'Per anrop',
         'input' => 'Per 1 000 indata-tokens',
         'output' => 'Per 1 000 utdata-tokens',
@@ -66,5 +78,6 @@ return [
         'byok' => 'BYOK-kostnad',
         'empty' => 'Inga tenants.',
         'export' => 'Exportera fakturaunderlag',
+        'engines' => 'Kostnad per motor',
     ],
 ];

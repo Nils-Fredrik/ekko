@@ -21,6 +21,11 @@ return [
         'act' => 'Act as tenant',
         'reason' => 'Reason',
         'invalid_partner' => 'The partner must be a tenant that does not itself have a partner.',
+        'statuses' => [
+            'active' => 'Active',
+            'paused' => 'Paused',
+            'closed' => 'Closed',
+        ],
         'empty' => 'No tenants yet.',
     ],
     'plans' => [
@@ -36,6 +41,11 @@ return [
         'repetitions' => 'Repetitions',
         'engines' => 'Engines',
         'unlimited' => 'An empty field means unlimited.',
+        'frequencies' => [
+            'daily' => 'Daily',
+            'weekly' => 'Weekly',
+            'monthly' => 'Monthly',
+        ],
         'create' => 'Create plan',
         'save' => 'Save',
     ],
@@ -51,7 +61,9 @@ return [
         'unavailable' => 'Unavailable',
         'price' => 'Current price',
         'no_price' => 'No price',
-        'valid_from' => 'Valid from',
+        'valid_from' => 'Valid from (UTC)',
+        'future_price' => 'A new price must take effect at a future time, in UTC.',
+        'existing_price' => 'A price already starts at that time. Historical prices are not changed.',
         'per_call' => 'Per call',
         'input' => 'Per 1,000 input tokens',
         'output' => 'Per 1,000 output tokens',
@@ -66,5 +78,6 @@ return [
         'byok' => 'BYOK cost',
         'empty' => 'No tenants.',
         'export' => 'Export billing basis',
+        'engines' => 'Cost per engine',
     ],
 ];

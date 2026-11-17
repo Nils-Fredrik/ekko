@@ -177,7 +177,7 @@ return [
         $engine = Engine::factory()->create();
 
         return ['params' => ['engine' => $engine->key], 'data' => [
-            'valid_from' => '2026-11-01 00:00:00',
+            'valid_from' => now('UTC')->addDay()->format('Y-m-d H:i:s'),
             'price_per_call_usd' => '0.01000000',
             'price_per_1k_input_tokens_usd' => '0',
             'price_per_1k_output_tokens_usd' => '0',
