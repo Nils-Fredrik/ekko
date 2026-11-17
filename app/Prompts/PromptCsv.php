@@ -298,11 +298,12 @@ final class PromptCsv
     }
 
     /**
-     * A leading apostrophe makes a formula cell into text. Import strips that marker so a round trip keeps the prompt.
+     * A leading apostrophe makes a formula cell into text. A prompt that already starts with that
+     * marker is escaped again, so import can put the original text back.
      */
     private static function spreadsheetCell(string $value): string
     {
-        if ($value !== '' && preg_match(self::FORMULA_PREFIX, $value) === 1) {
+        if (self::needsSpreadsheetMarker($value)) {
             return "'".$value;
         }
 
@@ -311,11 +312,25 @@ final class PromptCsv
 
     private static function fromSpreadsheet(string $value): string
     {
-        if (str_starts_with($value, "'") && preg_match(self::FORMULA_PREFIX, substr($value, 1)) === 1) {
+        if (str_starts_with($value, "'") && self::needsSpreadsheetMarker(substr($value, 1))) {
             return substr($value, 1);
         }
 
         return $value;
+    }
+
+    /**
+     * True when the cell is a formula, or a literal apostrophe in front of one. Import strips one
+     * marker, so each of those layers has to be escaped on the way out.
+     */
+    private static function needsSpreadsheetMarker(string $value): bool
+    {
+        $rest = $value;
+        while (str_starts_with($rest, "'")) {
+            $rest = substr($rest, 1);
+        }
+
+        return $rest !== '' && preg_match(self::FORMULA_PREFIX, $rest) === 1;
     }
 
     private static function withinQuota(int $marketId): bool

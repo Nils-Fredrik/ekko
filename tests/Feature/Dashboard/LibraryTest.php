@@ -449,6 +449,33 @@ test('csv export keeps formula-like prompt text from being evaluated in a spread
     });
 });
 
+test('csv export keeps a leading apostrophe in front of a formula', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => "'=1+1"])
+        ->assertRedirect();
+
+    $export = $this->actingAs($owner)->get(route('brands.prompts.export', $world->brand))->assertOk()->getContent();
+    expect($export)->toContain("''=1+1");
+
+    $this->actingAs($owner)
+        ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => 'Midlertidig'])
+        ->assertRedirect();
+    $this->actingAs($owner)
+        ->post(route('brands.prompts.import', $world->brand), ['csv' => $export])
+        ->assertRedirect();
+
+    app(TenantContext::class)->run($world->tenant->id, function () use ($world) {
+        $texts = Prompt::query()->where('market_id', $world->market->id)->pluck('text');
+
+        expect($texts)->toContain("'=1+1")
+            ->and($texts)->not->toContain('=1+1');
+    });
+});
+
 test('csv export keeps a trailing backslash from joining the next prompt', function () {
     $world = MetricsWorld::create();
     $owner = $world->tenant->owner;
