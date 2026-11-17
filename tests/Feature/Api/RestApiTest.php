@@ -220,6 +220,51 @@ test('rate limit is shared by routes but separate per token', function () {
     apiCall($this, $this->token->plainTextToken, 'GET', '/api/v1/brands')->assertOk();
 });
 
+test('all of a user\'s tokens share one limit per minute, so more tokens do not give more calls', function () {
+    $this->freezeTime();
+    config(['ekko.api.calls_per_minute_per_token' => 5, 'ekko.api.calls_per_minute_per_user' => 8]);
+    $second = $this->user->createToken('second', ['read', 'tenant:'.$this->team->id]);
+    for ($i = 0; $i < 5; $i++) {
+        apiCall($this, $this->token->plainTextToken, 'GET', '/api/v1/brands')->assertOk();
+    }
+    for ($i = 0; $i < 3; $i++) {
+        apiCall($this, $second->plainTextToken, 'GET', '/api/v1/brands')->assertOk();
+    }
+    apiCall($this, $second->plainTextToken, 'GET', '/api/v1/brands')->assertStatus(429)->assertHeader('Retry-After');
+
+    // Another user's tokens have their own count.
+    $other = User::factory()->create();
+    $this->team->users()->attach($other, ['role' => 'admin']);
+    $otherToken = $other->createToken('other', ['read', 'tenant:'.$this->team->id]);
+    apiCall($this, $otherToken->plainTextToken, 'GET', '/api/v1/brands')->assertOk();
+});
+
+test('a new token expires, and an expired token is refused', function () {
+    $this->freezeTime();
+    $this->actingAs($this->user)->post('/user/api-tokens', ['name' => 'Rapporter', 'permissions' => ['read']])->assertRedirect();
+    $token = $this->user->tokens()->where('name', 'Rapporter')->firstOrFail();
+    expect($token->expires_at->toDateTimeString())->toBe(now()->addDays(365)->toDateTimeString());
+    $this->get('/user/api-tokens')->assertInertia(fn ($page) => $page->where('tokens.1.expires_on', now()->addDays(365)->toDateString()));
+
+    $this->token->accessToken->forceFill(['expires_at' => now()->subSecond()])->save();
+    apiCall($this, $this->token->plainTextToken, 'GET', '/api/v1/brands')->assertUnauthorized();
+});
+
+test('a user holds at most the allowed number of live API tokens', function () {
+    config(['ekko.api.tokens_per_user' => 3]);
+    // The token from beforeEach, one expired token and one Claude connection token: only the first counts.
+    $this->user->createToken('expired', ['read', 'tenant:'.$this->team->id], now()->subDay());
+    $this->user->createToken('Claude (MCP)', ['mcp'], now()->addHour());
+    $this->actingAs($this->user);
+
+    $this->post('/user/api-tokens', ['name' => 'two', 'permissions' => ['read']])->assertSessionHasNoErrors();
+    $this->post('/user/api-tokens', ['name' => 'three', 'permissions' => ['read']])->assertSessionHasNoErrors();
+    $this->post('/user/api-tokens', ['name' => 'four', 'permissions' => ['read']])
+        ->assertSessionHasErrors(['name' => __('api.token_limit', ['max' => 3])]);
+
+    expect($this->user->tokens()->where('name', 'four')->exists())->toBeFalse();
+});
+
 test('v1 returns JSON errors without an Accept header', function () {
     $this->call('GET', '/api/v1/brands')->assertUnauthorized()->assertHeader('Content-Type', 'application/json');
     $this->user->forceFill(['email_verified_at' => null])->save();

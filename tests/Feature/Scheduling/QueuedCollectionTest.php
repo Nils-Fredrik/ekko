@@ -107,20 +107,44 @@ test('resubmission cannot bypass the fresh monthly quota', function () {
     Http::assertSentCount(2);
 });
 
-test('queued credentials stay encrypted and bound to the submission account after platform key rotation', function () {
+test('the platform credentials are never stored on the run, and polling uses the current platform credentials', function () {
     [$tenant, $run] = queuedFixture();
     Http::preventStrayRequests()->fake([
         '*/task_post' => Http::response(EngineFixtures::load('dataforseo', 'created')),
         '*/tasks_ready' => Http::response(['status_code' => 20000, 'tasks' => []]),
     ]);
     collectQueued($tenant, $run);
-    config(['engines.dataforseo.credentials' => 'rotated:fixture']);
-    collectQueued($tenant, $run);
     inQueuedTenant($tenant, function () use ($run) {
-        expect($run->refresh()->provider_api_key)->toBe('fixture-login:fixture-password')
-            ->and($run->getRawOriginal('provider_api_key'))->not->toContain('fixture-login')
-            ->and($run->toArray())->not->toHaveKey('provider_api_key')
+        expect($run->refresh()->status)->toBe('submitted')
+            ->and($run->getRawOriginal('provider_api_key'))->toBeNull()
             ->and(UsageEvent::query()->sole()->billed_to)->toBe('platform');
     });
-    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/tasks_ready') && $request->hasHeader('Authorization', 'Basic '.base64_encode('fixture-login:fixture-password')));
+
+    // A new password for the platform account applies to tasks already submitted (T39-F10).
+    config(['engines.dataforseo.credentials' => 'fixture-login:rotated-password']);
+    collectQueued($tenant, $run);
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/task_post') && $request->hasHeader('Authorization', 'Basic '.base64_encode('fixture-login:fixture-password')));
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/tasks_ready') && $request->hasHeader('Authorization', 'Basic '.base64_encode('fixture-login:rotated-password')));
+});
+
+test('a stored provider key stays encrypted, hidden and bound to the submission account', function () {
+    // Runs submitted before T39-F10, or with a tenant's own key, carry the key of the account that owns the task.
+    [$tenant, $run] = queuedFixture();
+    Http::preventStrayRequests()->fake([
+        '*/tasks_ready' => Http::response(['status_code' => 20000, 'tasks' => []]),
+    ]);
+    inQueuedTenant($tenant, fn () => $run->forceFill([
+        'status' => 'submitted', 'provider_task_id' => '11150800-0000-0000-0000-123456789abc',
+        'provider_api_key' => 'own-login:own-password', 'provider_billed_to' => 'byok',
+        'provider_submitted_at' => now(), 'provider_submissions' => 1,
+    ])->save());
+
+    collectQueued($tenant, $run);
+
+    inQueuedTenant($tenant, function () use ($run) {
+        expect($run->refresh()->provider_api_key)->toBe('own-login:own-password')
+            ->and($run->getRawOriginal('provider_api_key'))->not->toContain('own-login')
+            ->and($run->toArray())->not->toHaveKey('provider_api_key');
+    });
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/tasks_ready') && $request->hasHeader('Authorization', 'Basic '.base64_encode('own-login:own-password')));
 });

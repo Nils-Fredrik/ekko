@@ -93,14 +93,13 @@ final class QueuedEngineCollector
                     throw new EngineCallFailed('engine_disabled');
                 }
                 $at = CarbonImmutable::now('UTC');
-                // A resubmission uses the same provider account as the original task, even after key rotation.
+                // A resubmission uses the same provider account as the original task, even after key rotation. Only a
+                // tenant's own key (BYOK) is stored on the run; a null key means the platform account, read from config
+                // at each call, so the platform credentials never land in the runs table (T39-F10).
                 $key = $run->provider_submissions > 0 ? $run->provider_api_key : $this->keys->forEngine($tenant, $run->engine)?->key;
                 $billing = $run->provider_submissions > 0
                     ? BillingAccount::from($run->provider_billed_to)
                     : ($key === null ? BillingAccount::Platform : BillingAccount::Byok);
-                if ($key === null && $adapter instanceof DataForSeoQueuedAdapter) {
-                    $key = config('engines.dataforseo.credentials');
-                }
                 $price = $this->pricing->effectiveAt($run->engine_key, $at);
                 $planned = new PlannedRun($runId, $run->prompt->priority === 'core', $billing, $price->price_per_call_usd);
                 if (! $this->quota->allows($this->usage->forAdmission($tenant, $at), $planned)) {
@@ -133,7 +132,7 @@ final class QueuedEngineCollector
                     ]);
                     $run->forceFill([
                         'status' => 'submitted', 'provider_task_id' => $providerId,
-                        'provider_api_key' => $reservation->request->apiKey,
+                        'provider_api_key' => $reservation->billingAccount === BillingAccount::Byok ? $reservation->request->apiKey : null,
                         'provider_billed_to' => $reservation->billingAccount->value,
                         'provider_submitted_at' => $reservation->occurredAt, 'provider_price_id' => $reservation->price->id,
                         'provider_submissions' => $run->provider_submissions + 1,

@@ -81,10 +81,17 @@ class AppServiceProvider extends ServiceProvider
         // Each analysis fetches a site and calls the model, so starting them is limited per user.
         RateLimiter::for('onboarding', fn (Request $request): Limit => Limit::perMinute((int) config('ekko.wizard.analyses_per_minute'))
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+        // Per token, and per user across all of the user's tokens, so more tokens do not give more calls (T39-F10).
         RateLimiter::for('api-v1', function (Request $request) {
-            $token = $request->user()?->currentAccessToken();
+            $user = $request->user();
+            $token = $user?->currentAccessToken();
+            $limits = [Limit::perMinute((int) config('ekko.api.calls_per_minute_per_token'))
+                ->by('api-v1:'.($token instanceof PersonalAccessToken ? $token->getKey() : $request->ip()))];
+            if ($user !== null) {
+                $limits[] = Limit::perMinute((int) config('ekko.api.calls_per_minute_per_user'))->by('api-v1-user:'.$user->getAuthIdentifier());
+            }
 
-            return Limit::perMinute(60)->by('api-v1:'.($token instanceof PersonalAccessToken ? $token->getKey() : $request->ip()));
+            return $limits;
         });
 
         // The Claude connection (ADR 0016): tool calls per user, and the OAuth endpoints Claude calls without a
