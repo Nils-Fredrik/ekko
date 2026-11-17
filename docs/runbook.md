@@ -164,7 +164,25 @@ Status 16.11.2026: offentlig webtilgang er aktivert, full smoke uten IAM består
 ### Kontrollert plan og apply
 
 1. Kontroller dagens webrevisjoner, trafikk, hemmelighetsreferanser og IAM uten å lese hemmelighetsverdier. Web er nå opprettet gjennom T10. Bruk en gjennomgått konfigurasjon som kombinerer F1 med den faktisk utrullede T10-konfigurasjonen og bevarer andre ressurser. En isolert plan på main uten hele den utrullede T10-konfigurasjonen kan foreslå utilsiktede slettinger og skal ikke brukes.
-2. Opprett og test først en webrevisjon uten `DB_ADMIN_*`, med riktig vanlig passordreferanse. Behold trafikken på en verifisert revisjon til røyktesten består, og kontroller etter promotering at ingen revisjon med trafikk fortsatt refererer til migreringshemmeligheten. Ellers kan tilbakekalling av tilgangen hindre oppstart eller skalering av en eksisterende revisjon. Gjennomfør dette som del av det kontrollerte deployløpet for T10.
+2. Opprett først en webrevisjon uten `DB_ADMIN_*`. En vanlig `scripts/deploy.sh` endrer bare image og arver miljøet; den fjerner ikke disse variablene. Koordiner med øvrige deployer slik at ingen andre endrer tjenesten samtidig. Kontroller at 100 % av trafikken er låst til navngitte, verifiserte revisjoner, og noter fordelingen for tilbakeføring. Stopp hvis trafikk peker på `LATEST`. Deretter kan operatøren opprette en kandidat uten trafikk:
+
+    ```sh
+    ekko_f1_suffix="f1-$(date -u +%Y%m%d%H%M%S)"
+    gcloud run services update ekko-web --project=ekko-514612 --region=europe-west1 \
+      --remove-env-vars=DB_ADMIN_USERNAME --remove-secrets=DB_ADMIN_PASSWORD \
+      --no-traffic --tag=f1-candidate --revision-suffix="$ekko_f1_suffix"
+    ```
+
+    Kontroller med `gcloud run services describe ekko-web --project=ekko-514612 --region=europe-west1` at kandidaten `ekko-web-$ekko_f1_suffix` er klar, at taggen `f1-candidate` peker på denne revisjonen, at kandidaten har 0 % trafikk, og at den tidligere trafikkfordelingen er uendret. Kontroller kandidatens miljø og hemmelighetsreferanser uten å skrive ut verdier: ingen `DB_ADMIN_*`, `DB_USERNAME=ekko_app`, og `DB_PASSWORD` refererer til `ekko-db-password`. Kontroller også at image og øvrig konfigurasjon er forventet.
+
+    Bruk HTTPS-URL-en som Cloud Run viser for `f1-candidate`, og kjør den autentiserte røyktesten med den syntetiske testidentiteten som beskrevet i `docs/t10-deploy-draft.md`: `scripts/smoke.sh <kandidatens-https-url>`. Stopp ved feil; ikke tilbakekall tilgang. Når testen består, flytt trafikken til kandidaten og kontroller faktisk trafikk og offentlig røyktest:
+
+    ```sh
+    gcloud run services update-traffic ekko-web --project=ekko-514612 --region=europe-west1 \
+      --to-revisions="ekko-web-$ekko_f1_suffix=100"
+    ```
+
+    Ved feil, gjenopprett den noterte trafikkfordelingen og undersøk før du fortsetter. Kontroller at ingen revisjon med trafikk refererer til migreringshemmeligheten før IAM-tilgangen tilbakekalles. En gammel revisjon med slik referanse kan ikke brukes til tilbakeføring etter tilbakekallingen uten at tilgangen først gjenopprettes kontrollert.
 3. Initialiser mot `ekko-514612-tfstate`, prefix `ekko/production`. Kontroller IAM og lag en ny, lagret plan avgrenset til den eksisterende granten:
 
     ```sh
@@ -176,7 +194,7 @@ Status 16.11.2026: offentlig webtilgang er aktivert, full smoke uten IAM består
     Dette er et avgrenset unntak for å tilbakekalle en konkret feilgrant. Hvis granten fortsatt finnes, kontroller med `terraform show` at planen viser nøyaktig **0 add, 0 change, 1 destroy**, der eneste sletting er web-medlemskapet på `ekko-db-admin-password`. Hemmeligheten, versjonene og migreringskontoens tilgang skal beholdes. Hvis planen er tom, kontroller faktisk IAM før tiltaket erklæres fullført. Ikke bruk en gammel plan eller workload-forhåndsvisningen som apply-plan.
 
 4. Etter review/merge og kontrollene over brukes akkurat den nykontrollerte planen: `terraform apply /tmp/ekko-web-admin-revoke.tfplan`. Kontroller IAM med `gcloud secrets get-iam-policy ekko-db-admin-password --project=ekko-514612`; web skal være borte og migrate fortsatt til stede. Kontroller også at web ikke har en bredere arvet rolle som gir tilgang. Les aldri selve hemmelighetsverdien for å teste dette.
-5. Kjør den samme avgrensede planen igjen med `-detailed-exitcode`; forvent returkode 0. Kontroller revisjonsmiljø og røyktest etter endringen. Full plan og eventuell annen drift gjennomgås separat sammen med T10.
+5. Kjør den samme avgrensede planen igjen med `-detailed-exitcode`; forvent returkode 0. Kontroller revisjonsmiljø og røyktest etter endringen. Kjør så en full Terraform-plan med den aktuelle T10-konfigurasjonen: gjennomgå og løs eventuell drift separat til planen er ren. Kjør ikke en full apply uten å ha kontrollert alle endringene og deres virkning på trafikk og jobber.
 
 ### Bevis 15.11.2026
 
