@@ -15,6 +15,9 @@ motor og teller uferdig innsamling eldre enn seks timer og uttrekksbatcher eldre
 enn 24 timer. Kvotestopp og lukkede tenants inngår ikke i motorfeilraten. Raten
 vektes etter antall kjøringer. Run-batchenes tellere kan være utdaterte mellom
 dispatcher-kjøringer, så forsinkelse bestemmes av faktiske ventende kjøringer.
+Umiddelbare veiviserbatcher bruker bekreftelsestidspunktet som `scheduled_for`,
+mens `dispatch_date` fortsatt er tenantens lokale dato. De blir ikke forsinket
+bare fordi bekreftelsen skjer etter klokken seks.
 
 Et globalt kommandoløp logger bare numeriske avvik med faste signalnavn og
 interne motornøkler. Hele løpet må lykkes før en heartbeat og 30-minutters

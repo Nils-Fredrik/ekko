@@ -8,6 +8,7 @@ use App\Models\Plan;
 use App\Models\Run;
 use App\Models\RunBatch;
 use App\Models\TenantApiKey;
+use App\Monitoring\HealthSnapshot;
 use App\Onboarding\Analysis;
 use App\Onboarding\AnalysisStore;
 use App\Onboarding\FirstRun;
@@ -249,4 +250,18 @@ test('enabling an engine after an empty first run can dispatch on the same day',
     expect(app(Dispatcher::class)->dispatch(CarbonImmutable::now('UTC')))->toBe(1);
     inTenant($tenant, fn () => expect(RunBatch::query()->count())->toBe(1)->and(Run::query()->count())->toBe(1));
     expect(DB::table('jobs')->count())->toBe(1);
+});
+
+test('immediate onboarding batches age from confirmation rather than local midnight', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-17 14:00:00', 'UTC'));
+    [$tenant, , $analysis, $data] = confirmationFixture();
+    $tenant->forceFill(['timezone' => 'Europe/Oslo'])->save();
+    $saved = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
+    $batch = inTenant($tenant, fn () => RunBatch::query()->where('market_id', $saved['market']->id)->sole());
+    expect($batch->scheduled_for->utc()->toDateTimeString())->toBe('2026-11-17 14:00:00')
+        ->and($batch->dispatch_date)->toBe('2026-11-17');
+    $health = app(HealthSnapshot::class);
+    expect($health->collect(CarbonImmutable::now('UTC'))['collection_overdue'])->toBe(0)
+        ->and($health->collect(CarbonImmutable::now('UTC')->addHours(6))['collection_overdue'])->toBe(0)
+        ->and($health->collect(CarbonImmutable::now('UTC')->addHours(6)->addSecond())['collection_overdue'])->toBe(1);
 });

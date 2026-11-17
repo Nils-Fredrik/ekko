@@ -33,4 +33,5 @@ T36-planen er derfor avgrenset og gjennomgått: 11 opprettelser, ingen endring
 eller sletting av eksisterende ressurser. Åtte varslingspolicyer, e-postkanal,
 heartbeat-metrikk og separat Scheduler-plan som først er pauset.
 
-Live aktivering og kontroll av heartbeat føres inn etter review/merge og deploy.
+Live aktivering, heartbeat og varslingsprøve dokumenteres på Board task:36
+etter review/merge og deploy. Denne filen beskriver bevisene før aktivering.
