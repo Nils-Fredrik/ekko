@@ -75,6 +75,11 @@ final class FirstRun
                     }
                 }
             }
+            if ($candidates === []) {
+                $batch->delete();
+
+                return 0;
+            }
             $allowed = $this->quota->allowedRunIds($this->usage->forAdmission($tenant, $now), $candidates);
             foreach ($candidates as $candidate) {
                 $run = Run::query()->findOrFail($candidate->id);

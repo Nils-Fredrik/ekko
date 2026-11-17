@@ -108,10 +108,8 @@ async function refresh(id) {
 
 function fill(payload) {
     const proposal = payload.proposal ?? emptyDraft();
-    if (props.brand) {
-        basis.value.country = payload.input.country;
-        basis.value.language = payload.input.language;
-    }
+    basis.value.country = payload.input.country;
+    basis.value.language = payload.input.language;
     draft.value = {
         industry: proposal.industry ?? '',
         category: proposal.category ?? '',
@@ -212,7 +210,7 @@ function confirm() {
     form.language = basis.value.language;
     form.name_variants = draft.value.name_variants.filter((name) => name.trim() !== '');
     form.competitors = draft.value.competitors;
-    form.topics = draft.value.topics;
+    form.topics = props.brand ? [] : draft.value.topics;
     form.prompts = draft.value.prompts;
     form.engines = setup.value
         .filter((engine) => engine.enabled)
@@ -280,7 +278,12 @@ function confirm() {
             <section v-else-if="step === 'edit'" class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
                 <label v-for="key in basisFields" :key="key" class="block text-sm">
                     {{ $t(`onboarding.ui.${key === 'primary_domain' ? 'domain' : key}`) }}
-                    <input v-model="basis[key]" :disabled="!!brand" :class="field" class="mt-1 w-full" />
+                    <input
+                        v-model="basis[key]"
+                        :disabled="['country', 'language'].includes(key)"
+                        :class="field"
+                        class="mt-1 w-full"
+                    />
                 </label>
                 <p v-if="draft.industry" class="text-sm">{{ $t('onboarding.ui.industry') }}: {{ draft.industry }}</p>
                 <p v-if="draft.category" class="text-sm">{{ draft.category }}</p>

@@ -3,8 +3,10 @@
 use App\Models\Brand;
 use App\Models\Engine;
 use App\Models\EnginePrice;
+use App\Models\MarketEngine;
 use App\Models\Plan;
 use App\Models\Run;
+use App\Models\RunBatch;
 use App\Models\TenantApiKey;
 use App\Onboarding\Analysis;
 use App\Onboarding\AnalysisStore;
@@ -29,7 +31,7 @@ function confirmationFixture(): array
     [$tenant, $owner] = wizardTenant($plan);
     app(TenantContext::class)->set($tenant->id);
     $store = app(AnalysisStore::class);
-    $analysis = $store->create($tenant->id, $owner->id, Analysis::BRAND, []);
+    $analysis = $store->create($tenant->id, $owner->id, Analysis::BRAND, ['country' => 'NO', 'language' => 'nb']);
     $analysis->status = Analysis::READY;
     $store->save($analysis);
     $data = ['name' => 'Example', 'primary_domain' => 'example.test', 'country' => 'NO', 'language' => 'nb',
@@ -225,3 +227,26 @@ test('confirmation rejects a duplicate locale from existing markets or competing
         ->and(DB::table('jobs')->count())->toBe($jobs)
         ->and($store->find($tenant->id, $rejected->id)->status)->toBe(Analysis::READY);
 })->with([false, true]);
+
+test('brand confirmation cannot change the analysed locale', function (string $field, string $value) {
+    [$tenant, $owner, $analysis, $data] = confirmationFixture();
+    $data[$field] = $value;
+    $this->actingAs($owner)->postJson(route('onboarding.analyses.confirm', $analysis->id), $data)
+        ->assertUnprocessable()->assertJsonValidationErrors($field);
+    expect(Brand::query()->count())->toBe(0)->and(Run::query()->count())->toBe(0)
+        ->and(app(AnalysisStore::class)->find($tenant->id, $analysis->id)->status)->toBe(Analysis::READY);
+})->with([['country', 'SE'], ['language', 'sv']]);
+
+test('enabling an engine after an empty first run can dispatch on the same day', function () {
+    [$tenant, , $analysis, $data] = confirmationFixture();
+    $tenant->plan->update(['max_frequency' => 'daily']);
+    $engine = $data['engines'][0]['engine_key'];
+    $data['engines'] = [];
+    $saved = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
+    expect($saved['runs'])->toBe(0)->and(RunBatch::query()->count())->toBe(0)
+        ->and(DB::table('jobs')->count())->toBe(0);
+    MarketEngine::factory()->for($saved['market'])->create(['engine_key' => $engine, 'prompt_scope' => 'all', 'frequency' => 'daily', 'repetitions' => 1]);
+    expect(app(Dispatcher::class)->dispatch(CarbonImmutable::now('UTC')))->toBe(1);
+    inTenant($tenant, fn () => expect(RunBatch::query()->count())->toBe(1)->and(Run::query()->count())->toBe(1));
+    expect(DB::table('jobs')->count())->toBe(1);
+});

@@ -43,11 +43,9 @@ final class ProposalConfirmer
             if ($analysis === null || $analysis->status !== Analysis::READY) {
                 throw ValidationException::withMessages(['analysis' => __('onboarding.errors.not_ready')]);
             }
-            if ($analysis->kind === Analysis::MARKET) {
-                foreach (['country', 'language'] as $field) {
-                    if (($data[$field] ?? null) !== ($analysis->input[$field] ?? null)) {
-                        throw ValidationException::withMessages([$field => __('onboarding.errors.market_changed')]);
-                    }
+            foreach (['country', 'language'] as $field) {
+                if (($data[$field] ?? null) !== ($analysis->input[$field] ?? null)) {
+                    throw ValidationException::withMessages([$field => __('onboarding.errors.market_changed')]);
                 }
             }
             $plan = $tenant->plan()->first();
