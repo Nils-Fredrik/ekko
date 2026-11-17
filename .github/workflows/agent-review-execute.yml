@@ -8,7 +8,7 @@ on:
 permissions: {}
 
 concurrency:
-    group: agent-review-execution-${{ github.event.workflow_run.pull_requests[0].number || github.event.workflow_run.id }}
+    group: agent-review-execution-${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request_target' && github.event.workflow_run.pull_requests[0].number || format('ignored-{0}', github.event.workflow_run.id) }}
     cancel-in-progress: true
 
 jobs:
