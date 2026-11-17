@@ -133,7 +133,8 @@ final class ExtractionWriter
 
     /**
      * Citations from annotations win (docs/spec.md 8.2): when the response has any, the model only
-     * supplies source_type for the ones that have none. Without annotations the model's citations are stored.
+     * supplies source_type for the ones that have none. Without annotations the model's citations are stored,
+     * but only those whose URL or domain is in the answer text; a source the model made up is dropped (T39-F10).
      *
      * @param  list<ModelCitation>  $found
      */
@@ -161,10 +162,11 @@ final class ExtractionWriter
 
         Citation::query()->where('response_id', $response->id)->where('from_annotation', false)->delete();
 
+        $answerUrls = $this->urlsIn((string) $response->answer_text);
         $rank = 0;
         foreach ($sourceTypes as $url => $type) {
             $parts = $this->urls->normalize($url);
-            if ($parts === null) {
+            if ($parts === null || ! $this->inAnswer($parts, $answerUrls, (string) $response->answer_text)) {
                 continue;
             }
             $ownership = $catalog->domains->classify($parts['domain']);
@@ -180,6 +182,40 @@ final class ExtractionWriter
                 'from_annotation' => false,
             ]);
         }
+    }
+
+    /**
+     * The normalized URLs written out in the answer text.
+     *
+     * @return array<string, true>
+     */
+    private function urlsIn(string $text): array
+    {
+        preg_match_all('#https?://[^\s<>()\[\]"\'`]+#i', $text, $matches);
+        $urls = [];
+        foreach ($matches[0] as $match) {
+            $normalized = $this->urls->normalize(rtrim($match, '.,;:!?'));
+            if ($normalized !== null) {
+                $urls[$normalized['url']] = true;
+            }
+        }
+
+        return $urls;
+    }
+
+    /**
+     * Whether a model citation has support in the answer: the URL is written out, or its domain is named.
+     *
+     * @param  array{url: string, domain: string}  $parts
+     * @param  array<string, true>  $answerUrls
+     */
+    private function inAnswer(array $parts, array $answerUrls, string $text): bool
+    {
+        if (isset($answerUrls[$parts['url']])) {
+            return true;
+        }
+
+        return preg_match('/(?<![\p{L}\p{N}.\-])(?:www\.)?'.preg_quote($parts['domain'], '/').'(?![\p{L}\p{N}\-])/iu', $text) === 1;
     }
 
     private function guardTenant(Response $response): void

@@ -8,4 +8,6 @@ return [
     'bound_tenant' => 'Tenant: :tenant',
     'unbound_token' => 'Ingen gyldig tenanttilgang. Opprett et nytt token for valgt tenant.',
     'unavailable' => 'utilgjengelig',
+    'token_limit' => 'Du kan ha høyst :max aktive API-tokens. Slett et du ikke bruker.',
+    'expires' => 'Utløper :date',
 ];

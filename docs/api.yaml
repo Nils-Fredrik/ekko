@@ -6,7 +6,7 @@ info:
     Bearer <token>, Accept: application/json og Content-Type: application/json ved skriving. Tokenbinding
     endres ikke med nettleserens tenantvalg; ubundne eldre tokens må erstattes. Brukerens nåværende rolle
     kontrolleres på hvert kall. Nettlesersesjon alene gir ikke tilgang. Read og write er uavhengige. Alle
-    ruter deler 60 kall/minutt/token. Datoer er inklusive lokale dager i tenantens tidssone. Metrikker
+    ruter deler 60 kall/minutt/token og 120 kall/minutt/bruker over alle brukerens tokens. Tokens utløper etter 365 dager. Datoer er inklusive lokale dager i tenantens tidssone. Metrikker
     inkluderer utvalgsstørrelse n og low_sample (n < 10); rater er brøker 0–1 og value er null ved n=0.
     Interne lagringsadresser og rå leverandørpayload eksponeres ikke.'
 servers:
@@ -54,7 +54,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
         '429': &id005
-          description: 60 forespørsler per minutt per token er overskredet.
+          description: 60 forespørsler per minutt per token eller 120 per minutt per bruker er overskredet.
           content:
             application/json:
               schema:

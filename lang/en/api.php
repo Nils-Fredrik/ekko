@@ -8,4 +8,6 @@ return [
     'bound_tenant' => 'Tenant: :tenant',
     'unbound_token' => 'No valid tenant access. Create a new token for the selected tenant.',
     'unavailable' => 'unavailable',
+    'token_limit' => 'You can have at most :max active API tokens. Delete one you do not use.',
+    'expires' => 'Expires :date',
 ];
