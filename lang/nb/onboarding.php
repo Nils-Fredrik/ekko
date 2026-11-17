@@ -76,5 +76,17 @@ return [
         'back' => 'Tilbake',
         'next' => 'Neste',
         'cost' => ':amount USD',
+        'stages' => [
+            'awareness' => 'Bevissthet',
+            'consideration' => 'Vurdering',
+            'decision' => 'Beslutning',
+        ],
+        'frequencies' => [
+            'daily' => 'Daglig',
+            'weekly' => 'Ukentlig',
+            'monthly' => 'Månedlig',
+            'off' => 'Av',
+        ],
+        'estimate_unavailable' => 'Kostnadsestimatet kunne ikke hentes.',
     ],
 ];

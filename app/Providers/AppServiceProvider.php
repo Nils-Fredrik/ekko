@@ -34,6 +34,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\Onboarding\OnboardingFakes;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -63,6 +64,11 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         app(LogContext::class)->clear();
+
+        // Browser tests have no network. The harness sets this only on its own server, against a _testing database.
+        if (getenv('EKKO_BROWSER_TEST') === '1' && $this->app->environment('local', 'testing') && class_exists(OnboardingFakes::class)) {
+            OnboardingFakes::bind();
+        }
 
         // A login role that could bypass row-level security stops the instance (T39-F2): /up is the web service's
         // startup probe, and the worker and the ekko:* commands check before they start. The migrations run as

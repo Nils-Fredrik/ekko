@@ -35,32 +35,39 @@ final class ProposalConfirmer
      */
     public function confirm(Team $tenant, Analysis $analysis, array $data): array
     {
-        if ($analysis->status !== Analysis::READY) {
-            throw ValidationException::withMessages(['analysis' => __('onboarding.errors.not_ready')]);
-        }
+        // The status check and the write share the tenant lock. A second confirm waits, then sees
+        // confirmed and stops, so two requests cannot each create a brand.
+        $saved = $this->store->reserving($tenant->id, function () use ($tenant, $analysis, $data): array {
+            $current = $this->store->find($tenant->id, $analysis->id);
+            if ($current === null || $current->status !== Analysis::READY) {
+                throw ValidationException::withMessages(['analysis' => __('onboarding.errors.not_ready')]);
+            }
 
-        $plan = $tenant->plan()->first();
-        $saved = DB::transaction(function () use ($analysis, $data, $plan): array {
-            $brand = $analysis->kind === Analysis::MARKET
-                ? $this->existingBrand($analysis)
-                : $this->createBrand($plan, $data);
-            $this->guardMarketLimit($brand, $plan);
-            $market = $brand->markets()->create([
-                'country' => strtoupper((string) $data['country']),
-                'language' => (string) $data['language'],
-                'is_active' => true,
-            ]);
-            $topics = $analysis->kind === Analysis::MARKET
-                ? $this->existingTopics($brand)
-                : $this->createTopics($brand, $data['topics'] ?? []);
-            $this->createPrompts($market, $topics, $data['prompts'] ?? [], $plan);
-            $this->createEngines($market, $data['engines'] ?? [], $plan);
+            $plan = $tenant->plan()->first();
+            $result = DB::transaction(function () use ($current, $data, $plan): array {
+                $brand = $current->kind === Analysis::MARKET
+                    ? $this->existingBrand($current)
+                    : $this->createBrand($plan, $data);
+                $this->guardMarketLimit($brand, $plan);
+                $market = $brand->markets()->create([
+                    'country' => strtoupper((string) $data['country']),
+                    'language' => (string) $data['language'],
+                    'is_active' => true,
+                ]);
+                $topics = $current->kind === Analysis::MARKET
+                    ? $this->existingTopics($brand)
+                    : $this->createTopics($brand, $data['topics'] ?? []);
+                $this->createPrompts($market, $topics, $data['prompts'] ?? [], $plan);
+                $this->createEngines($market, $data['engines'] ?? [], $plan);
 
-            return [$brand, $market];
+                return [$brand, $market];
+            });
+
+            $current->status = Analysis::CONFIRMED;
+            $this->store->finish($current);
+
+            return $result;
         });
-
-        $analysis->status = Analysis::CONFIRMED;
-        $this->store->save($analysis);
         $runs = $this->firstRun->start($tenant, $saved[1]);
 
         return ['brand' => $saved[0], 'market' => $saved[1], 'runs' => $runs];
@@ -156,7 +163,10 @@ final class ProposalConfirmer
     {
         $topics = [];
         foreach ($brand->topics()->whereNotNull('cross_market_key')->get() as $topic) {
-            $topics[(string) $topic->cross_market_key] = $topic;
+            $key = $this->key((string) $topic->cross_market_key);
+            if ($key !== null) {
+                $topics[$key] = $topic;
+            }
         }
 
         return $topics;
@@ -181,7 +191,7 @@ final class ProposalConfirmer
                 throw ValidationException::withMessages(["prompts.{$index}.text" => __('onboarding.errors.invalid_prompt')]);
             }
             $text = trim((string) ($row['text'] ?? ''));
-            $key = (string) ($row['cross_market_key'] ?? '');
+            $key = $this->key((string) ($row['cross_market_key'] ?? '')) ?? '';
             $intent = $row['intent'] ?? null;
             $stage = $row['funnel_stage'] ?? null;
             if ($text === '' || mb_strlen($text) > 10000 || ! isset($topics[$key])

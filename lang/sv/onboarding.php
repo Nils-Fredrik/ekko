@@ -76,5 +76,17 @@ return [
         'back' => 'Tillbaka',
         'next' => 'Nästa',
         'cost' => ':amount USD',
+        'stages' => [
+            'awareness' => 'Medvetenhet',
+            'consideration' => 'Övervägande',
+            'decision' => 'Beslut',
+        ],
+        'frequencies' => [
+            'daily' => 'Dagligen',
+            'weekly' => 'Veckovis',
+            'monthly' => 'Månadsvis',
+            'off' => 'Av',
+        ],
+        'estimate_unavailable' => 'Kostnadsberäkningen kunde inte hämtas.',
     ],
 ];

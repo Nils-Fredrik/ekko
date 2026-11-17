@@ -16,6 +16,12 @@ export default defineConfig({
         url: `http://127.0.0.1:${port}/up`,
         reuseExistingServer: false,
         timeout: 30000,
-        env: { ...databaseEnv, APP_URL: `http://127.0.0.1:${port}`, SESSION_SECURE_COOKIE: 'false' },
+        env: {
+            ...databaseEnv,
+            APP_URL: `http://127.0.0.1:${port}`,
+            SESSION_SECURE_COOKIE: 'false',
+            EKKO_BROWSER_TEST: '1',
+            QUEUE_CONNECTION: 'sync',
+        },
     },
 });

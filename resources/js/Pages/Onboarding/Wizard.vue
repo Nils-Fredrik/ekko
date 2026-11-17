@@ -17,7 +17,11 @@ const step = ref('basis');
 const analysis = ref(null);
 const error = ref('');
 const estimate = ref(null);
+const estimateError = ref('');
+const estimateFailed = ref(false);
+const estimateReady = ref(false);
 let poll = null;
+let estimateRequest = 0;
 
 const basis = ref({ name: '', primary_domain: '', country: 'NO', language: 'nb' });
 const draft = ref(emptyDraft());
@@ -36,6 +40,11 @@ const form = useForm({
 });
 
 const coreCount = computed(() => draft.value.prompts.filter((prompt) => prompt.priority === 'core').length);
+const confirmErrors = computed(() =>
+    Object.values(form.errors)
+        .flat()
+        .filter((message) => typeof message === 'string' && message !== ''),
+);
 
 function emptyDraft() {
     return { industry: '', category: '', name_variants: [], competitors: [], topics: [], prompts: [] };
@@ -103,8 +112,32 @@ function fill(payload) {
 
 function fail(payload) {
     stop();
-    error.value = payload?.error?.message ?? '';
+    const errors = payload?.errors;
+    if (errors && typeof errors === 'object') {
+        error.value = Object.values(errors).flat().filter(Boolean).join(' ');
+    } else {
+        error.value = payload?.error?.message ?? payload?.message ?? '';
+    }
     step.value = 'basis';
+}
+
+function addCompetitor() {
+    draft.value.competitors.push({ name: '', domain: '' });
+}
+
+function addTopic() {
+    draft.value.topics.push({ name: '', cross_market_key: `topic_${draft.value.topics.length + 1}` });
+}
+
+function removeTopic(index) {
+    const key = draft.value.topics[index]?.cross_market_key;
+    draft.value.topics.splice(index, 1);
+    const fallback = draft.value.topics[0]?.cross_market_key ?? '';
+    for (const prompt of draft.value.prompts) {
+        if (prompt.cross_market_key === key) {
+            prompt.cross_market_key = fallback;
+        }
+    }
 }
 
 function addPrompt() {
@@ -118,6 +151,10 @@ function addPrompt() {
 }
 
 async function loadEstimate() {
+    const request = ++estimateRequest;
+    estimateReady.value = false;
+    estimateFailed.value = false;
+    estimateError.value = '';
     const engines = setup.value
         .filter((engine) => engine.enabled && engine.frequency !== 'off')
         .map((engine) => ({
@@ -127,15 +164,38 @@ async function loadEstimate() {
             repetitions: Number(engine.repetitions),
         }));
     if (engines.length === 0) {
-        estimate.value = null;
+        estimate.value = { total_cost_usd: '0', issues: [] };
+        estimateReady.value = true;
         return;
     }
-    const response = await window.axios.post(route('onboarding.cost-estimate'), {
-        engines,
-        prompt_count: draft.value.prompts.length,
-        core_prompt_count: coreCount.value,
-    });
-    estimate.value = response.data;
+    try {
+        const response = await window.axios.post(route('onboarding.cost-estimate'), {
+            engines,
+            prompt_count: draft.value.prompts.length,
+            core_prompt_count: coreCount.value,
+        });
+        if (request !== estimateRequest) {
+            return;
+        }
+        estimate.value = response.data;
+        estimateReady.value = true;
+    } catch (caught) {
+        if (request !== estimateRequest) {
+            return;
+        }
+        estimate.value = null;
+        estimateFailed.value = true;
+        const payload = caught.response?.data;
+        const errors = payload?.errors;
+        estimateError.value = errors
+            ? Object.values(errors).flat().filter(Boolean).join(' ')
+            : (payload?.error?.message ?? payload?.message ?? '');
+    }
+}
+
+function showEngines() {
+    step.value = 'engines';
+    loadEstimate();
 }
 
 function confirm() {
@@ -219,20 +279,34 @@ function confirm() {
                 </div>
                 <div>
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.competitors') }}</h3>
-                    <div
-                        v-for="(competitor, index) in draft.competitors"
-                        :key="index"
-                        class="mt-2 grid gap-2 sm:grid-cols-2"
-                    >
-                        <input v-model="competitor.name" :class="field" />
-                        <input v-model="competitor.domain" :class="field" />
+                    <div v-for="(competitor, index) in draft.competitors" :key="index" class="mt-2 space-y-2">
+                        <div class="grid gap-2 sm:grid-cols-2">
+                            <input v-model="competitor.name" :class="field" />
+                            <input v-model="competitor.domain" :class="field" />
+                        </div>
+                        <InputError
+                            :message="
+                                form.errors[`competitors.${index}.domain`] || form.errors[`competitors.${index}.name`]
+                            "
+                        />
+                        <button type="button" class="text-sm" @click="draft.competitors.splice(index, 1)">
+                            {{ $t('onboarding.ui.remove') }}
+                        </button>
                     </div>
+                    <button type="button" class="mt-2 text-sm" @click="addCompetitor">
+                        {{ $t('onboarding.ui.add') }}
+                    </button>
                 </div>
                 <div>
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.topics') }}</h3>
-                    <div v-for="topic in draft.topics" :key="topic.cross_market_key" class="mt-2">
+                    <div v-for="(topic, index) in draft.topics" :key="index" class="mt-2 space-y-2">
                         <input v-model="topic.name" :class="field" class="w-full" />
+                        <InputError :message="form.errors[`topics.${index}.name`]" />
+                        <button type="button" class="text-sm" @click="removeTopic(index)">
+                            {{ $t('onboarding.ui.remove') }}
+                        </button>
                     </div>
+                    <button type="button" class="mt-2 text-sm" @click="addTopic">{{ $t('onboarding.ui.add') }}</button>
                 </div>
                 <div>
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.prompts') }}</h3>
@@ -253,10 +327,14 @@ function confirm() {
                                 </option>
                             </select>
                             <select v-model="prompt.intent" :class="field">
-                                <option v-for="intent in intents" :key="intent" :value="intent">{{ intent }}</option>
+                                <option v-for="intent in intents" :key="intent" :value="intent">
+                                    {{ $t(`app.intents.${intent}`) }}
+                                </option>
                             </select>
                             <select v-model="prompt.funnel_stage" :class="field">
-                                <option v-for="stage in stages" :key="stage" :value="stage">{{ stage }}</option>
+                                <option v-for="stage in stages" :key="stage" :value="stage">
+                                    {{ $t(`onboarding.ui.stages.${stage}`) }}
+                                </option>
                             </select>
                             <label class="flex items-center gap-2 text-sm">
                                 <input
@@ -275,7 +353,7 @@ function confirm() {
                     </div>
                     <button type="button" class="mt-2 text-sm" @click="addPrompt">{{ $t('onboarding.ui.add') }}</button>
                 </div>
-                <PrimaryButton type="button" @click="step = 'engines'">{{ $t('onboarding.ui.next') }}</PrimaryButton>
+                <PrimaryButton type="button" @click="showEngines">{{ $t('onboarding.ui.next') }}</PrimaryButton>
             </section>
 
             <section
@@ -284,20 +362,28 @@ function confirm() {
             >
                 <h3 class="font-medium">{{ $t('onboarding.ui.engines') }}</h3>
                 <div
-                    v-for="engine in setup"
+                    v-for="(engine, index) in setup"
                     :key="engine.engine_key"
                     class="grid gap-2 border-t border-line pt-3 sm:grid-cols-4"
                 >
                     <label class="flex items-center gap-2 text-sm">
-                        <input v-model="engine.enabled" type="checkbox" />
+                        <input v-model="engine.enabled" type="checkbox" @change="loadEstimate" />
                         {{ engine.engine_key }}
                     </label>
-                    <select v-model="engine.frequency" :class="field">
+                    <select v-model="engine.frequency" :class="field" @change="loadEstimate">
                         <option v-for="frequency in frequencies" :key="frequency" :value="frequency">
-                            {{ frequency }}
+                            {{ $t(`onboarding.ui.frequencies.${frequency}`) }}
                         </option>
                     </select>
-                    <input v-model.number="engine.repetitions" type="number" min="1" max="3" :class="field" />
+                    <input
+                        v-model.number="engine.repetitions"
+                        type="number"
+                        min="1"
+                        max="3"
+                        :class="field"
+                        @change="loadEstimate"
+                    />
+                    <InputError :message="form.errors[`engines.${index}.engine_key`]" />
                 </div>
                 <PrimaryButton type="button" @click="loadEstimate">{{ $t('onboarding.ui.estimate') }}</PrimaryButton>
                 <p v-if="estimate" class="text-sm">
@@ -308,9 +394,12 @@ function confirm() {
                         {{ issue.message }}
                     </li>
                 </ul>
+                <InputError
+                    :message="estimateError || (estimateFailed ? $t('onboarding.ui.estimate_unavailable') : '')"
+                />
                 <div class="flex gap-3">
                     <button type="button" class="text-sm" @click="step = 'edit'">{{ $t('onboarding.ui.back') }}</button>
-                    <PrimaryButton type="button" @click="step = 'integrations'">
+                    <PrimaryButton type="button" :disabled="!estimateReady" @click="step = 'integrations'">
                         {{ $t('onboarding.ui.next') }}
                     </PrimaryButton>
                 </div>
@@ -319,7 +408,7 @@ function confirm() {
             <section v-else class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
                 <h3 class="font-medium">{{ $t('onboarding.ui.integrations') }}</h3>
                 <p class="text-sm">{{ $t('onboarding.ui.integrations_later') }}</p>
-                <InputError :message="form.errors.name || form.errors.primary_domain || form.errors.prompts" />
+                <InputError v-for="(message, index) in confirmErrors" :key="index" :message="message" />
                 <div class="flex gap-3">
                     <button type="button" class="text-sm" @click="step = 'engines'">
                         {{ $t('onboarding.ui.back') }}
