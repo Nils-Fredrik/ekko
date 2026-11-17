@@ -1,5 +1,7 @@
 <?php
 
+use App\Logging\AddLogContext;
+use Monolog\Formatter\GoogleCloudLoggingFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -63,6 +65,7 @@ return [
             'path' => storage_path('logs/laravel.log'),
             'level' => env('LOG_LEVEL', 'debug'),
             'replace_placeholders' => true,
+            'tap' => [AddLogContext::class],
         ],
 
         'daily' => [
@@ -71,6 +74,7 @@ return [
             'level' => env('LOG_LEVEL', 'debug'),
             'days' => env('LOG_DAILY_DAYS', 14),
             'replace_placeholders' => true,
+            'tap' => [AddLogContext::class],
         ],
 
         'slack' => [
@@ -96,13 +100,15 @@ return [
 
         'stderr' => [
             'driver' => 'monolog',
-            'level' => env('LOG_LEVEL', 'debug'),
+            // Production logs to stderr, read by Cloud Logging: JSON with severity, info and up (docs/spec.md 16, T39-F7).
+            'level' => env('LOG_LEVEL', 'info'),
             'handler' => StreamHandler::class,
             'handler_with' => [
                 'stream' => 'php://stderr',
             ],
-            'formatter' => env('LOG_STDERR_FORMATTER'),
+            'formatter' => env('LOG_STDERR_FORMATTER', GoogleCloudLoggingFormatter::class),
             'processors' => [PsrLogMessageProcessor::class],
+            'tap' => [AddLogContext::class],
         ],
 
         'syslog' => [

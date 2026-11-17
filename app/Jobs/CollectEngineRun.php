@@ -9,6 +9,7 @@ use App\Engines\QueuedEngineAdapter;
 use App\Engines\QueuedEngineCollector;
 use App\Enums\TenantStatus;
 use App\Jobs\Middleware\SetTenantContext;
+use App\Logging\LogContext;
 use App\Models\Run;
 use App\Models\Team;
 use App\Scheduling\EngineThrottle;
@@ -43,6 +44,7 @@ final class CollectEngineRun extends TenantJob
 
     public function handle(EngineCollector $collector, QueuedEngineCollector $queued, EngineRegistry $registry, EngineThrottle $throttle, TenantRls $rls): void
     {
+        app(LogContext::class)->setRun($this->runId);
         $run = $rls->run([$this->tenantId], fn () => Run::query()->with('engine')->findOrFail($this->runId));
         if (! in_array($run->status, ['queued', 'running', 'submitted'], true)) {
             return;

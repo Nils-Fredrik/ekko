@@ -92,6 +92,7 @@ class PollExtractionBatch extends TenantJob
             ->whereIn('id', $job->response_ids)
             ->whereHas('run', fn ($query) => $query->where('status', 'collected'))
             ->with('run.prompt.market')
+            ->orderBy('id')
             ->get()->keyBy('id');
 
         $catalog = DetectionCatalog::load();

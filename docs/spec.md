@@ -847,7 +847,11 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 
 **Sporbarhet:**
 - **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler. Det gjelder også sendte og kansellerte invitasjoner (rolle og hvem), opprettelse, nytt navn og stenging av tenant, og opprettelse, endring og sletting av API-tokens. E-postadresser og tokenverdier logges ikke (T39-F6).
-- **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke.
+- **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke. Slik er det gjort (T39-F7):
+  - Kanalen `stderr` skriver én JSON-linje per post med `severity` og `time` (`GoogleCloudLoggingFormatter`). Standardnivået er `info`.
+  - `tenant_id`, `user_id` og `run_id` legges under `extra` på hver post. Verdiene leses fra tenantkonteksten, innlogget bruker og kjøringen jobben arbeider med, når posten skrives, og nullstilles mellom forespørsler og køjobber.
+  - Unntak fra databasen, e-post og HTTP-klienten logges uten melding. Databasefeil får SQLSTATE og SQL med plassholdere, uten verdier. E-postfeil får koden. HTTP-feil får status og vert. Resten av rapporteringen av unntaket er uendret.
+  - Imaget har `zend.exception_ignore_args=On`, så stakksporene har ikke argumentverdier.
 
 **Nettlesersikkerhet og Claude-tilkoblingen (T39-F5):**
 - **Innramming:** ingen side kan vises i en ramme på et annet nettsted (`X-Frame-Options: DENY` og `frame-ancestors 'none'` på alle svar). Dette gjelder særlig samtykkesiden `/oauth/authorize`.
