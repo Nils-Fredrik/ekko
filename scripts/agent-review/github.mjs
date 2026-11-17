@@ -1,8 +1,15 @@
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { codexApproved, requiredReviewers, sameSnapshot, claudeVerdict, reviewRounds } from './policy.mjs';
+import { codexReviewState, requiredReviewers, sameSnapshot, claudeVerdict, reviewRounds } from './policy.mjs';
 import { postReviewBlocker } from './board.mjs';
 import { claudeBody } from './claude-comment.mjs';
 import { pathToFileURL } from 'node:url';
+
+class ReviewFailure extends Error {
+    constructor(kind, message) {
+        super(message);
+        this.kind = kind;
+    }
+}
 
 export async function runReview(
     command,
@@ -89,6 +96,16 @@ export async function runReview(
     }
 
     async function prepare() {
+        const current = await api(`/repos/${repo}${pull}`);
+        if (
+            current.head.sha !== env.EVENT_HEAD ||
+            current.base.sha !== env.EVENT_BASE ||
+            current.state !== 'open' ||
+            current.draft
+        ) {
+            await report('stale', 'Utdatert reviewforespørsel; ingen ny status publisert.');
+            return;
+        }
         await requestReview();
         const pr = await getPull();
         if (pr.head.sha !== env.EVENT_HEAD || pr.base.sha !== env.EVENT_BASE) throw new Error('Stale event');
@@ -142,33 +159,77 @@ export async function runReview(
         );
     }
 
+    async function ownsStatus(sha) {
+        const statuses = await allPages(`/commits/${sha}/statuses`);
+        // A queued/older execution must not replace a newer request or verdict.
+        const latest = statuses.find(
+            (item) => item.context === 'agent-review' && item.creator?.id === Number(env.AGENT_REVIEW_BOT_ID),
+        );
+        return latest?.target_url === `${env.GITHUB_SERVER_URL}/${repo}/actions/runs/${env.GITHUB_RUN_ID}`;
+    }
+
+    async function report(kind, description) {
+        if (env.GITHUB_STEP_SUMMARY)
+            await appendFile(env.GITHUB_STEP_SUMMARY, `### agent-review: ${kind}\n\n${description}\n`);
+    }
+
     async function gate() {
         const snapshot = JSON.parse(Buffer.from(env.SNAPSHOT, 'base64').toString());
+        async function assertCurrent() {
+            const current = await getPull();
+            if (!sameSnapshot(current, snapshot) || !(await ownsStatus(snapshot.head)))
+                throw new ReviewFailure('stale', 'PR or review request changed during review');
+        }
         try {
-            if (snapshot.required.claude && env.CLAUDE_RESULT !== 'success')
-                throw new Error('Claude review did not approve');
+            await assertCurrent();
+            if (snapshot.required.claude) {
+                if (env.CLAUDE_JOB_RESULT !== 'success' || !['success', 'failure'].includes(env.CLAUDE_RESULT))
+                    throw new ReviewFailure('technical', 'Claude execution failed or produced no verified verdict');
+                if (env.CLAUDE_RESULT === 'failure')
+                    throw new ReviewFailure('changes_requested', 'Claude review requested changes');
+            }
             if (!env.BOARD_MCP_TOKEN) throw new Error('Board escalation credential missing');
             const deadline = now() + 45 * 60_000;
             do {
-                if (!sameSnapshot(await getPull(), snapshot)) throw new Error('PR changed during review');
+                await assertCurrent();
                 const [comments, reviews] = snapshot.required.codex
                     ? await Promise.all([allPages(`/issues/${number}/comments`), allPages(`${pull}/reviews`)])
                     : [[], []];
-                if (!snapshot.required.codex || codexApproved(comments, snapshot.head, env.REQUESTED_AT, reviews)) {
-                    if (!sameSnapshot(await getPull(), snapshot))
-                        throw new Error('PR changed before publishing status');
+                const codex = snapshot.required.codex
+                    ? codexReviewState(comments, snapshot.head, env.REQUESTED_AT, reviews)
+                    : 'approved';
+                if (codex === 'changes_requested')
+                    throw new ReviewFailure('changes_requested', 'Codex review requested changes');
+                if (codex === 'approved') {
+                    await assertCurrent();
                     await recordRound(snapshot, 'success');
+                    await assertCurrent();
                     await status(snapshot.head, 'success', 'Påkrevd kryssreview er godkjent');
+                    await report('approved', 'Alle påkrevde reviewere har godkjent aktuell kode og base.');
                     return;
                 }
                 await sleep(30_000);
             } while (now() < deadline);
-            throw new Error('Codex review was not approved before timeout');
+            throw new ReviewFailure('missing', 'Codex review was not verified before timeout');
         } catch (error) {
-            await status(snapshot.head, 'failure', 'Kryssreview mangler eller feilet');
-            // Stale/cancelled code does not consume a new review round.
-            if (sameSnapshot(await getPull(), snapshot)) await recordRound(snapshot, 'failure');
-            throw error;
+            const current = await api(`/repos/${repo}${pull}`);
+            const owned = await ownsStatus(snapshot.head);
+            const stale = !sameSnapshot(current, snapshot) || !owned;
+            const kind = stale ? 'stale' : error.kind || 'technical';
+            const descriptions = {
+                changes_requested: 'ENDRINGER KREVES: se reviewerens funn på PR-en',
+                technical: 'Teknisk reviewfeil: ingen gyldig godkjenning; se Actions-loggen',
+                missing: 'Review mangler eller kan ikke verifiseres; prøv ny kjøring',
+                stale: 'Review er foreldet; oppdater PR-grenen for ny review',
+            };
+            // Preserve a newer status, including a new review of the same head.
+            // If only main/title changed, invalidate our own obsolete approval.
+            if (owned && current.head.sha === snapshot.head) {
+                await status(snapshot.head, kind === 'changes_requested' ? 'failure' : 'error', descriptions[kind]);
+            }
+            if (kind === 'changes_requested') await recordRound(snapshot, 'failure');
+            await report(kind, descriptions[kind]);
+            if (kind !== 'stale') throw error;
         }
     }
 
@@ -193,7 +254,7 @@ export async function runReview(
         await api(`/repos/${repo}/issues/${number}/comments`, {
             method: 'POST',
             body: {
-                body: `<!-- ekko-review-round:v1 ${JSON.stringify(round)} -->\nKryssreview for ${snapshot.head}: ${result === 'success' ? 'GODKJENT' : 'ENDRINGER KREVES / manglende review'}. Se Actions-kjøringen for resultat fra hver reviewer.`,
+                body: `<!-- ekko-review-round:v1 ${JSON.stringify(round)} -->\nKryssreview for ${snapshot.head}: ${result === 'success' ? 'GODKJENT' : 'ENDRINGER KREVES'}. Se Actions-kjøringen for resultat fra hver reviewer.`,
             },
         });
     }
@@ -221,7 +282,15 @@ export async function runReview(
             await requestReview();
             break;
         case 'prepare':
-            await prepare();
+            try {
+                await prepare();
+            } catch (error) {
+                const current = await api(`/repos/${repo}${pull}`);
+                if (current.head.sha === env.EVENT_HEAD && (await ownsStatus(env.EVENT_HEAD)))
+                    await status(env.EVENT_HEAD, 'error', 'Review kunne ikke starte; kontroller PR og Actions-loggen');
+                await report('technical', 'Review kunne ikke starte. Ingen faglig avslagsrunde er registrert.');
+                throw error;
+            }
             break;
         case 'diff':
             await diff();

@@ -40,6 +40,7 @@ jobs:
               env:
                   GH_TOKEN: ${{ github.token }}
             - id: app-token
+              if: steps.source.outputs.ready == 'true'
               uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
               with:
                   app-id: ${{ vars.AGENT_REVIEW_APP_ID }}
@@ -49,6 +50,7 @@ jobs:
                   permission-issues: write
                   permission-statuses: write
             - id: prepare
+              if: steps.source.outputs.ready == 'true'
               run: node scripts/agent-review/github.mjs prepare
               env:
                   GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -61,6 +63,7 @@ jobs:
 
     claude:
         needs: prepare
+        timeout-minutes: 25
         if: needs.prepare.outputs.claude == 'true'
         runs-on: ubuntu-latest
         permissions:
@@ -84,7 +87,13 @@ jobs:
                   PR_NUMBER: ${{ needs.prepare.outputs.number }}
                   SNAPSHOT: ${{ needs.prepare.outputs.snapshot }}
                   GITHUB_WORKSPACE: ${{ github.workspace }}
+            - id: review-bots
+              name: Validate configured review bot
+              run: node scripts/merge-queue/config.mjs review-bots
+              env:
+                  MERGE_QUEUE_BOT_SLUG: ${{ vars.MERGE_QUEUE_BOT_SLUG }}
             - id: review
+              timeout-minutes: 20
               env:
                   PR_NUMBER: ${{ needs.prepare.outputs.number }}
                   SNAPSHOT: ${{ needs.prepare.outputs.snapshot }}
@@ -93,7 +102,7 @@ jobs:
               with:
                   claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
                   track_progress: 'false'
-                  allowed_bots: 'claude,chatgpt-codex-connector,cursor'
+                  allowed_bots: ${{ steps.review-bots.outputs.allowed-bots }}
                   prompt: |
                       Perform an independent code review of the PR diff in ${{ github.workspace }}/.review/review.diff.
                       Read AGENTS.md and docs/spec.md from this base checkout.
@@ -110,7 +119,6 @@ jobs:
                       to this PR and revision. If publication fails, do not claim approval.
                   claude_args: >-
                       --model claude-opus-5-5
-                      --max-turns 30
                       --permission-mode default
                       --restricted
                       --tools Read,Glob,Grep
@@ -130,7 +138,7 @@ jobs:
 
     gate:
         needs: [prepare, claude]
-        if: always() && needs.prepare.result == 'success'
+        if: always() && needs.prepare.result == 'success' && needs.prepare.outputs.snapshot != ''
         environment: agent-review
         runs-on: ubuntu-latest
         timeout-minutes: 55
@@ -162,5 +170,6 @@ jobs:
                   SNAPSHOT: ${{ needs.prepare.outputs.snapshot }}
                   REQUESTED_AT: ${{ needs.prepare.outputs.requested_at }}
                   AGENT_REVIEW_BOT_ID: ${{ vars.AGENT_REVIEW_BOT_ID }}
+                  CLAUDE_JOB_RESULT: ${{ needs.claude.result }}
                   CLAUDE_RESULT: ${{ needs.claude.outputs.verdict }}
                   BOARD_MCP_TOKEN: ${{ secrets.BOARD_MCP_TOKEN }}

@@ -207,6 +207,30 @@ final class MetricsService
     }
 
     /**
+     * Stability per prompt and engine: the mean of the daily cells (brand mentioned ÷ answers) for rounds with
+     * at least two answers. n is the number of those cells. The prompt table shows this beside visibility.
+     *
+     * @return list<array{prompt_id: int, engine_key: string, mean: Metric}>
+     */
+    public function stabilityByPromptEngine(MetricsFilter $filter): array
+    {
+        $rows = $this->dailyQuery($filter)
+            ->where('agg_daily.responses', '>=', 2)
+            ->toBase()
+            ->selectRaw('agg_daily.prompt_id, agg_daily.engine_key, count(*) as cells, sum(agg_daily.brand_mentioned::numeric / agg_daily.responses) as exact')
+            ->groupBy('agg_daily.prompt_id', 'agg_daily.engine_key')
+            ->orderBy('agg_daily.prompt_id')
+            ->orderBy('agg_daily.engine_key')
+            ->get();
+
+        return $rows->map(fn (object $row): array => [
+            'prompt_id' => (int) $row->prompt_id,
+            'engine_key' => (string) $row->engine_key,
+            'mean' => new Metric(Formulas::ratio($row->exact, $row->cells), (int) $row->cells),
+        ])->all();
+    }
+
+    /**
      * Source share: for each domain, the share of answers that cite it, most cited first. The answer count for
      * the share is the answers of the brand in the same markets and engines and the same period. Source figures
      * have no prompt dimension, so topic, intent, funnel and prompt filters are refused.

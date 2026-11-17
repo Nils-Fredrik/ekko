@@ -2,8 +2,12 @@
 
 use App\Models\Alert;
 use App\Models\Brand;
+use App\Models\Engine;
 use App\Models\Market;
 use App\Models\Prompt;
+use App\Models\Response;
+use App\Models\Run;
+use App\Models\RunBatch;
 use App\Models\Topic;
 use App\Onboarding\AnalysisStore;
 use App\Tenancy\TenantContext;
@@ -26,6 +30,58 @@ use Tests\Support\Onboarding\OnboardingFakes;
 | shows anything from tenant B.
 |
 */
+
+function isolationBrandId(int $tenantId): int
+{
+    return app(TenantContext::class)->run($tenantId, fn () => Brand::factory()->create()->id);
+}
+
+/** @return array{brand: int} */
+function isolationMarket(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $brand = Brand::factory()->create();
+        Market::factory()->for($brand)->create(['country' => 'NO']);
+
+        return ['brand' => $brand->id];
+    });
+}
+
+/** @return array{brand: int, prompt: int} */
+function isolationPrompt(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $brand = Brand::factory()->create();
+        $market = Market::factory()->for($brand)->create(['country' => 'NO']);
+        $prompt = Prompt::factory()->for($market)->create();
+
+        return ['brand' => $brand->id, 'prompt' => $prompt->id];
+    });
+}
+
+/** @return array{brand: int, response: int} */
+function isolationResponse(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $brand = Brand::factory()->create();
+        $market = Market::factory()->for($brand)->create();
+        $prompt = Prompt::factory()->for($market)->create();
+        $batch = RunBatch::factory()->create(['market_id' => $market->id]);
+        $engine = Engine::factory()->create();
+        $run = Run::factory()->create([
+            'run_batch_id' => $batch->id,
+            'prompt_id' => $prompt->id,
+            'engine_key' => $engine->key,
+        ]);
+        $response = Response::factory()->create([
+            'run_id' => $run->id,
+            'engine_key' => $engine->key,
+            'answer_text' => 'Et svar om kaffe.',
+        ]);
+
+        return ['brand' => $brand->id, 'response' => $response->id];
+    });
+}
 
 $teamB = fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id]];
 $teamA = fn (Scenario $s) => ['params' => ['team' => $s->tenantA->id]];
@@ -114,6 +170,67 @@ return [
 
             return ['params' => ['brand' => $id]];
         },
+    ),
+    'brands.prompts.index' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.prompts.export' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.prompts.import' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => [
+            'params' => ['brand' => isolationBrandId($s->tenantB->id)],
+            'data' => ['csv' => "text,market\nHvilken kaffe er best?,NO\n"],
+        ],
+        own: fn (Scenario $s) => [
+            'params' => ['brand' => isolationMarket($s->tenantA->id)['brand']],
+            'data' => ['csv' => "text,market\nHvilken kaffe er best?,NO\n"],
+        ],
+        deniedRoles: ['reader'],
+    ),
+    'brands.prompts.show' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationPrompt($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationPrompt($s->tenantA->id)],
+    ),
+    'brands.prompts.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => [
+            'params' => isolationPrompt($s->tenantB->id),
+            'data' => ['text' => 'En ny formulering av sporsmalet?'],
+        ],
+        own: fn (Scenario $s) => [
+            'params' => isolationPrompt($s->tenantA->id),
+            'data' => ['text' => 'En ny formulering av sporsmalet?'],
+        ],
+        deniedRoles: ['reader'],
+    ),
+    'brands.responses.raw' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationResponse($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationResponse($s->tenantA->id)],
+    ),
+    'brands.competitors.index' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.competitors.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => [
+            'params' => ['brand' => isolationBrandId($s->tenantB->id)],
+            'data' => ['name' => 'Kaffebonna'],
+        ],
+        own: fn (Scenario $s) => [
+            'params' => ['brand' => isolationBrandId($s->tenantA->id)],
+            'data' => ['name' => 'Kaffebonna'],
+        ],
+        deniedRoles: ['reader'],
+    ),
+    'brands.sources' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.crawlers' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
     ),
     // The onboarding wizard (ADR 0018). Proposals are JSON and nothing is saved. Starting a brand analysis has no
     // resource id: it creates a proposal in the signed-in tenant only (OnboardingTest covers the roles without

@@ -23,6 +23,21 @@ final readonly class GcsRawResponseStore implements RawResponseStore
         return "gs://{$bucketName}/{$path}";
     }
 
+    public function read(string $uri): ?string
+    {
+        if (preg_match('#^gs://([^/]+)/(.+)$#', $uri, $matches) !== 1) {
+            return null;
+        }
+
+        try {
+            $object = $this->storage->bucket($matches[1])->object($matches[2]);
+
+            return $object->exists() ? $object->downloadAsString() : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     public function deleteTenant(int $tenantId): int
     {
         $bucket = $this->storage->bucket(config()->string('engines.raw_bucket'));

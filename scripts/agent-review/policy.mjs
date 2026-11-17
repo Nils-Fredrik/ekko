@@ -23,12 +23,12 @@ export function requiredReviewers(title, files, paths) {
     };
 }
 
-export function codexApproved(comments, sha, requestedAt, reviews = []) {
-    if (!/^[0-9a-f]{40}$/.test(sha) || !Number.isFinite(Date.parse(requestedAt))) return false;
+export function codexReviewState(comments, sha, requestedAt, reviews = []) {
+    if (!/^[0-9a-f]{40}$/.test(sha) || !Number.isFinite(Date.parse(requestedAt))) return 'pending';
     const summaries = comments.filter((comment) => comment.user?.id === CODEX_ID && marker.test(comment.body || ''));
-    if (summaries.length !== 1) return false;
+    if (summaries.length !== 1) return 'pending';
     const summary = summaries[0];
-    if (!(Date.parse(summary.updated_at) > Date.parse(requestedAt))) return false;
+    if (!(Date.parse(summary.updated_at) > Date.parse(requestedAt))) return 'pending';
     // The sticky summary also changes for security reviews. Require a new code-review receipt,
     // not merely an edited timestamp on an older clean code result.
     const receipt = [...comments, ...reviews].some((item) => {
@@ -41,18 +41,24 @@ export function codexApproved(comments, sha, requestedAt, reviews = []) {
         const commit = /\*\*Reviewed commit:\*\* `([a-f0-9]{10,40})`/.exec(item.body)?.[1];
         return commit && sha.startsWith(commit) && (!item.commit_id || item.commit_id === sha);
     });
-    if (!receipt) return false;
+    if (!receipt) return 'pending';
     try {
         const state = JSON.parse(marker.exec(summary.body)[1]).code_review;
-        return (
-            state?.status === 'completed' &&
-            state.commit_sha === sha &&
-            state.has_any_findings === false &&
-            state.has_unresolved_findings === false
-        );
+        if (
+            state?.status !== 'completed' ||
+            state.commit_sha !== sha ||
+            typeof state.has_any_findings !== 'boolean' ||
+            typeof state.has_unresolved_findings !== 'boolean'
+        )
+            return 'pending';
+        return state.has_any_findings || state.has_unresolved_findings ? 'changes_requested' : 'approved';
     } catch {
-        return false;
+        return 'pending';
     }
+}
+
+export function codexApproved(...args) {
+    return codexReviewState(...args) === 'approved';
 }
 
 export function sameSnapshot(pr, expected) {
