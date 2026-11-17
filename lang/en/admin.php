@@ -81,6 +81,7 @@ return [
         'empty' => 'No tenants.',
         'no_engines' => 'No engines this month.',
         'engine' => 'Engine',
+        'unassigned' => 'Unassigned',
         'export' => 'Export billing basis',
         'engines' => 'Cost per engine',
     ],

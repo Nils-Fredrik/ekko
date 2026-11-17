@@ -81,6 +81,7 @@ return [
         'empty' => 'Inga tenants.',
         'no_engines' => 'Inga motorer den här månaden.',
         'engine' => 'Motor',
+        'unassigned' => 'Utan motor',
         'export' => 'Exportera fakturaunderlag',
         'engines' => 'Kostnad per motor',
     ],

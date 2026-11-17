@@ -81,6 +81,7 @@ return [
         'empty' => 'Ingen tenants.',
         'no_engines' => 'Ingen motorer denne måneden.',
         'engine' => 'Motor',
+        'unassigned' => 'Uten motor',
         'export' => 'Eksporter fakturagrunnlag',
         'engines' => 'Kostnad per motor',
     ],

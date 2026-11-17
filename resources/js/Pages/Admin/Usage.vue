@@ -56,8 +56,12 @@ function usd(value) {
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="engine in engines" :key="engine.engine_key" class="border-t border-line-soft">
-                            <td class="p-2">{{ engine.engine_key }}</td>
+                        <tr
+                            v-for="engine in engines"
+                            :key="engine.engine_key ?? 'unassigned'"
+                            class="border-t border-line-soft"
+                        >
+                            <td class="p-2">{{ engine.engine_key ?? $t('admin.usage.unassigned') }}</td>
                             <td class="p-2 text-right tabular-nums">{{ engine.calls }}</td>
                             <td class="p-2 text-right tabular-nums">{{ usd(engine.cost_usd) }}</td>
                             <td class="p-2 text-right tabular-nums">{{ usd(engine.byok_cost_usd) }}</td>

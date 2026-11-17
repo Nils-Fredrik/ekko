@@ -31,13 +31,12 @@ final class UsageController extends Controller
             foreach ($rls->run($ids, fn () => DB::table('usage_events')
                 ->where('occurred_at', '>=', $month)
                 ->where('occurred_at', '<', $month->copy()->addMonth())
-                ->whereNotNull('engine_key')
-                ->selectRaw("engine_key, coalesce(sum(calls) filter (where billed_to = 'platform'), 0) as calls, coalesce(sum(cost_usd) filter (where billed_to = 'platform'), 0) as cost_usd, coalesce(sum(cost_usd) filter (where billed_to = 'byok'), 0) as byok_cost_usd")
+                ->selectRaw("engine_key, coalesce(sum(calls), 0) as calls, coalesce(sum(cost_usd) filter (where billed_to = 'platform'), 0) as cost_usd, coalesce(sum(cost_usd) filter (where billed_to = 'byok'), 0) as byok_cost_usd")
                 ->groupBy('engine_key')
                 ->orderBy('engine_key')
                 ->get()) as $event) {
                 $engines[] = [
-                    'engine_key' => (string) $event->engine_key,
+                    'engine_key' => $event->engine_key === null ? null : (string) $event->engine_key,
                     'calls' => (int) $event->calls,
                     'cost_usd' => $this->money($event->cost_usd),
                     'byok_cost_usd' => $this->money($event->byok_cost_usd),

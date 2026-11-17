@@ -39,7 +39,7 @@ final class TenantController extends Controller
                 'monthly_call_quota_override' => $team->monthly_call_quota_override,
             ]),
             'plans' => Plan::query()->orderBy('name')->get(['id', 'name']),
-            'partners' => Team::query()->where('personal_team', false)->whereNull('partner_team_id')->orderBy('name')->get(['id', 'name']),
+            'partners' => Team::query()->where('personal_team', false)->whereNull('partner_team_id')->where('status', '<>', TenantStatus::Closed->value)->orderBy('name')->get(['id', 'name']),
             'statuses' => array_column(TenantStatus::cases(), 'value'),
         ]);
     }
@@ -153,7 +153,7 @@ final class TenantController extends Controller
         }
 
         $partner = Team::query()->find($partnerId);
-        if ($partner === null || $partner->personal_team || $partner->partner_team_id !== null || $partner->id === $tenant?->id) {
+        if ($partner === null || $partner->personal_team || $partner->partner_team_id !== null || $partner->status === TenantStatus::Closed || $partner->id === $tenant?->id) {
             throw ValidationException::withMessages(['partner_team_id' => __('admin.tenants.invalid_partner')]);
         }
     }

@@ -97,6 +97,14 @@ it('lets a platform admin manage tenants, plans and engines', function () {
             'cost_usd' => '4.00000000',
             'billed_to' => 'byok',
         ]);
+        UsageEvent::query()->create([
+            'occurred_at' => now('UTC'),
+            'kind' => 'engine_call',
+            'engine_key' => null,
+            'calls' => 2,
+            'cost_usd' => '0.50000000',
+            'billed_to' => 'platform',
+        ]);
     });
     app(TenantContext::class)->forget();
 
@@ -104,9 +112,13 @@ it('lets a platform admin manage tenants, plans and engines', function () {
         ->component('Admin/Usage')
         ->where('tenants.0.name', 'Nordic')
         ->where('engines.0.engine_key', $engine->key)
-        ->where('engines.0.calls', 3)
+        ->where('engines.0.calls', 12)
         ->where('engines.0.cost_usd', '1.25000000')
-        ->where('engines.0.byok_cost_usd', '4.00000000'));
+        ->where('engines.0.byok_cost_usd', '4.00000000')
+        ->where('engines.1.engine_key', null)
+        ->where('engines.1.calls', 2)
+        ->where('engines.1.cost_usd', '0.50000000')
+        ->where('engines.1.byok_cost_usd', '0.00000000'));
 
     $this->actingAs(User::factory()->withPersonalTeam()->create());
     $this->get(route('admin.tenants.index'))->assertForbidden();
@@ -118,6 +130,18 @@ it('requires a recent password to close a tenant and refuses to reopen it', func
     $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
     $plan = Plan::factory()->create();
     $tenant = Team::factory()->tenant()->withPlan($plan)->create(['user_id' => $admin->id, 'name' => 'Nordic']);
+    $closedPartner = Team::factory()->tenant()->status(TenantStatus::Closed)->create(['name' => 'Stengt partner']);
+
+    $this->actingAs($admin)->get(route('admin.tenants.index'))->assertOk()->assertInertia(fn ($page) => $page
+        ->where('partners', fn ($partners) => collect($partners)->pluck('name')->doesntContain('Stengt partner')));
+    $this->put(route('admin.tenants.update', $tenant), [
+        'name' => 'Nordic',
+        'plan_id' => $plan->id,
+        'status' => 'active',
+        'partner_team_id' => $closedPartner->id,
+    ])->assertSessionHasErrors('partner_team_id');
+    expect($tenant->fresh()->partner_team_id)->toBeNull();
+
     $payload = [
         'name' => 'Nordic',
         'plan_id' => $plan->id,
