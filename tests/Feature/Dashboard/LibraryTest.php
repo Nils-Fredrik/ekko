@@ -59,6 +59,7 @@ test('a prompt shows highlighted mentions, sources and a raw answer', function (
     $text = 'Vi anbefaler Kaffebønna fremfor Fjordkaffe, og fjordkaffe igjen.';
     $response = $world->answer($world->p1, now()->toIso8601String());
     $response->update(['answer_text' => $text]);
+    $world->brand->aliases()->create(['alias' => 'Fjordkaffe', 'match_mode' => 'case_insensitive']);
     Mention::factory()->create([
         'response_id' => $response->id,
         'entity_type' => 'unknown',

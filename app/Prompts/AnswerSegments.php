@@ -12,10 +12,14 @@ use App\Models\Mention;
 final class AnswerSegments
 {
     /**
+     * Keys are "{entity_type}:{entity_id}:{lowercase surface}" for aliases with match_mode
+     * case_insensitive. exact_word and unknown mentions stay case-sensitive.
+     *
      * @param  iterable<Mention>  $mentions
+     * @param  array<string, true>  $caseFold
      * @return list<array{text: string, kind: string}>
      */
-    public static function from(string $answer, iterable $mentions): array
+    public static function from(string $answer, iterable $mentions, array $caseFold = []): array
     {
         $marks = [];
         $length = mb_strlen($answer);
@@ -27,7 +31,8 @@ final class AnswerSegments
                 continue;
             }
 
-            $offset = self::offset($answer, $surface, $mention->first_char_offset);
+            $fold = self::folds($mention->entity_type, $mention->entity_id, $surface, $caseFold);
+            $offset = self::offset($answer, $surface, $mention->first_char_offset, $fold);
             if ($offset === null || $offset < 0 || $offset + $span > $length) {
                 continue;
             }
@@ -37,6 +42,8 @@ final class AnswerSegments
                 'length' => $span,
                 'kind' => self::kind((string) $mention->entity_type),
                 'surface' => $surface,
+                'fold' => $fold,
+                'entity' => self::foldKey($mention->entity_type, $mention->entity_id, $surface) ?? $surface,
             ];
         }
 
@@ -67,32 +74,37 @@ final class AnswerSegments
     }
 
     /**
-     * A stored mention is only the first span. Later copies of the same surface are highlighted too,
+     * A stored mention is only the first span. Later copies of that same surface are highlighted too,
      * when they are whole words (docs/spec.md 8.1): no letter or digit directly beside the name,
      * except a trailing possessive s. A name inside another word, such as "apple" in "pineapple", is left plain.
+     * The spelling must match the stored surface, so exact_word "Apple" does not highlight "apple".
+     * A case_insensitive alias for that surface is the exception and is passed in $caseFold.
+     * Other aliases of the same entity are not highlighted.
      *
-     * @param  list<array{offset: int, length: int, kind: string, surface: string}>  $marks
-     * @return list<array{offset: int, length: int, kind: string, surface: string}>
+     * @param  list<array{offset: int, length: int, kind: string, surface: string, fold: bool, entity: string}>  $marks
+     * @return list<array{offset: int, length: int, kind: string, surface: string, fold: bool, entity: string}>
      */
     private static function withLaterOccurrences(string $answer, array $marks): array
     {
         $seen = [];
         $stored = $marks;
         foreach ($stored as $mark) {
-            $key = mb_strtolower($mark['surface']).'|'.$mark['kind'];
+            $key = ($mark['fold'] ? mb_strtolower($mark['surface']) : $mark['surface']).'|'.$mark['kind'].'|'.$mark['entity'];
             if (isset($seen[$key])) {
                 continue;
             }
             $seen[$key] = true;
 
             $from = 0;
-            while (($found = self::findBounded($answer, $mark['surface'], $from)) !== null) {
+            while (($found = self::findBounded($answer, $mark['surface'], $from, $mark['fold'])) !== null) {
                 if (! self::overlaps($marks, $found, $mark['length'])) {
                     $marks[] = [
                         'offset' => $found,
                         'length' => $mark['length'],
                         'kind' => $mark['kind'],
                         'surface' => mb_substr($answer, $found, $mark['length']),
+                        'fold' => $mark['fold'],
+                        'entity' => $mark['entity'],
                     ];
                 }
                 $from = $found + $mark['length'];
@@ -102,8 +114,35 @@ final class AnswerSegments
         return $marks;
     }
 
+    public static function caseFoldKey(string $entityType, int|string|null $entityId, string $alias): ?string
+    {
+        return self::foldKey($entityType, $entityId, $alias);
+    }
+
     /**
-     * @param  list<array{offset: int, length: int, kind: string, surface: string}>  $marks
+     * @param  array<string, true>  $caseFold
+     */
+    private static function folds(mixed $entityType, mixed $entityId, string $surface, array $caseFold): bool
+    {
+        $key = self::foldKey($entityType, $entityId, $surface);
+
+        return $key !== null && isset($caseFold[$key]);
+    }
+
+    /**
+     * @return non-empty-string|null
+     */
+    private static function foldKey(mixed $entityType, mixed $entityId, string $surface): ?string
+    {
+        if (! is_string($entityType) || $entityType === '' || ! is_numeric($entityId) || $surface === '') {
+            return null;
+        }
+
+        return $entityType.':'.(int) $entityId.':'.mb_strtolower($surface);
+    }
+
+    /**
+     * @param  list<array{offset: int, length: int}>  $marks
      */
     private static function overlaps(array $marks, int $offset, int $length): bool
     {
@@ -118,26 +157,26 @@ final class AnswerSegments
         return false;
     }
 
-    private static function offset(string $answer, string $surface, mixed $stored): ?int
+    private static function offset(string $answer, string $surface, mixed $stored, bool $fold): ?int
     {
         if (is_int($stored) || (is_string($stored) && is_numeric($stored))) {
             return (int) $stored;
         }
 
-        return self::findBounded($answer, $surface, 0);
+        return self::findBounded($answer, $surface, 0, $fold);
     }
 
     /**
-     * The next case-insensitive copy that stands as its own word, or null.
+     * The next copy that stands as its own word, or null. Case must match unless $fold is set.
      */
-    private static function findBounded(string $answer, string $surface, int $from): ?int
+    private static function findBounded(string $answer, string $surface, int $from, bool $fold): ?int
     {
         $length = mb_strlen($surface);
         if ($length === 0) {
             return null;
         }
 
-        while (($found = mb_stripos($answer, $surface, $from)) !== false) {
+        while (($found = $fold ? mb_stripos($answer, $surface, $from) : mb_strpos($answer, $surface, $from)) !== false) {
             if (self::bounded($answer, $found, $length)) {
                 return $found;
             }
@@ -148,8 +187,9 @@ final class AnswerSegments
     }
 
     /**
-     * Same boundary as {@see EntityMatcher}: no letter or digit on either side.
+     * Same word boundary as {@see EntityMatcher}: no letter or digit on either side.
      * A single trailing possessive s is allowed (Volvos), a longer word is not (Volvoer, pineapple).
+     * Case follows the alias mode and is not part of this boundary check.
      */
     private static function bounded(string $answer, int $offset, int $length): bool
     {

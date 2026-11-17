@@ -196,6 +196,7 @@ class BrandPromptController extends Controller
         $responses = $query->limit(100)->get();
         $labels = DashboardLabels::engines($responses->pluck('engine_key')->unique()->values()->all());
 
+        $caseFold = $this->caseFold($brand);
         $groups = [];
         foreach ($responses as $response) {
             $key = $response->engine_key;
@@ -209,7 +210,7 @@ class BrandPromptController extends Controller
             $groups[$key]['answers'][] = [
                 'id' => $response->id,
                 'collected_at' => $collected instanceof CarbonInterface ? $collected->toIso8601String() : '',
-                'segments' => AnswerSegments::from((string) $response->answer_text, $response->mentions),
+                'segments' => AnswerSegments::from((string) $response->answer_text, $response->mentions, $caseFold),
                 'citations' => $response->citations->map(fn ($citation): array => [
                     'domain' => (string) $citation->domain,
                     'url' => self::httpUrl($citation->url),
@@ -239,6 +240,41 @@ class BrandPromptController extends Controller
             'truncated' => $total > 100,
             'shown' => $responses->count(),
         ]);
+    }
+
+    /**
+     * Later copies of a mention keep the stored spelling, unless that surface is a case_insensitive alias.
+     *
+     * @return array<string, true>
+     */
+    private function caseFold(Brand $brand): array
+    {
+        $brand->loadMissing(['aliases', 'competitors.aliases']);
+        $keys = [];
+
+        foreach ($brand->aliases as $alias) {
+            if ($alias->match_mode !== 'case_insensitive') {
+                continue;
+            }
+            $key = AnswerSegments::caseFoldKey('brand', $brand->id, (string) $alias->alias);
+            if ($key !== null) {
+                $keys[$key] = true;
+            }
+        }
+
+        foreach ($brand->competitors as $competitor) {
+            foreach ($competitor->aliases as $alias) {
+                if ($alias->match_mode !== 'case_insensitive') {
+                    continue;
+                }
+                $key = AnswerSegments::caseFoldKey('competitor', $competitor->id, (string) $alias->alias);
+                if ($key !== null) {
+                    $keys[$key] = true;
+                }
+            }
+        }
+
+        return $keys;
     }
 
     public function raw(Brand $brand, Response $response): HttpResponse
