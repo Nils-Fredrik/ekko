@@ -108,6 +108,21 @@ Claude CLI 2.1.325 ble også testet med syntetiske filer: repo-lesing virket, me
 
 Køen er av som standard. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før `EKKO_MERGE_QUEUE_ENABLED=true`. Utvid først grenbeskyttelsen med `container build` fra App 15368, behold `test`, `agent-review`, strict og administratorhåndheving, og kjør metadataauditen over. Aksepten fra 15.11 beviser bare det opprinnelige oppsettet med to sjekker; den er ikke bevis for den utvidede auditen eller aktiv mergekø.
 
+Sett repo-variabelen `MERGE_QUEUE_BOT_SLUG` til kø-Appens eksakte slug uten `[bot]`, uten miljøoverstyringer. Review tillater denne boten i tillegg til de eksisterende. Køen verifiserer at tokenets App har samme slug før den endrer en PR. Isolert aksept må vise at akkurat denne Appens grenoppdatering starter både CI og Claude-review. Tom slug er tillatt for review før aktivering, men stopper køen.
+
+Før aktivering kjøres også denne separate, lesende auditen av kømiljøet. Den opprinnelige auditen over dekker bare review-miljøet. Manglende miljø, jokertegn, tag-regler og ekstra grener skal feile:
+
+```sh
+gh api repos/Nils-Fredrik/ekko/environments/merge-queue > /tmp/ekko-queue-environment.json
+gh api repos/Nils-Fredrik/ekko/environments/merge-queue/deployment-branch-policies > /tmp/ekko-queue-policies.json
+jq -n --slurpfile environment /tmp/ekko-queue-environment.json \
+  --slurpfile policies /tmp/ekko-queue-policies.json \
+  '{environment: $environment[0], policies: $policies[0]}' \
+  | node scripts/merge-queue/config.mjs audit-environment
+```
+
+Denne auditen må bestå etter at kømiljøet er opprettet; den er ikke del av det historiske review-akseptbeviset.
+
 Actions-workflowen «Merge queue» skriver utfallet og PR-nummeret i kjøringssammendraget. Ved failure/conflict/review rettes PR-en i samme gren. Køen oppdaterer heller ikke røde eller ventende heads. Ved main-failure undersøkes siste CI/deploy før en ny merge. `native-auto-merge-pending` betyr at en PR med GitHubs auto-merge holder køen; også en ukvalifisert PR kan gjøre dette. Rett PR-en eller slå av dens native auto-merge.
 
 Stopp ved å sette `EKKO_MERGE_QUEUE_ENABLED=false`. En pågående GitHub-operasjon kan fullføres. Native auto-merge per PR må eventuelt slås av separat; denne bryteren stopper bare den egne køen. Ukvalifiserte App-boter med NONE/CONTRIBUTOR får ikke unntak fra forfatterkravet, og feilende eller kansellerte sjekker fra andre Apps stopper også køen.

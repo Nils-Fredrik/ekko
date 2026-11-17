@@ -41,6 +41,11 @@ jobs:
                   permission-pull-requests: write
                   permission-checks: read
                   permission-statuses: read
+            - name: Verify queue App is allowed to trigger review
+              run: node scripts/merge-queue/config.mjs verify-token
+              env:
+                  MERGE_QUEUE_BOT_SLUG: ${{ vars.MERGE_QUEUE_BOT_SLUG }}
+                  MERGE_QUEUE_TOKEN_APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
             - name: Reconcile one pull request
               run: node scripts/merge-queue/queue.mjs
               env:
