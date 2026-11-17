@@ -17,8 +17,9 @@ const pr = {
     draft: false,
     mergeable: true,
     changed_files: 1,
-    head: { sha: head },
-    base: { sha: base, ref: 'main' },
+    author_association: 'OWNER',
+    head: { sha: head, repo: { full_name: 'Nils-Fredrik/ekko' } },
+    base: { sha: base, ref: 'main', repo: { full_name: 'Nils-Fredrik/ekko' } },
     merge_commit_sha: merge,
     title: '[Codex] T42 – Review',
     body: 'task:42',
@@ -99,7 +100,7 @@ async function harness(t, overrides = {}) {
         }
         if (url.includes('/reviews?')) return Response.json([]);
         if (options.headers?.accept?.endsWith('.diff')) {
-            if (state.mutateAfterDiff) state.pr = { ...pr, head: { sha: 'd'.repeat(40) } };
+            if (state.mutateAfterDiff) state.pr = { ...pr, head: { ...pr.head, sha: 'd'.repeat(40) } };
             return new Response(state.diff);
         }
         return Response.json(state.pulls?.length ? state.pulls.shift() : state.pr);
@@ -462,7 +463,7 @@ test('an obsolete execution cannot replace a newer pending, success or failure o
 test('a pushed head stops the old gate and prepare without touching any status or review record', async (t) => {
     for (const command of ['gate', 'prepare']) {
         const h = await harness(t);
-        h.state.pr = { ...pr, head: { sha: 'd'.repeat(40) } };
+        h.state.pr = { ...pr, head: { ...pr.head, sha: 'd'.repeat(40) } };
         await h.run(command);
         assert.ok(!h.calls.some((call) => call.options.method === 'POST'));
     }

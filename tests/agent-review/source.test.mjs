@@ -14,7 +14,7 @@ function fixture() {
         GH_TOKEN: 'test-token',
     };
     const workflow = { id: 90, path: '.github/workflows/agent-review.yml' };
-    const source = { number: 42, base: { ref: 'main', sha: base, repo }, head: { sha: head } };
+    const source = { number: 42, base: { ref: 'main', sha: base, repo }, head: { sha: head, repo } };
     const run = {
         id: 50,
         run_attempt: 1,
@@ -27,7 +27,7 @@ function fixture() {
         head_sha: head,
         pull_requests: [source],
     };
-    const pr = { ...structuredClone(source), state: 'open', draft: false };
+    const pr = { ...structuredClone(source), state: 'open', draft: false, author_association: 'OWNER' };
     const calls = [];
     const request = async (url, options) => {
         calls.push({ url, options });
@@ -171,4 +171,15 @@ test('invalid workflow context fails before making any API request', async () =>
         await assert.rejects(f.check());
         assert.equal(f.calls.length, 0);
     }
+});
+
+test('fork and untrusted-author requests stop before review credentials are minted', async () => {
+    for (const association of ['NONE', 'FIRST_TIMER', 'CONTRIBUTOR', undefined]) {
+        const f = fixture();
+        f.pr.author_association = association;
+        await assert.rejects(f.check, /not trusted/);
+    }
+    const f = fixture();
+    f.pr.head.repo = { id: 456, full_name: 'attacker/ekko' };
+    await assert.rejects(f.check, /not trusted/);
 });

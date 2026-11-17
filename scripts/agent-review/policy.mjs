@@ -110,3 +110,11 @@ export function reviewRounds(comments, actorId) {
         reported: failures.some((round) => round.blocker_sent === true),
     };
 }
+
+export function trustedPullRequest(pr, repository) {
+    return (
+        ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(pr.author_association) &&
+        pr.head?.repo?.full_name === repository &&
+        pr.base?.repo?.full_name === repository
+    );
+}

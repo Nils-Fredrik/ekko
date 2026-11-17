@@ -1,5 +1,12 @@
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
-import { codexReviewState, requiredReviewers, sameSnapshot, claudeVerdict, reviewRounds } from './policy.mjs';
+import {
+    codexReviewState,
+    requiredReviewers,
+    sameSnapshot,
+    claudeVerdict,
+    reviewRounds,
+    trustedPullRequest,
+} from './policy.mjs';
 import { postReviewBlocker } from './board.mjs';
 import { claudeBody } from './claude-comment.mjs';
 import { pathToFileURL } from 'node:url';
@@ -64,6 +71,7 @@ export async function runReview(
             await sleep(5000);
         }
         if (
+            !trustedPullRequest(pr, repo) ||
             pr.state !== 'open' ||
             pr.base.ref !== 'main' ||
             pr.draft ||

@@ -52,16 +52,16 @@ jobs:
             DB_TEST_DATABASE: ekko_testing
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-            - uses: shivammathur/setup-php@v2
+            - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
               with:
                   php-version: '8.4'
                   extensions: pdo_pgsql, pgsql, intl, bcmath, mbstring
                   coverage: none
                   tools: composer:v2
 
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
               with:
                   node-version: '24'
                   cache: npm
@@ -71,7 +71,7 @@ jobs:
               run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
             - name: Cache Composer packages
-              uses: actions/cache@v4
+              uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
               with:
                   path: ${{ steps.composer-cache.outputs.dir }}
                   key: composer-${{ runner.os }}-php8.4-${{ hashFiles('composer.lock') }}
@@ -122,11 +122,11 @@ jobs:
         outputs:
             artifact-id: ${{ steps.images.outputs.artifact-id }}
         steps:
-            - uses: actions/checkout@v4
-            - uses: docker/setup-buildx-action@v3
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+            - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
             - name: Create local-only context fixtures
               run: bash tests/deploy/test-docker-context.sh prepare
-            - uses: docker/build-push-action@v6
+            - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
               with:
                   context: .
                   target: web
@@ -135,7 +135,7 @@ jobs:
                   tags: ekko-context-check:ci
             - name: Verify runtime image excludes local state
               run: bash tests/deploy/test-docker-context.sh verify
-            - uses: docker/build-push-action@v6
+            - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
               with:
                   context: .
                   target: jobs
@@ -146,7 +146,7 @@ jobs:
               env:
                   IMAGE: ekko-jobs-check:ci
               run: bash tests/deploy/test-docker-context.sh verify
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
               with:
                   node-version: '24'
                   cache: npm
@@ -163,7 +163,7 @@ jobs:
                   sha256sum images.tar.gz > images.sha256
             - name: Preserve verified images for this run
               id: images
-              uses: actions/upload-artifact@v4
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
               with:
                   name: verified-images-${{ github.run_id }}-${{ github.run_attempt }}
                   path: ${{ runner.temp }}/verified-images/
@@ -171,7 +171,7 @@ jobs:
                   compression-level: 0
                   if-no-files-found: error
             - name: Download archive to verify transfer before deployment
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
               with:
                   artifact-ids: ${{ steps.images.outputs.artifact-id }}
                   path: ${{ runner.temp }}/restored-images
@@ -206,22 +206,22 @@ jobs:
             JOB_TAG: europe-west1-docker.pkg.dev/ekko-514612/ekko/jobs:${{ github.sha }}
             REVISION_SUFFIX: r${{ github.run_id }}-${{ github.run_attempt }}
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
             - id: auth
-              uses: google-github-actions/auth@v2
+              uses: google-github-actions/auth@c200f3691d83b41bf9bbd8638997a462592937ed # v2
               with:
                   workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
                   service_account: ekko-ci@ekko-514612.iam.gserviceaccount.com
-            - uses: actions/setup-node@v4
+            - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
               with:
                   node-version: '24'
                   cache: npm
             - run: npm ci --no-audit --no-fund
             - run: npx playwright install --with-deps chromium
-            - uses: google-github-actions/setup-gcloud@v2
+            - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
             - run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
             - name: Download this run's verified images
-              uses: actions/download-artifact@v4
+              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
               with:
                   artifact-ids: ${{ needs.image.outputs.artifact-id }}
                   path: ${{ runner.temp }}/verified-images
