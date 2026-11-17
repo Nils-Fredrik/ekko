@@ -24,10 +24,14 @@ ever contain a secret value.
    Cloud SQL administrative privileges. `ekko_migrate` is the distinct
    privileged migration role required by the RLS design. Verify role attributes
    and grants against the isolation requirements before using the system.
-   The web identity can read the admin password solely for logged platform-admin
-   operations (T05); compromise of the web identity therefore also exposes that
-   credential. The exact BYPASSRLS setup on Cloud SQL must be verified before
-   release.
+   In this configuration only the migrate identity can read the privileged database password. The web
+   service is configured to receive only the regular database login and has no Secret Manager
+   grant for the migration password or DB_ADMIN_* environment variables.
+   Platform administration uses the normal RLS connection today. If a future
+   operation needs BYPASSRLS, design a separately audited execution path with a
+   dedicated role without table ownership or DDL rights; never reuse the migration
+   credentials in web. The exact migration-role setup on Cloud SQL must still be
+   verified before release.
    Repeat these checks after recovery or role rotation: both logins work;
    `ekko_app` has no superuser, CREATEDB, CREATEROLE, replication, BYPASSRLS or
    role memberships; `ekko_migrate` has BYPASSRLS, schema CREATE/USAGE and
