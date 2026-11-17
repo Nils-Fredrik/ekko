@@ -11,7 +11,9 @@ use App\Onboarding\AnalysisStore;
 use App\Onboarding\FirstRun;
 use App\Onboarding\ProposalConfirmer;
 use App\Scheduling\CloudRunAccessToken;
+use App\Scheduling\Dispatcher;
 use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -133,4 +135,31 @@ test('BYOK collection can run with an exhausted platform budget', function () {
     TenantApiKey::query()->create(['provider' => 'openai', 'key' => 'synthetic-key', 'last_verified_at' => now()]);
     $result = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
     expect($result['runs'])->toBe(1)->and(DB::table('jobs')->count())->toBe(1);
+});
+
+test('the first batch includes due standard prompts and the dispatcher does not duplicate them', function () {
+    [$tenant, , $analysis, $data] = confirmationFixture();
+    $tenant->plan->update(['max_frequency' => 'daily']);
+    $data['engines'][0]['frequency'] = 'daily';
+    $data['prompts'][] = array_replace($data['prompts'][0], ['text' => 'Which shoes last longest?', 'priority' => 'standard']);
+    $saved = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
+    expect($saved['runs'])->toBe(2);
+    $dispatcher = app(Dispatcher::class);
+    expect($dispatcher->dispatch(CarbonImmutable::now('UTC')))->toBe(0);
+    inTenant($tenant, fn () => expect(Run::query()->count())->toBe(2));
+    expect(DB::table('jobs')->count())->toBe(2);
+});
+
+test('the wizard page rejects readers and editors', function (string $role) {
+    [, $user] = wizardTenant(role: $role);
+    $this->actingAs($user)->get(route('onboarding.wizard'))->assertForbidden();
+})->with(['reader', 'editor']);
+
+test('an unpriced engine returns a recoverable validation error without saving the proposal', function () {
+    [$tenant, $owner, $analysis, $data] = confirmationFixture();
+    EnginePrice::query()->where('engine_key', $data['engines'][0]['engine_key'])->delete();
+    $this->actingAs($owner)->postJson(route('onboarding.analyses.confirm', $analysis->id), $data)
+        ->assertUnprocessable()->assertJsonValidationErrors('engines.0.engine_key');
+    expect(Brand::query()->count())->toBe(0)->and(Run::query()->count())->toBe(0)
+        ->and(app(AnalysisStore::class)->find($tenant->id, $analysis->id)->status)->toBe(Analysis::READY);
 });

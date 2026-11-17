@@ -18,7 +18,7 @@ use Tests\Support\Onboarding\OnboardingFakes;
 
 require_once __DIR__.'/../../Support/Onboarding/helpers.php';
 
-it('saves a confirmed proposal and queues one run per core prompt', function () {
+it('saves a confirmed proposal and queues core plus due standard prompts', function () {
     $engine = Engine::factory()->create(['is_enabled' => true]);
     EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subDay(), 'price_per_call_usd' => '0.01000000']);
     $plan = Plan::factory()->create([
@@ -68,7 +68,7 @@ it('saves a confirmed proposal and queues one run per core prompt', function () 
             ->and($market->country)->toBe('NO')
             ->and($market->language)->toBe('nb')
             ->and($market->marketEngines()->where('engine_key', $engine->key)->value('frequency'))->toBe('daily')
-            ->and(Run::query()->whereIn('prompt_id', Prompt::query()->where('market_id', $market->id)->pluck('id'))->count())->toBe($core)
+            ->and(Run::query()->whereIn('prompt_id', Prompt::query()->where('market_id', $market->id)->pluck('id'))->count())->toBe(Prompt::query()->where('market_id', $market->id)->count())
             ->and($core)->toBeGreaterThan(0);
     });
 

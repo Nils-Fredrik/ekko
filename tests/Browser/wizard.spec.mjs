@@ -29,9 +29,13 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     const topics = page.getByRole('heading', { name: 'Topics', exact: true }).locator('..');
     const topicCount = await topics.locator('input').count();
     await page.getByRole('button', { name: 'Add topic', exact: true }).click();
-    await expect(topics.locator('input')).toHaveCount(topicCount + 1);
-    await topics.getByRole('button', { name: 'Remove', exact: true }).last().click();
-    await expect(topics.locator('input')).toHaveCount(topicCount);
+    await topics.locator('input').last().fill('Trail running');
+    await page.getByRole('button', { name: 'Add topic', exact: true }).click();
+    await topics.locator('input').last().fill('Road running');
+    await topics.getByRole('button', { name: 'Remove', exact: true }).nth(topicCount).click();
+    await page.getByRole('button', { name: 'Add topic', exact: true }).click();
+    await topics.locator('input').last().fill('Walking');
+    await expect(topics.locator('input')).toHaveCount(topicCount + 2);
 
     await page.getByRole('button', { name: 'Next' }).click();
     await expect(page.getByText(/USD/)).toBeVisible();
@@ -54,7 +58,7 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         }),
     );
     expect(saved.core).toBeGreaterThan(0);
-    expect(saved.queued).toBe(saved.core);
-    expect(saved.jobs).toBe(saved.core);
+    expect(saved.queued).toBe(saved.due);
+    expect(saved.jobs).toBe(saved.due);
     expect(saved.competitors).toBe(3);
 });
