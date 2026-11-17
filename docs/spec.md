@@ -194,7 +194,7 @@ CREATE POLICY tenant_isolation ON brands
 
 Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og hver jobb settes `app.tenant_ids` til tenantene brukeren eller jobben har lov til å se. For en partner er det egen tenant pluss kunde-tenantene. `ApplyTenantRls` setter tilgangen med `SET LOCAL` i en databasetransaksjon. Motorinnsamleren bruker den samme transaksjonshjelperen i hver databasefase.
 
-Plattformadmin-operasjoner og migreringer bruker en egen databaserolle med `BYPASSRLS`. Den brukes kun av jobben `ekko-migrate` og av eksplisitte admin-handlinger som logges.
+Migreringer bruker en egen databaserolle med `BYPASSRLS`, kun tilgjengelig for jobben `ekko-migrate`. Web-tjenesten bruker den vanlige RLS-rollen også for dagens plattformadmin-handlinger og får verken migreringspassordet, Secret Manager-lesetilgang til det eller `DB_ADMIN_*`-variabler. Hvis en senere admin-handling krever `BYPASSRLS`, må den få en separat rolle uten tabelleierskap eller DDL-rettigheter i en eksplisitt, logget kjørevei; migreringslegitimasjonen skal ikke tilbake til web (T39-F1).
 
 Innloggingsrollen sjekkes ved oppstart i produksjon (T39-F2, `App\Tenancy\Rls\DatabaseRoleCheck`). Kode utenfor `TenantRls::run()` kjører som innloggingsrollen, så en feil `DB_USERNAME` ville ellers latt RLS stoppe ingenting uten at noen merket det. Rollen er usikker hvis minst ett av disse gjelder:
 - Den er superbruker eller har `BYPASSRLS`, `CREATEROLE` eller `CREATEDB`.
@@ -1219,7 +1219,7 @@ Migreringer, modeller, fabrikker og seedere for 6.2–6.5. Seedere lager demodat
 - `php artisan migrate:fresh --seed` gir et brukbart demomiljø.
 
 ### T09 – Terraform
-Ressursene i 3.1 i prosjektet `ekko-514612`, med egne tjenestekontoer per komponent (web, jobber, Scheduler, CI) og IAM med minste privilegium. SQL-innlogginger og hemmelighetsversjoner opprettes utenfor Terraform, mens instans, database og hemmelighetsbeholdere forvaltes i Terraform (ADR 0007). SQL-rollen `ekko_app` og administrativ `BYPASSRLS` må verifiseres før produksjon.
+Ressursene i 3.1 i prosjektet `ekko-514612`, med egne tjenestekontoer per komponent (web, jobber, Scheduler, CI) og IAM med minste privilegium. SQL-innlogginger og hemmelighetsversjoner opprettes utenfor Terraform, mens instans, database og hemmelighetsbeholdere forvaltes i Terraform (ADR 0007). SQL-rollen `ekko_app` og migreringsrollens `BYPASSRLS` må verifiseres før produksjon.
 - `terraform plan` er rent etter `apply`.
 - Ingen nøkler i state utover referanser til Secret Manager.
 
