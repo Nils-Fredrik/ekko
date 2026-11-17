@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Api\TokenTenant;
+use App\Logging\LogContext;
 use App\Models\Team;
 use App\Models\User;
 use App\Tenancy\Rls\TenantRls;
@@ -23,6 +24,7 @@ final class ApiTokenContext
         $context->forget();
         $access->flush();
         $user = $request->user();
+        app(LogContext::class)->share(['user_id' => $user instanceof User ? $user->id : null]);
         $token = $user instanceof User ? $user->currentAccessToken() : null;
         abort_unless($token instanceof PersonalAccessToken, 403);
         $id = TokenTenant::id($token);

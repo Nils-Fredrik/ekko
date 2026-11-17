@@ -847,7 +847,9 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 
 **Sporbarhet:**
 - **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler. Det gjelder også sendte og kansellerte invitasjoner (rolle og hvem), opprettelse, nytt navn og stenging av tenant, og opprettelse, endring og sletting av API-tokens. E-postadresser og tokenverdier logges ikke (T39-F6).
-- **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke.
+- **Logging (T39-F7):** strukturert JSON til Cloud Logging via `stderr`, med `severity`, `time` og `context.tenant_id`, `context.user_id` og `context.run_id`. Produksjon bruker `LOG_LEVEL=info`. Bare interne ID-er deles; ukjente ID-er er `null`. HTTP-kontekst ryddes mellom forespørsler, og tenantjobber får egen tenant/run og ingen arvet bruker. Nestede scopes gjenoppretter tidligere kontekst, også ved feil.
+  - `report()` logger feiltype, fil, linje og stackens kodesteder, aldri rå unntaksmelding, SQL/bindings, e-postinnhold, leverandørsvar, custom exception-context eller stackargumenter. Samme regel gjelder innpakkede unntak. Feil beholder ID-konteksten fra innerste scope selv om de rapporteres etter opprydding.
+  - Containerens `zend.exception_ignore_args=On` fjerner stackargumenter. Artisan skriver bare en fast feilmelding ved ubehandlede produksjonsfeil; den vaskede JSON-posten gir kodestedene. Vanlige loggmeldinger må fortsatt være statiske med eksplisitt trygge metadata: ingen prompts, svar, nøkler eller personopplysninger. Se ADR 0025.
 
 **Nettlesersikkerhet og Claude-tilkoblingen (T39-F5):**
 - **Innramming:** ingen side kan vises i en ramme på et annet nettsted (`X-Frame-Options: DENY` og `frame-ancestors 'none'` på alle svar). Dette gjelder særlig samtykkesiden `/oauth/authorize`.
@@ -1098,7 +1100,7 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 
 **Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre runder med ulike head-SHA-er uten godkjenning postes en `blocker` på Board, og eieren avgjør. Omkjøring av samme kode teller ikke som en ny runde; en godkjenning nullstiller tellingen (ADR 0022).
 
-**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test` og `container build`), grønn `agent-review` og oppdatert base før merge. Mergekøen oppdaterer og merger én ferdigmeldt PR om gangen når den er aktivert (ADR 0025). Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
+**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test` og `container build`), grønn `agent-review` og oppdatert base før merge. Mergekøen oppdaterer og merger én ferdigmeldt PR om gangen når den er aktivert (ADR 0026). Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
 
 **Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
 
@@ -1175,13 +1177,13 @@ Rekkefølgen styres kun av avhengighetene. Alle pakker uten uoppfylte avhengighe
 | T33 | REST-API v1 | Codex / GPT-6.1 Sol | T21, T05 |
 | T34 | MCP-server | Claude Code / Opus 5.5 | T21, T05 |
 | T35 | Partneroversikt | Cursor / Grok 4.7 | T26, T05 |
-| T36 | Overvåking og runbook | Codex / GPT-6.1 Terra | T10 |
+| T36 | Overvåking og runbook | Codex / GPT-6.1 Terra | T10, T39-F7 |
 | T37 | Ytelsestest | Codex / GPT-6.1 Terra | T21, T26 |
 | T38 | Språkfiler `sv` og `en` | Cursor / Grok 4.7 | T26–T30, T35 |
 | T39 | Sikkerhetsgjennomgang | Claude Code / Opus 5.5 | T06, T07, T25, T33, T34 |
 | T40 | Ende-til-ende i produksjon | Claude Code / Opus 5.5 og eier | alle |
 | T41 | Kredittstyrt planlegging for Anthropic | Codex / GPT-6.1 Sol | T17, T19, T20 |
-| T42 | Kryssreview i GitHub | Codex / GPT-6.1 Terra | T01 |
+| T42 | Kryssreview i GitHub og automatisk mergekø | Codex / GPT-6.1 Terra | T01 |
 
 ### T01 – Repo og fundament
 Laravel med Jetstream (Inertia/Vue, team og API på), Tailwind v4, Pest, Pint, Larastan, ESLint, Ziggy og `laravel-vue-i18n` med samme versjoner og struktur som Varde. Opprett `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/ekko.mdc`, `docs/spec.md`, `docs/decisions/`, PR-mal og `scripts/agent-setup.sh` (19.6).
@@ -1326,7 +1328,7 @@ Endepunktene i 15.1 med ressurser, paginering og rate limit, samt OpenAPI-beskri
 - Viser kun tilknyttede tenants (isolasjonstest).
 
 ### T36 – Overvåking og runbook
-Varslingspolicyer i 17.4 (Terraform), `docs/runbook.md` med drift, feilsøking, gjenoppretting og nøkkelrotasjon, samt gjennomført gjenopprettingstest mot en midlertidig instans.
+Varslingspolicyer i 17.4 (Terraform), `docs/runbook.md` med drift, feilsøking, gjenoppretting og nøkkelrotasjon, samt gjennomført gjenopprettingstest mot en midlertidig instans. Avhenger også av T39-F7 (strukturert logging og vasking av unntak, Board task:56).
 
 ### T37 – Ytelsestest
 Syntetisk datasett (ett år, 100 prompts, 6 motorer, 3 gjentakelser) og måling av dashboard og API.
@@ -1357,6 +1359,17 @@ Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-pa
 - En testPR merket `[Codex]` får review fra Claude, og en merket `[Claude Code]` får review fra Codex.
 - En testPR som endrer en følsom sti får review fra begge.
 - `main` kan ikke merges uten grønn CI og grønn `agent-review`.
+
+#### T42 – Automatisk mergekø (utvidelse, Board task:61)
+
+Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Codex] T42 – Automatisk mergekø» følges i task:61 (Board #565 og #580). Den endrer eierstyrt merge til en eksplisitt aktivert, betrodd kø etter ADR 0026. Eieren har også autorisert native auto-merge av PR #68; det aktiverer ikke den generelle køen.
+
+- Køen er av som standard og kjører bare betrodd main med en separat App og et main-avgrenset miljø; ingen bypass av grenbeskyttelsen.
+- Bare betrodde, ferdigmeldte PR-er fra samme repo med agenttittel vurderes. Høyst én baseoppdatering eller merge per kjøring, eldste først, med forrang til native auto-merge.
+- Ingen baseoppdatering ved feilende eller ventende kontroller på head. Siste test/container build og agent-review må være grønne; kontrollene gjentas før oppdatering. Ingen nye reviewrunder på urettet feilende kode.
+- Før merge kreves oppdatert base, autentisk reviewkvittering for head og base, kildebundne påkrevde test/container build/agent-review og ny kontroll av SHA-er og tittel. Konflikt, manglende data og samtidige endringer blokkerer.
+- Gjeldende main må ha vellykket CI og deploy før neste endring. Native auto-merge går uavhengig av køen; stoppknappen påvirker ikke allerede aktiverte native auto-merges.
+- Før generell aktivering: verifiser App-/miljøsperre, to parallelle PR-er, ny head/base, konflikt, rød CI/review, native auto-merge og at merge utløser CI og syntetisk deploy i et isolert testrepo. Dokumenter bevis på task:61; kode-merge alene lukker ikke aktiveringsaksepten.
 
 ---
 

@@ -5,6 +5,7 @@ RUN install-php-extensions pdo_pgsql intl bcmath zip pcntl opcache \
     && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
     && a2enmod rewrite headers \
     && sed -i 's/^Listen 80$/Listen 8080/' /etc/apache2/ports.conf
+COPY docker/logging.ini /usr/local/etc/php/conf.d/zz-logging.ini
 COPY docker/apache.conf /etc/apache2/sites-available/000-default.conf
 WORKDIR /var/www/html
 

@@ -266,3 +266,47 @@ test('GitHub client fails closed on errors without revealing its token', async (
     );
     assert.throws(() => githubClient(''), /Missing/);
 });
+
+test('never updates a behind head with failed or pending checks, including native auto-merge', async () => {
+    for (const native of [false, true]) {
+        for (const name of ['test', 'container build', 'agent-review']) {
+            for (const state of ['failure', 'pending']) {
+                const pr = { ...pull(), mergeable_state: 'behind', ...(native ? { auto_merge: {} } : {}) };
+                const checkRuns = checks();
+                const statusList = statuses();
+                if (name === 'agent-review') statusList[0].state = state;
+                else {
+                    const check = checkRuns.find((r) => r.name === name);
+                    check.status = state === 'pending' ? 'in_progress' : 'completed';
+                    check.conclusion = state === 'pending' ? null : 'failure';
+                }
+                const c = client({ pr, checkRuns, statusList });
+                assert.equal((await reconcile(c, authors)).action, state);
+                assert.deepEqual(mutations(c), []);
+            }
+        }
+    }
+});
+
+test('a pending check does not conceal a failed review', () => {
+    const runs = [...checks(), { id: 5, name: 'unrelated', app: { id: 42 }, status: 'in_progress' }];
+    assert.equal(checkHealth(runs, [{ context: 'agent-review', state: 'failure' }]), 'failure');
+});
+
+test('rechecks health before updating a behind PR when a rerun changes the same head', async () => {
+    const c = client({ pr: { ...pull(), mergeable_state: 'behind' } });
+    const api = c.api;
+    let reads = 0;
+    c.api = async (path, options) => {
+        if (path.includes('/check-runs') && ++reads > 1) {
+            const runs = [
+                ...checks(),
+                { id: 9, name: 'test', app: { id: 15368 }, status: 'completed', conclusion: 'failure' },
+            ];
+            return { total_count: runs.length, check_runs: runs };
+        }
+        return api(path, options);
+    };
+    assert.equal((await reconcile(c, authors)).action, 'failure');
+    assert.deepEqual(mutations(c), []);
+});

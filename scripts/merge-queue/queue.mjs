@@ -47,14 +47,17 @@ export function checkHealth(runs, statuses) {
         const key = `${run.app?.id}:${run.name}`;
         if (!latest.has(key) || latest.get(key).id < run.id) latest.set(key, run);
     }
+    // A pending unrelated check must not conceal an already failed review or test.
     for (const check of latest.values()) {
-        if (check.status !== 'completed') return 'pending';
-        if (!['success', 'skipped', 'neutral'].includes(check.conclusion)) return 'failure';
+        if (check.status === 'completed' && !['success', 'skipped', 'neutral'].includes(check.conclusion))
+            return 'failure';
     }
-    for (const status of statuses) {
-        if (status.state === 'pending') return 'pending';
-        if (status.state !== 'success') return 'failure';
-    }
+    if (statuses.some((status) => !['success', 'pending'].includes(status.state))) return 'failure';
+    if (
+        [...latest.values()].some((check) => check.status !== 'completed') ||
+        statuses.some((s) => s.state === 'pending')
+    )
+        return 'pending';
     for (const name of ['test', 'container build']) {
         const check = runs
             .filter((r) => r.name === name && r.app?.id === ACTIONS_APP_ID)
@@ -164,6 +167,14 @@ export async function reconcile(client, allowedAuthors) {
             return { action: 'retry', number: item.number };
         if (pr.mergeable === null || pr.mergeable_state === 'unknown') return { action: 'wait', number: pr.number };
         if (pr.mergeable === false || pr.mergeable_state === 'dirty') return { action: 'conflict', number: pr.number };
+        const [checks, combined] = await Promise.all([
+            client.api(`/commits/${pr.head.sha}/check-runs?per_page=100`),
+            client.api(`/commits/${pr.head.sha}/status?per_page=100`),
+        ]);
+        if (!Array.isArray(checks?.check_runs) || checks.total_count > 100 || !Array.isArray(combined?.statuses))
+            throw new Error('Incomplete check data');
+        const health = checkHealth(checks.check_runs, combined.statuses);
+        if (health !== 'success') return { action: health, number: pr.number };
         if (pr.mergeable_state === 'behind' || pr.base.sha !== base) {
             const [current, again, open] = await Promise.all([
                 client.api('/branches/main'),
@@ -180,6 +191,18 @@ export async function reconcile(client, allowedAuthors) {
                 again.title !== pr.title
             )
                 return { action: 'retry', number: pr.number };
+            const [freshChecks, freshStatus] = await Promise.all([
+                client.api(`/commits/${pr.head.sha}/check-runs?per_page=100`),
+                client.api(`/commits/${pr.head.sha}/status?per_page=100`),
+            ]);
+            if (
+                !Array.isArray(freshChecks?.check_runs) ||
+                freshChecks.total_count > 100 ||
+                !Array.isArray(freshStatus?.statuses)
+            )
+                throw new Error('Incomplete check data');
+            const freshHealth = checkHealth(freshChecks.check_runs, freshStatus.statuses);
+            if (freshHealth !== 'success') return { action: freshHealth, number: pr.number };
             await client.api(`/pulls/${pr.number}/update-branch`, {
                 method: 'PUT',
                 body: { expected_head_sha: pr.head.sha },
@@ -187,14 +210,6 @@ export async function reconcile(client, allowedAuthors) {
             return { action: 'updated', number: pr.number };
         }
         if (native.length) return { action: 'native-auto-merge-pending', number: pr.number };
-        const [checks, combined] = await Promise.all([
-            client.api(`/commits/${pr.head.sha}/check-runs?per_page=100`),
-            client.api(`/commits/${pr.head.sha}/status?per_page=100`),
-        ]);
-        if (!Array.isArray(checks?.check_runs) || checks.total_count > 100 || !Array.isArray(combined?.statuses))
-            throw new Error('Incomplete check data');
-        const health = checkHealth(checks.check_runs, combined.statuses);
-        if (health !== 'success') return { action: health, number: pr.number };
         const comments = await client.pages(`/issues/${pr.number}/comments`);
         if (!reviewedForSnapshot(comments, combined.statuses, pr.head.sha, base))
             return { action: 'review', number: pr.number };
