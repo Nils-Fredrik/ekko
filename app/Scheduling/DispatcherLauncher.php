@@ -21,7 +21,7 @@ final class DispatcherLauncher
             throw new RuntimeException('invalid_cloud_run_configuration');
         }
 
-        return CollectionLocks::make('ekko:wake-launch', 120)->block(1, function () use ($project, $region): bool {
+        return CollectionLocks::make('ekko:wake-launch', 180)->block(1, function () use ($project, $region): bool {
             $url = "https://run.googleapis.com/v2/projects/{$project}/locations/{$region}/jobs/ekko-wake";
             $client = Http::withToken($this->tokens->get())->acceptJson()->withoutRedirecting()->timeout(30);
             $deadline = microtime(true) + 90;

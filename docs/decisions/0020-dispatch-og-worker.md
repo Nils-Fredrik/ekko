@@ -19,7 +19,7 @@ Dispatch må tåle gjentatte Scheduler-kall. Flere worker-prosesser må dele kvo
 - `/internal/tick/extraction-poll` har ingen sesjonsautentisering. Kun Google-signert OIDC med riktig issuer, audience, utløp og verifisert Scheduler-konto slipper gjennom. Ruteregisterets `service`-klasse dekkes av signatur- og avvisningstester.
 - Worker-start undersøker alle sider av Cloud Run-kjøringer under felles lås. Aktiv kjøring hindrer ny start. Antall tasks er `min(8, ceil(tilgjengelige jobber / 2000))`. `run.executions.list` gis kun på worker-jobben i tillegg til eksisterende executor-rettighet.
 
-- Feil isoleres per tenant og per køinnsetting. Gyldige jobber startes selv om andre feiler; kommandoen returnerer feilkode og pollruten 503 etter at worker er startet. Loggen inneholder tenant-/run-ID og feilklasse, ikke potensielt sensitive unntakstekster.
+- Feil isoleres per tenant og per køinnsetting. Gyldige jobber startes selv om andre feiler; kommandoen returnerer feilkode. Etter ADR 0030 bekrefter pollruten bare oppstart av den faste poll-dispatcheren (503 ved oppstartsfeil); senere feil varsles som Cloud Run-jobbfeil. Loggen inneholder tenant-/run-ID og feilklasse, ikke potensielt sensitive unntakstekster.
 - `CollectEngineRun` er det eksplisitte unntaket fra `TenantJob` sin ytre `ApplyTenantRls`-transaksjon (ADR 0005). Den arver fortsatt `TenantJob` og setter tenantkontekst; hvert databaseavsnitt i jobb og collector bruker egen `TenantRls::run`. Nettverkskallet skjer mellom transaksjonene for å unngå langvarige tenantlåser. Dette mønsteret skal ikke kopieres til vanlige jobber.
 
 ## Konsekvenser og begrensninger

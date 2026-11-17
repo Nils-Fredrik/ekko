@@ -19,7 +19,8 @@ ukryptert direkte tilkobling dersom nettverksadgang senere ble gitt.
 - Veiviserens bekreftelse og analyse starter denne jobben etter commit.
   `extraction-poll` starter samme jobb, også når køen ennå er tom: polling kan
   opprette nytt arbeid. Ingen av disse inngangene starter ny dagsplanlegging.
-- Oppstart serialiseres med egen databaselås, og aktive eksekveringer kontrolleres
+- Oppstart serialiseres med egen databaselås på 180 sekunder, med margin for
+  tokenhenting, listefrist og siste API-kall. Aktive eksekveringer kontrolleres
   med paginering. En aktiv jobb gir ingen ny oppstart. Feil ved oppstart fra
   Scheduler gir HTTP 503; senere jobbfeil overvåkes av T36.
 - Cloud SQL beholder offentlig IPv4 for de eksisterende connectorene, uten
