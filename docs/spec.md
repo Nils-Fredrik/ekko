@@ -1347,7 +1347,7 @@ Syntetisk datasett (ett år, 100 prompts, 6 motorer, 3 gjentakelser) og måling 
 
 ### T38 – Språkfiler
 Komplette `sv`- og `en`-filer.
-- Ingen manglende nøkler (automatisk kontroll i CI).
+- Ingen manglende nøkler (automatisk kontroll i CI). `tests/Unit/LanguageFilesTest.php` krever samme filer, nøkler og plassholdere i `nb`, `sv` og `en`, og at nøkler brukt i PHP-koden finnes i alle tre. `tests/Unit/TranslationCoverageTest.php` gjør det samme for frontend (T38-F1).
 
 ### T39 – Sikkerhetsgjennomgang
 Gjennomgang av isolasjon, RLS, roller, innlogging, egne API-nøkler, SSRF, MCP-tilganger, hemmeligheter og logger.

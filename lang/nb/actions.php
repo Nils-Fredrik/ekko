@@ -60,7 +60,7 @@ return [
         'choose' => 'Velg :name',
         'create' => 'Lag :name',
         'delete' => 'Slett :name',
-        'duplicate' => 'Duplikat: navn',
+        'duplicate' => 'Duplikat av :name',
         'edit' => 'Rediger :name',
         'export' => 'Eksporter :name',
         'hide' => 'Skjul :name',
