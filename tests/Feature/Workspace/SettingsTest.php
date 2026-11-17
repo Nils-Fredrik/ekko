@@ -230,14 +230,14 @@ test('alerts can be acknowledged and a rule rejects an invalid threshold', funct
 
 test('report schedules validate recipients and downloads stay inside the tenant prefix', function () {
     $world = MetricsWorld::create();
-    Storage::fake('local');
+    Storage::fake(config()->string('ekko.reports.disk'));
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
     $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id]);
     $report = Report::factory()->create(['report_schedule_id' => $schedule->id]);
     $path = 'reports/'.$world->tenant->id.'/'.$report->id.'.pdf';
     $report->forceFill(['pdf_uri' => $path])->save();
-    Storage::disk('local')->put($path, "%PDF-1.4\nreport");
+    Storage::disk(config()->string('ekko.reports.disk'))->put($path, "%PDF-1.4\nreport");
 
     $this->actingAs($owner)->get(route('reports.index'))->assertOk()->assertInertia(fn ($page) => $page
         ->where('reportLocales.0', 'nb')
@@ -251,6 +251,15 @@ test('report schedules validate recipients and downloads stay inside the tenant 
             'locale' => 'nb',
             'branding' => 'tenant',
         ])->assertRedirect()->assertSessionHasErrors('recipients.1');
+
+    $this->actingAs($owner)
+        ->from(route('reports.index'))
+        ->put(route('reports.schedules.update', $schedule), [
+            'cadence' => 'daily',
+            'recipients' => ['owner@example.test'],
+            'locale' => 'xx',
+            'branding' => 'other',
+        ])->assertRedirect()->assertSessionHasErrors(['cadence', 'locale', 'branding']);
 
     $this->actingAs($owner)->put(route('reports.schedules.update', $schedule), [
         'cadence' => 'monthly',

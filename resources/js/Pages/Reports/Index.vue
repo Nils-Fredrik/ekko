@@ -99,6 +99,7 @@ function add() {
                         <option value="weekly">{{ $t('app.workspace.cadence_weekly') }}</option>
                         <option value="monthly">{{ $t('app.workspace.cadence_monthly') }}</option>
                     </select>
+                    <InputError :message="row.form.errors.cadence" />
                     <label class="text-sm">
                         {{ $t('app.workspace.recipients') }}
                         <textarea
@@ -114,10 +115,12 @@ function add() {
                     <select v-model="row.form.locale" :disabled="!canManage" :class="field">
                         <option v-for="locale in reportLocales" :key="locale" :value="locale">{{ locale }}</option>
                     </select>
+                    <InputError :message="row.form.errors.locale" />
                     <select v-model="row.form.branding" :disabled="!canManage" :class="field">
                         <option value="tenant">{{ $t('app.workspace.branding_tenant') }}</option>
                         <option value="partner">{{ $t('app.workspace.branding_partner') }}</option>
                     </select>
+                    <InputError :message="row.form.errors.branding" />
                     <PrimaryButton v-if="canManage" :disabled="row.form.processing">
                         {{ $t('app.workspace.save') }}
                     </PrimaryButton>
@@ -133,15 +136,18 @@ function add() {
                         <option value="weekly">{{ $t('app.workspace.cadence_weekly') }}</option>
                         <option value="monthly">{{ $t('app.workspace.cadence_monthly') }}</option>
                     </select>
+                    <InputError :message="created.errors.cadence" />
                     <textarea v-model="created.recipients" :class="field" rows="3" />
                     <InputError :message="recipientError(created.errors)" />
                     <select v-model="created.locale" :class="field">
                         <option v-for="locale in reportLocales" :key="locale" :value="locale">{{ locale }}</option>
                     </select>
+                    <InputError :message="created.errors.locale" />
                     <select v-model="created.branding" :class="field">
                         <option value="tenant">{{ $t('app.workspace.branding_tenant') }}</option>
                         <option value="partner">{{ $t('app.workspace.branding_partner') }}</option>
                     </select>
+                    <InputError :message="created.errors.branding" />
                     <PrimaryButton :disabled="created.processing">{{ $t('app.workspace.add_schedule') }}</PrimaryButton>
                 </form>
             </section>

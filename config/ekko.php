@@ -177,6 +177,14 @@ return [
         ],
     ],
 
+    /*
+    | Where a report PDF is stored and downloaded (docs/spec.md 11.2). T32 writes to this disk
+    | under reports/{tenant}/. The ekko-reports bucket replaces local once it exists.
+    */
+    'reports' => [
+        'disk' => 'local',
+    ],
+
     'bot_logs' => [
         // User-agent substrings are matched case-insensitively, in the configured order.
         'bots' => [

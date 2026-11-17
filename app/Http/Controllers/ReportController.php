@@ -87,8 +87,9 @@ class ReportController extends Controller
     {
         Gate::authorize('view', $report);
         $path = $this->storedPath($report);
-        abort_if($path === null || ! Storage::disk('local')->exists($path), 404);
-        $contents = Storage::disk('local')->get($path);
+        $disk = config()->string('ekko.reports.disk');
+        abort_if($path === null || ! Storage::disk($disk)->exists($path), 404);
+        $contents = Storage::disk($disk)->get($path);
         abort_if(! is_string($contents), 404);
 
         return response($contents, 200, [

@@ -187,7 +187,7 @@ return [
                 $report = Report::factory()->create();
                 $path = 'reports/'.$report->getAttribute('tenant_id').'/'.$report->id.'.pdf';
                 $report->forceFill(['pdf_uri' => $path])->save();
-                Storage::disk('local')->put($path, "%PDF-1.4\n");
+                Storage::disk(config()->string('ekko.reports.disk'))->put($path, "%PDF-1.4\n");
 
                 return $report->id;
             });

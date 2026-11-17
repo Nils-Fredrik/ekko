@@ -81,6 +81,7 @@ function saveBudget() {
                         <input v-model="slack.clear" type="checkbox" />
                         {{ $t('app.workspace.clear_slack') }}
                     </label>
+                    <InputError :message="slack.errors.clear" class="mt-2" />
                 </div>
             </template>
             <template v-if="profile.can_update" #actions>

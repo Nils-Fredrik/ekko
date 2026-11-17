@@ -235,7 +235,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge), `slack_webhook_url` (kryptert), `byok_enabled`, `monthly_call_quota_override`, `monthly_byok_budget_usd`, `billing_markup_percent` (nullable desimal; ADR 0021) |
+| `teams` (utvidet) | `partner_team_id`, `plan_id`, `status` (active, paused, closed), `default_locale`, `timezone`, `branding` (jsonb: logo-sti, primærfarge; T28 lagrer primærfargen, logo-stien settes i T32), `slack_webhook_url` (kryptert), `byok_enabled`, `monthly_call_quota_override`, `monthly_byok_budget_usd`, `billing_markup_percent` (nullable desimal; ADR 0021) |
 | `users` (utvidet) | `is_platform_admin`, `locale`, `current_team_id` |
 | `plans` | `name`, `max_brands`, `max_markets_per_brand`, `max_prompts_per_market`, `allowed_engines` (jsonb), `max_frequency`, `engine_max_frequencies` (jsonb), `max_repetitions`, `monthly_call_quota`, `monthly_budget_usd` |
 | `tenant_api_keys` | `tenant_id`, `provider`, `key` (kryptert), `last_verified_at` |
@@ -595,9 +595,9 @@ Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like 
   - topp 15 siterte domener og kildegap
   - AI-robottreff og AI-trafikk
   - modellbytter i perioden
-- **Profil:** tenantens eller partnerens logo og primærfarge (`report_schedules.branding`).
+- **Profil:** `report_schedules.branding` velger tenantens eller partnerens profil. T28 lagrer primærfargen i `teams.branding`. Logofilen lastes opp og tegnes inn i PDF-en i T32.
 - **Språk:** rapportens `locale`, uavhengig av mottakers brukerinnstilling.
-- **Lagring og utsending:** PDF-en lagres i `ekko-reports` og sendes som vedlegg. Grensesnittet har nedlastingslenke.
+- **Lagring og utsending:** PDF-en lagres på disken `ekko.reports.disk` (standard `local`) under `reports/{tenant}/` og sendes som vedlegg. T32 skriver til samme disk og prefiks. Bøtten `ekko-reports` settes som den disken når den finnes. Grensesnittet har nedlastingslenke.
 
 ---
 
@@ -1293,6 +1293,7 @@ Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kap
 ### T28 – Innstillinger, varsler, rapporter, forbruk, team
 `Brands/Settings.vue`, `Alerts/Index.vue`, `Reports/Index.vue`, `Usage/Index.vue` og utvidelser i `Teams/Show.vue` (Slack, rapportprofil, egne nøkler).
 - Alle skjemaer har validering og feilvisning som i Varde.
+- Rapportprofilen i T28 er primærfargen. Logo-opplasting hører til PDF-en i T32.
 
 ### T29 – Veiviser, UI
 `Onboarding/Wizard.vue` etter kapittel 13, med redigerbare forslag og kostnadsestimat.
