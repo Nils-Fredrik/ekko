@@ -363,3 +363,20 @@ test('team settings store a slack webhook and an api key without sending either 
                 ->missing('teamProfile.byok_budget'));
     }
 });
+
+test('failed credential validation never flashes secrets into session old input', function () {
+    Http::preventStrayRequests()->fake(['https://eu.api.openai.com/v1/models' => Http::response([], 503)]);
+    $world = MetricsWorld::create();
+    $world->tenant->forceFill(['byok_enabled' => true])->save();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $secret = 'synthetic-key-that-must-not-be-flashed';
+    $this->actingAs($owner)->from(route('teams.show', $world->tenant))
+        ->put(route('teams.api-keys.store', $world->tenant), ['provider' => 'openai', 'key' => $secret])
+        ->assertRedirect()->assertSessionHasErrors('key')->assertSessionMissing('_old_input.key');
+    expect(serialize(session()->all()))->not->toContain($secret);
+    $webhook = 'https://invalid.example/services/synthetic-webhook-secret';
+    $this->put(route('teams.slack.update', $world->tenant), ['webhook_url' => $webhook])
+        ->assertRedirect()->assertSessionHasErrors('webhook_url')->assertSessionMissing('_old_input.webhook_url');
+    expect(serialize(session()->all()))->not->toContain($webhook);
+});
