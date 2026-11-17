@@ -1,5 +1,174 @@
 # Driftsrunbook
 
+## Overvåking og hendelser (T36)
+
+Varslene går til plattformadmin på den godkjente e-postkanalen. Terraform i
+`infra/terraform/monitoring.tf` eier åtte policyer, én varslingskanal og én
+loggmetrikk. `ekko-monitor-health` kjører `ekko:monitor-health` i `ekko-task`
+hvert 15. minutt, uavhengig av `enable_schedules`. Kontrollen kaller ingen
+leverandører og starter ingen innsamling. `enable_monitoring_schedule` skal først
+slås på når kommandoen finnes i det utrullede jobbimaget.
+
+| Varsel | Terskel | Første kontroll |
+|---|---|---|
+| Web | HTTP 5xx / alle svar >2 % i et rullerende 10-minuttersvindu | Revisjon, feiltype og nylig deploy; vurder tilbakeføring under |
+| Jobb | Minst én feilende Cloud Run Job-eksekvering | Eksekvering, exitkode, vaskede logger; ikke gjenta en delvis deploy blindt |
+| Motor | >20 % `failed` av `collected`, `extracted`, `failed` siste 24 timer, per motor | Leverandørstatus, pris, autentisering og kvote; ikke aktiver rå HTTP-logging |
+| Innsamling | Batch planlagt for >6 timer siden har fortsatt `queued`, `running` eller `submitted` | Scheduler, workerstart, kø og reservasjoner; ferdige kjøringer varsler ikke selv med gamle batchtellere |
+| Uttrekk | `extraction_jobs.status=submitted` i >24 timer | Poll-schedule, leverandørbatch og feilkrok; ikke send samme batch på nytt uten å kontrollere eksisterende resultat |
+| SQL CPU / disk | >80 % kontinuerlig i 30 minutter | Kapasitet, tilkoblinger og aktive spørringer; ikke slett data som første tiltak |
+| Helsekontroll mangler | Ingen fullført kontroll i 45 minutter | Scheduler og `ekko-task`; varslet aktiveres etter første registrerte måling |
+
+Cloud Monitoring kan bruke noen minutter på å ta inn nye målinger. Web-raten
+summeres på tvers av revisjoner og statuskoder før forholdstallet beregnes.
+Kvotestopp teller ikke som motorfeil. Motorandelene vektes etter antall kjøringer,
+ikke som gjennomsnitt av tenantprosenter. Aktive og pausede tenants tas med;
+lukkede tenants tas ikke med. Hver tenant leses i sin egen RLS-transaksjon.
+En feil under lesing avbryter kontrollen; ingen delvis «frisk» status eller
+fullført-heartbeat publiseres.
+
+`monitoring.issue` inneholder `context.signal`, tellinger og eventuelt intern
+`engine_key`, aldri svar, prompts, navn, tokens eller leverandørfeilmeldinger.
+Loggvarslene begrenses til én melding i timen per policy og lukkes automatisk
+etter en time uten nye treff. Se ferske logger før hendelsen erklæres løst.
+`monitoring.completed` viser at hele kontrollen fullførte. Motorstatus for T30
+finnes i databasecachen `monitoring.engine_health`, med `checked_at` og
+`engines[key]={total,failed,unhealthy}`, TTL 30 minutter. Manglende/utløpt cache
+betyr ukjent status, ikke frisk. Verdien er bare til plattformadmin og må ikke
+sendes i tenantens delte Inertia-props.
+
+Ved hendelse:
+
+1. Noter tidspunkt, policy, revisjon/eksekverings-ID og intern signaltype.
+2. Kontroller siste CI/deploy før ny utrulling eller omkjøring. Bevar fungerende
+   trafikkfordeling. Sjekk Scheduler og jobbstatus før leverandøren feilsøkes.
+3. Avgrens Cloud Logging til `ekko-web` eller riktig jobb og tidsrom. Bruk interne
+   ID-er; ikke kopier kundedata eller rå unntak til Board.
+4. Gjør ett avgrenset tiltak og verifiser med ny kontroll/røyktest. Noter årsak,
+   tiltak og resultat på Board. Kritiske brukerfeil prioriteres før oppsamlet kø.
+
+Nyttige lesekommandoer (uten hemmelighetsverdier):
+
+```sh
+gcloud run services describe ekko-web --project=ekko-514612 --region=europe-west1 \
+  --format='json(status.traffic,status.latestReadyRevisionName)'
+gcloud run jobs executions list --job=ekko-task --project=ekko-514612 --region=europe-west1
+gcloud scheduler jobs describe ekko-monitor-health --project=ekko-514612 --location=europe-west1
+gcloud beta monitoring policies list --project=ekko-514612
+gcloud sql operations list --instance=ekko-postgres --project=ekko-514612 --limit=10
+```
+
+### Aktivere og verifisere overvåkingen
+
+Etter review/merge: sett `enable_monitoring=true` og den godkjente
+`monitoring_email` i lokal, ignorert tfvars. Start med
+`enable_monitoring_schedule=false`. Kontroller lagret Terraform-plan før apply.
+Hvis en full plan inneholder eldre endringer fra andre oppgaver, bruk en ny plan
+avgrenset til de åtte `google_monitoring_alert_policy`-ressursene,
+`google_monitoring_notification_channel.operations`,
+`google_logging_metric.monitoring_heartbeat` og
+`google_cloud_scheduler_job.monitoring`. For T36 skal denne planen bare opprette
+11 ressurser. Den skal ikke endre web, jobbimages, SQL, hemmelighetsgrants eller
+innsamlingsplaner. Full drift registreres separat og er ikke skjult av den
+avgrensede kontrollen.
+
+Når jobbimaget med kommandoen er utrullet, sett `enable_monitoring_schedule=true`,
+kontroller en ny avgrenset plan og apply. Kjør Scheduler manuelt én gang og
+kontroller en vellykket eksekvering og en fersk `monitoring.completed` før
+fraværsvarslet regnes som operativt. Kontroller at alle ni innsamlingsplaner
+fortsatt har sin tidligere pause-status. Verifiser også e-postkanalen i Cloud
+Monitoring; mottatt varsel må bekreftes av mottakeren ved en kontrollert test.
+
+### Backup og gjenoppretting
+
+Øvelsesbevis: [T36 – gjenoppretting](t36-recovery-evidence.md).
+
+Produksjon har PostgreSQL 16 i `europe-west1`, daglig backup med sju beholdte
+kopier og PITR med sju dager transaksjonslogger. CI tar i tillegg en on-demand
+backup før migrering. Kontroller faktisk backupstatus; konfigurasjon alene er
+ikke bevis på en gjenopprettbar kopi. Råsvar i GCS har objektversjonering;
+gjenoppretting av SQL ruller ikke tilbake GCS eller utsendte meldinger.
+
+Gjenopprett først til en ny instans. En feil i `--restore-instance` kan overskrive
+produksjonen: mål skal alltid ha prefikset `ekko-restore-t36-` i øvelsen. Bruk
+samme region, PostgreSQL-versjon og minst samme diskstørrelse. Ingen tjeneste,
+Scheduler eller jobb skal kobles til kopien. Den inneholder produksjonsdata og
+skal bare nås via connector med IAM og TLS; aldri åpne et autorisert IP-nett.
+
+```sh
+# Velg en SUCCESSFUL backup og noter ID, sluttid og kilde.
+gcloud sql backups list --instance=ekko-postgres --project=ekko-514612 --limit=10
+# Velg et ubrukt navn; stopp hvis det allerede finnes.
+ekko_restore_id="ekko-restore-t36-$(date -u +%Y%m%d%H%M%S)"
+gcloud beta sql instances create "$ekko_restore_id" --project=ekko-514612 \
+  --region=europe-west1 --database-version=POSTGRES_16 --edition=ENTERPRISE \
+  --tier=db-g1-small --storage-type=SSD --storage-size=20 \
+  --connector-enforcement=REQUIRED --ssl-mode=ENCRYPTED_ONLY \
+  --no-backup --no-deletion-protection --no-final-backup \
+  --labels=purpose=restore-drill,task=t36
+# Erstatt BACKUP_ID med den kontrollerte vellykkede backupen.
+gcloud sql backups restore BACKUP_ID --backup-instance=ekko-postgres \
+  --restore-instance="$ekko_restore_id" --project=ekko-514612
+python3 scripts/operations/verify-restore.py --instance "$ekko_restore_id"
+```
+
+Verifikatoren krever et midlertidig navn, riktig merking/region, påkrevd connector
+og TLS, ingen autoriserte nettverk og RUNNABLE status. Den starter en lokal
+Cloud SQL Auth Proxy og leser migreringspassordet fra Secret Manager bare i
+minnet til `psql`-prosessen. Passord og spørringsresultater skrives ikke ut.
+Den sjekker migreringer, tenanttabellenes FORCE RLS/policyer, den begrensede
+app-rollen og migreringsrollen. Syntetiske rader beviser ingen tilgang uten
+valgt tenant og korrekt tilgang for to forskjellige tenants. Hele proben
+rulles tilbake; ingen faktiske kunderader leses.
+
+Når kontrollen er bestått (også etter en feilet øvelse): kontroller navn og
+`purpose=restore-drill` igjen, slett bare øvelsesinstansen, vent til slettingen er
+ferdig og bekreft at `ekko-postgres` fortsatt er RUNNABLE. Bruk aldri et navn fra
+ukontrollert loggtekst som mål. Stopp lokale proxyprosesser etterpå.
+
+```sh
+gcloud sql instances describe "$ekko_restore_id" --project=ekko-514612 \
+  --format='json(name,settings.userLabels)'
+gcloud sql instances delete "$ekko_restore_id" --project=ekko-514612
+gcloud sql instances list --project=ekko-514612 --format='table(name,state)'
+```
+
+Ved en reell gjenoppretting må eieren velge gjenopprettingstidspunkt og godta
+data som går tapt mellom tidspunktet og hendelsen. Pause Scheduler, stans nye
+skrivinger og la pågående arbeid stoppe kontrollert. Verifiser kopien, roller,
+aktuell `APP_KEY`/tidligere nøkler, GCS-tilgang og bakoverkompatible migreringer.
+Bytt deretter databaseforbindelsen for både web og alle jobber som én koordinert
+endring, kjør autentisert røyktest uten trafikk, og flytt trafikk først etter grønt
+resultat. Vurder duplikatfare i kø, leverandørbatcher, rapporter og varsler før
+Scheduler startes igjen. Ikke send lagrede køjobber ukritisk på nytt.
+
+### Nøkkelrotasjon
+
+Før rotasjon: identifiser nøyaktig forbruker, hemmelighetsreferanse og gjeldende
+versjon uten å lese verdien til terminalen. Hemmeligheter lagres som nye versjoner
+i Secret Manager, aldri i Terraform, argumenter, PR eller Board. En beskyttet
+inputfil eller stdin kan brukes med `gcloud secrets versions add --data-file`.
+Secret Manager-miljøvariabler lastes når en ny instans starter; en ny versjon
+alene oppdaterer ikke kjørende Cloud Run-revisjoner.
+
+| Hemmelighet | Rekkefølge og kontroll |
+|---|---|
+| Leverandørnøkkel | Opprett ny leverandørnøkkel med riktig prosjekt/region og begrensninger. Legg til hemmelighetsversjon, oppdater jobbkonfigurasjon og gjør et godkjent lavkost-kall. Tilbakekall gammel nøkkel først når gamle eksekveringer er ferdige. Egne tenantnøkler roteres via eksisterende nøkkelgrensesnitt. |
+| Google OAuth-klienthemmelighet | Overlapp gamle/nye nøkler der leverandøren tillater det. Ny Secret Manager-versjon, ny web-kandidat uten trafikk, test innlogging og avvisning, promoter, tilbakekall gammel etter kontroll. Behold klient-ID og eksakte redirect-URL-er. |
+| Databasepassord | Planlegg et vedlikeholdsvindu med pauset kø/Scheduler og stans i nye skrivinger. Endre kun den tiltenkte SQL-rollen og dens hemmelighetsversjon, utrull alle forbrukere med ny verdi, og verifiser innlogging/RLS/røyktest før trafikk og jobbkjøring gjenopptas. SQL og Secret Manager endres ikke atomisk; gammel revisjon kan ikke brukes som rollback uten samsvarende SQL-passord. App- og migreringsrollen er separate. |
+| `APP_KEY` | Ikke erstatt blindt: gamle krypterte verdier trenger gammel nøkkel. Laravel støtter `APP_PREVIOUS_KEYS`, men dette er ikke montert i dagens Terraform. Før rotasjon må en egen reviewet endring montere gamle nøkler, teste dekryptering og planlegge rekryptering/utlogging. Behold nødvendige nøkler så lenge backups som krever dem beholdes. Ikke slett gammel nøkkel bare fordi web starter. |
+| GitHub/WIF | WIF har ingen statisk GCP-nøkkel å rotere. Revider trust-betingelser og IAM. Roter review-App-nøkkel og tokens i riktig GitHub environment, bekreft både positiv/negativ tilgang og ny kryssreview før gammel nøkkel tilbakekalles. |
+
+Ved mistanke om kompromittering prioriteres tilbakekalling og avgrensing fremfor
+overlapping. Noter operasjon og versjonsnummer, aldri selve verdien. Kontroller
+sekundære kopier, aktive revisjoner og backupbehov før en hemmelighetsversjon
+ødelegges permanent.
+
+Kilder: [Cloud SQL restore](https://docs.cloud.google.com/sql/docs/postgres/backup-recovery/restoring),
+[Cloud Run-metrikker](https://docs.cloud.google.com/monitoring/api/metrics_gcp_p_z),
+[Cloud SQL-metrikker](https://docs.cloud.google.com/monitoring/api/metrics_gcp_c).
+
+
 ## Applikasjonslogger (T39-F7)
 
 Web og alle jobbimages bruker `stderr` med Monologs `GoogleCloudLoggingFormatter`. Terraform setter `LOG_LEVEL=info`; kanalen har også `info` som standard. `severity` og `time` tolkes av Cloud Logging. Interne identifikatorer finnes under `jsonPayload.context.tenant_id`, `user_id` og `run_id`; `null` betyr at operasjonen ikke har den identifikatoren. En samlekjøring kan ha flere tenants og får derfor først tenant-ID inne i hvert tenantscope. En tenantjobb arver ikke brukeren som startet den. En innsamlingsjobb har sin interne run-ID.
@@ -246,3 +415,28 @@ Status 16.11.2026: offentlig webtilgang er aktivert, full smoke uten IAM består
 ### Bevis 15.11.2026
 
 Den 15.11.2026 viste live IAM både web og migrate som lesere av migreringspassordet; da fantes ingen Cloud Run-webtjeneste. En målrettet plan med datidens T10-konfigurasjon viste bare sletting av web-granten. En separat, ikke anvendt workload-plan viste riktig skille mellom web og migreringsjobben. Dette er historisk bevis, ikke en gyldig plan for dagens produksjon. Ingen passordverdier ble lest eller lagret. **Ny plan og kontroll av faktisk tilgang og revisjon kreves før funnet kan lukkes.**
+
+## T39-F8: worker-start og SQL-tilkobling
+
+Web kan bare starte den faste `ekko-wake`-jobben uten overrides. Veiviser og
+`/internal/tick/extraction-poll` bruker denne, mens dispatch-identiteten starter
+`ekko-worker`. Ved treg oppstart, sjekk først `ekko-wake`, deretter workeren.
+HTTP 204 fra poll-endepunktet betyr at oppstart ble akseptert eller at en
+poll-dispatcher allerede kjører. Cloud Run-jobbfeil varsles separat.
+
+Ved samtidig poll og dagsplanlegging hopper poll over en opptatt dispatch-lås
+og kontrollerer fortsatt worker-køen. Dagsplanlegging venter inntil 300 sekunder.
+En overskredet ventefrist er en reell feil: undersøk den aktive dispatch-jobben
+og kjør dagsplanlegging på nytt når den er ferdig. Planleggingen er idempotent.
+
+Ved første utrulling: opprett wake-jobb og begrensede web-/CI-grants fra en
+reviewet, avgrenset Terraform-plan før kode-merge. Bruk gjeldende jobs-digest.
+Etter grønn deploy og verifikasjon fjernes web-grantene på workeren med en ny
+avgrenset plan. Sjekk at web ikke har `run.jobs.runWithOverrides`, at dispatch
+fortsatt kan starte workeren, og at wake-jobbens kommando er fast `--poll`.
+
+Cloud SQL krever connector og TLS. Bruk Cloud SQL Auth Proxy ved kontrollerte
+CLI-oppgaver; legg ikke til autoriserte offentlige IP-nettverk. Legg SQL-endringen
+utenfor aktive datalastinger og ytelsesmålinger. Kontroller appens `/up`, en
+ordinær deploy-røyktest og helsekontrolljobben etter endringen. Ikke tilbakefør
+transportkravene for å få en direkte, ukryptert klient til å virke.

@@ -5,6 +5,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Performance\PerformanceFixture;
 use App\Tenancy\Rls\TenantRls;
+use Database\Seeders\ProductionEngineSeeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -52,6 +53,18 @@ it('requires the production engine catalogue and a unique fixture identity', fun
     Engine::query()->delete();
     expect(fn () => $fixture->create((string) Str::uuid(), Str::random(32)))->toThrow(RuntimeException::class);
     expect(Team::query()->count())->toBe(0);
+});
+
+it('supports the production catalogue without enabling postponed providers', function () {
+    Engine::query()->delete();
+    $this->seed(ProductionEngineSeeder::class);
+    $key = (string) Str::uuid();
+    $fixture = app(PerformanceFixture::class);
+    $fixture->create($key, Str::random(32), days: 1, prompts: 1);
+    expect($fixture->verify($key))->toMatchArray(['runs' => 18, 'engines' => 6, 'aggregated_responses' => 18]);
+    $fixture->delete($key);
+    expect(Engine::query()->count())->toBe(9)
+        ->and(Engine::query()->whereIn('provider', ['dataforseo', 'perplexity'])->where('is_enabled', true)->exists())->toBeFalse();
 });
 
 it('refuses cleanup when a synthetic identity gains rights or another team membership', function (string $change) {

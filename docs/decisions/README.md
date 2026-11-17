@@ -38,3 +38,5 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0026: Automatisk mergekø](0026-automatisk-mergeko.md)
 - [0027: Stabil reviewkjøring og tydelige utfall](0027-stabil-reviewkjoring.md)
 - [0028: Atomisk bekreftelse av veiviseren](0028-atomisk-veiviserbekreftelse.md)
+- [0029: Operasjonell overvåking](0029-operasjonell-overvaking.md)
+- [0030: Avgrenset worker-start og påkrevd SQL-connector](0030-avgrenset-worker-start.md)

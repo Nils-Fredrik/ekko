@@ -23,6 +23,8 @@ it('seeds direct production engines without demo prices and preserves operator c
     $this->seed(ProductionEngineSeeder::class);
     expect(Engine::query()->where('is_enabled', true)->pluck('key')->sort()->values()->all())
         ->toBe(['chatgpt_api', 'claude_haiku', 'claude_sonnet'])
+        ->and(Engine::query()->count())->toBe(9)
+        ->and(Engine::query()->whereIn('provider', ['dataforseo', 'perplexity'])->where('is_enabled', true)->exists())->toBeFalse()
         ->and(EnginePrice::query()->count())->toBe(0);
     Engine::query()->findOrFail('chatgpt_api')->update(['model_id' => 'operator-model', 'is_enabled' => false]);
     $this->seed(ProductionEngineSeeder::class);

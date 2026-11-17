@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Scheduling\CloudRunAccessToken;
 use Firebase\JWT\JWT;
 use Illuminate\Support\Facades\Http;
 
@@ -23,6 +24,21 @@ function schedulerToken(array $overrides = []): string
 
 test('internal poll accepts only a verified Google Scheduler identity', function () {
     $this->withToken(schedulerToken())->postJson('/internal/tick/extraction-poll')->assertNoContent();
+});
+
+test('internal poll wakes the fixed dispatcher without worker access or overrides', function () {
+    $token = schedulerToken();
+    config(['collection.cloud_run.enabled' => true, 'collection.cloud_run.project' => 'ekko-fixture', 'collection.cloud_run.region' => 'europe-west1']);
+    $access = Mockery::mock(CloudRunAccessToken::class);
+    $access->shouldReceive('get')->andReturn('fixture-token');
+    app()->instance(CloudRunAccessToken::class, $access);
+    Http::fake([
+        'https://run.googleapis.com/*/executions*' => Http::response(['executions' => []]),
+        'https://run.googleapis.com/*:run' => Http::response(['name' => 'operation']),
+    ]);
+    $this->withToken($token)->postJson('/internal/tick/extraction-poll')->assertNoContent();
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), 'jobs/ekko-wake:run') && $request->body() === '{}');
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'ekko-worker'));
 });
 
 test('internal poll rejects wrong identity, audience, issuer, expiry and signature', function (array $claims, bool $tamper) {

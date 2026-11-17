@@ -13,3 +13,8 @@ job_image = ""
 
 # Existing launch blocker in spec 7.4; do not infer approval from a valid API key.
 gemini_grounding_approved = false
+
+# Deploy monitor-health before starting its independent schedule.
+enable_monitoring = false
+enable_monitoring_schedule = false
+monitoring_email = ""

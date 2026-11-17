@@ -93,11 +93,12 @@ Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lok
 |---|---|---|
 | Web, API og MCP | Cloud Run service `ekko-web` | min 0, maks 4 instanser, 1 vCPU / 1 GiB, Cloud SQL-tilkobling via Unix-socket |
 | Dispatcher | Cloud Run Job `ekko-dispatch` | `php artisan ekko:dispatch-due` |
-| Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid: av dispatcheren, av `extraction-poll` og av veiviseren når en analyse legges i kø (ADR 0018). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300 --timeout=420`-prosesser. Ved oppstart settes `taskCount` til `ceil(jobber i kø / 2000)`, maks 8, med automatisk parallellisme i Cloud Run. Databasekøen reserverer jobber i 450 sekunder. |
+| Oppvekking fra web | Cloud Run Job `ekko-wake` | Fast `php artisan ekko:dispatch-due --poll`, dispatch-identitet. Web får kun starte uten overrides. |
+| Arbeidere | Cloud Run Job `ekko-worker` | Startes kun når køen har arbeid: av dispatcher-identiteten. `extraction-poll` og veiviseren starter den faste `ekko-wake`-jobben, som poller og vekker workeren uten ny dagsplanlegging (ADR 0018 og 0030). Hver task kjører 8 parallelle `queue:work --stop-when-empty --max-time=3300 --timeout=420`-prosesser. Ved oppstart settes `taskCount` til `ceil(jobber i kø / 2000)`, maks 8, med automatisk parallellisme i Cloud Run. Databasekøen reserverer jobber i 450 sekunder. |
 | Planlagte oppgaver | Cloud Run Job `ekko-task` | samme image, kommando settes per Scheduler-trigger. Kjører timevis aggregering og forbruksoppdatering samt øvrige planlagte oppgaver (se 7.1). |
 | Lette periodiske oppgaver | Interne endepunkter på `ekko-web` | Cloud Scheduler kaller `POST /internal/tick/{oppgave}` med OIDC-token fra en egen tjenestekonto. Endepunktene gjør kun korte kontroller og legger tyngre arbeid i køen. |
 | Migrering | Cloud Run Job `ekko-migrate` | `php artisan migrate --force`, kjøres i deploy-pipeline |
-| Database | Cloud SQL for PostgreSQL 16, `db-g1-small` | 20 GB SSD, automatisk backup 7 dager, PITR på |
+| Database | Cloud SQL for PostgreSQL 16, `db-g1-small` | 20 GB SSD, automatisk backup 7 dager, PITR på, påkrevd Cloud SQL-connector og kryptert transport |
 | Fillagring | Cloud Storage `ekko-raw` | livssyklus: Nearline etter 90 dager, sletting etter 400 dager |
 | Fillagring | Cloud Storage `ekko-reports` | genererte PDF-rapporter |
 | Hemmeligheter | Secret Manager | API-nøkler, `APP_KEY`, OAuth-klienter |
@@ -302,8 +303,8 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 
 | Scheduler-trigger | Tidspunkt (Europe/Oslo) | Kommando |
 |---|---|---|
-| `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker` |
-| `extraction-poll` | hvert 15. minutt, via internt endepunkt | Sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
+| `dispatch-due` | daglig 01:00 | Oppretter `run_batches` og `runs` for alle aktive markeder som er forfalt, og starter `ekko-worker`. Venter inntil 300 sekunder på dispatch-låsen; poll som møter opptatt lås gjør ingen ny planlegging og kontrollerer fortsatt worker-køen (ADR 0030) |
+| `extraction-poll` | hvert 15. minutt, via internt endepunkt | Starter fast `ekko-wake` uten overrides. Dispatch-identiteten sender ubehandlede svar i batch, henter ferdige batcher og starter `ekko-worker` hvis køen har arbeid som ikke allerede behandles |
 | `aggregate` | hver time | `ekko:aggregate --sync` (i dag og de tre foregående dagene i tenantens tidssone, `ekko.aggregate.lookback_days`), idempotent. Varselsevalueringen (T24) har egen trigger, `alerts` under (ADR 0012, ADR 0019) |
 | `alerts` | hver time, kvart over | `ekko:evaluate-alerts --sync`. Hver tenant evalueres én gang per lokal dag, ved første kjøring etter 05:30 i tenantens tidssone, og kjøringen leverer døgnmeldingen. Senere kjøringer samme dag prøver bare feilede kanaler på nytt. Kvotevarselet ved 100 % sendes av første kjøring etter at det oppstår, uansett tid på døgnet (ADR 0019) |
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
@@ -312,7 +313,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 
 **Fordeling over uka:** Ved ukentlig frekvens kjøres et prompt på ukedagen `crc32(prompt_id) % 7`. Ved månedlig frekvens kjøres det på dag `crc32(prompt_id) % 28 + 1`. Prompts med `priority = core` kan ha høyere frekvens enn resten av markedet, begrenset av pakken. Dette gir jevn belastning og jevn kostnad.
 
-Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-autentisering står i [ADR 0020](decisions/0020-dispatch-og-worker.md). Køoppgaver som fortsatt venter seks timer etter den ene nye innsendingen, avsluttes som feilet. Produksjonsstart verifiseres med T10 etter bootstrap.
+Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-autentisering står i [ADR 0020](decisions/0020-dispatch-og-worker.md). Køoppgaver som fortsatt venter seks timer etter den ene nye innsendingen, avsluttes som feilet. Produksjonsstart verifiseres med T10 etter bootstrap. [ADR 0030](decisions/0030-avgrenset-worker-start.md) avgrenser web til en fast poll-jobb og håndhever connector/TLS for Cloud SQL. Et vellykket `extraction-poll`-kall bekrefter oppstart/allerede aktiv dispatcher; senere jobbfeil varsles av T36.
 
 **Rettferdig kø:** Dispatcheren legger jobbene i køen flettet per tenant (rundgang), slik at én stor tenant ikke blokkerer andre.
 
@@ -397,7 +398,7 @@ Eierens oppstartsvalg 15. november 2026 er direkte Anthropic, OpenAI og Gemini. 
 | `perplexity_api` | Perplexity Agent API, `perplexity/sonar` | av / utsatt | – |
 | `chatgpt_ui`, `gemini_ui`, `google_aio`, `google_ai_mode` | DataForSEO standardkø | av / utsatt | – |
 
-Plattformnøklene brukes som standard. En lagret tenantnøkkel overstyrer bare når tenantens BYOK er aktivert; forbruk belastes tilsvarende plattform- eller BYOK-budsjett. Tomme eksplisitte nøkler avvises. Terraform setter `EKKO_DISABLED_ENGINE_PROVIDERS=perplexity,dataforseo`; sperren gjelder planlegging, kostnadsestimat og innsamling, også polling av innsendte oppgaver. Historikk kan fortsatt leses. `ProductionEngineSeeder` oppretter bare de fire direkte motorene, deaktiverer utsatte leverandører og legger ikke inn demopriser. Eksisterende pakker og operatørvalg overskrives ikke; de må gjennomgås før første schedule aktiveres.
+Plattformnøklene brukes som standard. En lagret tenantnøkkel overstyrer bare når tenantens BYOK er aktivert; forbruk belastes tilsvarende plattform- eller BYOK-budsjett. Tomme eksplisitte nøkler avvises. Terraform setter `EKKO_DISABLED_ENGINE_PROVIDERS=perplexity,dataforseo`; sperren gjelder planlegging, kostnadsestimat og innsamling, også polling av innsendte oppgaver. Historikk kan fortsatt leses. `ProductionEngineSeeder` oppretter de fire direkte motorene og de fem utsatte motorene som deaktiverte katalogoppføringer. Det bevarer seks motordimensjoner i T37s syntetiske historikk uten å aktivere innsamling. Seederen deaktiverer utsatte leverandører og legger ikke inn demopriser. Eksisterende pakker og operatørvalg overskrives ikke; de må gjennomgås før første schedule aktiveres.
 
 **Konfigurasjon:**
 - Pakken avgjør hvilke motorer en tenant har tilgang til (`plans.allowed_engines`).
@@ -961,6 +962,8 @@ Faktiske priser legges i `engine_prices` og vedlikeholdes av plattformadmin. Das
 - **Ufullstendig innsamling:** `run_batches` som ikke er ferdig 6 timer etter planlagt tid.
 - **Database:** Cloud SQL med CPU over 80 % eller lagring over 80 % i 30 minutter.
 - **Uttrekk:** batcher som ikke er ferdige etter 24 timer.
+
+T36 implementerer policyene i `infra/terraform/monitoring.tf`. `ekko:monitor-health` måler applikasjonssignalene hvert 15. minutt via en separat Scheduler-plan, med tenant-RLS og uten leverandørkall. Motorfeil teller terminale innsamlinger siste døgn, uten kvotestopp og lukkede tenants. T30 kan lese `monitoring.engine_health` fra plattformcachen; utløpt verdi betyr ukjent. En egen policy varsler hvis fullført kontroll uteblir i 45 minutter. Se ADR 0029 og runbook for aktivering, terskler og feilsøking.
 
 ### 17.5 Backup og gjenoppretting
 
