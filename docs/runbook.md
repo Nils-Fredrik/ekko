@@ -275,6 +275,8 @@ Claude CLI 2.1.325 ble også testet med syntetiske filer: repo-lesing virket, me
 
 ### Drift og stopp av mergekøen (T42, task:61)
 
+Produksjonskøen ble aktivert 17.11.2026 etter isolert aksept, inkludert ekte Claude-review etter en App-utløst grenoppdatering. Se [akseptbevis og første produksjonskjøring](t42-merge-queue-evidence.md). Første kjøring stoppet korrekt ved reviewfeil i PR #74; en rød køkjøring kan derfor bety at en PR må rettes, selv om App-oppsettet fungerer. Kontroller aktuell repo-variabel for gjeldende av/på-status.
+
 Køen er av som standard. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før `EKKO_MERGE_QUEUE_ENABLED=true`. Utvid først grenbeskyttelsen med `container build` fra App 15368, behold `test`, `agent-review`, strict og administratorhåndheving, og kjør metadataauditen over. Aksepten fra 15.11 beviser bare det opprinnelige oppsettet med to sjekker; den er ikke bevis for den utvidede auditen eller aktiv mergekø.
 
 Sett repo-variabelen `MERGE_QUEUE_BOT_SLUG` til kø-Appens eksakte slug uten `[bot]`, uten miljøoverstyringer. Review tillater denne boten i tillegg til de eksisterende. Køen verifiserer at tokenets App har samme slug før den endrer en PR. Isolert aksept må vise at akkurat denne Appens grenoppdatering starter både CI og Claude-review. Tom slug er tillatt for review før aktivering, men stopper køen.
