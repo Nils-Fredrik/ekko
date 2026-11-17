@@ -111,6 +111,7 @@ class HandleInertiaRequests extends Middleware
             'can_update' => Gate::forUser($user)->allows('update', $team),
             'slack_configured' => filled($team->getAttributes()['slack_webhook_url'] ?? null),
             'primary' => is_string($primary) ? $primary : '',
+            'has_logo' => is_string($team->branding['logo'] ?? null),
             'byok_enabled' => $team->byok_enabled,
         ];
 

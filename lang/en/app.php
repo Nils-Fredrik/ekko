@@ -300,7 +300,7 @@ return [
         'slack_url' => 'Webhook address',
         'clear_slack' => 'Remove webhook',
         'report_profile' => 'Report profile',
-        'report_profile_help' => 'Primary colour in reports that use the tenant profile.',
+        'report_profile_help' => 'Primary colour and logo in reports that use the tenant profile.',
         'primary_color' => 'Primary colour',
         'api_keys' => 'Own API keys',
         'api_keys_help' => 'The key is checked with the provider and stored encrypted. It is not shown again.',

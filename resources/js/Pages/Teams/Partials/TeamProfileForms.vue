@@ -19,7 +19,7 @@ const page = usePage();
 const profile = computed(() => page.props.teamProfile);
 
 const slack = useForm({ webhook_url: '', clear: false });
-const branding = useForm({ primary: profile.value?.primary ?? '' });
+const branding = useForm({ primary: profile.value?.primary ?? '', logo: null });
 const key = useForm({ provider: 'openai', key: '' });
 const budget = useForm({ budget_usd: profile.value?.byok_budget ?? '' });
 
@@ -37,7 +37,19 @@ function saveSlack() {
 }
 
 function saveBranding() {
-    branding.put(route('teams.branding.update', props.team.id), { preserveScroll: true, errorBag: 'branding' });
+    branding
+        .transform((data) => {
+            const payload = { ...data, _method: 'put' };
+            if (!payload.logo) {
+                delete payload.logo;
+            }
+            return payload;
+        })
+        .post(route('teams.branding.update', props.team.id), {
+            preserveScroll: true,
+            errorBag: 'branding',
+            forceFormData: true,
+        });
 }
 
 function saveKey() {
@@ -107,6 +119,18 @@ function saveBudget() {
                         :disabled="!profile.can_update"
                     />
                     <InputError :message="branding.errors.primary" class="mt-2" />
+                    <InputLabel class="mt-4" for="logo" :value="$t('reports.logo')" />
+                    <input
+                        id="logo"
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        class="mt-1 block w-full text-sm"
+                        :disabled="!profile.can_update"
+                        @input="branding.logo = $event.target.files[0]"
+                    />
+                    <p class="mt-1 text-sm text-gray-600">{{ $t('reports.logo_help') }}</p>
+                    <p v-if="profile.has_logo" class="mt-1 text-sm text-gray-600">{{ $t('reports.logo') }}</p>
+                    <InputError :message="branding.errors.logo" class="mt-2" />
                 </div>
             </template>
             <template v-if="profile.can_update" #actions>

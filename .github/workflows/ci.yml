@@ -97,6 +97,11 @@ jobs:
             - name: ESLint and Prettier
               run: npm run lint
 
+            - name: Install Chromium for PDF reports
+              run: |
+                  npx playwright install --with-deps chromium
+                  echo "CHROME_PATH=$(node -e "console.log(require('@playwright/test').chromium.executablePath())")" >> "$GITHUB_ENV"
+
             - name: Pest, including the tenant isolation suite
               run: composer test
 
@@ -108,9 +113,6 @@ jobs:
 
             - name: Performance measurement contract
               run: python3 -m unittest discover -s tests/performance -v
-
-            - name: Install browser for real login and dashboard checks
-              run: npx playwright install --with-deps chromium
 
             - name: Browser login and dashboard (isolated test database)
               run: npm run test:browser

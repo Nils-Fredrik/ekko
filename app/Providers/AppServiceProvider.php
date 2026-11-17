@@ -63,6 +63,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         app(LogContext::class)->clear();
+        $this->configurePdf();
 
         // A login role that could bypass row-level security stops the instance (T39-F2): /up is the web service's
         // startup probe, and the worker and the ekko:* commands check before they start. The migrations run as
@@ -111,5 +112,30 @@ class AppServiceProvider extends ServiceProvider
         // Client registration per address per day (T39-F5), so one address cannot fill the ceiling for everyone.
         RateLimiter::for('mcp-register', fn (Request $request) => Limit::perDay((int) config('ekko.mcp.clients_per_ip_per_day'))
             ->by('mcp-register:'.$request->ip()));
+    }
+
+    /**
+     * PDF reports use Chromium through spatie/laravel-pdf (docs/spec.md 11.2). The jobs image has the
+     * binary at CHROME_PATH and no Node, so the Chrome PHP driver is used instead of Browsershot.
+     */
+    private function configurePdf(): void
+    {
+        $binary = config('ekko.reports.chrome_binary');
+        if (! is_string($binary) || ! is_file($binary)) {
+            foreach (['/usr/bin/chromium', '/usr/bin/chromium-browser', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'] as $candidate) {
+                if (is_file($candidate)) {
+                    $binary = $candidate;
+                    break;
+                }
+            }
+        }
+
+        config([
+            'laravel-pdf.driver' => 'chrome',
+            'laravel-pdf.chrome.chrome_binary' => is_string($binary) ? $binary : null,
+            'laravel-pdf.chrome.no_sandbox' => true,
+            'laravel-pdf.chrome.operation_timeout' => 60000,
+            'laravel-pdf.chrome.timeout' => 60000,
+        ]);
     }
 }

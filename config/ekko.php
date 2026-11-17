@@ -198,6 +198,8 @@ return [
     */
     'reports' => [
         'disk' => 'local',
+        // Chromium for spatie/laravel-pdf. The jobs image sets CHROME_PATH.
+        'chrome_binary' => env('CHROME_PATH'),
     ],
 
     'bot_logs' => [
