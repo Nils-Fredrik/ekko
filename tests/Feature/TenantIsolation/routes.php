@@ -162,6 +162,9 @@ return [
     // The overview and the brand list have no resource id. They show the signed-in tenant only,
     // and the leak scan checks that tenant B never appears. The brand page is addressed by id.
     'dashboard' => RouteAccess::user(),
+    // No resource id. A partner advisor sees only clients of the current partner tenant.
+    // PartnerOverviewTest checks that another partner's client never appears.
+    'partner.index' => RouteAccess::user(),
     'brands.index' => RouteAccess::user(),
     'brands.show' => RouteAccess::tenant(
         foreign: function (Scenario $s) {
