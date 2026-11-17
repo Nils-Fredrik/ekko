@@ -1,8 +1,11 @@
 <script setup>
+import { useDateTime } from '@/Composables/useDateTime';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm } from '@inertiajs/vue3';
+
+const { dateTime } = useDateTime();
 
 const props = defineProps({
     brand: { type: Object, required: true },
@@ -192,12 +195,17 @@ function save() {
                                     : 'app.workspace.integration_ga4',
                             )
                         }}
-                        · {{ integration.status }}
+                        ·
+                        {{
+                            $t(
+                                `app.workspace.integration_status.${['pending', 'synced', 'error'].includes(integration.status) ? integration.status : 'unknown'}`,
+                            )
+                        }}
                     </p>
                     <p class="text-ink-soft">
                         {{
                             integration.last_sync_at
-                                ? $t('app.workspace.last_sync', { time: integration.last_sync_at })
+                                ? $t('app.workspace.last_sync', { time: dateTime(integration.last_sync_at) })
                                 : $t('app.workspace.never_synced')
                         }}
                     </p>

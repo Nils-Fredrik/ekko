@@ -213,6 +213,12 @@ return [
         'owns_tenants' => 'You own a tenant and cannot delete your account. Ask the platform admin to transfer or delete the tenant first.',
     ],
     'workspace' => [
+        'integration_status' => [
+            'pending' => 'Pending',
+            'synced' => 'Synced',
+            'error' => 'Error',
+            'unknown' => 'Unknown',
+        ],
         'save' => 'Save',
         'name' => 'Name',
         'primary_domain' => 'Primary domain',

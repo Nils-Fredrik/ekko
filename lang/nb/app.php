@@ -213,6 +213,12 @@ return [
         'owns_tenants' => 'Du eier en tenant og kan ikke slette kontoen din. Be plattformadministratoren om å overføre eller slette tenanten først.',
     ],
     'workspace' => [
+        'integration_status' => [
+            'pending' => 'Venter',
+            'synced' => 'Synkronisert',
+            'error' => 'Feil',
+            'unknown' => 'Ukjent',
+        ],
         'save' => 'Lagre',
         'name' => 'Navn',
         'primary_domain' => 'Hoveddomene',

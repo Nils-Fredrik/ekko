@@ -1,8 +1,11 @@
 <script setup>
+import { useDateTime } from '@/Composables/useDateTime';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm } from '@inertiajs/vue3';
+
+const { dateTime } = useDateTime();
 
 const props = defineProps({
     schedules: { type: Array, required: true },
@@ -113,7 +116,9 @@ function add() {
                     <p class="text-xs text-ink-soft">{{ $t('app.workspace.recipients_help') }}</p>
                     <InputError :message="recipientError(row.form.errors)" />
                     <select v-model="row.form.locale" :disabled="!canManage" :class="field">
-                        <option v-for="locale in reportLocales" :key="locale" :value="locale">{{ locale }}</option>
+                        <option v-for="locale in reportLocales" :key="locale" :value="locale">
+                            {{ $t(`app.locales.${locale}`) }}
+                        </option>
                     </select>
                     <InputError :message="row.form.errors.locale" />
                     <select v-model="row.form.branding" :disabled="!canManage" :class="field">
@@ -140,7 +145,9 @@ function add() {
                     <textarea v-model="created.recipients" :class="field" rows="3" />
                     <InputError :message="recipientError(created.errors)" />
                     <select v-model="created.locale" :class="field">
-                        <option v-for="locale in reportLocales" :key="locale" :value="locale">{{ locale }}</option>
+                        <option v-for="locale in reportLocales" :key="locale" :value="locale">
+                            {{ $t(`app.locales.${locale}`) }}
+                        </option>
                     </select>
                     <InputError :message="created.errors.locale" />
                     <select v-model="created.branding" :class="field">
@@ -168,7 +175,7 @@ function add() {
                         {{ $t('app.workspace.download') }}
                     </a>
                     <p v-else class="text-ink-soft">
-                        {{ report.sent_at ? report.sent_at : $t('app.workspace.not_sent') }}
+                        {{ report.sent_at ? dateTime(report.sent_at) : $t('app.workspace.not_sent') }}
                     </p>
                 </article>
             </section>

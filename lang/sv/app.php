@@ -213,6 +213,12 @@ return [
         'owns_tenants' => 'Du äger en tenant och kan inte radera ditt konto. Be plattformsadministratören att först överföra eller radera tenanten.',
     ],
     'workspace' => [
+        'integration_status' => [
+            'pending' => 'Väntar',
+            'synced' => 'Synkroniserad',
+            'error' => 'Fel',
+            'unknown' => 'Okänd',
+        ],
         'save' => 'Spara',
         'name' => 'Namn',
         'primary_domain' => 'Huvuddomän',
