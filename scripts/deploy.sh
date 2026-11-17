@@ -39,6 +39,6 @@ PY
 )
 "$(dirname "$0")/smoke.sh" "$url"
 gcloud run services update-traffic "$service" --region "$REGION" --project "$PROJECT_ID" --to-revisions="${revision}=100"
-for job in ekko-dispatch ekko-worker ekko-task; do
+for job in ekko-dispatch ekko-worker ekko-task ekko-wake; do
     gcloud run jobs update "$job" --image "$JOB_IMAGE" --region "$REGION" --project "$PROJECT_ID"
 done

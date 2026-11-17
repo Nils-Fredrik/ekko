@@ -10,8 +10,8 @@ use App\Models\Market;
 use App\Models\Run;
 use App\Models\RunBatch;
 use App\Models\Team;
+use App\Scheduling\DispatcherLauncher;
 use App\Scheduling\PromptSchedule;
-use App\Scheduling\WorkerLauncher;
 use App\Usage\BillingAccount;
 use App\Usage\MonthlyUsage;
 use App\Usage\PlannedRun;
@@ -95,7 +95,7 @@ final class FirstRun
             if ($allowed !== []) {
                 DB::afterCommit(function (): void {
                     try {
-                        app(WorkerLauncher::class)->startIfPending();
+                        app(DispatcherLauncher::class)->start();
                     } catch (Throwable $failure) {
                         report($failure);
                     }

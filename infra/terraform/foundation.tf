@@ -66,12 +66,17 @@ resource "google_sql_database_instance" "postgres" {
   deletion_protection = true
 
   settings {
-    edition           = "ENTERPRISE"
-    tier              = "db-g1-small"
-    disk_type         = "PD_SSD"
-    disk_size         = 20
-    disk_autoresize   = true
-    availability_type = "ZONAL"
+    edition               = "ENTERPRISE"
+    tier                  = "db-g1-small"
+    disk_type             = "PD_SSD"
+    disk_size             = 20
+    disk_autoresize       = true
+    availability_type     = "ZONAL"
+    connector_enforcement = "REQUIRED"
+    ip_configuration {
+      ipv4_enabled = true
+      ssl_mode     = "ENCRYPTED_ONLY"
+    }
     backup_configuration {
       enabled                        = true
       location                       = var.region

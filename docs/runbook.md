@@ -415,3 +415,24 @@ Status 16.11.2026: offentlig webtilgang er aktivert, full smoke uten IAM består
 ### Bevis 15.11.2026
 
 Den 15.11.2026 viste live IAM både web og migrate som lesere av migreringspassordet; da fantes ingen Cloud Run-webtjeneste. En målrettet plan med datidens T10-konfigurasjon viste bare sletting av web-granten. En separat, ikke anvendt workload-plan viste riktig skille mellom web og migreringsjobben. Dette er historisk bevis, ikke en gyldig plan for dagens produksjon. Ingen passordverdier ble lest eller lagret. **Ny plan og kontroll av faktisk tilgang og revisjon kreves før funnet kan lukkes.**
+
+
+## T39-F8: worker-start og SQL-tilkobling
+
+Web kan bare starte den faste `ekko-wake`-jobben uten overrides. Veiviser og
+`/internal/tick/extraction-poll` bruker denne, mens dispatch-identiteten starter
+`ekko-worker`. Ved treg oppstart, sjekk først `ekko-wake`, deretter workeren.
+HTTP 204 fra poll-endepunktet betyr at oppstart ble akseptert eller at en
+poll-dispatcher allerede kjører. Cloud Run-jobbfeil varsles separat.
+
+Ved første utrulling: opprett wake-jobb og begrensede web-/CI-grants fra en
+reviewet, avgrenset Terraform-plan før kode-merge. Bruk gjeldende jobs-digest.
+Etter grønn deploy og verifikasjon fjernes web-grantene på workeren med en ny
+avgrenset plan. Sjekk at web ikke har `run.jobs.runWithOverrides`, at dispatch
+fortsatt kan starte workeren, og at wake-jobbens kommando er fast `--poll`.
+
+Cloud SQL krever connector og TLS. Bruk Cloud SQL Auth Proxy ved kontrollerte
+CLI-oppgaver; legg ikke til autoriserte offentlige IP-nettverk. Legg SQL-endringen
+utenfor aktive datalastinger og ytelsesmålinger. Kontroller appens `/up`, en
+ordinær deploy-røyktest og helsekontrolljobben etter endringen. Ikke tilbakefør
+transportkravene for å få en direkte, ukryptert klient til å virke.
