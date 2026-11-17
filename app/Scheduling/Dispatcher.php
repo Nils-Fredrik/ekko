@@ -140,7 +140,7 @@ final class Dispatcher
             foreach ($market->prompts as $prompt) {
                 foreach ($market->marketEngines->groupBy('engine_key') as $key => $settings) {
                     $setting = ($prompt->priority === 'core' ? $settings->firstWhere('prompt_scope', 'core') : null) ?? $settings->firstWhere('prompt_scope', 'all');
-                    if ($setting === null || ! $setting->engine->is_enabled || ! $plan->allowsEngine($key)) {
+                    if ($setting === null || ! $setting->engine->isAvailable() || ! $plan->allowsEngine($key)) {
                         continue;
                     }
                     $ranks = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];

@@ -9,8 +9,8 @@ class PlanSeeder extends Seeder
 {
     public function run(): void
     {
-        $basis = ['chatgpt_ui', 'gemini_ui', 'google_aio', 'google_ai_mode'];
-        $standard = [...$basis, 'claude_haiku', 'claude_sonnet', 'perplexity_api'];
+        $basis = ['chatgpt_api', 'gemini_api', 'claude_haiku'];
+        $standard = [...$basis, 'claude_sonnet'];
 
         Plan::query()->firstOrCreate(['name' => 'Basis'], [
             'max_brands' => 1,
@@ -25,13 +25,13 @@ class PlanSeeder extends Seeder
             'max_markets_per_brand' => 2,
             'max_prompts_per_market' => 50,
             'allowed_engines' => $standard,
-            'engine_max_frequencies' => ['claude_sonnet' => 'weekly', 'perplexity_api' => 'weekly'],
+            'engine_max_frequencies' => ['claude_sonnet' => 'weekly'],
             'monthly_call_quota' => 50000,
         ]);
 
         Plan::query()->firstOrCreate(['name' => 'Byrå'], [
             'max_prompts_per_market' => 100,
-            'allowed_engines' => [...$standard, 'chatgpt_api', 'gemini_api'],
+            'allowed_engines' => $standard,
         ]);
     }
 }

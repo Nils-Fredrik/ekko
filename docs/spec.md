@@ -29,7 +29,7 @@ Løsningen er en flerkunde-plattform (multi-tenant). Hvert selskap, både i kons
 **I omfang:**
 - tenant-administrasjon
 - prompt-bibliotek per marked
-- innsamling fra fem motorfamilier
+- ved oppstart: direkte API-innsamling fra OpenAI, Anthropic og Gemini; DataForSEO og Perplexity er utsatt (7.4)
 - automatisk uttrekk av nevnelser og kilder
 - metrikker og dashboard
 - konkurrentsammenligning
@@ -86,7 +86,7 @@ flowchart LR
 
 Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lokalt mot fixtures, og nye versjoner verifiseres i produksjon før de får trafikk (17.2).
 
-**Adresse:** Ekko nås på Cloud Run-adressen til `ekko-web` (`*.run.app`). Den samme adressen brukes i OAuth-klientene (Google og MCP) og som `APP_URL`. Et eget domene kan kobles på senere ved å endre `APP_URL` og redirect-adressene i OAuth-klientene.
+**Adresse:** `https://ekko.maksimer.com` er kanonisk produksjonsadresse og `APP_URL`. Terraform forvalter en global ekstern Application Load Balancer, statisk IPv4, HTTP→HTTPS-omdirigering og Google-administrert sertifikat med DNS-autorisasjon og TLS ≥1.2. DNS publiseres hos eksisterende leverandør; navneservere flyttes ikke. Google OAuth bruker `https://ekko.maksimer.com/auth/google/callback`. Cloud Run-adressene beholdes for kandidat-røyktest og Scheduler. Se ADR 0024 og `infra/terraform/README.md`.
 
 
 | Komponent | Tjeneste | Konfigurasjon |
@@ -386,25 +386,18 @@ For slike motorer settes `runs.status` til `submitted` etter innsending. `extrac
 
 ### 7.4 Motorer og standardoppsett
 
-Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest mulig kostnad:
-- **ChatGPT, Gemini og Google** hentes via DataForSEO (skraping og SERP). Det gir svarene slik de vises i tjenestene og koster en brøkdel av API-ene.
-- **Claude og Perplexity** har ingen skraping og hentes via API.
-- **Claude** kjøres daglig på Haiku 5.5, som er billig, og ukentlig på Sonnet 5.5 for kjerneprompts. Sonnet-kjøringen gir et kalibreringspunkt mot modellen de fleste Claude-brukere møter.
-- **Alle DataForSEO-motorer** bruker standardkøen, ikke sanntid. Daglige kjøringer tåler ventetiden, og prisen er en tredjedel.
+Eierens oppstartsvalg 15. november 2026 er direkte Anthropic, OpenAI og Gemini. Perplexity og DataForSEO skal ikke brukes ved oppstart. Adaptere og historiske resultater beholdes for senere bruk. API-svar er målinger fra API-ene, ikke en gjengivelse av forbrukerappenes svar.
 
-| `engine_key` | Familie | Metode | Implementasjon | Standardfrekvens | Prompts |
-|---|---|---|---|---|---|
-| `chatgpt_ui` | ChatGPT | Skraping, kø | DataForSEO ChatGPT LLM Scraper (standardkø), med lokasjon og språk | daglig | alle |
-| `gemini_ui` | Gemini | Skraping, kø | DataForSEO Gemini LLM Scraper (standardkø) | daglig | alle |
-| `google_aio` | Google | SERP, kø | DataForSEO SERP API (Google organisk, standardkø), henter `ai_overview`-elementet med kilder | daglig | alle |
-| `google_ai_mode` | Google | SERP, kø | DataForSEO AI Mode-endepunkt (standardkø), der det er tilgjengelig for markedet | daglig | alle |
-| `claude_haiku` | Claude | API | Anthropic Messages API med `claude-haiku-5-5`, grunnversjonen av web search-verktøyet (uten dynamisk filtrering, `max_uses: 2`) og `user_location`. Kilder fra `web_search_result_location`-sitater. | daglig | alle |
-| `claude_sonnet` | Claude | API | Som over, med `claude-sonnet-5-5` | ukentlig | kjerne |
-| `perplexity_api` | Perplexity | API | Perplexity Agent API med `perplexity/sonar` og `web_search`. Kilder fra `search_results` og `url_citation`-annotasjoner. | ukentlig | alle |
-| `chatgpt_api` | ChatGPT | API | OpenAI Responses API med `web_search` og `user_location` | av | – |
-| `gemini_api` | Gemini | API | Gemini API med Google Search-grounding. Kilder fra `groundingMetadata`. | av | – |
+| `engine_key` | Leverandør / metode | Standardfrekvens | Prompts |
+|---|---|---|---|
+| `chatgpt_api` | OpenAI Responses API, EU-endepunkt, `web_search` | daglig | alle |
+| `gemini_api` | Gemini API med Google Search-grounding | daglig etter vilkårsavklaring; sperret i produksjon inntil da | alle |
+| `claude_haiku` | Anthropic Messages API, `claude-haiku-5-5`, grunnversjonen av web search uten dynamisk filtrering, `max_uses: 2`, `user_location` | daglig | alle |
+| `claude_sonnet` | Som over, `claude-sonnet-5-5` | ukentlig | kjerne |
+| `perplexity_api` | Perplexity Agent API, `perplexity/sonar` | av / utsatt | – |
+| `chatgpt_ui`, `gemini_ui`, `google_aio`, `google_ai_mode` | DataForSEO standardkø | av / utsatt | – |
 
-`chatgpt_api` og `gemini_api` er av som standard. De kan slås på for tenants med egne API-nøkler (12.4), f.eks. for å sammenligne API-svar med det appene viser.
+Plattformnøklene brukes som standard. En lagret tenantnøkkel overstyrer bare når tenantens BYOK er aktivert; forbruk belastes tilsvarende plattform- eller BYOK-budsjett. Tomme eksplisitte nøkler avvises. Terraform setter `EKKO_DISABLED_ENGINE_PROVIDERS=perplexity,dataforseo`; sperren gjelder planlegging, kostnadsestimat og innsamling, også polling av innsendte oppgaver. Historikk kan fortsatt leses. `ProductionEngineSeeder` oppretter bare de fire direkte motorene, deaktiverer utsatte leverandører og legger ikke inn demopriser. Eksisterende pakker og operatørvalg overskrives ikke; de må gjennomgås før første schedule aktiveres.
 
 **Konfigurasjon:**
 - Pakken avgjør hvilke motorer en tenant har tilgang til (`plans.allowed_engines`).
@@ -420,7 +413,7 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 `perplexity_api` bruker Agent API (`/v1/agent`) etter at støtten for Sonar Chat Completions opphørte 27. september 2026. Motorens konfigurerte modell har forrang foran `PERPLEXITY_MODEL` (standard `perplexity/sonar`). Agent API får land og eventuell by via nettsøkverktøyets `user_location`. Språk settes med en kort språkinstruks i brukerinnlegget, siden Agent API mangler et språkfilter for søk. Tenantens nøkkel har forrang når den er oppgitt, ellers brukes `PERPLEXITY_API_KEY`. [Migreringsveiledning for Sonar](https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/how-to)
 
-`chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
+`chatgpt_api` bruker tenantens aktive BYOK-nøkkel eller `OPENAI_API_KEY`, og motorens konfigurerte modell med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini-2025-08-07`). Innsamling og nøkkelverifisering bruker alltid `https://eu.api.openai.com/v1`, uten global reserve eller HTTP-omdirigering. BYOK må også bruke et Europe-prosjekt. `store=false` sendes på alle Responses-kall. Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
 
 DataForSEO bruker `task_post` med normal prioritet, `tasks_ready` og `task_get/advanced`. Plattformkontoen konfigureres i `DATAFORSEO_CREDENTIALS` med formatet `login:password`. En oppgave sendes og hentes med samme leverandørkonto.
 
@@ -432,11 +425,11 @@ Adapterne leverer oppgave-ID ved innsending og `null` ved henting mens oppgaven 
 
 Claude-adapterne samler inn svar med `stop_reason` lik `end_turn` og tekstinnhold. `refusal`, `max_tokens` og `pause_turn` gir `anthropic_invalid_response`. En feil fra søkeverktøyet i et HTTP 200-svar gir `anthropic_web_search_failed`. Hvis verktøyet rapporterer `max_uses_exceeded`, kan adapteren fortsatt samle inn et fullført svar og kildene som allerede er sitert.
 
-`gemini_api` krever en Gemini API-nøkkel fra tenanten. Adapteren bruker motorens konfigurerte modell, med `GOOGLE_GEMINI_MODEL` som reserve (standard `gemini-3.8-flash`). Google Search-verktøyet har ingen egne felter for land, by eller språk. Adapteren sender derfor markedet som en instruks i det ene brukerinnlegget. Dette gir modellen kontekst, uten geografisk avgrensning av søkeresultatene.
+`gemini_api` bruker tenantens aktive BYOK-nøkkel eller `GEMINI_API_KEY`. Adapteren bruker motorens konfigurerte modell, med `GOOGLE_GEMINI_MODEL` som reserve (standard `gemini-3.8-flash`). Google Search-verktøyet har ingen egne felter for land, by eller språk. Adapteren sender derfor markedet som en instruks i det ene brukerinnlegget. Dette gir modellen kontekst, uten geografisk avgrensning av søkeresultatene.
 
 Ved Google Search-omdirigeringer beholdes den originale lenken i råsvaret. Til kildeklassifisering bruker adapteren en URL på domenenivå fra et gyldig vertsnavn i `web.domain` når feltet finnes, eller fra en `web.title` som består av et gyldig vertsnavn. Adapteren bruker bare metadataen fra svaret og oppretter en URL til domenets rot for klassifisering. Omdirigeringer uten oppgitt vertsnavn er ukjente og inngår bare i råsvaret. Vanlige kildelenker beholder hele URL-en. Se [Googles eksempel på grounding-svar](https://firebase.google.com/docs/ai-logic/grounding-google-search#understand-the-grounded-result).
 
-I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Adapteren verifiseres med syntetiske svar.
+I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Terraform har derfor `gemini_grounding_approved=false`; både innsamleren og adapteren stopper produksjonskall inntil avklaringen er gjort. Aktivering krever også at motorens `is_enabled` er sann. Adapteren verifiseres med syntetiske svar.
 
 ### 7.5 Gjentakelser og modellversjoner
 
@@ -609,9 +602,9 @@ Pakker defineres av plattformadmin i `plans`. Startoppsett:
 
 | Pakke | Merkevarer | Markeder per merkevare | Prompts per marked | Motorer | Maks frekvens | Kall per måned |
 |---|---|---|---|---|---|---|
-| Basis | 1 | 1 | 30 | ChatGPT, Gemini, Google AI Overviews og AI Mode | daglig | 4 000 |
-| Standard | 3 | 2 | 50 | Basis + Claude og Perplexity | daglig (Claude Haiku), ukentlig (Claude Sonnet og Perplexity) | 50 000 |
-| Byrå | ubegrenset | ubegrenset | 100 | alle, inkludert API-motorer med egne nøkler | daglig | settes per tenant |
+| Basis | 1 | 1 | 30 | OpenAI, Gemini og Claude Haiku direkte | daglig | 4 000 |
+| Standard | 3 | 2 | 50 | Basis + Claude Sonnet | daglig, Sonnet ukentlig | 50 000 |
+| Byrå | ubegrenset | ubegrenset | 100 | de fire direkte motorene, valgfri BYOK | daglig | settes per tenant |
 
 Tallene er utgangspunkt og kan endres uten kodeendring. Plattformadmin kan overstyre kallkvoten per tenant. Startbudsjetter, priser og påslag avklares i A7.
 
@@ -848,7 +841,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - API-nøkler i Secret Manager, montert som miljøvariabler.
   - Tenant-nøkler, webhooker og integrasjonskonfigurasjon krypteres i databasen med Laravels `encrypted`-cast.
   - Ingen hemmeligheter i repo, logger eller råsvar.
-- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP). Bak Cloud Run er klientens IP-adresse den siste i `X-Forwarded-For`, den som Googles front la til (`TRUSTED_PROXIES=*`, `config/trustedproxy.php`). Host, port og prefiks hentes aldri fra proxyen.
+- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP). Med produksjonslastbalansereren er `TRUSTED_PROXIES` satt til `REMOTE_ADDR` og dens faste IP, generert av Terraform. Laravel erstatter `REMOTE_ADDR` med faktisk tilkoblingsadresse; Symfony finner nærmeste ubetrodde klient i `X-Forwarded-For`. Dette dekker både domenet og direkte Cloud Run. Bare uten lastbalanserer brukes `*` og siste ledd. Host, port og prefiks hentes aldri fra proxyen. Verifikasjon står i T10-status og runbooken.
 - **Konto og økt (T39-F4):** å bytte e-postadresse krever passordet, og den gamle adressen får varsel. Brukere som bare logger inn med Google, setter først et passord med «Glemt passord». En økt logges ut på alle ruter, også Fortifys, når passordet er byttet eller andre økter er logget ut. Alle passordsjekker (bekreft passord, e-postbytte, passordbytte, logg ut andre økter, slett konto) begrenses til 5 per minutt per bruker og IP. «Glemt passord» gir samme svar for kjente og ukjente adresser, og begrenses til 5 per minutt per IP og 5 per time per adresse. Kjent ulempe: fem kall kan sperre «Glemt passord» for én adresse i en time. Innlogging med passord og Google virker fortsatt.
 - **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
 
@@ -866,7 +859,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - **Veiviserens nettsidehenting:** kun `https` på standardporten, maks 2 MB per side, ingen private IP-adresser (SSRF-vern) og maks 6 sider. Vertsnavnet slås opp og alle adressene må være offentlige, adressen som ble sjekket festes for tilkoblingen, og hver omdirigering (høyst 3) kontrolleres på nytt. Nettkartet er én ekstra forespørsel og regnes ikke som side (ADR 0018).
 
 **Personvern:**
-- **Region:** alle data i EU (`europe-west1`).
+- **Region:** Ekkos database, bøtter og hemmeligheter ligger i `europe-west1`. Eksterne leverandørers behandling må vurderes separat. OpenAI bruker Europe Storage & Processing og EU-endepunkt; systemdata og tredjepartstjenester er unntatt regionløftet. Googles Gemini-vilkår gir ikke en generell garanti om EU-behandling. Se ADR 0024.
 - **Databehandleravtale:** inngås med hver tenant, fordi brukerkontoer er personopplysninger.
 - **Personopplysninger:** prompts og svar skal ikke inneholde personopplysninger. Veiviseren og prompt-editoren advarer mot e-postadresser og telefonnummer i prompt-tekst.
 - **Sletting:**
@@ -905,6 +898,11 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   4. Røyktest mot revisjonsadressen: innlogging, dashboard, API og MCP svarer uten feil.
   5. Består testen, flyttes all trafikk til ny revisjon, og jobbene oppdateres til nytt image. Feiler den, beholder forrige revisjon trafikken og deployen stopper.
 - **Tilbakerulling:** trafikken flyttes tilbake til forrige revisjon med én kommando, dokumentert i `docs/runbook.md`.
+
+**Produksjonsstatus i T10 (PR #31):** Containerbygg, deployrekkefølge og tilbakeføring er implementert. Deploy-jobben ligger i CI og er aktivert med `EKKO_DEPLOY_ENABLED=true` etter bootstrap og offentlig produksjonsvalidering. CI overfører de kontrollerte web- og jobbimagene som et sjekksumkontrollert artifact fra samme workflow-kjøring; deploy bygger dem ikke på nytt. Første automatiske utrulling fra main gjenstår til eierens merge; denne er ikke erklært verifisert på forhånd. Den autentiserte røyktesten bruker en syntetisk lesebruker, faktisk innlogging og rendret dashboard, REST-metrikker og OAuth/PKCE med MCP initialize/whoami. Den krever T33 og T34 i samme kandidatimage samt ferdig bootstrap av tjenester, IAM/WIF og testidentitet. Røyktesten skriver ingen svartekster eller hemmeligheter til logger og tilbakekaller sin midlertidige MCP-tilkobling.
+
+CI kjører nå Chromium-tester av avvist/gyldig innlogging og tenantens dashboard. Veivisertesten gjenstår til T25/T29 er integrert. Den 16.11.2026 bestod privat Cloud Run-smoke via både domenet og `run.app`, en bevisst feilende kandidat med uendret trafikk og en øvelse med delvis jobbfeil og tilbakeføring. Revisjoner, resultater og begrensninger står i `docs/t10-deploy-draft.md`; dette er ekte Cloud Run-bevis i tillegg til lokale tester. Klient-IP-krysskontrollen er også bestått: alle fire syntetiske sesjoner matcher Googles forespørselslogger, med IPv6 direkte og IPv4 via ALB. Ekte Google-innlogging er kontrollert privat med samme konto før og etter leserinvitasjon: uinvitert konto avvises uten bruker/kobling, invitert konto får bare testtenantens dashboard og leserrolle. Den lokale IAM-transporten krevde manuell omlasting etter redirects. Web er deretter åpnet offentlig med Terraform, og full smoke uten IAM består via både domenet og direkte Cloud Run. Invitert Google-konto når dashboardet uavbrutt i vanlig Chrome uten testtransport eller omlasting. Offentlig avslag med en annen uinvitert Google-konto er også bekreftet i vanlig Chrome, med uendret antall brukere og Google-koblinger. T10 forblir åpen til eierens merge og etterkontroll av den første automatiske utrullingen; merge krever grønn CI og godkjent kryssreview. T10s deploy-aksept gjennomføres med schedules pauset. Godkjente priser/pakker (A7) og Gemini-avklaringen (A4) er fortsatt krav før innsamling aktiveres; webtilgang og automatiske kodeutrullinger kan brukes med disse sperrene beholdt.
+
 - **Migreringer** skal være bakoverkompatible (først legge til, deretter fjerne i en senere utrulling), slik at forrige revisjon fungerer mot ny database ved tilbakerulling.
 - **Ny funksjonalitet** som skal prøves på egne tenants først, skrus av og på med funksjonsflagg per tenant (Laravel Pennant).
 - **Infrastruktur:** all GCP-infrastruktur ligger i `infra/terraform`. Endringer i infrastruktur går også via PR.
@@ -918,7 +916,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - Cloud Run-jobber faktureres for hele instansens levetid, minimum ett minutt per instans. Derfor startes worker-jobben kun når det finnes arbeid, og korte periodiske oppgaver går som interne endepunkter på web-tjenesten (3.1). Timevis forbruksoppdatering bruker oppgavejobben for å behandle tenantene i separate transaksjoner.
 - Gratiskvoten for Cloud Run gjelder per faktureringskonto. Ekko bør ha egen faktureringskonto, slik at kvoten ikke deles med andre tjenester.
 
-**Google Cloud per måned (USD):**
+**Google Cloud per måned (USD), tidligere estimat uten lastbalanserer:**
 
 | Post | Konsernets tenants (~12 merkevarer, ~30 000 kall) | Vekst (~50 merkevarer, ~150 000 kall) | Skala (~200 merkevarer, ~600 000 kall) |
 |---|---|---|---|
@@ -934,7 +932,9 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - **Database i skala-nivået:** med betalende kunder bør databasen kjøres med høy tilgjengelighet (regional standby). Det dobler databasekostnaden, slik at summen blir om lag 320–360 dollar.
 - **Rabattavtale:** for maskintyper med dedikerte kjerner kan Cloud SQL-kostnaden reduseres med rabattavtale på 1 eller 3 år. Delte kjerner (`db-f1-micro`, `db-g1-small`) gir ikke slik rabatt.
 
-**Motorkostnader** kommer i tillegg og er den største posten. Estimat per merkevare og marked med 50 prompts (15 kjerneprompts) og standardoppsettet i 7.4:
+**Motorkostnader:** Tabellen nedenfor er det historiske estimatet for det tidligere DataForSEO-/Perplexity-oppsettet, ikke et budsjett for oppstartsvalget i 7.4. Nye priser og token-/søkeanslag for direkte OpenAI/Gemini må legges i `engine_prices` før produksjonsplanlegging aktiveres. Lastbalanserer, IPv4 og trafikk kommer i tillegg til infrastruktursummene over (ADR 0024).
+
+Historisk sammenligningsgrunnlag per merkevare/marked med 50 prompts (15 kjerneprompts):
 
 | Motor | Kall per måned | Per kall (USD) | Per måned (USD) |
 |---|---|---|---|
@@ -1065,13 +1065,13 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
 
 ### 19.4 Oppsett per agent
 
-Alle tre agentene kobles til Board-MCP (`https://board.maksimer.com/mcp`) og til GitHub.
+Board brukes via CLI etter eierens beslutning 16.11.2026, ikke via Board-MCP. Les først `board read vn4w66vc` og `board events vn4w66vc --for-me`. Oppgave- og postkommandoer bruker `--board vn4w66vc`; `board --help` beskriver syntaksen. GitHub-integrasjonene er uendret.
 
-| Agent | Board-MCP | Instruksjoner | Modell |
+| Agent | Board | Instruksjoner | Modell |
 |---|---|---|---|
-| Claude Code | `claude mcp add --transport http board https://board.maksimer.com/mcp` | `CLAUDE.md` (importerer `AGENTS.md`) | velges per økt: Opus 5.5 eller Sonnet 5.5 etter oppgaven |
-| Codex | Board legges inn som MCP-server i `~/.codex/config.toml` | `AGENTS.md` | GPT-6.1 Sol eller Terra etter oppgaven |
-| Cursor | `.cursor/mcp.json` i repoet med Board som server | `.cursor/rules/ekko.mdc`, som peker til `AGENTS.md` og `docs/spec.md` | Grok 4.7 valgt i modellvelgeren |
+| Claude Code | Board CLI | `CLAUDE.md` (importerer `AGENTS.md`) | velges per økt: Opus 5.5 eller Sonnet 5.5 etter oppgaven |
+| Codex | Board CLI | `AGENTS.md` | GPT-6.1 Sol eller Terra etter oppgaven |
+| Cursor | Board CLI | `.cursor/rules/ekko.mdc`, som peker til `AGENTS.md` og `docs/spec.md` | Grok 4.7 valgt i modellvelgeren |
 
 
 `AGENTS.md` inneholder arbeidsflyten i 19.3 med agentens merkelapp. Hver agent får i tillegg beskjed i sin egen instruksjonsfil om hvilken merkelapp den skal ta.
@@ -1364,10 +1364,10 @@ Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-pa
 
 | Nr | Avklaring | Status |
 |---|---|---|
-| A1 | Domene | Ikke aktuelt. Ekko kjører på Cloud Run-adressen (3.1). |
+| A1 | Domene | Avklart: `https://ekko.maksimer.com`, HTTPS gjennom lastbalanserer (3.1, ADR 0024). |
 | A2 | Repo | https://github.com/Nils-Fredrik/ekko. Varde (https://github.com/Nils-Fredrik/varde) brukes som referanse med lesetilgang for agentene (4.1). |
 | A3 | Google Cloud | Prosjekt `ekko-514612` er opprettet. |
-| A4 | Leverandørkontoer og API-nøkler: Anthropic (organisasjonen med Team-abonnementet), Perplexity og DataForSEO. OpenAI og Google (Gemini API) kun for valgfrie API-motorer. | Avklares underveis. Forutsetning for T12–T16. |
-| A5 | App-registrering for Google-innlogging | Avklares underveis. Forutsetning for å ta T07 i bruk. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0008). |
+| A4 | Leverandørkontoer og API-nøkler | Anthropic, OpenAI og Gemini direkte. Versjon 1 finnes i Secret Manager. OpenAI Europe-endepunkt er verifisert med syntetisk websøk. Gemini-grounding må avklares før aktivering. Perplexity og DataForSEO er utsatt. |
+| A5 | App-registrering for Google-innlogging | Web OAuth-klient for `ekko-514612` er opprettet og validert 16.11.2026; klienthemmeligheten har aktiv versjon 1 i Secret Manager. Callback er `https://ekko.maksimer.com/auth/google/callback`. Ekte innlogging og avvisning av uinvitert konto er kontrollert privat 16.11.2026. Offentlig web er åpnet, og invitert konto når dashboardet uavbrutt i vanlig Chrome. En annen uinvitert konto er avvist offentlig, uten ny bruker eller Google-kobling. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0008). |
 | A6 | E-posttjeneste og avsenderadresse for varsler og rapporter | Avklares underveis. Forutsetning for T24 og T32. |
 | A7 | Startpriser og påslag per pakke | Avklares underveis. Forutsetning for T19 og T31. |

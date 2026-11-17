@@ -78,7 +78,7 @@ final class CostEstimator
         foreach ($setup as $row) {
             $engineKey = $row['engine_key'];
             $engine = Engine::query()->find($engineKey);
-            if ($engine === null || ! $engine->is_enabled) {
+            if ($engine === null || ! $engine->isAvailable()) {
                 $issues[] = ['code' => 'unknown_engine', 'engine_key' => $engineKey];
 
                 continue;

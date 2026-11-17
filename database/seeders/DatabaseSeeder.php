@@ -10,6 +10,10 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(PlanSeeder::class);
 
+        if (app()->environment('production')) {
+            $this->call(ProductionEngineSeeder::class);
+        }
+
         if (app()->environment(['local', 'testing'])) {
             $this->call(DemoSeeder::class);
         }

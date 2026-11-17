@@ -29,6 +29,14 @@ class Engine extends Model
         'is_enabled',
     ];
 
+    public function isAvailable(): bool
+    {
+        return $this->is_enabled
+            && ! in_array($this->provider, config('engines.disabled_providers', []), true)
+            && ($this->key !== 'gemini_api' || ! app()->environment('production')
+                || config('engines.gemini_grounding_approved', false));
+    }
+
     /** @return HasMany<EnginePrice, $this> */
     public function prices(): HasMany
     {

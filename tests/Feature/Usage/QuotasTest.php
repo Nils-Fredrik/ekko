@@ -32,7 +32,11 @@ test('start plans have configurable limits and seeding preserves platform admin 
         ->and($standard->monthly_call_quota)->toBe(50000)
         ->and($standard->maxFrequencyForEngine('claude_haiku'))->toBe('daily')
         ->and($standard->maxFrequencyForEngine('claude_sonnet'))->toBe('weekly')
-        ->and($standard->maxFrequencyForEngine('perplexity_api'))->toBe('weekly')
+        ->and($standard->allowsEngine('perplexity_api'))->toBeFalse()
+        ->and($basis->allowsEngine('chatgpt_api'))->toBeTrue()
+        ->and($basis->allowsEngine('gemini_api'))->toBeTrue()
+        ->and($basis->allowsEngine('claude_haiku'))->toBeTrue()
+        ->and($basis->allowsEngine('chatgpt_ui'))->toBeFalse()
         ->and($agency->monthly_call_quota)->toBeNull()
         ->and($agency->monthly_budget_usd)->toBeNull()
         ->and($agency->allowsEngine('chatgpt_api'))->toBeTrue();

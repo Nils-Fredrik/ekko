@@ -45,6 +45,9 @@ final class QueuedEngineCollector
             if ($run === null) {
                 return;
             }
+            if (! $run->engine->isAvailable()) {
+                throw new EngineCallFailed('engine_disabled');
+            }
             $adapter = $this->registry->resolve($run->engine_key);
             if (! $adapter instanceof QueuedEngineAdapter || ! $adapter->supports($run->prompt->market)) {
                 throw new EngineCallFailed('unsupported_queued_engine');
@@ -86,7 +89,7 @@ final class QueuedEngineCollector
             $reservation = $this->rls->run([$tenantId], function () use ($tenantId, $runId, $adapter): ?ReservedEngineRun {
                 $tenant = Team::query()->lock('for no key update')->findOrFail($tenantId);
                 $run = Run::query()->with('prompt.market', 'engine')->lockForUpdate()->findOrFail($runId);
-                if (! $run->engine->is_enabled) {
+                if (! $run->engine->isAvailable()) {
                     throw new EngineCallFailed('engine_disabled');
                 }
                 $at = CarbonImmutable::now('UTC');

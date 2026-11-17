@@ -43,15 +43,15 @@ use Illuminate\Support\Str;
 class DemoSeeder extends Seeder
 {
     private const ENGINES = [
-        'chatgpt_ui' => ['chatgpt', 'ui_scrape', 'dataforseo', null, 'daily', 'all'],
-        'gemini_ui' => ['gemini', 'ui_scrape', 'dataforseo', null, 'daily', 'all'],
-        'google_aio' => ['google_aio', 'serp', 'dataforseo', null, 'daily', 'all'],
-        'google_ai_mode' => ['google_aio', 'serp', 'dataforseo', null, 'daily', 'all'],
+        'chatgpt_ui' => ['chatgpt', 'ui_scrape', 'dataforseo', null, 'off', 'all'],
+        'gemini_ui' => ['gemini', 'ui_scrape', 'dataforseo', null, 'off', 'all'],
+        'google_aio' => ['google_aio', 'serp', 'dataforseo', null, 'off', 'all'],
+        'google_ai_mode' => ['google_aio', 'serp', 'dataforseo', null, 'off', 'all'],
         'claude_haiku' => ['claude', 'api', 'anthropic', 'claude-haiku-5-5', 'daily', 'all'],
         'claude_sonnet' => ['claude', 'api', 'anthropic', 'claude-sonnet-5-5', 'weekly', 'core'],
-        'perplexity_api' => ['perplexity', 'api', 'perplexity', null, 'weekly', 'all'],
-        'chatgpt_api' => ['chatgpt', 'api', 'openai', null, 'off', 'all'],
-        'gemini_api' => ['gemini', 'api', 'google', null, 'off', 'all'],
+        'perplexity_api' => ['perplexity', 'api', 'perplexity', null, 'off', 'all'],
+        'chatgpt_api' => ['chatgpt', 'api', 'openai', null, 'daily', 'all'],
+        'gemini_api' => ['gemini', 'api', 'google', null, 'daily', 'all'],
     ];
 
     public function run(TenantContext $context, TenantRls $rls): void
@@ -62,7 +62,7 @@ class DemoSeeder extends Seeder
                 'max_brands' => 3,
                 'max_markets_per_brand' => 2,
                 'max_prompts_per_market' => 50,
-                'allowed_engines' => array_keys(self::ENGINES),
+                'allowed_engines' => ['chatgpt_api', 'gemini_api', 'claude_haiku', 'claude_sonnet'],
                 'max_frequency' => 'daily',
                 'max_repetitions' => 3,
                 'monthly_call_quota' => 50000,
@@ -91,6 +91,7 @@ class DemoSeeder extends Seeder
                 'family' => $family,
                 'method' => $method,
                 'provider' => $provider,
+                'is_enabled' => ! in_array($provider, ['dataforseo', 'perplexity'], true),
                 'model_id' => $model,
             ]);
 
