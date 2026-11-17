@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * @property array<string, mixed> $config
+ * @property Carbon|null $last_sync_at
  * @property Carbon|null $last_failed_on
  */
 class Integration extends Model

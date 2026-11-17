@@ -2,10 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use App\Engines\Credentials\ApiKeyProvider;
 use App\Models\Team;
+use App\Models\TenantApiKey;
+use App\Models\UsageEvent;
 use App\Models\User;
 use App\Onboarding\Analysis;
 use App\Tenancy\ActingAs;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
@@ -70,7 +74,66 @@ class HandleInertiaRequests extends Middleware
 
                 return $user instanceof User && Gate::forUser($user)->allows('createBrandAnalysis', Analysis::class);
             },
+            'canViewUsage' => function () use ($request): bool {
+                $user = $request->user();
+
+                return $user instanceof User && Gate::forUser($user)->allows('viewAny', UsageEvent::class);
+            },
+            // Only the team page. Secrets stay on the server: the webhook and API keys are present or absent.
+            'teamProfile' => fn () => $this->teamProfile($request),
         ];
+    }
+
+    /**
+     * @return array{can_update: bool, slack_configured: bool, primary: string, byok_enabled: bool, byok_budget?: string|null, keys?: list<array{provider: string, configured: bool, verified_at: string|null}>}|null
+     */
+    private function teamProfile(Request $request): ?array
+    {
+        if (! $request->routeIs('teams.show')) {
+            return null;
+        }
+
+        $team = $request->route('team');
+        if (! $team instanceof Team) {
+            $team = Team::query()->find($team);
+        }
+        $user = $request->user();
+        $tenantId = app(TenantContext::class)->id();
+        if (! $team instanceof Team || ! $user instanceof User || $tenantId === null || $team->id !== $tenantId) {
+            return null;
+        }
+        if (! Gate::forUser($user)->allows('view', $team)) {
+            return null;
+        }
+
+        $primary = $team->branding['primary'] ?? null;
+        $profile = [
+            'can_update' => Gate::forUser($user)->allows('update', $team),
+            'slack_configured' => filled($team->getAttributes()['slack_webhook_url'] ?? null),
+            'primary' => is_string($primary) ? $primary : '',
+            'byok_enabled' => $team->byok_enabled,
+        ];
+
+        // Key status is tenant administration. The budget is usage. Readers and editors have neither.
+        if (Gate::forUser($user)->allows('viewAny', TenantApiKey::class)) {
+            $stored = TenantApiKey::query()->get(['provider', 'last_verified_at'])->keyBy(
+                fn (TenantApiKey $key): string => $key->provider->value,
+            );
+            $profile['keys'] = array_map(function (ApiKeyProvider $provider) use ($stored): array {
+                $key = $stored->get($provider->value);
+
+                return [
+                    'provider' => $provider->value,
+                    'configured' => $key instanceof TenantApiKey,
+                    'verified_at' => $key instanceof TenantApiKey ? $key->last_verified_at?->toIso8601String() : null,
+                ];
+            }, ApiKeyProvider::cases());
+        }
+        if (Gate::forUser($user)->allows('viewUsage', $team)) {
+            $profile['byok_budget'] = $team->monthly_byok_budget_usd;
+        }
+
+        return $profile;
     }
 
     /**

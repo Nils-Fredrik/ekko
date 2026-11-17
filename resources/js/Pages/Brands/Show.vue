@@ -73,7 +73,12 @@ function shareText(share) {
 <template>
     <AppLayout :title="brand.name">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+            <div class="flex items-center justify-between gap-4">
+                <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+                <Link :href="route('brands.settings', brand.id)" class="text-sm text-shell-fg no-underline">
+                    {{ $t('app.nav.settings') }}
+                </Link>
+            </div>
         </template>
 
         <div class="py-8">
