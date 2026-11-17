@@ -34,7 +34,13 @@ variable "enable_workloads" {
 }
 
 variable "image" {
-  description = "Existing Artifact Registry image, preferably pinned by digest; required when workloads are enabled."
+  description = "Existing web image pinned by Artifact Registry digest; required when workloads are enabled."
+  type        = string
+  default     = ""
+}
+
+variable "job_image" {
+  description = "Existing jobs image with Chromium, pinned by Artifact Registry digest; required when workloads are enabled."
   type        = string
   default     = ""
 }
@@ -60,7 +66,7 @@ variable "admin_db_user" {
 variable "app_url" {
   description = "Canonical HTTPS URL for the service, also used for OAuth redirects."
   type        = string
-  default     = ""
+  default     = "https://ekko.maksimer.com"
 }
 
 variable "enable_public_access" {
@@ -73,4 +79,22 @@ variable "clickhouse_endpoints" {
   description = "Approved HTTPS endpoints for tenant ClickHouse log integrations."
   type        = list(string)
   default     = []
+}
+
+variable "enable_https" {
+  description = "Provision the production IP and DNS-authorized certificate; attach the load balancer when workloads exist."
+  type        = bool
+  default     = false
+}
+
+variable "google_oauth_client_id" {
+  description = "Google Web OAuth client ID (not a secret). Create the client outside Terraform."
+  type        = string
+  default     = ""
+}
+
+variable "gemini_grounding_approved" {
+  description = "Enable Gemini collection only after Google's terms permit Ekko's analysis and retention."
+  type        = bool
+  default     = false
 }

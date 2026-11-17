@@ -2,10 +2,11 @@
 
 ## Klientens IP-adresse bak Cloud Run (T39-F3)
 
-`ekko-web` har `TRUSTED_PROXIES=*` (`infra/terraform/workloads.tf`). Appen stoler da på den adressen som kobler til (Googles front) og bruker den siste adressen i `X-Forwarded-For` som klientens. Rategrensene for innlogging, SSO, OAuth og MCP er per klient bare når dette stemmer.
+Med HTTPS-lastbalansereren har `ekko-web` `TRUSTED_PROXIES=REMOTE_ADDR,35.190.63.68`, generert fra Terraform-IP-en. Laravel erstatter `REMOTE_ADDR` med adressen som faktisk kobler til før Symfony tolker kjeden. Både Cloud Runs front og den faste lastbalansereren er dermed betrodd, uten å gjette en intern proxyadresse eller et antall ledd. Host, port og prefiks er aldri betrodd. Bare konfigurasjoner uten lastbalanserer bruker `*`.
 
 - **Verifiser etter første utrulling:** to forespørsler fra ulike nett skal gi ulik `ip()` i loggen, og ti feilede SSO-forsøk fra ett nett skal ikke gi 429 fra et annet.
-- **Legges det en lastbalanserer foran Cloud Run** (egen domenekobling via HTTPS-lastbalanserer), kommer det et ekstra ledd i `X-Forwarded-For`. Da må `TRUSTED_PROXIES` liste **alle** ledd som legger til en adresse: både adressen som kobler til containeren (Cloud Runs interne front, ofte `169.254.0.0/16`) og lastbalansererens adresser. Står bare lastbalansererens adresser der, er ikke den tilkoblende adressen betrodd, og alle klienter blir én adresse igjen. Test dette under verifiseringen, og noter hvordan `X-Forwarded-For` faktisk ser ut på `run.app` (antall ledd).
+- **Ved endret proxykjede:** test både direkte `run.app` og domenet med forfalskede innledende adresser, inkludert en falsk lastbalansereradresse. `*` alene ga lastbalansererens IP for alle på domenet i live-testen 16.11.2026. Sammenlign appens sesjons-IP med Googles forespørselslogg for hver vei; klienten kan bruke IPv6 direkte og IPv4 via domenet, så ulike adresser er ikke alene en feil. Registrer bare testresultatet på Board, ikke klientens IP eller sesjonsdata.
+- **Ved IPv6 på lastbalansereren:** legg også den nye forwarding-adressen inn i `TRUSTED_PROXIES` og gjenta kontrollen. Dagens ALB har bare IPv4; direkte IPv6-trafikk til Cloud Run går ikke gjennom et eget ALB-IPv6-ledd.
 
 ## Databaserollen ved oppstart (T39-F2)
 
@@ -106,6 +107,55 @@ Miljøreglene følger [GitHubs dokumenterte GITHUB_REF-kontroll](https://docs.gi
 Test-PR #46–#48 bekreftet App-identiteten og at miljøet avviser `refs/pull/48/merge` før runner/steps starter. Kommentar-POST på PR krever Pull requests: write for både den dedikerte App-en og trigger-tokenet; Issues: write med Pull requests: read ga 403. Claude-actionens tokenbytte ga 401 «Invalid OIDC token» på pull_request_target, som i [upstream #713](https://github.com/anthropics/claude-code-action/issues/713). Derfor flyttes selve Claude-kjøringen til workflow_run med verifisert kilde. Den pinnede actionen støtter denne automation-hendelsen, men full live godkjenning må fortsatt testes etter eierens merge. Gamle workflow-kjøringer bruker gammel kode; opprett en ny testhendelse etter merge.
 
 Etter #49 virket Claude OIDC på workflow_run, men `Read(~/**)` nektet alle filene under `/home/runner/work/ekko/ekko`. En ekte CLI-test med versjon 2.1.325 gjenskapte feilen under en syntetisk arbeidsmappe i hjemmemappen. Med den rettede regelen kunne Read lese testfilen; `.git` og filen utenfor arbeidsmappen ble fortsatt nektet. En separat CLI/MCP-test med den ekte publiseringsfunksjonen og en simulert HTTP-transport bekreftet at hele retur-objektet blir identisk med strukturert output. Den deterministiske testen avviser fortsatt et omformulert sammendrag. Ingen rettigheter til shell, skriving eller eksterne filer er lagt til.
+
+## Utrulling og tilbakeføring
+
+### Kjør en utrulling på nytt
+
+Verified container artifacts expire after one day. If an artifact has expired,
+rerun the entire CI workflow so that the images are rebuilt, checked and
+transferred together; retrying only the deploy job cannot recover the artifact.
+The image job has a 30-minute limit and deploy has a 90-minute limit. After a
+timeout, inspect the backup, migration, traffic and job-image state before retrying:
+termination may leave a migration or Cloud Run operation running independently.
+
+### Tilbakefør webtrafikk
+
+This procedure applies only after the deployment pipeline is completed and
+approved for production. Identify a previously verified `ekko-web` revision
+that is compatible with the current database schema. With the intended project
+and region explicitly selected, run:
+
+```sh
+PROJECT_ID=ekko-514612 REGION=europe-west1 scripts/rollback-traffic.sh ekko-web-REVISION
+```
+
+Confirm that Cloud Run reports 100% traffic on the requested revision and check
+application health. This moves web traffic only. It does not reverse migrations
+or restore job images; assess and restore those separately if needed. Migrations
+must remain backward compatible so that an earlier revision can run against the
+current schema. Exercise this procedure in an isolated environment before use.
+
+The private production exercise on 16 November 2026 confirmed that a failed
+`gcloud run jobs update` can leave the rejected image in the job configuration.
+After a partial deployment, inspect and restore **all three** application jobs
+(`ekko-dispatch`, `ekko-worker`, `ekko-task`), including the job whose update failed.
+Check each image and Ready condition before resuming schedules. Restoring web
+traffic alone does not repair the worker. See the evidence in
+[T10 deployment status](t10-deploy-draft.md).
+
+## Produksjonsdomene og OAuth (T10)
+
+Kanonisk URL er `https://ekko.maksimer.com`; Google-callback er `/auth/google/callback` på samme vert. Terraform klargjør IP, DNS-autorisert sertifikat og global ekstern lastbalanserer, med HTTP→HTTPS og TLS ≥1.2. DNS-postene og kontrollert bootstrapstatus står i [T10-status](t10-deploy-draft.md); oppsett og OAuth-prosedyre står i [Terraform-README](../infra/terraform/README.md).
+
+Ved planlegging fra en ny arbeidskopi: kopier `production.tfvars.example` til ignorert `production.auto.tfvars`, behold `enable_https=true` og fyll inn eksisterende workload-valg. Standardverdien false må ikke brukes til å fjerne allerede provisionert HTTPS. Før offentlig åpning kontrolleres sertifikatstatus ACTIVE, domene/redirect, OAuth-innlogging for invitert konto og avvisning for uinvitert konto, samt klient-IP og spoofing både direkte og via lastbalansereren. Direkte kandidatadresser brukes fortsatt av røyktesten. Public IAM og schedules er separate brytere og skal fortsatt være av under bootstrap. Privat Google-test kan bekrefte appens tilgangskontroll, men en lokal headertransport kan miste IAM-token på nettleserens redirectkjede og gi Cloud Run 403 før appen nås. Slik 403 er ikke bevis på at Ekko avviste kontoen. Etter offentlig åpning gjentas hele innloggingen uten testtransport og uten manuell omlasting; dokumenter både uinvitert avslag og invitert dashboard.
+
+Ved offentlig Google-aksept brukes en annen, uinvitert Google-konto til avslaget: den tidligere testkontoen har nå bruker og Google-kobling. Eieren forvalter den inviterte kontoen som en bevisst testidentitet med bare lesertilgang i testtenanten med null kvote; identifikatoren lagres ikke i repo/Board. Tilgangen gjennomgås ved avslutning av produksjonsaksepten. Invitasjonen i den private testen ble opprettet direkte som fixture; opprettelse og utsending via UI/e-post er ikke verifisert, og avhenger av e-postoppsettet i A6.
+
+Deploy og innsamling har separate aktiveringskrav. T10 kan rulle ut nye web-/jobbimages og kjøre migrering/røyktest mens alle schedules er pauset. Før `enable_schedules=true` må eieren godkjenne A7-priser, pakker og kvoter, og motoroppsettet må respektere Gemini-sperren i A4. Offentlig webtilgang eller `EKKO_DEPLOY_ENABLED=true` er ikke en aktivering av innsamling.
+
+
+Status 16.11.2026: offentlig webtilgang er aktivert, full smoke uten IAM består på begge opprinnelser og invitert Google-konto når dashboardet uten omlasting i vanlig Chrome. En annen uinvitert Google-konto er også avvist offentlig, med uendret antall brukere og Google-koblinger. `EKKO_DEPLOY_ENABLED=true` er satt; første automatiske main-utrulling kontrolleres etter eierens merge. Alle ni schedules er PAUSED. Se siste avsnitt i T10-statusen for aktiv revisjon og etterkontroll.
 
 ## Tilbakekall migreringslegitimasjon fra web (T39-F1)
 
