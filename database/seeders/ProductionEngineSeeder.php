@@ -25,6 +25,23 @@ class ProductionEngineSeeder extends Seeder
             ]);
         }
 
+        // Retain the complete catalogue for historical and synthetic performance data.
+        // Postponed providers must remain unavailable for collection.
+        foreach ([
+            'chatgpt_ui' => ['chatgpt', 'ui_scrape', 'dataforseo'],
+            'gemini_ui' => ['gemini', 'ui_scrape', 'dataforseo'],
+            'google_aio' => ['google_aio', 'serp', 'dataforseo'],
+            'google_ai_mode' => ['google_aio', 'serp', 'dataforseo'],
+            'perplexity_api' => ['perplexity', 'api', 'perplexity'],
+        ] as $key => [$family, $method, $provider]) {
+            Engine::query()->firstOrCreate(['key' => $key], [
+                'family' => $family,
+                'method' => $method,
+                'provider' => $provider,
+                'is_enabled' => false,
+            ]);
+        }
+
         // Keep historical results; prevent collection by the postponed providers.
         Engine::query()->whereIn('provider', ['dataforseo', 'perplexity'])->update(['is_enabled' => false]);
         // Prices must be approved by the operator; demo rates must never seed production.
