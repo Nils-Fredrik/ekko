@@ -36,10 +36,11 @@ return [
     'from_model' => 'Fra',
     'to_model' => 'Til',
     'insight' => 'Innsikt',
-    'insight_prompt' => 'Skriv to eller tre setninger på rapportens språk om utviklingen for :brand. Tall: :summary. Ikke finn opp tall som ikke står der.',
+    'insight_prompt' => 'Skriv to eller tre setninger på norsk (locale :locale) om utviklingen for :brand. Tall: :summary. Ikke finn opp tall som ikke står der.',
     'empty' => 'Ingen data i perioden.',
     'empty_value' => '–',
     'logo' => 'Logo',
+    'logo_saved' => 'En logo er lagret.',
     'logo_help' => 'PNG eller JPEG, vist i PDF-rapporten.',
     'mail' => [
         'subject' => 'Rapport for :brand',

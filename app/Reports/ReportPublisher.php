@@ -57,20 +57,46 @@ final class ReportPublisher
         return $due;
     }
 
-    public function store(Team $tenant, DueReport $due, ?string $insight): Report
+    /**
+     * Metric queries for one PDF. Call this inside tenant row-level security, and render afterwards.
+     *
+     * @return array{path: string, data: array<string, mixed>}
+     */
+    public function document(Team $tenant, DueReport $due, ?string $insight): array
     {
         $schedule = ReportSchedule::query()->with('brand')->findOrFail($due->scheduleId);
-        $path = 'reports/'.$tenant->id.'/'.$schedule->id.'-'.$due->from.'.pdf';
         $previous = app()->getLocale();
         app()->setLocale($schedule->locale);
         try {
-            Pdf::view('reports.pdf', $this->viewData($tenant, $schedule, $due->from, $due->to, $insight))
+            return [
+                'path' => 'reports/'.$tenant->id.'/'.$schedule->id.'-'.$due->from.'.pdf',
+                'data' => $this->viewData($tenant, $schedule, $due->from, $due->to, $insight),
+            ];
+        } finally {
+            app()->setLocale($previous);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function write(string $path, array $data, string $locale): void
+    {
+        $previous = app()->getLocale();
+        app()->setLocale($locale);
+        try {
+            Pdf::view('reports.pdf', $data)
                 ->format('a4')
                 ->disk(config()->string('ekko.reports.disk'), 'private')
                 ->save($path);
         } finally {
             app()->setLocale($previous);
         }
+    }
+
+    public function record(DueReport $due, string $path): Report
+    {
+        $schedule = ReportSchedule::query()->findOrFail($due->scheduleId);
 
         return $schedule->reports()->create([
             'period_start' => $due->from,

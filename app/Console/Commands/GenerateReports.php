@@ -10,13 +10,15 @@ use Throwable;
 
 /**
  * Generates and sends the latest completed PDF report for each active tenant (docs/spec.md 11.2).
- * Safe to start every hour: a period is stored once, and a stored report is only mailed until it is sent.
+ * Cloud Scheduler starts `ekko:send-reports` on ekko-task, which exits when the command returns
+ * and does not run a queue worker. The work therefore always runs in this process.
+ * A period is stored once, and a stored report is only mailed until it is sent.
  */
 class GenerateReports extends Command
 {
-    protected $signature = 'ekko:reports
+    protected $signature = 'ekko:send-reports
         {--tenant=* : Only these tenant ids}
-        {--sync : Run in this process instead of on the queue}';
+        {--sync : Accepted. Generation always runs in this process}';
 
     protected $description = 'Generate and send the latest completed PDF report per tenant';
 
@@ -31,15 +33,8 @@ class GenerateReports extends Command
 
         $failed = [];
         foreach ($tenants as $tenantId) {
-            $job = new GenerateTenantReports((int) $tenantId);
-            if (! $this->option('sync')) {
-                dispatch($job);
-
-                continue;
-            }
-
             try {
-                dispatch_sync($job);
+                dispatch_sync(new GenerateTenantReports((int) $tenantId));
             } catch (Throwable $e) {
                 report($e);
                 $failed[] = $tenantId;
@@ -52,7 +47,7 @@ class GenerateReports extends Command
             return self::FAILURE;
         }
 
-        $this->components->info(__($this->option('sync') ? 'reports.command.done' : 'reports.command.queued', ['tenants' => $tenants->count()]));
+        $this->components->info(__('reports.command.done', ['tenants' => $tenants->count()]));
 
         return self::SUCCESS;
     }

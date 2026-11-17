@@ -36,10 +36,11 @@ return [
     'from_model' => 'From',
     'to_model' => 'To',
     'insight' => 'Insight',
-    'insight_prompt' => 'Write two or three sentences in the report language about how :brand developed. Figures: :summary. Do not invent figures that are not listed.',
+    'insight_prompt' => 'Write two or three sentences in English (locale :locale) about how :brand developed. Figures: :summary. Do not invent figures that are not listed.',
     'empty' => 'No data in the period.',
     'empty_value' => '–',
     'logo' => 'Logo',
+    'logo_saved' => 'A logo is saved.',
     'logo_help' => 'PNG or JPEG, drawn in the PDF report.',
     'mail' => [
         'subject' => 'Report for :brand',

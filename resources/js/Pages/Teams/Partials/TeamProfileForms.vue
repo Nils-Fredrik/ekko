@@ -129,7 +129,7 @@ function saveBudget() {
                         @input="branding.logo = $event.target.files[0]"
                     />
                     <p class="mt-1 text-sm text-gray-600">{{ $t('reports.logo_help') }}</p>
-                    <p v-if="profile.has_logo" class="mt-1 text-sm text-gray-600">{{ $t('reports.logo') }}</p>
+                    <p v-if="profile.has_logo" class="mt-1 text-sm text-gray-600">{{ $t('reports.logo_saved') }}</p>
                     <InputError :message="branding.errors.logo" class="mt-2" />
                 </div>
             </template>

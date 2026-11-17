@@ -15,6 +15,7 @@ Schedule::command('ekko:aggregate')->hourly()->withoutOverlapping();
 // aggregation. Each tenant is evaluated once a day, after ekko.alerts.evaluate_after in its own timezone.
 Schedule::command('ekko:evaluate-alerts')->hourlyAt(15)->withoutOverlapping();
 
-// The latest completed week or month, once per schedule (docs/spec.md 11.2). A stored PDF that has
-// not been mailed is sent again. Generation runs after the hourly aggregation.
-Schedule::command('ekko:reports')->hourlyAt(25)->withoutOverlapping();
+// The latest completed week or month, once per schedule (docs/spec.md 7.1 and 11.2).
+// Production starts the same command from Cloud Scheduler. A stored PDF that has not been mailed is sent again.
+Schedule::command('ekko:send-reports')->weeklyOn(1, '6:30')->timezone('Europe/Oslo')->withoutOverlapping();
+Schedule::command('ekko:send-reports')->monthlyOn(1, '6:30')->timezone('Europe/Oslo')->withoutOverlapping();

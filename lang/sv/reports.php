@@ -36,10 +36,11 @@ return [
     'from_model' => 'Från',
     'to_model' => 'Till',
     'insight' => 'Insikt',
-    'insight_prompt' => 'Skriv två eller tre meningar på rapportens språk om utvecklingen för :brand. Siffror: :summary. Hitta inte på siffror som inte står där.',
+    'insight_prompt' => 'Skriv två eller tre meningar på svenska (locale :locale) om utvecklingen för :brand. Siffror: :summary. Hitta inte på siffror som inte står där.',
     'empty' => 'Inga data i perioden.',
     'empty_value' => '–',
     'logo' => 'Logotyp',
+    'logo_saved' => 'En logotyp är sparad.',
     'logo_help' => 'PNG eller JPEG, visas i PDF-rapporten.',
     'mail' => [
         'subject' => 'Rapport för :brand',
