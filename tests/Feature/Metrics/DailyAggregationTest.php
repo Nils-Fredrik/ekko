@@ -14,10 +14,11 @@ use App\Models\ModelChange;
 use App\Models\Run;
 use App\Tenancy\MissingTenantContextException;
 use App\Tenancy\TenantContext;
-use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Queue;
 use Tests\Support\Metrics\MetricsWorld;
 
@@ -298,10 +299,8 @@ test('with --sync a tenant that fails does not stop the others, and the command 
         END \$\$;
         CREATE TRIGGER fail_broken_tenant BEFORE INSERT ON agg_daily FOR EACH ROW EXECUTE FUNCTION fail_broken_tenant();
         SQL);
-    $reported = [];
-    app(ExceptionHandler::class)->reportable(function (Throwable $e) use (&$reported) {
-        $reported[] = $e;
-    });
+    // The privacy callback stops default reporting; observe the emitted record instead of a later callback.
+    Log::spy();
 
     $this->artisan('ekko:aggregate', ['date' => OSLO_DAY, '--sync' => true])
         ->expectsOutputToContain((string) $broken->tenant->id)
@@ -309,8 +308,11 @@ test('with --sync a tenant that fails does not stop the others, and the command 
 
     $rows = fn (MetricsWorld $w) => app(TenantContext::class)->run($w->tenant->id, fn () => AggDaily::query()->count());
     expect($rows($broken))->toBe(0)
-        ->and($rows($ok))->toBe(1)
-        ->and($reported)->toHaveCount(1);
+        ->and($rows($ok))->toBe(1);
+    Log::shouldHaveReceived('error')->once();
+    Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context) => $message === 'Application exception.'
+        && $context['tenant_id'] === $broken->tenant->id
+        && $context['exception']['type'] === QueryException::class)->once();
 });
 
 test('the command takes a range and a tenant filter, and queues jobs without --sync', function () {

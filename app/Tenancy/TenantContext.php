@@ -2,6 +2,8 @@
 
 namespace App\Tenancy;
 
+use App\Logging\LogContext;
+
 /**
  * The tenant the current request or job works in (docs/spec.md 5.3, layer 1).
  *
@@ -15,11 +17,13 @@ final class TenantContext
     public function set(int $tenantId): void
     {
         $this->tenantId = $tenantId;
+        app(LogContext::class)->share(['tenant_id' => $tenantId]);
     }
 
     public function forget(): void
     {
         $this->tenantId = null;
+        app(LogContext::class)->share(['tenant_id' => null]);
     }
 
     public function check(): bool
@@ -55,7 +59,7 @@ final class TenantContext
         $this->tenantId = $tenantId;
 
         try {
-            return $callback();
+            return app(LogContext::class)->run(['tenant_id' => $tenantId], $callback);
         } finally {
             $this->tenantId = $previous;
         }

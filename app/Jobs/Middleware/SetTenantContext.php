@@ -2,6 +2,8 @@
 
 namespace App\Jobs\Middleware;
 
+use App\Jobs\TenantJob;
+use App\Logging\LogContext;
 use App\Tenancy\TenantAware;
 use App\Tenancy\TenantContext;
 use Closure;
@@ -19,6 +21,10 @@ final class SetTenantContext
             throw new LogicException($job::class.' must implement '.TenantAware::class.' to use '.self::class.'.');
         }
 
-        return app(TenantContext::class)->run($job->tenantId(), fn () => $next($job));
+        return app(LogContext::class)->run([
+            'tenant_id' => $job->tenantId(),
+            'user_id' => null,
+            'run_id' => $job instanceof TenantJob ? $job->logRunId() : null,
+        ], fn () => app(TenantContext::class)->run($job->tenantId(), fn () => $next($job)));
     }
 }
