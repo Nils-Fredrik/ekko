@@ -3,6 +3,7 @@
 namespace App\Prompts;
 
 use App\Detection\EntityMatcher;
+use App\Detection\TextNormalizer;
 use App\Models\Mention;
 
 /**
@@ -12,8 +13,9 @@ use App\Models\Mention;
 final class AnswerSegments
 {
     /**
-     * Keys are "{entity_type}:{entity_id}:{lowercase surface}" for aliases with match_mode
-     * case_insensitive. exact_word and unknown mentions stay case-sensitive.
+     * Keys are "{entity_type}:{entity_id}:{normalized surface}" for aliases with match_mode
+     * case_insensitive. The surface is folded the same way as detection (docs/spec.md 8.1), so
+     * Björn and Bjørn share a key. exact_word and unknown mentions stay case-sensitive.
      *
      * @param  iterable<Mention>  $mentions
      * @param  array<string, true>  $caseFold
@@ -138,7 +140,12 @@ final class AnswerSegments
             return null;
         }
 
-        return $entityType.':'.(int) $entityId.':'.mb_strtolower($surface);
+        $normalized = trim((new TextNormalizer)->normalize($surface)->lower);
+        if ($normalized === '') {
+            return null;
+        }
+
+        return $entityType.':'.(int) $entityId.':'.$normalized;
     }
 
     /**

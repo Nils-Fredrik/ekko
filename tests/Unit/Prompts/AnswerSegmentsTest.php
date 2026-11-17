@@ -38,6 +38,20 @@ it('highlights another case when the alias is case insensitive', function () {
         ->toBe(['Apple', 'apple']);
 });
 
+it('matches a case-insensitive alias through the same letter folding as detection', function () {
+    $answer = 'Bjørn is here. BJØRN is here too.';
+    $mention = new Mention([
+        'entity_type' => 'competitor',
+        'entity_id' => 4,
+        'surface_name' => 'Bjørn',
+        'first_char_offset' => 0,
+    ]);
+    $fold = [AnswerSegments::caseFoldKey('competitor', 4, 'Björn') => true];
+
+    expect(collect(AnswerSegments::from($answer, [$mention], $fold))->where('kind', 'competitor')->pluck('text')->all())
+        ->toBe(['Bjørn', 'BJØRN']);
+});
+
 it('keeps a possessive and a hyphen compound, and skips a longer word', function () {
     $answer = "Volvos motor. Volvo's bil. Volvo\u{2019}s hjul. Volvo-eier. Volvoer, Volvobil og Volvo240.";
 
