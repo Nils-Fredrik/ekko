@@ -27,3 +27,25 @@ it('uploads the provider JSON to the configured bucket under the tenant and UTC 
     expect(app(RawResponseStore::class))->toBeInstanceOf(GcsRawResponseStore::class)
         ->and($uri)->toBe("gs://test-raw/{$objectPath}");
 });
+
+it('reads a stored object and returns null when the uri is missing or malformed', function () {
+    $object = Mockery::mock(StorageObject::class);
+    $object->expects('exists')->andReturn(true);
+    $object->expects('downloadAsString')->andReturn('{"ok":true}');
+
+    $missing = Mockery::mock(StorageObject::class);
+    $missing->expects('exists')->andReturn(false);
+
+    $bucket = Mockery::mock(Bucket::class);
+    $bucket->expects('object')->with('12/file.json')->andReturn($object);
+    $bucket->expects('object')->with('missing.json')->andReturn($missing);
+
+    $storage = Mockery::mock(StorageClient::class);
+    $storage->expects('bucket')->with('test-raw')->twice()->andReturn($bucket);
+
+    $store = new GcsRawResponseStore($storage);
+
+    expect($store->read('gs://test-raw/12/file.json'))->toBe('{"ok":true}')
+        ->and($store->read('gs://test-raw/missing.json'))->toBeNull()
+        ->and($store->read('not-a-uri'))->toBeNull();
+});

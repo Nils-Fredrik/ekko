@@ -14,7 +14,8 @@ use App\Detection\EntityMatcher;
  * - The model enriches the known mentions with is_recommended and sentiment. Offset and list position of a
  *   known mention always come from the deterministic stage.
  * - The model adds mentions of unknown companies. An "unknown" the alias search recognises as a known
- *   entity is dropped, and the same name is kept once.
+ *   entity is dropped, one whose name is not in the answer text is dropped (T39-F10), and the same name is
+ *   kept once.
  * - When the model stage failed (null), the deterministic mentions are kept as they are.
  */
 final class ExtractionAssembler
@@ -69,17 +70,17 @@ final class ExtractionAssembler
         $extra = [];
         foreach ($unknown as $mention) {
             $name = mb_strtolower($mention->surfaceName);
-            if (isset($seen[$name]) || $this->matcher->detect($mention->surfaceName, $aliases) !== []) {
+            $offset = $mention->surfaceName === '' ? false : mb_stripos($answerText, $mention->surfaceName);
+            if ($offset === false || isset($seen[$name]) || $this->matcher->detect($mention->surfaceName, $aliases) !== []) {
                 continue;
             }
             $seen[$name] = true;
-            $offset = mb_stripos($answerText, $mention->surfaceName);
             $extra[] = new AssembledMention(
-                'unknown', null, $mention->surfaceName, $offset === false ? null : $offset,
+                'unknown', null, $mention->surfaceName, $offset,
                 $mention->listPosition, $mention->isRecommended, $mention->sentiment, 'llm',
             );
         }
-        usort($extra, fn (AssembledMention $a, AssembledMention $b): int => ($a->firstCharOffset ?? PHP_INT_MAX) <=> ($b->firstCharOffset ?? PHP_INT_MAX));
+        usort($extra, fn (AssembledMention $a, AssembledMention $b): int => $a->firstCharOffset <=> $b->firstCharOffset);
 
         return new AssembledExtraction(
             [...$assembled, ...array_slice($extra, 0, self::MAX_UNKNOWN)],

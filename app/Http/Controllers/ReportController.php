@@ -43,7 +43,8 @@ class ReportController extends Controller
                 'period_start' => $report->period_start->toDateString(),
                 'period_end' => $report->period_end->toDateString(),
                 'sent_at' => $report->sent_at?->toIso8601String(),
-                'downloadable' => $this->storedPath($report) !== null,
+                'downloadable' => ($path = $this->storedPath($report)) !== null
+                    && Storage::disk(config()->string('ekko.reports.disk'))->exists($path),
             ])->values(),
             'brands' => Brand::query()->orderBy('name')->get(['id', 'name']),
             'reportLocales' => array_values(array_filter(

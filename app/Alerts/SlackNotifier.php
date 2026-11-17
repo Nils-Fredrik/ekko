@@ -19,7 +19,10 @@ final class SlackNotifier
         return is_array($parts)
             && ($parts['scheme'] ?? null) === 'https'
             && in_array(strtolower((string) ($parts['host'] ?? '')), (array) config('ekko.alerts.slack_hosts'), true)
-            && ! isset($parts['port'], $parts['user'], $parts['pass']);
+            // One isset() per part: isset() with several arguments is only true when all of them are set.
+            && ! isset($parts['port'])
+            && ! isset($parts['user'])
+            && ! isset($parts['pass']);
     }
 
     /**

@@ -202,7 +202,8 @@ it('rejects a partial answer unless Gemini reports a normal stop', function (arr
     'missing finish reason' => [[]],
 ]);
 
-it('requires a tenant API key before making a request', function (?string $apiKey) {
+it('requires a credential before making a request', function (?string $apiKey) {
+    config(['engines.gemini_api.api_key' => null]);
     Http::fake();
 
     expect(fn () => app(GeminiApiAdapter::class)->collect(new EngineRequest('Eksempel', 'NO', 'nb', null, '15', $apiKey)))

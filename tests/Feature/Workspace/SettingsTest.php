@@ -271,6 +271,11 @@ test('report schedules validate recipients and downloads stay inside the tenant 
 
     $this->actingAs($owner)->get(route('reports.download', $report))->assertOk()->assertDownload('report.pdf');
 
+    Storage::disk(config()->string('ekko.reports.disk'))->delete($path);
+    $this->actingAs($owner)->get(route('reports.index'))->assertInertia(fn ($page) => $page
+        ->where('reports.0.downloadable', false));
+    $this->actingAs($owner)->get(route('reports.download', $report))->assertNotFound();
+
     $report->forceFill(['pdf_uri' => 'reports/'.$world->tenant->id.'/../../.env'])->save();
     $this->actingAs($owner)->get(route('reports.download', $report))->assertNotFound();
 });
@@ -303,7 +308,7 @@ test('usage shows the month against the quota and is hidden from a reader', func
 
 test('team settings store a slack webhook and an api key without sending either back', function () {
     Http::preventStrayRequests()->fake([
-        'https://api.openai.com/v1/models' => Http::response(['data' => []]),
+        'https://eu.api.openai.com/v1/models' => Http::response(['data' => []]),
     ]);
     $world = MetricsWorld::create();
     $world->tenant->forceFill(['byok_enabled' => true, 'monthly_byok_budget_usd' => '15.00'])->save();

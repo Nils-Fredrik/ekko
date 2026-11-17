@@ -99,7 +99,7 @@ final class OnboardingRunner
             // Resolved here, not injected: without ANTHROPIC_API_KEY the container cannot build the client.
             $result = app(OnboardingModelClient::class)->suggest($request);
         } catch (OnboardingModelFailed $e) {
-            Log::warning('Onboarding model call failed.', ['analysis' => $analysis->id, 'error' => $e->getMessage()]);
+            Log::warning('Onboarding model call failed.', ['analysis' => $analysis->id, 'error' => $e::class]);
             $this->fail($analysis, 'model_unavailable');
 
             return;

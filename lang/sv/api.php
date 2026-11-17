@@ -8,4 +8,6 @@ return [
     'bound_tenant' => 'Tenant: :tenant',
     'unbound_token' => 'Ingen giltig tenantåtkomst. Skapa en ny token för vald tenant.',
     'unavailable' => 'otillgänglig',
+    'token_limit' => 'Du kan ha högst :max aktiva API-token. Ta bort ett som du inte använder.',
+    'expires' => 'Upphör :date',
 ];

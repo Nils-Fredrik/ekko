@@ -57,7 +57,7 @@ class UpsertPrompts extends EkkoTool
             'prompts.*' => ['array'],
             'prompts.*.id' => ['nullable', 'integer'],
             'prompts.*.market' => ['nullable', 'integer', 'required_without:prompts.*.id'],
-            'prompts.*.text' => ['nullable', 'string', 'max:2000', 'required_without:prompts.*.id'],
+            'prompts.*.text' => ['nullable', 'string', 'max:'.Prompt::TEXT_MAX, Prompt::nullByteRule(), 'required_without:prompts.*.id'],
             'prompts.*.topic' => ['nullable', 'integer'],
             'prompts.*.intent' => ['nullable', Rule::in(ProposePrompts::INTENTS), 'required_without:prompts.*.id'],
             'prompts.*.funnel_stage' => ['nullable', Rule::in(ProposePrompts::FUNNEL_STAGES), 'required_without:prompts.*.id'],

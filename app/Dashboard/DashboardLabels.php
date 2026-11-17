@@ -25,6 +25,21 @@ final class DashboardLabels
         return self::known("app.intents.{$intent}", 'app.intents.unknown');
     }
 
+    public static function funnel(string $stage): string
+    {
+        return self::known("app.funnel_stages.{$stage}", 'app.funnel_stages.unknown');
+    }
+
+    public static function priority(string $priority): string
+    {
+        return self::known("app.priorities.{$priority}", 'app.priorities.unknown');
+    }
+
+    public static function ownership(string $ownership): string
+    {
+        return self::known("app.ownership.{$ownership}", 'app.ownership.unknown');
+    }
+
     /**
      * engines has no name column. Known keys are translated, otherwise the family
      * (chatgpt, gemini, google_aio, perplexity, claude).

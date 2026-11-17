@@ -159,6 +159,10 @@ const deleteApiToken = () => {
                                         {{ $t('Last used') }} {{ token.last_used_ago }}
                                     </div>
 
+                                    <div v-if="token.expires_on" class="ms-6 text-sm text-gray-400">
+                                        {{ $t('api.expires', { date: token.expires_on }) }}
+                                    </div>
+
                                     <button
                                         v-if="availablePermissions.length > 0"
                                         class="cursor-pointer ms-6 text-sm text-gray-400 underline"

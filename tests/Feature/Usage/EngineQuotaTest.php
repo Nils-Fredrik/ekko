@@ -38,8 +38,8 @@ test('a queued engine run uses the tenant key, releases the transaction and resp
     $other = Team::factory()->tenant()->create();
     $depth = DB::transactionLevel();
     Http::preventStrayRequests()->fake([
-        'https://api.openai.com/v1/models' => Http::response(['data' => []]),
-        'https://api.openai.com/v1/responses' => function () use ($tenant, $depth, $fixture) {
+        'https://eu.api.openai.com/v1/models' => Http::response(['data' => []]),
+        'https://eu.api.openai.com/v1/responses' => function () use ($tenant, $depth, $fixture) {
             expect(current_tenant_id())->toBe($tenant->id)
                 ->and(DB::transactionLevel())->toBe($depth)
                 ->and(app(TenantRls::class)->currentSettings()['tenant_ids'])->toBe('');
@@ -75,7 +75,7 @@ test('a queued engine run uses the tenant key, releases the transaction and resp
     }));
 
     Http::assertSentCount(2);
-    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://api.openai.com/v1/responses'
+    Http::assertSent(fn (Request $request): bool => $request->url() === 'https://eu.api.openai.com/v1/responses'
         && $request->hasHeader('Authorization', 'Bearer verified-test-key'));
 });
 
@@ -127,7 +127,7 @@ test('a second run can enter while the first provider call is in progress if quo
         [$first, $second] = $rls->run([$tenant->id], fn () => quotaRuns($engine));
         $collector = app(EngineCollector::class);
         Http::preventStrayRequests()->fake([
-            'https://api.openai.com/v1/responses' => function () use ($first, $second, $collector, $depth, $fixture, $limit, &$calls) {
+            'https://eu.api.openai.com/v1/responses' => function () use ($first, $second, $collector, $depth, $fixture, $limit, &$calls) {
                 expect(DB::transactionLevel())->toBe($depth);
 
                 if (++$calls === 1) {
@@ -157,7 +157,7 @@ test('a second run can enter while the first provider call is in progress if quo
 test('a handled provider failure releases its reservation so a retry can use the quota', function () {
     $this->travelTo(now()->parse('2026-11-15T12:00:00Z'));
     Http::preventStrayRequests()->fake([
-        'https://api.openai.com/v1/responses' => Http::sequence()->push([], 422)->push(EngineFixtures::load('chatgpt_api', 'no-nb')),
+        'https://eu.api.openai.com/v1/responses' => Http::sequence()->push([], 422)->push(EngineFixtures::load('chatgpt_api', 'no-nb')),
     ]);
     $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['monthly_call_quota' => 1]))->create();
     $engine = quotaEngine();
@@ -184,7 +184,7 @@ test('a handled provider failure releases its reservation so a retry can use the
 test('a disconnected worker retains its reservation until the grace period expires', function () {
     $this->travelTo(now()->parse('2026-11-15T12:00:00Z'));
     Http::preventStrayRequests()->fake([
-        'https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'no-nb')),
+        'https://eu.api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'no-nb')),
     ]);
     $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['monthly_call_quota' => 1]))->create();
     $engine = quotaEngine();
@@ -222,7 +222,7 @@ test('a disconnected worker retains its reservation until the grace period expir
 });
 
 test('known billable usage survives a storage failure and a new provider attempt is charged separately', function () {
-    Http::preventStrayRequests()->fake(['https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'no-nb'))]);
+    Http::preventStrayRequests()->fake(['https://eu.api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'no-nb'))]);
     $tenant = Team::factory()->tenant()->withPlan(Plan::factory()->create(['monthly_call_quota' => 2]))->create();
     $engine = quotaEngine();
     $raw = Mockery::mock(RawResponseStore::class);

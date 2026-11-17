@@ -36,6 +36,8 @@ Thumbs.db
 *.tfvars.json
 crash.log
 
+/test-results/
+/playwright-report/
 # Untrusted review inputs are temporary data, never source files.
 /.review/
 

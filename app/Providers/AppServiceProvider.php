@@ -10,6 +10,7 @@ use App\Engines\GcsRawResponseStore;
 use App\Engines\RawResponseStore;
 use App\Extraction\AnthropicExtractionClient;
 use App\Extraction\ExtractionClient;
+use App\Logging\LogContext;
 use App\Mcp\McpTokens;
 use App\Onboarding\Analysis;
 use App\Onboarding\Fetch\DnsHostResolver;
@@ -43,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Scoped: reset between requests and between queued jobs, so a tenant never leaks into the next one.
         $this->app->scoped(TenantContext::class);
+        $this->app->scoped(LogContext::class);
         $this->app->scoped(ActingAs::class);
         $this->app->scoped(TenantAccess::class);
         $this->app->scoped(EngineRegistry::class, EngineRegistry::discover(...));
@@ -60,6 +62,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        app(LogContext::class)->clear();
+
         // A login role that could bypass row-level security stops the instance (T39-F2): /up is the web service's
         // startup probe, and the worker and the ekko:* commands check before they start. The migrations run as
         // the owner of the tables on purpose, so migrate and the other commands are not checked.
@@ -81,10 +85,17 @@ class AppServiceProvider extends ServiceProvider
         // Each analysis fetches a site and calls the model, so starting them is limited per user.
         RateLimiter::for('onboarding', fn (Request $request): Limit => Limit::perMinute((int) config('ekko.wizard.analyses_per_minute'))
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
+        // Per token, and per user across all of the user's tokens, so more tokens do not give more calls (T39-F10).
         RateLimiter::for('api-v1', function (Request $request) {
-            $token = $request->user()?->currentAccessToken();
+            $user = $request->user();
+            $token = $user?->currentAccessToken();
+            $limits = [Limit::perMinute((int) config('ekko.api.calls_per_minute_per_token'))
+                ->by('api-v1:'.($token instanceof PersonalAccessToken ? $token->getKey() : $request->ip()))];
+            if ($user !== null) {
+                $limits[] = Limit::perMinute((int) config('ekko.api.calls_per_minute_per_user'))->by('api-v1-user:'.$user->getAuthIdentifier());
+            }
 
-            return Limit::perMinute(60)->by('api-v1:'.($token instanceof PersonalAccessToken ? $token->getKey() : $request->ip()));
+            return $limits;
         });
 
         // The Claude connection (ADR 0016): tool calls per user, and the OAuth endpoints Claude calls without a

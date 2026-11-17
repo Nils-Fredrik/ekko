@@ -55,6 +55,21 @@ return [
     ],
 
     /*
+    |--------------------------------------------------------------------------
+    | REST API v1 (docs/spec.md 15.1, T39-F10)
+    |--------------------------------------------------------------------------
+    |
+    | Calls per minute per token and per user (all of a user's tokens together), how many API tokens a user
+    | can hold, and how many days a new token lives.
+    */
+    'api' => [
+        'calls_per_minute_per_token' => 60,
+        'calls_per_minute_per_user' => 120,
+        'tokens_per_user' => 20,
+        'token_days' => 365,
+    ],
+
+    /*
     | The Claude connection (MCP, docs/spec.md 15.2, ADR 0016). Client registration: per address per day,
     | and a ceiling for unused clients in the whole application (T39-F5). An unused client (no connection
     | yet) is deleted after unused_client_minutes. Also tool calls per minute per user and OAuth calls per

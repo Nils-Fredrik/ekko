@@ -33,6 +33,11 @@ final class CollectEngineRun extends TenantJob
         parent::__construct($tenantId);
     }
 
+    public function logRunId(): int
+    {
+        return $this->runId;
+    }
+
     /** @return array<int, object> */
     public function middleware(): array
     {
