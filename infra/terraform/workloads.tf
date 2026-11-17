@@ -38,7 +38,6 @@ locals {
   web_secrets = {
     APP_KEY              = "app-key"
     DB_PASSWORD          = "db-password"
-    DB_ADMIN_PASSWORD    = "db-admin-password"
     GOOGLE_CLIENT_SECRET = "google-oauth-client-secret"
   }
   worker_secrets = {
@@ -78,7 +77,7 @@ resource "google_cloud_run_v2_service" "web" {
         failure_threshold = 12
       }
       dynamic "env" {
-        for_each = merge(local.common_env, { DB_USERNAME = var.app_db_user, DB_ADMIN_USERNAME = var.admin_db_user, GOOGLE_CLIENT_ID = var.google_oauth_client_id, GOOGLE_REDIRECT_URI = "${var.app_url}/auth/google/callback", EKKO_SCHEDULER_SERVICE_ACCOUNT = google_service_account.component["scheduler"].email, EKKO_SCHEDULER_AUDIENCE = var.app_url })
+        for_each = merge(local.common_env, { DB_USERNAME = var.app_db_user, GOOGLE_CLIENT_ID = var.google_oauth_client_id, GOOGLE_REDIRECT_URI = "${var.app_url}/auth/google/callback", EKKO_SCHEDULER_SERVICE_ACCOUNT = google_service_account.component["scheduler"].email, EKKO_SCHEDULER_AUDIENCE = var.app_url })
         content {
           name  = env.key
           value = env.value

@@ -149,7 +149,7 @@ resource "google_secret_manager_secret" "application" {
 # their plaintext never enters Terraform configuration, plans, or state.
 locals {
   secret_readers = {
-    web      = ["app-key", "db-password", "db-admin-password", "google-oauth-client-secret"]
+    web      = ["app-key", "db-password", "google-oauth-client-secret"]
     dispatch = ["app-key", "db-password"]
     worker   = ["app-key", "db-password", "anthropic-api-key", "openai-api-key", "gemini-api-key"]
     task     = ["app-key", "db-password"]
