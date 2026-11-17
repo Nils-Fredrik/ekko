@@ -32,14 +32,15 @@ final class UsageController extends Controller
                 ->where('occurred_at', '>=', $month)
                 ->where('occurred_at', '<', $month->copy()->addMonth())
                 ->whereNotNull('engine_key')
-                ->selectRaw('engine_key, sum(calls) as calls, sum(cost_usd) as cost_usd')
+                ->selectRaw("engine_key, coalesce(sum(calls) filter (where billed_to = 'platform'), 0) as calls, coalesce(sum(cost_usd) filter (where billed_to = 'platform'), 0) as cost_usd, coalesce(sum(cost_usd) filter (where billed_to = 'byok'), 0) as byok_cost_usd")
                 ->groupBy('engine_key')
                 ->orderBy('engine_key')
                 ->get()) as $event) {
                 $engines[] = [
                     'engine_key' => (string) $event->engine_key,
                     'calls' => (int) $event->calls,
-                    'cost_usd' => (string) $event->cost_usd,
+                    'cost_usd' => $this->money($event->cost_usd),
+                    'byok_cost_usd' => $this->money($event->byok_cost_usd),
                 ];
             }
         }
@@ -56,5 +57,18 @@ final class UsageController extends Controller
                 'byok_cost_usd' => (string) ($usage[$team->id]->byok_cost_usd ?? '0.00000000'),
             ])->all(),
         ]);
+    }
+
+    /** Keep the aggregated numeric as an 8-decimal string, matching usage_events.cost_usd. */
+    private function money(mixed $value): string
+    {
+        $raw = (string) $value;
+        $negative = str_starts_with($raw, '-');
+        $raw = ltrim($raw, '-');
+        [$whole, $fraction] = array_pad(explode('.', $raw, 2), 2, '');
+        $whole = ltrim($whole, '0');
+        $whole = $whole === '' ? '0' : $whole;
+
+        return ($negative ? '-' : '').$whole.'.'.str_pad(substr($fraction, 0, 8), 8, '0');
     }
 }

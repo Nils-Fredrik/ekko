@@ -21,6 +21,7 @@ return [
         'act' => 'Act as tenant',
         'reason' => 'Reason',
         'invalid_partner' => 'The partner must be a tenant that does not itself have a partner.',
+        'reopen_closed' => 'A closed tenant cannot be opened again.',
         'statuses' => [
             'active' => 'Active',
             'paused' => 'Paused',
@@ -78,6 +79,8 @@ return [
         'cost' => 'Cost',
         'byok' => 'BYOK cost',
         'empty' => 'No tenants.',
+        'no_engines' => 'No engines this month.',
+        'engine' => 'Engine',
         'export' => 'Export billing basis',
         'engines' => 'Cost per engine',
     ],

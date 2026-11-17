@@ -12,6 +12,7 @@ use App\Tenancy\InvalidPartnerException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -55,15 +56,21 @@ final class TenantController extends Controller
         ]);
         $this->guardPartner($data['partner_team_id'] ?? null, null);
 
-        $team = $admin->ownedTeams()->create([
-            'name' => $data['name'],
-            'personal_team' => false,
-        ]);
-        $team->forceFill([
-            'plan_id' => $data['plan_id'],
-            'partner_team_id' => $data['partner_team_id'] ?? null,
-        ])->save();
-        $audit->tenantCreated($admin, $team);
+        try {
+            DB::transaction(function () use ($admin, $data, $audit): void {
+                $team = $admin->ownedTeams()->create([
+                    'name' => $data['name'],
+                    'personal_team' => false,
+                ]);
+                $team->forceFill([
+                    'plan_id' => $data['plan_id'],
+                    'partner_team_id' => $data['partner_team_id'] ?? null,
+                ])->save();
+                $audit->tenantCreated($admin, $team);
+            });
+        } catch (InvalidPartnerException) {
+            throw ValidationException::withMessages(['partner_team_id' => __('admin.tenants.invalid_partner')]);
+        }
 
         return back(303);
     }
@@ -93,12 +100,18 @@ final class TenantController extends Controller
             'monthly_call_quota_override' => $team->monthly_call_quota_override,
         ];
         $status = TenantStatus::from($data['status']);
+        // Spec 16 describes closing, not reopening. A closed tenant stays closed until purge.
+        if ($previousStatus === TenantStatus::Closed && $status !== TenantStatus::Closed) {
+            throw ValidationException::withMessages(['status' => __('admin.tenants.reopen_closed')]);
+        }
         $closedAt = $team->closed_at;
         if ($status === TenantStatus::Closed && $previousStatus !== TenantStatus::Closed) {
+            // Same gate as DeleteTeam: a hijacked admin session alone cannot start the purge clock.
+            $confirmedAt = (int) $request->session()->get('auth.password_confirmed_at', 0);
+            if (Date::now()->getTimestamp() - $confirmedAt > (int) config('auth.password_timeout')) {
+                throw ValidationException::withMessages(['password' => __('app.tenant_close.confirm_password')]);
+            }
             $closedAt = Date::now();
-        }
-        if ($status !== TenantStatus::Closed) {
-            $closedAt = null;
         }
 
         try {

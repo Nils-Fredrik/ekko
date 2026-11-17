@@ -21,6 +21,7 @@ return [
         'act' => 'Opptre som tenant',
         'reason' => 'Årsak',
         'invalid_partner' => 'Partneren må være en tenant uten egen partner.',
+        'reopen_closed' => 'En stengt tenant kan ikke åpnes igjen.',
         'statuses' => [
             'active' => 'Aktiv',
             'paused' => 'Pauset',
@@ -78,6 +79,8 @@ return [
         'cost' => 'Kostnad',
         'byok' => 'BYOK-kostnad',
         'empty' => 'Ingen tenants.',
+        'no_engines' => 'Ingen motorer denne måneden.',
+        'engine' => 'Motor',
         'export' => 'Eksporter fakturagrunnlag',
         'engines' => 'Kostnad per motor',
     ],

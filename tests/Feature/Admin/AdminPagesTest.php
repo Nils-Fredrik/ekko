@@ -26,7 +26,7 @@ it('lets a platform admin manage tenants, plans and engines', function () {
     $tenant = Team::query()->where('name', 'Nordic')->firstOrFail();
     expect($tenant->plan_id)->toBe($plan->id)->and($tenant->personal_team)->toBeFalse();
 
-    $this->put(route('admin.tenants.update', $tenant), [
+    $this->withSession(['auth.password_confirmed_at' => time()])->put(route('admin.tenants.update', $tenant), [
         'name' => 'Nordic',
         'plan_id' => $plan->id,
         'status' => 'closed',
@@ -80,26 +80,70 @@ it('lets a platform admin manage tenants, plans and engines', function () {
         ->and(EnginePrice::query()->where('engine_key', $engine->key)->value('price_per_call_usd'))->toBe('0.02000000');
 
     app(TenantContext::class)->set($tenant->id);
-    UsageEvent::withoutEvents(fn () => UsageEvent::query()->create([
-        'occurred_at' => now('UTC'),
-        'kind' => 'engine_call',
-        'engine_key' => $engine->key,
-        'calls' => 3,
-        'cost_usd' => '1.25000000',
-        'billed_to' => 'platform',
-    ]));
+    UsageEvent::withoutEvents(function () use ($engine) {
+        UsageEvent::query()->create([
+            'occurred_at' => now('UTC'),
+            'kind' => 'engine_call',
+            'engine_key' => $engine->key,
+            'calls' => 3,
+            'cost_usd' => '1.25000000',
+            'billed_to' => 'platform',
+        ]);
+        UsageEvent::query()->create([
+            'occurred_at' => now('UTC'),
+            'kind' => 'engine_call',
+            'engine_key' => $engine->key,
+            'calls' => 9,
+            'cost_usd' => '4.00000000',
+            'billed_to' => 'byok',
+        ]);
+    });
     app(TenantContext::class)->forget();
 
     $this->get(route('admin.usage'))->assertOk()->assertInertia(fn ($page) => $page
         ->component('Admin/Usage')
         ->where('tenants.0.name', 'Nordic')
         ->where('engines.0.engine_key', $engine->key)
-        ->where('engines.0.calls', 3));
+        ->where('engines.0.calls', 3)
+        ->where('engines.0.cost_usd', '1.25000000')
+        ->where('engines.0.byok_cost_usd', '4.00000000'));
 
     $this->actingAs(User::factory()->withPersonalTeam()->create());
     $this->get(route('admin.tenants.index'))->assertForbidden();
     $this->get(route('admin.plans.index'))->assertForbidden();
     $this->get(route('admin.engines.index'))->assertForbidden();
+});
+
+it('requires a recent password to close a tenant and refuses to reopen it', function () {
+    $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
+    $plan = Plan::factory()->create();
+    $tenant = Team::factory()->tenant()->withPlan($plan)->create(['user_id' => $admin->id, 'name' => 'Nordic']);
+    $payload = [
+        'name' => 'Nordic',
+        'plan_id' => $plan->id,
+        'status' => 'closed',
+    ];
+
+    $this->actingAs($admin)->put(route('admin.tenants.update', $tenant), $payload)
+        ->assertSessionHasErrors('password');
+    expect($tenant->fresh()->status)->toBe(TenantStatus::Active);
+
+    $this->withSession(['auth.password_confirmed_at' => time() - ((int) config('auth.password_timeout') + 5)])
+        ->put(route('admin.tenants.update', $tenant), $payload)
+        ->assertSessionHasErrors('password');
+    expect($tenant->fresh()->status)->toBe(TenantStatus::Active);
+
+    $this->withSession(['auth.password_confirmed_at' => time()])
+        ->put(route('admin.tenants.update', $tenant), $payload)
+        ->assertRedirect();
+    $closed = $tenant->fresh();
+    expect($closed->status)->toBe(TenantStatus::Closed)->and($closed->closed_at)->not->toBeNull();
+
+    $this->withSession(['auth.password_confirmed_at' => time()])
+        ->put(route('admin.tenants.update', $tenant), [...$payload, 'status' => 'active'])
+        ->assertSessionHasErrors('status');
+    expect($tenant->fresh()->status)->toBe(TenantStatus::Closed)
+        ->and($tenant->fresh()->closed_at?->equalTo($closed->closed_at))->toBeTrue();
 });
 
 it('shows the price in effect and keeps quota skips out of the engine error rate', function () {

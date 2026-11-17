@@ -11,6 +11,11 @@ import TextInput from '@/Components/TextInput.vue';
 const props = defineProps({ tenants: Array, plans: Array, partners: Array, statuses: Array });
 const field = 'mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
 
+const closePassword = {
+    title: 'app.tenant_close.title',
+    content: 'app.tenant_close.confirm',
+    button: 'app.tenant_close.title',
+};
 const creating = useForm({ name: '', plan_id: props.plans[0]?.id ?? '', partner_team_id: '' });
 const acting = useForm({ team_id: props.tenants[0]?.id ?? '', reason: '' });
 function tenantForm(tenant) {
@@ -41,15 +46,22 @@ function create() {
         .post(route('admin.tenants.store'), { preserveScroll: true });
 }
 
-function save(id) {
-    editing[id]
+function isClosing(tenant) {
+    return tenant.status !== 'closed' && editing[tenant.id].status === 'closed';
+}
+
+function save(tenant, confirmed = false) {
+    if (isClosing(tenant) && !confirmed) {
+        return;
+    }
+    editing[tenant.id]
         .transform((data) => ({
             ...data,
             partner_team_id: data.partner_team_id || null,
             monthly_call_quota_override:
                 data.monthly_call_quota_override === '' ? null : data.monthly_call_quota_override,
         }))
-        .put(route('admin.tenants.update', id), { preserveScroll: true });
+        .put(route('admin.tenants.update', tenant.id), { preserveScroll: true });
 }
 
 function act() {
@@ -95,7 +107,7 @@ function act() {
                 v-for="tenant in tenants"
                 :key="tenant.id"
                 class="space-y-3 rounded-2xl border border-line bg-white p-6 text-ink"
-                @submit.prevent="save(tenant.id)"
+                @submit.prevent="save(tenant)"
             >
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                     <label class="text-sm">
@@ -124,7 +136,11 @@ function act() {
                     <label class="text-sm">
                         {{ $t('admin.tenants.status') }}
                         <select v-model="editing[tenant.id].status" :class="field">
-                            <option v-for="status in statuses" :key="status" :value="status">
+                            <option
+                                v-for="status in tenant.status === 'closed' ? ['closed'] : statuses"
+                                :key="status"
+                                :value="status"
+                            >
                                 {{ $t(`admin.tenants.statuses.${status}`) }}
                             </option>
                         </select>
@@ -140,7 +156,20 @@ function act() {
                     </label>
                 </div>
                 <InputError v-for="(message, key) in editing[tenant.id].errors" :key="key" :message="message" />
-                <PrimaryButton :disabled="editing[tenant.id].processing">{{ $t('admin.tenants.save') }}</PrimaryButton>
+                <ConfirmsPassword
+                    v-if="isClosing(tenant)"
+                    :title="closePassword.title"
+                    :content="closePassword.content"
+                    :button="closePassword.button"
+                    @confirmed="save(tenant, true)"
+                >
+                    <PrimaryButton type="button" :disabled="editing[tenant.id].processing">
+                        {{ $t('admin.tenants.save') }}
+                    </PrimaryButton>
+                </ConfirmsPassword>
+                <PrimaryButton v-else :disabled="editing[tenant.id].processing">
+                    {{ $t('admin.tenants.save') }}
+                </PrimaryButton>
             </form>
             <form
                 v-if="tenants.length"
