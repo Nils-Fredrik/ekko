@@ -314,6 +314,7 @@ test('protection audit rejects unbound status sources and unprotected credential
                 strict: true,
                 checks: [
                     { context: 'test', app_id: 15368 },
+                    { context: 'container build', app_id: 15368 },
                     { context: 'agent-review', app_id: 12345 },
                 ],
             },

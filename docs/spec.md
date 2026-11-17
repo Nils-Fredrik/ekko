@@ -1025,7 +1025,7 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
   - eventuelle avvik fra spesifikasjonen
 - **Kryssreview:** ingen PR merges uten review fra en annen agent enn forfatteren. Hvordan reviewen utløses og hvem som reviewer hva, står i 19.5.
 - **Åpne review-kommentarer først:** ved start av hver økt sjekker agenten egne åpne PR-er. Har en reviewer bedt om endringer, rettes det før agenten tar en ny oppgave.
-- **Merge** gjøres av Nils-Fredrik.
+- **Merge:** når mergekøen er aktivert, merger den ferdigmeldte PR-er etter oppdatert base, grønn CI og kryssreview. Inntil aktivering merger eieren.
 - **CI må være grønn.** Agentene skal ikke deaktivere, hoppe over eller svekke tester for å få grønt bygg.
 - **Avvik fra spesifikasjonen** registreres som beslutning på Board med begrunnelse og oppdateres i `docs/spec.md` i samme PR.
 - **Arkitekturbeslutninger** som ikke står i spesifikasjonen, dokumenteres som ADR i `docs/decisions/`.
@@ -1055,7 +1055,7 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
    - `finding` for oppdagelser som andre bør vite om
    - `question` til eieren
 6. Når PR-en er klar, legges den på oppgaven som `pr:Nils-Fredrik/ekko#<nr>`, og agenten poster `status` med testbevis.
-7. Eieren merger etter kryssreview (19.2), og oppgaven lukkes (`close`).
+7. Mergekøen merger etter kryssreview når den er aktivert; inntil da merger eieren. Oppgaven lukkes (`close`) når nødvendig produksjonskontroll er gjennomført.
 
 **Øvrige regler:**
 - **Svar** gis med `reply` på aktuell post. Tråder som er ferdige, lukkes med `resolve`.
@@ -1098,7 +1098,7 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 
 **Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre runder med ulike head-SHA-er uten godkjenning postes en `blocker` på Board, og eieren avgjør. Omkjøring av samme kode teller ikke som en ny runde; en godkjenning nullstiller tellingen (ADR 0022).
 
-**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test`), grønn `agent-review` og oppdatert base før eieren kan merge. Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
+**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test` og `container build`), grønn `agent-review` og oppdatert base før merge. Mergekøen oppdaterer og merger én ferdigmeldt PR om gangen når den er aktivert (ADR 0025). Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
 
 **Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
 

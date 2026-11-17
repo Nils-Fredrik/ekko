@@ -103,6 +103,9 @@ jobs:
             - name: Agent review security contracts
               run: node --test tests/agent-review/*.test.mjs
 
+            - name: Merge queue security contracts
+              run: node --test tests/merge-queue/*.test.mjs
+
             - name: Performance measurement contract
               run: python3 -m unittest discover -s tests/performance -v
 
