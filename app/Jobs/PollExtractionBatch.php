@@ -92,7 +92,8 @@ class PollExtractionBatch extends TenantJob
             ->whereIn('id', $job->response_ids)
             ->whereHas('run', fn ($query) => $query->where('status', 'collected'))
             ->with('run.prompt.market')
-            ->get()->keyBy('id');
+            // Without ORDER BY PostgreSQL returns the rows in no fixed order, and the retries would follow it.
+            ->orderBy('id')->get()->keyBy('id');
 
         $catalog = DetectionCatalog::load();
         $deterministic = [];
