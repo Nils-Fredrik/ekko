@@ -77,6 +77,11 @@ const prices = Object.fromEntries(
                     {{ $t('admin.engines.price') }}:
                     {{ engine.price ? engine.price.price_per_call_usd : $t('admin.engines.no_price') }}
                 </p>
+                <p v-if="engine.scheduled_price" class="text-sm text-ink-soft">
+                    {{ $t('admin.engines.scheduled_price') }}:
+                    {{ engine.scheduled_price.price_per_call_usd }}
+                    ({{ engine.scheduled_price.valid_from }})
+                </p>
                 <form
                     class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
                     @submit.prevent="

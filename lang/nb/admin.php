@@ -60,6 +60,7 @@ return [
         'no_runs' => 'Ingen kjøringer siste døgn',
         'unavailable' => 'Ikke tilgjengelig',
         'price' => 'Gjeldende pris',
+        'scheduled_price' => 'Planlagt pris',
         'no_price' => 'Ingen pris',
         'valid_from' => 'Gyldig fra (UTC)',
         'future_price' => 'Ny pris må gjelde fra et tidspunkt fram i tid, i UTC.',

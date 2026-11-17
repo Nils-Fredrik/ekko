@@ -27,22 +27,25 @@ final class EngineController extends Controller
     {
         Gate::authorize('viewAny', Plan::class);
         $health = $this->health($rls);
+        $now = CarbonImmutable::now('UTC');
         $engines = [];
         foreach (Engine::query()->with('prices')->orderBy('key')->get() as $engine) {
-            $price = $engine->prices->sortByDesc(fn (EnginePrice $price): int => $price->valid_from->getTimestamp())->first();
+            $current = $engine->prices
+                ->filter(fn (EnginePrice $price): bool => $price->valid_from->lessThanOrEqualTo($now))
+                ->sortByDesc(fn (EnginePrice $price): int => $price->valid_from->getTimestamp())
+                ->first();
+            $scheduled = $engine->prices
+                ->filter(fn (EnginePrice $price): bool => $price->valid_from->greaterThan($now))
+                ->sortBy(fn (EnginePrice $price): int => $price->valid_from->getTimestamp())
+                ->first();
             $row = $health[$engine->key] ?? ['total' => 0, 'failed' => 0];
             $engines[] = [
                 'key' => $engine->key,
                 'model_id' => $engine->model_id,
                 'is_enabled' => $engine->is_enabled,
                 'available' => $engine->isAvailable(),
-                'price' => $price === null ? null : [
-                    'valid_from' => $price->valid_from->toIso8601String(),
-                    'price_per_call_usd' => $price->price_per_call_usd,
-                    'price_per_1k_input_tokens_usd' => $price->price_per_1k_input_tokens_usd,
-                    'price_per_1k_output_tokens_usd' => $price->price_per_1k_output_tokens_usd,
-                    'price_per_search_usd' => $price->price_per_search_usd,
-                ],
+                'price' => $this->pricePayload($current),
+                'scheduled_price' => $this->pricePayload($scheduled),
                 'runs' => $row['total'],
                 'failed' => $row['failed'],
                 'unhealthy' => $row['total'] > 0 && ($row['failed'] / $row['total']) > 0.2,
@@ -99,6 +102,24 @@ final class EngineController extends Controller
     }
 
     /**
+     * @return array{valid_from: string, price_per_call_usd: string, price_per_1k_input_tokens_usd: string, price_per_1k_output_tokens_usd: string, price_per_search_usd: string}|null
+     */
+    private function pricePayload(?EnginePrice $price): ?array
+    {
+        if ($price === null) {
+            return null;
+        }
+
+        return [
+            'valid_from' => $price->valid_from->toIso8601String(),
+            'price_per_call_usd' => $price->price_per_call_usd,
+            'price_per_1k_input_tokens_usd' => $price->price_per_1k_input_tokens_usd,
+            'price_per_1k_output_tokens_usd' => $price->price_per_1k_output_tokens_usd,
+            'price_per_search_usd' => $price->price_per_search_usd,
+        ];
+    }
+
+    /**
      * @return array<string, array{total: int, failed: int}>
      */
     private function health(TenantRls $rls): array
@@ -108,8 +129,10 @@ final class EngineController extends Controller
             return [];
         }
 
+        // Quota skips never called a provider. Counting them would hide a high failure rate.
         $rows = $rls->run($ids, fn () => DB::table('runs')
             ->where('finished_at', '>=', now()->subDay())
+            ->whereIn('status', ['collected', 'extracted', 'failed'])
             ->selectRaw("engine_key, count(*) as total, count(*) filter (where status = 'failed') as failed")
             ->groupBy('engine_key')
             ->get());

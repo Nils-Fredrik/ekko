@@ -60,6 +60,7 @@ return [
         'no_runs' => 'No runs in the last day',
         'unavailable' => 'Unavailable',
         'price' => 'Current price',
+        'scheduled_price' => 'Scheduled price',
         'no_price' => 'No price',
         'valid_from' => 'Valid from (UTC)',
         'future_price' => 'A new price must take effect at a future time, in UTC.',
