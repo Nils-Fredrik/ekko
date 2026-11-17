@@ -33,3 +33,5 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 | [0023](0023-anthropic-kredittplan.md)           | Faktureringsperioder, kredittplan og felles Anthropic-reservasjoner                        | Foreslått |
 
 - [0024: Produksjonsdomene og direkte motorer](0024-produksjonsdomene-og-direkte-motorer.md)
+
+- [0025: Strukturert logging og vasking av unntak](0025-strukturert-og-vasket-logging.md)

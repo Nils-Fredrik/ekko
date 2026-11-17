@@ -10,6 +10,7 @@ use App\Engines\GcsRawResponseStore;
 use App\Engines\RawResponseStore;
 use App\Extraction\AnthropicExtractionClient;
 use App\Extraction\ExtractionClient;
+use App\Logging\LogContext;
 use App\Mcp\McpTokens;
 use App\Onboarding\Analysis;
 use App\Onboarding\Fetch\DnsHostResolver;
@@ -43,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Scoped: reset between requests and between queued jobs, so a tenant never leaks into the next one.
         $this->app->scoped(TenantContext::class);
+        $this->app->scoped(LogContext::class);
         $this->app->scoped(ActingAs::class);
         $this->app->scoped(TenantAccess::class);
         $this->app->scoped(EngineRegistry::class, EngineRegistry::discover(...));
@@ -60,6 +62,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        app(LogContext::class)->clear();
+
         // A login role that could bypass row-level security stops the instance (T39-F2): /up is the web service's
         // startup probe, and the worker and the ekko:* commands check before they start. The migrations run as
         // the owner of the tables on purpose, so migrate and the other commands are not checked.

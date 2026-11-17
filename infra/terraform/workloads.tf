@@ -25,6 +25,7 @@ locals {
     SESSION_SECURE_COOKIE          = "true"
     SESSION_SAME_SITE              = "lax"
     LOG_CHANNEL                    = "stderr"
+    LOG_LEVEL                      = "info"
     EKKO_DISABLED_ENGINE_PROVIDERS = "perplexity,dataforseo"
     EKKO_GEMINI_GROUNDING_APPROVED = tostring(var.gemini_grounding_approved)
     GOOGLE_CLOUD_PROJECT           = var.project_id

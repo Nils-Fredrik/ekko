@@ -847,7 +847,9 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 
 **Sporbarhet:**
 - **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler. Det gjelder også sendte og kansellerte invitasjoner (rolle og hvem), opprettelse, nytt navn og stenging av tenant, og opprettelse, endring og sletting av API-tokens. E-postadresser og tokenverdier logges ikke (T39-F6).
-- **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke.
+- **Logging (T39-F7):** strukturert JSON til Cloud Logging via `stderr`, med `severity`, `time` og `context.tenant_id`, `context.user_id` og `context.run_id`. Produksjon bruker `LOG_LEVEL=info`. Bare interne ID-er deles; ukjente ID-er er `null`. HTTP-kontekst ryddes mellom forespørsler, og tenantjobber får egen tenant/run og ingen arvet bruker. Nestede scopes gjenoppretter tidligere kontekst, også ved feil.
+  - `report()` logger feiltype, fil, linje og stackens kodesteder, aldri rå unntaksmelding, SQL/bindings, e-postinnhold, leverandørsvar, custom exception-context eller stackargumenter. Samme regel gjelder innpakkede unntak. Feil beholder ID-konteksten fra innerste scope selv om de rapporteres etter opprydding.
+  - Containerens `zend.exception_ignore_args=On` fjerner stackargumenter. Artisan skriver bare en fast feilmelding ved ubehandlede produksjonsfeil; den vaskede JSON-posten gir kodestedene. Vanlige loggmeldinger må fortsatt være statiske med eksplisitt trygge metadata: ingen prompts, svar, nøkler eller personopplysninger. Se ADR 0025.
 
 **Nettlesersikkerhet og Claude-tilkoblingen (T39-F5):**
 - **Innramming:** ingen side kan vises i en ramme på et annet nettsted (`X-Frame-Options: DENY` og `frame-ancestors 'none'` på alle svar). Dette gjelder særlig samtykkesiden `/oauth/authorize`.
@@ -1175,7 +1177,7 @@ Rekkefølgen styres kun av avhengighetene. Alle pakker uten uoppfylte avhengighe
 | T33 | REST-API v1 | Codex / GPT-6.1 Sol | T21, T05 |
 | T34 | MCP-server | Claude Code / Opus 5.5 | T21, T05 |
 | T35 | Partneroversikt | Cursor / Grok 4.7 | T26, T05 |
-| T36 | Overvåking og runbook | Codex / GPT-6.1 Terra | T10 |
+| T36 | Overvåking og runbook | Codex / GPT-6.1 Terra | T10, T39-F7 |
 | T37 | Ytelsestest | Codex / GPT-6.1 Terra | T21, T26 |
 | T38 | Språkfiler `sv` og `en` | Cursor / Grok 4.7 | T26–T30, T35 |
 | T39 | Sikkerhetsgjennomgang | Claude Code / Opus 5.5 | T06, T07, T25, T33, T34 |
@@ -1326,7 +1328,7 @@ Endepunktene i 15.1 med ressurser, paginering og rate limit, samt OpenAPI-beskri
 - Viser kun tilknyttede tenants (isolasjonstest).
 
 ### T36 – Overvåking og runbook
-Varslingspolicyer i 17.4 (Terraform), `docs/runbook.md` med drift, feilsøking, gjenoppretting og nøkkelrotasjon, samt gjennomført gjenopprettingstest mot en midlertidig instans.
+Varslingspolicyer i 17.4 (Terraform), `docs/runbook.md` med drift, feilsøking, gjenoppretting og nøkkelrotasjon, samt gjennomført gjenopprettingstest mot en midlertidig instans. Avhenger også av T39-F7 (strukturert logging og vasking av unntak, Board task:56).
 
 ### T37 – Ytelsestest
 Syntetisk datasett (ett år, 100 prompts, 6 motorer, 3 gjentakelser) og måling av dashboard og API.

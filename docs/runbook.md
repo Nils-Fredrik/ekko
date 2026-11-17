@@ -1,5 +1,15 @@
 # Driftsrunbook
 
+## Applikasjonslogger (T39-F7)
+
+Web og alle jobbimages bruker `stderr` med Monologs `GoogleCloudLoggingFormatter`. Terraform setter `LOG_LEVEL=info`; kanalen har også `info` som standard. `severity` og `time` tolkes av Cloud Logging. Interne identifikatorer finnes under `jsonPayload.context.tenant_id`, `user_id` og `run_id`; `null` betyr at operasjonen ikke har den identifikatoren. En samlekjøring kan ha flere tenants og får derfor først tenant-ID inne i hvert tenantscope. En tenantjobb arver ikke brukeren som startet den. En innsamlingsjobb har sin interne run-ID.
+
+Ved `Application exception.`: bruk `jsonPayload.context.exception.type`, `file`, `line`, `trace` og `causes` sammen med ID-ene og revisjonen i Cloud Run. Feltet `causes` inneholder bare klassenavn. Ingen unntaksmeldinger, SQL/bindings, e-post, leverandørsvar eller stackargumenter skal ligge i posten. Ikke aktiver rå unntakslogging for å feilsøke produksjon; gjenskap feilen med syntetiske data lokalt. Lokale Artisan-feil beholder vanlig konsollvisning. I produksjon skriver Artisan en fast feiltekst etter den vaskede loggposten.
+
+Avgrens for eksempel Logs Explorer til `resource.type="cloud_run_revision"`, `resource.labels.service_name="ekko-web"`, `severity>=ERROR` og en intern `jsonPayload.context.tenant_id`. Jobber bruker `resource.type="cloud_run_job"`. Filtrer også på tidspunkt/revisjon; bruk ikke kundedata som søkeeksempler i Board eller PR-er.
+
+Testene i `tests/Feature/Logging` dekker SQL, SMTP-debug, innpakkede feil, request-/jobbkontekst og feil etter scope-opprydding. Containerkontrollen kjører en syntetisk feilende Artisan-kommando i begge ferdigbygde images, verifiserer JSON/severity og `zend.exception_ignore_args=On`, og avviser lekkede testmarkører. T36 bygger videre på disse feltene for overvåking. Dette er ikke bevis på at T36-varsler er aktivert.
+
 ## Klientens IP-adresse bak Cloud Run (T39-F3)
 
 Med HTTPS-lastbalansereren har `ekko-web` `TRUSTED_PROXIES=REMOTE_ADDR,35.190.63.68`, generert fra Terraform-IP-en. Laravel erstatter `REMOTE_ADDR` med adressen som faktisk kobler til før Symfony tolker kjeden. Både Cloud Runs front og den faste lastbalansereren er dermed betrodd, uten å gjette en intern proxyadresse eller et antall ledd. Host, port og prefiks er aldri betrodd. Bare konfigurasjoner uten lastbalanserer bruker `*`.
