@@ -21,9 +21,18 @@ Køens kilde er kopiert fra Ekko `5824ed3549c6921c49884f75ff7ff38830b31279`. En 
 | Mergekonflikt | [PR 5](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/pull/5), [PR 6](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/pull/6) | Første endring merget; den motstridende PR-en stoppet med `conflict`. |
 | Grønn status med utdatert reviewkvittering | [PR 8](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/pull/8) | GitHub viste clean/grønn status, men køen avviste feil base i kvitteringen med `review`. |
 | Native auto-merge | [PR 9](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/pull/9) | Køen returnerte `native-auto-merge-pending`; GitHub gjennomførte deretter auto-merge som eieren. |
-| Ny head etter grønn review | [PR 10](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/pull/10) | En tidligere grønn head ble erstattet av en feilende commit. Køen stoppet med `failure` og gjenbrukte ikke godkjenningen. |
+| Ny head etter grønn review | [PR 10](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/pull/10) | En tidligere grønn head ble erstattet av en feilende commit. Køen stoppet med `failure` på rød CI. Dette tilfellet tester ikke avvisning av en gammel head-kvittering. |
+| Grønn ny head med kvittering for forrige head | [PR 14](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/pull/14) | Alle kontroller og status var grønne, GitHub viste `clean`, men køen returnerte `review`. Verken head eller main ble endret; se detaljene under. |
 
 Review-svarene i disse feilscenarioene er uttrykkelig syntetiske fixtures publisert av testrepoets GitHub Actions-identitet. De er ikke Claude- eller Codex-godkjenninger. Feil-PR-ene er lukket uten merge etter verifikasjon.
+
+### Ny grønn head med gammel kvittering (PR 14)
+
+Testen startet med grønn head `d2a97784e5b915e022c756ae88d048d69e821c98`, og publiserte deretter ny head `72325a73861a417b9033a9e2dcc071db7946fd7d`. Base var uendret `74128f2e04aa5c13d257621f5ab1e086451677b0` gjennom hele kontrollen.
+
+På den nye headen var `test` og `container build` grønne i [CI 44195284855](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/actions/runs/44195284855), `fixture-review` og statusen `agent-review` var grønne i [44195282157](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/actions/runs/44195282157), og separat ekte Claude-review var grønn i [44195282126](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/actions/runs/44195282126). PR-deploy var forventet hoppet over; ingen kontroll feilet eller ventet. GitHub rapporterte `mergeable_state=clean`.
+
+Den syntetiske [kvitteringen](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/pull/14#issuecomment-6963486069) hadde riktig base, `result=success` og riktig statuskjøring `44195282157`, men `head=d2a97784e5b915e022c756ae88d048d69e821c98`. Køkopien returnerte `Merge queue: review (PR #14)` med exitkode 1. Etter kjøringen var PR-en fortsatt åpen og umerget, head fortsatt `72325a73861a417b9033a9e2dcc071db7946fd7d` og main fortsatt `74128f2e04aa5c13d257621f5ab1e086451677b0`. PR-en ble først lukket manuelt etter disse kontrollene. Dermed er gammel head-kvittering testet uavhengig av rød CI og feil base.
 
 ## Ekte Claude-review
 
@@ -39,8 +48,11 @@ Før aktivering består begge runbookens metadataauditer. `main` krever strict b
 
 `MERGE_QUEUE_APP_ID=5807708` og `MERGE_QUEUE_ALLOWED_AUTHORS=Nils-Fredrik` ligger i `merge-queue`-miljøet. Repo-variabelen `MERGE_QUEUE_BOT_SLUG=ekko-merge-queue-nf` har ingen miljøoverstyring. Nøkkelinnhold er ikke del av beviset.
 
-Etter fullført isolert aksept ble `EKKO_MERGE_QUEUE_ENABLED=true` satt 17. november 2026. [Første produksjonskjøring 44194296978](https://github.com/Nils-Fredrik/ekko/actions/runs/44194296978) utstedte App-token og verifiserte bot-slug uten feil, men stoppet med `failure (PR #74)` på en reelt rød PR. Det er forventet stopp, ikke en tillatelsesfeil eller en godkjenning av PR-en. Ingen produksjons-PR ble endret av denne kjøringen. Siste kontrollerte produksjonsdeploy var grønn [CI 44158308567](https://github.com/Nils-Fredrik/ekko/actions/runs/44158308567) på `5824ed3549c6921c49884f75ff7ff38830b31279`; det hevdes ikke en ny App-utløst produksjonsdeploy fra en kjøring som stoppet. Køen kan ikke løse reelle reviewfeil eller konflikter. `EKKO_MERGE_QUEUE_ENABLED=false` stopper nye køoperasjoner; native auto-merge på enkelt-PR-er fortsetter uavhengig av bryteren.
+Repo-variabelen `EKKO_MERGE_QUEUE_ENABLED` ble satt til `true` 17. november 2026. [Første produksjonskjøring 44194296978](https://github.com/Nils-Fredrik/ekko/actions/runs/44194296978) utstedte App-token og verifiserte bot-slug uten feil, men stoppet med `failure (PR #74)` på en reelt rød PR. Ingen produksjons-PR ble endret. Ved kryssreview av dette akseptbeviset ble det avdekket at PR 10 ikke testet gammel head-kvittering uavhengig av rød CI. Køen ble derfor satt tilbake til `false` mens det separate PR 14-tilfellet over ble gjennomført. Den forblir av i påvente av godkjent kryssreview og merge av dette beviset. Aktuell repo-variabel er autoritativ for driftsstatus.
 
+**Gjenstående produksjonsaksept:** Første merge utført av produksjonsappen og påfølgende vellykkede produksjonsdeploy er ennå ikke kontrollert. Task:61 skal forbli åpen til disse er verifisert og dokumentert med App-actor, merge-SHA og CI/deploy-kjøring etter ADR 0026 punkt 5. Verken den første køkjøringens korrekte stopp, syntetisk deploy i testrepoet eller en native auto-merge av denne dokumentasjons-PR-en oppfyller dette punktet. Etter godkjent review og merge kan køen reaktiveres og den første ordinære App-mergen følges gjennom produksjonsdeploy; produksjon skal ikke brukes som testfixture.
+
+Siste kontrollerte produksjonsdeploy var grønn [CI 44158308567](https://github.com/Nils-Fredrik/ekko/actions/runs/44158308567) på `5824ed3549c6921c49884f75ff7ff38830b31279`. Køen kan ikke løse reelle reviewfeil eller konflikter. `EKKO_MERGE_QUEUE_ENABLED=false` stopper nye køoperasjoner; native auto-merge på enkelt-PR-er fortsetter uavhengig av bryteren.
 
 ## Lokal verifikasjon
 

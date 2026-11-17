@@ -1,6 +1,6 @@
 # 0026 – Automatisk mergekø
 
-- **Status:** Godkjent og aktivert 17. november 2026 etter isolert live aksept; se [akseptbevis](../t42-merge-queue-evidence.md).
+- **Status:** Beslutningen er godkjent; isolert live aksept er dokumentert. Første App-merge og deploy i produksjon gjenstår, og task:61 holdes åpen. Køen er midlertidig av under kryssreview av [akseptbevis](../t42-merge-queue-evidence.md).
 - **Dato:** 2026-11-17
 - **Board:** task:61 / T42; opprettet i #565, oppfølging og autorisasjon for auto-merge av PR #68 i #580. Den generelle køen forblir av før separat aksept og aktivering.
 
