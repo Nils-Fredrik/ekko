@@ -98,3 +98,23 @@ variable "gemini_grounding_approved" {
   type        = bool
   default     = false
 }
+
+variable "enable_monitoring" {
+  description = "Create operational alert policies and a paused health schedule."
+  type        = bool
+  default     = false
+}
+variable "enable_monitoring_schedule" {
+  description = "Start health checks only after the monitor command is deployed; independent of collection schedules."
+  type        = bool
+  default     = false
+}
+variable "monitoring_email" {
+  description = "Platform administrator's approved notification address."
+  type        = string
+  default     = ""
+  validation {
+    condition     = var.monitoring_email == "" || can(regex("^[^@ ]+@[^@ ]+\\.[^@ ]+$", var.monitoring_email))
+    error_message = "Provide a valid monitoring email address."
+  }
+}

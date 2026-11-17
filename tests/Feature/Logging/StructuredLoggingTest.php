@@ -3,17 +3,21 @@
 use App\Exceptions\Handler;
 use App\Jobs\CollectEngineRun;
 use App\Jobs\Middleware\SetTenantContext;
+use App\Jobs\PollExtractionBatch;
 use App\Logging\LogContext;
 use App\Models\User;
 use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Monolog\Formatter\GoogleCloudLoggingFormatter;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\Mailer\Exception\TransportException;
 use Tests\Fixtures\LoggingTenantJob;
+use Tests\Support\Mcp\McpTestClient;
+use Tests\Support\Metrics\MetricsWorld;
 
 beforeEach(function () {
     $this->logFile = tempnam(sys_get_temp_dir(), 'ekko-log-test-');
@@ -186,4 +190,42 @@ test('scheduled tenant scopes retain the innermost failure ids without attributi
     $records = structuredLogRecords($this->logFile);
     expect($records[0]['context']['tenant_id'])->toBe(22)
         ->and($records[1]['context']['tenant_id'])->toBeNull();
+});
+
+test('REST and MCP logs carry the selected tenant and actor without leaking into the next request', function (string $transport) {
+    $world = MetricsWorld::create();
+    $user = $world->tenant->owner;
+    $user->switchTeam($world->tenant);
+    app(TenantContext::class)->forget();
+    $active = true;
+    DB::listen(function ($query) use (&$active) {
+        if ($active && (str_contains($query->sql, 'from "brands"') || str_contains($query->sql, 'from "prompts"'))) {
+            Log::info('transport.probe');
+        }
+    });
+    if ($transport === 'api') {
+        $token = $user->createToken('logging-probe', ['read', 'tenant:'.$world->tenant->id]);
+        $this->withToken($token->plainTextToken)->getJson('/api/v1/brands')->assertOk();
+    } else {
+        $token = McpTestClient::connect($user, $world->tenant);
+        $result = McpTestClient::call($this, $token, 'get_prompt_results');
+        expect($result['isError'])->toBeFalse();
+    }
+    $active = false;
+    $records = array_values(array_filter(structuredLogRecords($this->logFile), fn ($record) => $record['message'] === 'transport.probe'));
+    expect($records)->not->toBeEmpty();
+    foreach ($records as $record) {
+        expect($record['context'])->toMatchArray(['tenant_id' => $world->tenant->id, 'user_id' => $user->id, 'run_id' => null]);
+    }
+    expect(Log::sharedContext())->toMatchArray(['tenant_id' => null, 'user_id' => null, 'run_id' => null]);
+})->with(['api', 'mcp']);
+
+test('extraction failure hooks identify their tenant outside queue middleware', function () {
+    $user = User::factory()->withPersonalTeam()->create();
+    $tenant = $user->ownedTeams()->firstOrFail();
+    app(LogContext::class)->share(['tenant_id' => 123, 'user_id' => 456, 'run_id' => 789]);
+    (new PollExtractionBatch($tenant->id, 999999))->failed(new RuntimeException('synthetic-secret'));
+    $record = structuredLogRecords($this->logFile)[0];
+    expect($record['context'])->toMatchArray(['tenant_id' => $tenant->id, 'user_id' => null, 'run_id' => null, 'extraction_job_id' => 999999])
+        ->and(file_get_contents($this->logFile))->not->toContain('synthetic-secret');
 });
