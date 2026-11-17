@@ -1,6 +1,7 @@
 <script setup>
+import AdminNav from '@/Components/AdminNav.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-defineProps({ anthropic: { type: Object, required: true } });
+defineProps({ anthropic: { type: Object, required: true }, month: String, tenants: Array });
 function usd(value) {
     return new Intl.NumberFormat(document.documentElement.lang || 'nb', {
         minimumFractionDigits: 2,
@@ -15,6 +16,33 @@ function usd(value) {
             <h2 class="text-xl font-medium text-shell-fg">{{ $t('anthropic_budget.title') }}</h2>
         </template>
         <main class="mx-auto max-w-4xl space-y-6 p-6">
+            <AdminNav />
+            <section class="rounded-xl border border-line bg-white p-5 text-ink">
+                <h3 class="font-medium">{{ $t('admin.usage.tenants') }}</h3>
+                <p class="mt-1 text-sm text-ink-soft">{{ $t('admin.usage.month', { month }) }}</p>
+                <p v-if="!tenants.length" class="mt-3 text-sm text-ink-soft">{{ $t('admin.usage.empty') }}</p>
+                <table v-else class="mt-3 w-full text-left text-sm">
+                    <thead class="text-xs text-ink-soft">
+                        <tr>
+                            <th class="p-2">{{ $t('admin.tenants.name') }}</th>
+                            <th class="p-2 text-right">{{ $t('admin.usage.calls') }}</th>
+                            <th class="p-2 text-right">{{ $t('admin.usage.cost') }}</th>
+                            <th class="p-2 text-right">{{ $t('admin.usage.byok') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="tenant in tenants" :key="tenant.id" class="border-t border-line-soft">
+                            <td class="p-2">{{ tenant.name }}</td>
+                            <td class="p-2 text-right tabular-nums">{{ tenant.calls }}</td>
+                            <td class="p-2 text-right tabular-nums">{{ tenant.cost_usd }}</td>
+                            <td class="p-2 text-right tabular-nums">{{ tenant.byok_cost_usd }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <a :href="route('admin.billing.index', { month })" class="mt-4 inline-block text-sm text-primary">
+                    {{ $t('admin.usage.export') }}
+                </a>
+            </section>
             <p v-if="!anthropic.configured">{{ $t('anthropic_budget.unconfigured') }}</p>
             <template v-else>
                 <p>{{ $t('anthropic_budget.period', { start: anthropic.start, end: anthropic.end }) }}</p>

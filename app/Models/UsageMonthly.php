@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
 /**
+ * @property int $tenant_id
  * @property Carbon $month
  * @property int $calls
  * @property string $cost_usd
