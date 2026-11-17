@@ -17,7 +17,7 @@ use App\Onboarding\CostEstimator;
 use App\Onboarding\Fetch\SiteUrl;
 use App\Onboarding\Model\OnboardingSchema;
 use App\Onboarding\ProposalConfirmer;
-use App\Scheduling\WorkerLauncher;
+use App\Scheduling\DispatcherLauncher;
 use App\Tenancy\TenantContext;
 use App\Usage\BillingAccount;
 use App\Usage\MonthlyUsage;
@@ -280,13 +280,13 @@ class OnboardingController extends Controller
 
         RunOnboardingAnalysis::dispatch($tenantId, $analysis->id);
 
-        // The worker is a Cloud Run job that only runs when started (T17). It is started once the request's
+        // The fixed poll dispatcher wakes the worker without granting web worker overrides. It starts once the request's
         // transaction has committed the queued job, inside the request: on Cloud Run with CPU only during
         // requests, work after the response may never finish. A failure to start is reported, not shown: the
         // next dispatch-due or extraction-poll starts the worker as well.
         DB::afterCommit(function (): void {
             try {
-                app(WorkerLauncher::class)->startIfPending();
+                app(DispatcherLauncher::class)->start();
             } catch (LockTimeoutException) {
                 // Another request or the scheduler is starting the worker right now.
             } catch (Throwable $e) {

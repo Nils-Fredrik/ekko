@@ -12,12 +12,15 @@ use App\Models\RunBatch;
 use App\Models\Team;
 use App\Models\TenantApiKey;
 use App\Models\UsageEvent;
+use App\Scheduling\CloudRunAccessToken;
+use App\Scheduling\CollectionLocks;
 use App\Scheduling\Dispatcher;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use Tests\Support\Engines\EngineFixtures;
 
 function dispatchTenant(Engine $engine, int $prompts, int $quota = 100): Team
@@ -149,4 +152,66 @@ test('a failed queue marker does not prevent the next tenant from being enqueued
     expect($dispatcher->dispatch(CarbonImmutable::now()))->toBe(1)->and($dispatcher->failures)->toBe(1);
     $job = unserialize(json_decode(DB::table('jobs')->sole()->payload, true)['data']['command']);
     expect($job->tenantId())->toBe($valid->id);
+});
+
+test('a poll overlapping a dispatcher succeeds and still checks pending worker work', function () {
+    config(['collection.cloud_run.enabled' => true, 'collection.cloud_run.project' => 'ekko-fixture', 'collection.cloud_run.region' => 'europe-west1']);
+    $token = Mockery::mock(CloudRunAccessToken::class);
+    $token->shouldReceive('get')->andReturn('fixture-token');
+    app()->instance(CloudRunAccessToken::class, $token);
+    DB::table('jobs')->insert(['queue' => 'default', 'payload' => '{}', 'attempts' => 0, 'available_at' => time(), 'created_at' => time()]);
+    Http::preventStrayRequests()->fake([
+        '*/executions*' => Http::response(['executions' => []]),
+        '*:run' => Http::response(['name' => 'operation']),
+    ]);
+    $lock = CollectionLocks::make('ekko:dispatch', 3600);
+    expect($lock->get())->toBeTrue();
+    try {
+        $this->artisan('ekko:dispatch-due', ['--poll' => true])->assertSuccessful();
+        expect($lock->isOwnedByCurrentProcess())->toBeTrue();
+        expect(DB::table('jobs')->count())->toBe(1);
+        Http::assertSent(fn ($request) => str_ends_with($request->url(), '/jobs/ekko-worker:run'));
+    } finally {
+        $lock->release();
+    }
+});
+
+test('daily dispatch waits for an overlapping poll and then plans exactly once', function () {
+    $engine = dispatchEngine();
+    $tenant = dispatchTenant($engine, 1);
+    $pollLock = CollectionLocks::make('ekko:dispatch', 3600);
+    expect($pollLock->get())->toBeTrue();
+    Sleep::fake();
+    Sleep::whenFakingSleep(function () use ($pollLock): void {
+        $pollLock->release();
+    });
+    try {
+        $dispatcher = app(Dispatcher::class);
+        expect($dispatcher->dispatch(CarbonImmutable::now()))->toBe(1)
+            ->and($dispatcher->dispatch(CarbonImmutable::now()))->toBe(0);
+        Sleep::assertSleptTimes(1);
+        app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], function () {
+            expect(RunBatch::query()->count())->toBe(1)
+                ->and(Run::query()->count())->toBe(1);
+        }));
+    } finally {
+        Sleep::fake(false);
+        $pollLock->release();
+    }
+});
+
+test('daily dispatch fails visibly when the lock remains busy beyond its wait limit', function () {
+    $lock = CollectionLocks::make('ekko:dispatch', 3600);
+    expect($lock->get())->toBeTrue();
+    Sleep::fake();
+    Sleep::whenFakingSleep(fn () => $this->travel(301)->seconds());
+    try {
+        $this->artisan('ekko:dispatch-due')->assertFailed();
+        expect($lock->isOwnedByCurrentProcess())->toBeTrue();
+        expect(DB::table('jobs')->count())->toBe(0);
+    } finally {
+        Sleep::fake(false);
+        $this->travelBack();
+        $lock->release();
+    }
 });
