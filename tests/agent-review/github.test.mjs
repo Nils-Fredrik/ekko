@@ -50,7 +50,9 @@ async function harness(t, overrides = {}) {
         EVENT_HEAD: head,
         EVENT_BASE: base,
         SNAPSHOT: snapshot(),
+        CLAUDE_JOB_RESULT: 'success',
         CLAUDE_RESULT: 'success',
+        GITHUB_STEP_SUMMARY: join(dir, 'summary'),
         REQUESTED_AT: '2026-01-01T00:00:00Z',
         ...overrides,
     };
@@ -62,6 +64,13 @@ async function harness(t, overrides = {}) {
     };
     const state = {
         pr,
+        statuses: [
+            {
+                context: 'agent-review',
+                creator: { id: 12345678 },
+                target_url: 'https://github.com/Nils-Fredrik/ekko/actions/runs/10',
+            },
+        ],
         comments: [clean, receipt],
         files: [{ filename: 'README.md' }],
         diff: 'safe diff',
@@ -78,9 +87,16 @@ async function harness(t, overrides = {}) {
                 result: body.method === 'initialize' ? { protocolVersion: '2025-03-26' } : { content: [] },
             });
         }
-        if (options.method === 'POST') return Response.json({ created_at: '2026-01-01T00:00:00Z' });
+        if (options.method === 'POST') {
+            if (url.includes('/statuses/')) state.statuses.unshift({ ...body, creator: { id: 12345678 } });
+            return Response.json({ created_at: '2026-01-01T00:00:00Z' });
+        }
+        if (url.includes('/statuses?')) return Response.json(state.statuses);
         if (url.includes('/files?')) return Response.json(state.files);
-        if (url.includes('/comments?')) return Response.json(state.comments);
+        if (url.includes('/comments?')) {
+            state.afterComments?.();
+            return Response.json(state.comments);
+        }
         if (url.includes('/reviews?')) return Response.json([]);
         if (options.headers?.accept?.endsWith('.diff')) {
             if (state.mutateAfterDiff) state.pr = { ...pr, head: { sha: 'd'.repeat(40) } };
@@ -109,8 +125,8 @@ test('request invalidates an existing approval without needing reviewer credenti
     const h = await harness(t, { CODEX_TRIGGER_TOKEN: '', BOARD_MCP_TOKEN: '' });
     await h.run('request');
     assert.equal(h.calls.length, 1);
-    assert.equal(h.calls[0].body.state, 'pending');
-    assert.ok(h.calls[0].url.endsWith(`/statuses/${head}`));
+    assert.equal(h.calls.find((call) => call.body)?.body.state, 'pending');
+    assert.ok(h.calls.find((call) => call.body)?.url.endsWith(`/statuses/${head}`));
     const invalid = await harness(t, { EVENT_HEAD: 'invalid' });
     await assert.rejects(invalid.run('request'), /Invalid event head/);
     assert.equal(invalid.calls.length, 0);
@@ -130,9 +146,6 @@ test('prepare binds requirements to the full file list and uses a separate Codex
 
 test('prepare fails closed for stale events, missing credentials and truncated file lists', async (t) => {
     for (const mutation of [
-        (h) => {
-            h.env.EVENT_HEAD = 'd'.repeat(40);
-        },
         (h) => {
             h.state.pr = { ...pr, mergeable: false };
         },
@@ -163,27 +176,29 @@ test('gate approves only the captured merge after both exact-head reviews', asyn
     assert.ok(h.calls.some((call) => call.body?.state === 'success' && call.url.endsWith(`/statuses/${head}`)));
 });
 
-test('gate rejects changed base, title, merge, draft state or failed Claude result', async (t) => {
+test('obsolete gate never approves changed base, title, merge or draft state', async (t) => {
     for (const change of [
         { base: { ...pr.base, sha: 'd'.repeat(40) } },
         { title: '[Claude Code] T42 – Changed' },
         { merge_commit_sha: 'e'.repeat(40) },
         { draft: true },
-        {},
     ]) {
-        const h = await harness(t, Object.keys(change).length ? {} : { CLAUDE_RESULT: 'failure' });
+        const h = await harness(t);
         h.state.pr = { ...pr, ...change };
-        await assert.rejects(h.run('gate'));
+        await h.run('gate');
         assert.ok(!h.calls.some((call) => call.body?.state === 'success'));
+        assert.ok(!h.calls.some((call) => call.body?.body));
+        assert.match(await readFile(h.env.GITHUB_STEP_SUMMARY, 'utf8'), /stale/);
     }
 });
 
-test('a missing or finding-bearing Codex receipt times out without approval', async (t) => {
+test('a missing Codex receipt times out as an operational error without a failed review round', async (t) => {
     const h = await harness(t, { SNAPSHOT: snapshot({ claude: false, codex: true }) });
     h.state.comments = [];
     await assert.rejects(h.run('gate'), /timeout/);
     assert.ok(!h.calls.some((call) => call.body?.state === 'success'));
-    assert.ok(h.calls.some((call) => call.body?.state === 'failure'));
+    assert.ok(h.calls.some((call) => call.body?.state === 'error'));
+    assert.ok(!h.calls.some((call) => call.body?.body));
 });
 
 test('structured Claude verdict requires a genuine conclusion and nonempty review', () => {
@@ -242,7 +257,7 @@ test('third failed code revision posts Board blocker and records successful esca
         user: { id: 12345678 },
         body: `<!-- ekko-review-round:v1 ${JSON.stringify({ head: sha, result: 'failure' })} -->`,
     }));
-    await assert.rejects(h.run('gate'), /Claude review did not approve/);
+    await assert.rejects(h.run('gate'), /Claude review requested changes/);
     assert.equal(h.calls.filter((call) => call.body?.params?.name === 'board_post').length, 1);
     assert.ok(h.calls.some((call) => call.body?.body?.includes('"blocker_sent":true')));
     assert.ok(!h.calls.some((call) => call.body?.state === 'success'));
@@ -399,13 +414,112 @@ test('prepare invalidates earlier approval before mergeability retries and toler
     const h = await harness(t);
     h.state.pulls = [{ ...pr, mergeable: null }, { ...pr, mergeable: null }, pr];
     await h.run('prepare');
-    assert.equal(h.calls[0].body.state, 'pending');
-    assert.ok(h.calls[0].url.endsWith(`/statuses/${head}`));
+    assert.equal(h.calls.find((call) => call.body)?.body.state, 'pending');
+    assert.ok(h.calls.find((call) => call.body)?.url.endsWith(`/statuses/${head}`));
     assert.equal(h.state.pulls.length, 0);
     const failed = await harness(t);
     failed.state.pr = { ...pr, mergeable: null };
     await assert.rejects(failed.run('prepare'), /mergeable/);
-    assert.equal(failed.calls[0].body.state, 'pending');
-    assert.equal(failed.calls.filter((call) => call.url.endsWith('/pulls/42')).length, 6);
+    assert.equal(failed.calls.find((call) => call.body)?.body.state, 'pending');
+    assert.equal(failed.calls.filter((call) => call.url.endsWith('/pulls/42')).length, 8);
     assert.ok(!failed.calls.some((call) => call.body?.state === 'success'));
+});
+
+test('technical Claude failures never consume rejection rounds or escalate on Board', async (t) => {
+    for (const overrides of [
+        { CLAUDE_JOB_RESULT: 'failure', CLAUDE_RESULT: '' },
+        { CLAUDE_JOB_RESULT: 'cancelled', CLAUDE_RESULT: 'success' },
+        { CLAUDE_JOB_RESULT: 'success', CLAUDE_RESULT: '' },
+        { CLAUDE_JOB_RESULT: 'failure', CLAUDE_RESULT: 'failure' },
+    ]) {
+        const h = await harness(t, overrides);
+        h.state.comments = [base, merge].map((sha) => ({
+            user: { id: 12345678 },
+            body: `<!-- ekko-review-round:v1 ${JSON.stringify({ head: sha, result: 'failure' })} -->`,
+        }));
+        await assert.rejects(h.run('gate'), /execution failed/);
+        assert.ok(h.calls.some((call) => call.body?.state === 'error' && /Teknisk/.test(call.body.description)));
+        assert.ok(!h.calls.some((call) => call.body?.body || call.body?.params?.name === 'board_post'));
+        assert.match(await readFile(h.env.GITHUB_STEP_SUMMARY, 'utf8'), /technical/);
+    }
+});
+
+test('an obsolete execution cannot replace a newer pending, success or failure on the same head', async (t) => {
+    for (const state of ['pending', 'success', 'failure']) {
+        const h = await harness(t, { CLAUDE_RESULT: 'failure' });
+        h.state.statuses.unshift({
+            context: 'agent-review',
+            creator: { id: 12345678 },
+            state,
+            target_url: 'https://github.com/Nils-Fredrik/ekko/actions/runs/11',
+        });
+        await h.run('gate');
+        assert.ok(!h.calls.some((call) => call.options.method === 'POST'));
+        assert.match(await readFile(h.env.GITHUB_STEP_SUMMARY, 'utf8'), /stale/);
+    }
+});
+
+test('a pushed head stops the old gate and prepare without touching any status or review record', async (t) => {
+    for (const command of ['gate', 'prepare']) {
+        const h = await harness(t);
+        h.state.pr = { ...pr, head: { sha: 'd'.repeat(40) } };
+        await h.run(command);
+        assert.ok(!h.calls.some((call) => call.options.method === 'POST'));
+    }
+});
+
+test('Codex findings with a fresh receipt stop immediately as a real rejection', async (t) => {
+    const h = await harness(t, { SNAPSHOT: snapshot({ claude: false, codex: true }) });
+    h.state.comments[0] = { ...clean, body: clean.body.replace('"has_any_findings":false', '"has_any_findings":true') };
+    await assert.rejects(h.run('gate'), /Codex review requested changes/);
+    assert.ok(h.calls.some((call) => call.body?.state === 'failure'));
+    assert.ok(h.calls.some((call) => call.body?.body?.includes('"result":"failure"')));
+    assert.equal(h.calls.filter((call) => call.url.includes('/reviews?')).length, 1);
+});
+
+test('a missing authentic status owner fails closed without publishing a replacement', async (t) => {
+    const h = await harness(t);
+    h.state.statuses = [
+        {
+            context: 'agent-review',
+            creator: { id: 41898282 },
+            target_url: 'https://github.com/Nils-Fredrik/ekko/actions/runs/10',
+        },
+    ];
+    await h.run('gate');
+    assert.ok(!h.calls.some((call) => call.options.method === 'POST'));
+});
+
+test('review workflow bounds wall time without rejecting completed reviews at an arbitrary turn count', async () => {
+    const workflow = await readFile('.github/workflows/agent-review-execute.yml', 'utf8');
+    assert.doesNotMatch(workflow, /--max-turns/);
+    assert.match(workflow, /- id: review\s+timeout-minutes: 20/);
+    assert.match(workflow, /claude:\s+needs: prepare\s+timeout-minutes: 25/);
+    assert.match(workflow, /CLAUDE_JOB_RESULT: \$\{\{ needs.claude.result \}\}/);
+    assert.match(workflow, /steps.source.outputs.ready == 'true'/);
+    assert.match(workflow, /needs.prepare.outputs.snapshot != ''/);
+    assert.doesNotMatch(workflow, /continue-on-error/);
+});
+
+test('conflicts or unresolved mergeability still prevent gate approval', async (t) => {
+    for (const mergeable of [false, null]) {
+        const h = await harness(t);
+        h.state.pr = { ...pr, mergeable };
+        await assert.rejects(h.run('gate'), /mergeable/);
+        assert.ok(h.calls.some((call) => call.body?.state === 'error'));
+        assert.ok(!h.calls.some((call) => call.body?.state === 'success' || call.body?.body));
+    }
+});
+
+test('a newer request arriving while Codex receipts are fetched prevents stale success', async (t) => {
+    const h = await harness(t, { SNAPSHOT: snapshot({ claude: true, codex: true }) });
+    h.state.afterComments = () =>
+        h.state.statuses.unshift({
+            context: 'agent-review',
+            creator: { id: 12345678 },
+            state: 'pending',
+            target_url: 'https://github.com/Nils-Fredrik/ekko/actions/runs/11',
+        });
+    await h.run('gate');
+    assert.ok(!h.calls.some((call) => call.options.method === 'POST'));
 });
