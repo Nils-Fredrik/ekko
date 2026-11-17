@@ -93,7 +93,10 @@ async function harness(t, overrides = {}) {
         }
         if (url.includes('/statuses?')) return Response.json(state.statuses);
         if (url.includes('/files?')) return Response.json(state.files);
-        if (url.includes('/comments?')) return Response.json(state.comments);
+        if (url.includes('/comments?')) {
+            state.afterComments?.();
+            return Response.json(state.comments);
+        }
         if (url.includes('/reviews?')) return Response.json([]);
         if (options.headers?.accept?.endsWith('.diff')) {
             if (state.mutateAfterDiff) state.pr = { ...pr, head: { sha: 'd'.repeat(40) } };
@@ -506,4 +509,17 @@ test('conflicts or unresolved mergeability still prevent gate approval', async (
         assert.ok(h.calls.some((call) => call.body?.state === 'error'));
         assert.ok(!h.calls.some((call) => call.body?.state === 'success' || call.body?.body));
     }
+});
+
+test('a newer request arriving while Codex receipts are fetched prevents stale success', async (t) => {
+    const h = await harness(t, { SNAPSHOT: snapshot({ claude: true, codex: true }) });
+    h.state.afterComments = () =>
+        h.state.statuses.unshift({
+            context: 'agent-review',
+            creator: { id: 12345678 },
+            state: 'pending',
+            target_url: 'https://github.com/Nils-Fredrik/ekko/actions/runs/11',
+        });
+    await h.run('gate');
+    assert.ok(!h.calls.some((call) => call.options.method === 'POST'));
 });
