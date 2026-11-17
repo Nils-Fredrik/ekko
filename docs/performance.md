@@ -6,6 +6,10 @@ Aksept krever en egen syntetisk tenant i produksjon med 365 dager × 100 prompts
 
 Bruk den deployede revisjonen, migrert PostgreSQL, eksisterende motorkatalog og fungerende dashboard/REST. Dokumenter commit, Cloud Run-revisjon, CPU/minne/minimumsinstanser, Cloud SQL-type og hvor målingen kjøres. Sett av plass til tabeller, indekser og WAL; datasettet kan kreve flere GB. Kjør ikke generatoren i en HTTP-forespørsel.
 
+`ProductionEngineSeeder` oppretter hele motorkatalogen, også de fem utsatte
+motorene som deaktiverte oppføringer. Fixturen kan bruke disse til syntetiske
+historiske svar uten å aktivere motorene, opprette priser eller kalle leverandører.
+
 Kjør fra en kontrollert kommandosesjon med applikasjonens databaseoppsett. Ikke skriv databasepassord, lesepassord eller API-token i logger/Board. Eksporter et tilfeldig passord på minst 24 tegn som `PERF_PASSWORD` fra en hemmelighetskanal. Bruk én ny UUID per kjøring og noter den før oppretting, slik at også avbrutte opprettinger kan ryddes opp:
 
 ```sh
