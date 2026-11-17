@@ -42,7 +42,7 @@ final class FirstRun
             $day = $now->setTimezone($tenant->timezone)->startOfDay();
             $batch = RunBatch::query()->firstOrCreate(
                 ['market_id' => $market->id, 'dispatch_date' => $day->toDateString()],
-                ['scheduled_for' => $day->utc(), 'status' => 'queued'],
+                ['scheduled_for' => $now, 'status' => 'queued'],
             );
             if (! $batch->wasRecentlyCreated) {
                 return 0;

@@ -61,3 +61,21 @@ resource "google_cloud_scheduler_job" "tick" {
     }
   }
 }
+
+# Monitoring is independent of collection schedules: launching this command performs no provider calls.
+resource "google_cloud_scheduler_job" "monitoring" {
+  count     = var.enable_monitoring && var.enable_workloads ? 1 : 0
+  name      = "ekko-monitor-health"
+  region    = var.region
+  schedule  = "*/15 * * * *"
+  time_zone = "Etc/UTC"
+  paused    = !var.enable_monitoring_schedule
+  http_target {
+    http_method = "POST"
+    uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/ekko-task:run"
+    headers     = { "Content-Type" = "application/json" }
+    body        = base64encode(jsonencode({ overrides = { containerOverrides = [{ args = ["php artisan ekko:monitor-health"] }] } }))
+    oauth_token { service_account_email = google_service_account.component["scheduler"].email }
+  }
+  depends_on = [google_project_service.api]
+}

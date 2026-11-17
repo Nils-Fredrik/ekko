@@ -2,12 +2,12 @@
 
 This directory targets the existing `ekko-514612` project in `europe-west1`.
 It does not manage the GCP project, billing, secret versions, database users,
-the Terraform state bucket, application builds, or alert policies. Workload
+the Terraform state bucket, or application builds. Alert policies and their email channel are managed in `monitoring.tf`. Workload
 Identity Federation is defined in `deploy.tf`. The deployment workflow runs on
 push to `main` when `EKKO_DEPLOY_ENABLED=true`; this repository variable is now
 enabled after the documented public acceptance checks. The first automatic
 main deployment is verified after the owner's merge of T10. Collection schedules
-remain paused independently. Alert policies are T36. No Terraform resource should
+remain paused independently. T36 monitoring is enabled separately from collection schedules; see `docs/runbook.md`. No Terraform resource should
 ever contain a secret value.
 
 ## Bootstrap and prerequisites

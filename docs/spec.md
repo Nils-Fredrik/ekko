@@ -962,6 +962,8 @@ Faktiske priser legges i `engine_prices` og vedlikeholdes av plattformadmin. Das
 - **Database:** Cloud SQL med CPU over 80 % eller lagring over 80 % i 30 minutter.
 - **Uttrekk:** batcher som ikke er ferdige etter 24 timer.
 
+T36 implementerer policyene i `infra/terraform/monitoring.tf`. `ekko:monitor-health` måler applikasjonssignalene hvert 15. minutt via en separat Scheduler-plan, med tenant-RLS og uten leverandørkall. Motorfeil teller terminale innsamlinger siste døgn, uten kvotestopp og lukkede tenants. T30 kan lese `monitoring.engine_health` fra plattformcachen; utløpt verdi betyr ukjent. En egen policy varsler hvis fullført kontroll uteblir i 45 minutter. Se ADR 0029 og runbook for aktivering, terskler og feilsøking.
+
 ### 17.5 Backup og gjenoppretting
 
 - **Database:** automatisk daglig backup med 7 dagers oppbevaring og PITR.

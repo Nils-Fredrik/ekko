@@ -54,7 +54,7 @@ class PollExtractionBatch extends TenantJob
      */
     public function failed(Throwable $exception): void
     {
-        Log::error('Extraction batch given up.', ['extraction_job_id' => $this->extractionJobId, 'error' => $exception::class]);
+        Log::error('Extraction batch given up.', ['tenant_id' => $this->tenantId, 'user_id' => null, 'run_id' => null, 'extraction_job_id' => $this->extractionJobId, 'error' => $exception::class]);
 
         app(TenantContext::class)->run($this->tenantId, fn () => app(TenantRls::class)->run([$this->tenantId], function (): void {
             $job = ExtractionJob::query()->find($this->extractionJobId);
