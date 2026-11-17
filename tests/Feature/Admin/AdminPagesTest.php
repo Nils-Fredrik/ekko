@@ -128,6 +128,26 @@ it('shows the price in effect and keeps quota skips out of the engine error rate
         ['prompt_id' => $prompts[1]->id, 'repetition' => 2, 'status' => 'skipped_quota', 'finished_at' => $finished],
         ['prompt_id' => $prompts[1]->id, 'repetition' => 3, 'status' => 'skipped_quota', 'finished_at' => $finished],
     ]);
+    $later = Prompt::factory()->for($market)->create();
+    Run::factory()->for($batch, 'runBatch')->for($engine)->create([
+        'prompt_id' => $later->id,
+        'repetition' => 1,
+        'status' => 'failed',
+        'finished_at' => $finished->copy()->addHour(),
+    ]);
+    app(TenantContext::class)->forget();
+
+    $closed = Team::factory()->tenant()->status(TenantStatus::Closed)->create();
+    app(TenantContext::class)->set($closed->id);
+    $closedMarket = Market::factory()->create();
+    $closedPrompt = Prompt::factory()->for($closedMarket)->create();
+    $closedBatch = RunBatch::factory()->for($closedMarket)->create();
+    Run::factory()->for($closedBatch, 'runBatch')->for($engine)->create([
+        'prompt_id' => $closedPrompt->id,
+        'repetition' => 1,
+        'status' => 'failed',
+        'finished_at' => $finished,
+    ]);
     app(TenantContext::class)->forget();
 
     $this->actingAs($admin)->get(route('admin.engines.index'))->assertOk()->assertInertia(fn ($page) => $page

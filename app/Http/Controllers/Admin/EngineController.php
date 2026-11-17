@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\TenantStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Engine;
 use App\Models\EnginePrice;
@@ -62,8 +63,9 @@ final class EngineController extends Controller
             'model_id' => ['nullable', 'string', 'max:255'],
             'is_enabled' => ['required', 'boolean'],
         ]);
+        $modelId = $data['model_id'] ?? null;
         $engine->update([
-            'model_id' => $data['model_id'] !== '' ? $data['model_id'] : null,
+            'model_id' => $modelId !== '' ? $modelId : null,
             'is_enabled' => $data['is_enabled'],
         ]);
 
@@ -124,14 +126,22 @@ final class EngineController extends Controller
      */
     private function health(TenantRls $rls): array
     {
-        $ids = Team::query()->where('personal_team', false)->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
+        // Closed tenants are out of the engine-health signal (spec 17.4), matching HealthSnapshot.
+        $ids = Team::query()
+            ->where('personal_team', false)
+            ->where('status', '<>', TenantStatus::Closed->value)
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
         if ($ids === []) {
             return [];
         }
 
         // Quota skips never called a provider. Counting them would hide a high failure rate.
+        $now = now();
         $rows = $rls->run($ids, fn () => DB::table('runs')
-            ->where('finished_at', '>=', now()->subDay())
+            ->where('finished_at', '>=', $now->copy()->subDay())
+            ->where('finished_at', '<=', $now)
             ->whereIn('status', ['collected', 'extracted', 'failed'])
             ->selectRaw("engine_key, count(*) as total, count(*) filter (where status = 'failed') as failed")
             ->groupBy('engine_key')
