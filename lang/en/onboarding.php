@@ -5,6 +5,7 @@
 return [
     'invalid_domain' => 'Enter a valid domain, for example example.com.',
     'errors' => [
+        'market_changed' => 'Country and language must match the analysis. Start a new analysis for another market.',
         'core_limit' => 'You can select at most :max core prompts.',
         'brand_limit' => 'The plan does not allow more brands.',
         'market_limit' => 'The plan does not allow more markets for this brand.',

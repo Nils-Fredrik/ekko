@@ -70,6 +70,7 @@ class OnboardingController extends Controller
             ->map(fn (Engine $engine): array => [
                 'engine_key' => $engine->key,
                 'name' => DashboardLabels::engines([$engine->key])[$engine->key],
+                'max_repetitions' => $plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1,
                 'max_frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'off',
                 'frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'weekly',
                 'repetitions' => $plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1,

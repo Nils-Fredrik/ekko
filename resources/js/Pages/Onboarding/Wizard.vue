@@ -108,6 +108,10 @@ async function refresh(id) {
 
 function fill(payload) {
     const proposal = payload.proposal ?? emptyDraft();
+    if (props.brand) {
+        basis.value.country = payload.input.country;
+        basis.value.language = payload.input.language;
+    }
     draft.value = {
         industry: proposal.industry ?? '',
         category: proposal.category ?? '',
@@ -275,14 +279,19 @@ function confirm() {
             <section v-else-if="step === 'edit'" class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
                 <label v-for="key in basisFields" :key="key" class="block text-sm">
                     {{ $t(`onboarding.ui.${key === 'primary_domain' ? 'domain' : key}`) }}
-                    <input v-model="basis[key]" :class="field" class="mt-1 w-full" />
+                    <input v-model="basis[key]" :disabled="!!brand" :class="field" class="mt-1 w-full" />
                 </label>
                 <p v-if="draft.industry" class="text-sm">{{ $t('onboarding.ui.industry') }}: {{ draft.industry }}</p>
                 <p v-if="draft.category" class="text-sm">{{ draft.category }}</p>
                 <div v-if="!brand">
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.variants') }}</h3>
                     <div v-for="(variant, index) in draft.name_variants" :key="index" class="mt-2 flex gap-2">
-                        <input v-model="draft.name_variants[index]" :class="field" class="w-full" />
+                        <input
+                            v-model="draft.name_variants[index]"
+                            :aria-label="$t('onboarding.ui.variants')"
+                            :class="field"
+                            class="w-full"
+                        />
                         <button type="button" class="text-sm" @click="draft.name_variants.splice(index, 1)">
                             {{ $t('onboarding.ui.remove') }}
                         </button>
@@ -298,8 +307,8 @@ function confirm() {
                         :key="index"
                         class="mt-2 grid gap-2 sm:grid-cols-2"
                     >
-                        <input v-model="competitor.name" :class="field" />
-                        <input v-model="competitor.domain" :class="field" />
+                        <input v-model="competitor.name" :aria-label="$t('onboarding.ui.name')" :class="field" />
+                        <input v-model="competitor.domain" :aria-label="$t('onboarding.ui.domain')" :class="field" />
                         <button type="button" class="text-sm" @click="draft.competitors.splice(index, 1)">
                             {{ $t('onboarding.ui.remove') }}
                         </button>
@@ -316,7 +325,12 @@ function confirm() {
                 <div v-if="!brand">
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.topics') }}</h3>
                     <div v-for="(topic, index) in draft.topics" :key="topic.cross_market_key" class="mt-2">
-                        <input v-model="topic.name" :class="field" class="w-full" />
+                        <input
+                            v-model="topic.name"
+                            :aria-label="$t('app.dashboard.topic')"
+                            :class="field"
+                            class="w-full"
+                        />
                         <button type="button" class="text-sm" @click="removeTopic(index)">
                             {{ $t('onboarding.ui.remove') }}
                         </button>
@@ -332,9 +346,19 @@ function confirm() {
                         :key="index"
                         class="mt-3 space-y-2 border-t border-line pt-3"
                     >
-                        <textarea v-model="prompt.text" :class="field" class="w-full" rows="2" />
+                        <textarea
+                            v-model="prompt.text"
+                            :aria-label="$t('onboarding.ui.prompt')"
+                            :class="field"
+                            class="w-full"
+                            rows="2"
+                        />
                         <div class="flex flex-wrap gap-2">
-                            <select v-model="prompt.cross_market_key" :class="field">
+                            <select
+                                v-model="prompt.cross_market_key"
+                                :aria-label="$t('app.dashboard.topic')"
+                                :class="field"
+                            >
                                 <option
                                     v-for="topic in draft.topics"
                                     :key="topic.cross_market_key"
@@ -343,12 +367,16 @@ function confirm() {
                                     {{ topic.name }}
                                 </option>
                             </select>
-                            <select v-model="prompt.intent" :class="field">
+                            <select v-model="prompt.intent" :aria-label="$t('app.dashboard.intent')" :class="field">
                                 <option v-for="intent in intents" :key="intent" :value="intent">
                                     {{ $t(`app.intents.${intent}`) }}
                                 </option>
                             </select>
-                            <select v-model="prompt.funnel_stage" :class="field">
+                            <select
+                                v-model="prompt.funnel_stage"
+                                :aria-label="$t('app.library.funnel')"
+                                :class="field"
+                            >
                                 <option v-for="stage in stages" :key="stage" :value="stage">
                                     {{ $t(`app.funnel_stages.${stage}`) }}
                                 </option>
@@ -388,7 +416,7 @@ function confirm() {
                         <input v-model="engine.enabled" type="checkbox" />
                         {{ engine.name }}
                     </label>
-                    <select v-model="engine.frequency" :class="field">
+                    <select v-model="engine.frequency" :aria-label="$t('app.workspace.frequency')" :class="field">
                         <option
                             v-for="frequency in frequencies.filter(
                                 (item) =>
@@ -401,7 +429,14 @@ function confirm() {
                             {{ $t(`onboarding.frequencies.${frequency}`) }}
                         </option>
                     </select>
-                    <input v-model.number="engine.repetitions" type="number" min="1" max="3" :class="field" />
+                    <input
+                        v-model.number="engine.repetitions"
+                        :aria-label="$t('app.workspace.repetitions')"
+                        type="number"
+                        min="1"
+                        :max="engine.max_repetitions"
+                        :class="field"
+                    />
                 </div>
                 <PrimaryButton type="button" @click="loadEstimate">{{ $t('onboarding.ui.estimate') }}</PrimaryButton>
                 <InputError :message="estimateError" />

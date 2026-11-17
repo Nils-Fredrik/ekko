@@ -43,6 +43,13 @@ final class ProposalConfirmer
             if ($analysis === null || $analysis->status !== Analysis::READY) {
                 throw ValidationException::withMessages(['analysis' => __('onboarding.errors.not_ready')]);
             }
+            if ($analysis->kind === Analysis::MARKET) {
+                foreach (['country', 'language'] as $field) {
+                    if (($data[$field] ?? null) !== ($analysis->input[$field] ?? null)) {
+                        throw ValidationException::withMessages([$field => __('onboarding.errors.market_changed')]);
+                    }
+                }
+            }
             $plan = $tenant->plan()->first();
             $brand = $analysis->kind === Analysis::MARKET
                 ? $this->existingBrand($analysis)
@@ -186,7 +193,7 @@ final class ProposalConfirmer
             $key = $this->key((string) ($row['cross_market_key'] ?? '')) ?? '';
             $intent = $row['intent'] ?? null;
             $stage = $row['funnel_stage'] ?? null;
-            if ($text === '' || str_contains($text, "\0") || mb_strlen($text) > 10000 || ! isset($topics[$key])
+            if ($text === '' || str_contains($text, "\0") || mb_strlen($text) > Prompt::TEXT_MAX || ! isset($topics[$key])
                 || ! in_array($intent, OnboardingSchema::INTENTS, true)
                 || ! in_array($stage, OnboardingSchema::FUNNEL_STAGES, true)
                 || $this->personalData->hasPersonalData($text)) {

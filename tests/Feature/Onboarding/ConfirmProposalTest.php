@@ -137,7 +137,7 @@ it('confirms a market proposal on the existing brand', function () {
         return $brand;
     });
     $store = app(AnalysisStore::class);
-    $analysis = $store->create($tenant->id, $owner->id, Analysis::MARKET, ['brand_id' => $brand->id]);
+    $analysis = $store->create($tenant->id, $owner->id, Analysis::MARKET, ['brand_id' => $brand->id, 'country' => 'SE', 'language' => 'sv']);
     $analysis->status = Analysis::READY;
     $store->save($analysis);
 

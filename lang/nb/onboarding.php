@@ -5,6 +5,7 @@
 return [
     'invalid_domain' => 'Oppgi et gyldig domene, for eksempel eksempel.no.',
     'errors' => [
+        'market_changed' => 'Land og språk må være de samme som i analysen. Start en ny analyse for et annet marked.',
         'core_limit' => 'Du kan velge maksimalt :max kjerneprompts.',
         'brand_limit' => 'Pakken tillater ikke flere merkevarer.',
         'market_limit' => 'Pakken tillater ikke flere markeder for denne merkevaren.',

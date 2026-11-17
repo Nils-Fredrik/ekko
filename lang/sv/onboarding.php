@@ -5,6 +5,7 @@
 return [
     'invalid_domain' => 'Ange en giltig domän, till exempel exempel.se.',
     'errors' => [
+        'market_changed' => 'Land och språk måste vara samma som i analysen. Starta en ny analys för en annan marknad.',
         'core_limit' => 'Du kan välja högst :max kärnprompter.',
         'brand_limit' => 'Paketet tillåter inte fler varumärken.',
         'market_limit' => 'Paketet tillåter inte fler marknader för det här varumärket.',

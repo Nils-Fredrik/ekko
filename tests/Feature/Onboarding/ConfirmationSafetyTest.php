@@ -100,7 +100,7 @@ test('market confirmation reuses the brand and existing topic', function () {
     [$tenant, $owner, $analysis, $data] = confirmationFixture();
     $saved = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
     $store = app(AnalysisStore::class);
-    $market = $store->create($tenant->id, $owner->id, Analysis::MARKET, ['brand_id' => $saved['brand']->id]);
+    $market = $store->create($tenant->id, $owner->id, Analysis::MARKET, ['brand_id' => $saved['brand']->id, 'country' => 'SE', 'language' => 'sv']);
     $market->status = Analysis::READY;
     $store->save($market);
     $data['country'] = 'SE';
@@ -173,3 +173,19 @@ test('confirmation rejects excess core prompts instead of silently changing the 
     expect(Brand::query()->count())->toBe(0)->and(Run::query()->count())->toBe(0)
         ->and(app(AnalysisStore::class)->find($tenant->id, $analysis->id)->status)->toBe(Analysis::READY);
 });
+
+test('market confirmation cannot relabel analysed prompts with another country or language', function (string $field, string $value) {
+    [$tenant, $owner, $analysis, $data] = confirmationFixture();
+    $saved = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
+    $store = app(AnalysisStore::class);
+    $market = $store->create($tenant->id, $owner->id, Analysis::MARKET, ['brand_id' => $saved['brand']->id, 'country' => 'SE', 'language' => 'sv']);
+    $market->status = Analysis::READY;
+    $store->save($market);
+    $data['country'] = 'SE';
+    $data['language'] = 'sv';
+    $data[$field] = $value;
+    $this->actingAs($owner)->postJson(route('onboarding.analyses.confirm', $market->id), $data)
+        ->assertUnprocessable()->assertJsonValidationErrors($field);
+    expect($saved['brand']->markets()->count())->toBe(1)
+        ->and($store->find($tenant->id, $market->id)->status)->toBe(Analysis::READY);
+})->with([['country', 'DE'], ['language', 'de']]);

@@ -70,6 +70,8 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await page.getByRole('button', { name: 'Analyse the site' }).click();
     await expect(page.getByRole('heading', { name: 'Prompts', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Competitors', exact: true })).toHaveCount(0);
+    await expect(page.getByLabel('Country', { exact: true })).toBeDisabled();
+    await expect(page.getByLabel('Language', { exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: 'Save and start the first run' }).click();
