@@ -61,27 +61,38 @@ export async function reviewSource(event, { env = process.env, request = fetch }
         source.number < 1 ||
         source.base?.repo?.id !== event.repository.id ||
         source.base.ref !== 'main' ||
-        source.base.sha !== env.GITHUB_SHA ||
+        !/^[a-f0-9]{40}$/.test(source.base.sha || '') ||
         !/^[a-f0-9]{40}$/.test(source.head?.sha || '') ||
-        run.head_sha !== source.head.sha
+        !/^[a-f0-9]{40}$/.test(run.head_sha || '')
     )
         throw new Error('Source does not match the trusted main checkout');
     const pr = await api(`/pulls/${source.number}`);
+    if (pr.number !== source.number || pr.base?.repo?.id !== event.repository.id || pr.base.ref !== 'main')
+        throw new Error('PR does not belong to the trusted repository and base');
+    // GitHub can update the PR metadata attached to an older run. The run's
+    // immutable head remains authoritative. Never review newer code on its behalf.
     if (
-        pr.number !== source.number ||
         pr.state !== 'open' ||
         pr.draft ||
-        pr.base?.repo?.id !== event.repository.id ||
-        pr.base.ref !== 'main' ||
-        pr.base.sha !== source.base.sha ||
-        pr.head?.sha !== source.head.sha
+        run.head_sha !== source.head.sha ||
+        pr.head?.sha !== run.head_sha ||
+        pr.base.sha !== env.GITHUB_SHA
     )
-        throw new Error('PR changed after the review request');
-    return { number: source.number, head: source.head.sha, base: source.base.sha };
+        return null;
+    // A merge into main while the request was queued is safe: this execution
+    // checks out current trusted main and captures a NEW snapshot before review.
+    return { number: source.number, head: run.head_sha, base: pr.base.sha };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
     const event = JSON.parse(await readFile(process.env.GITHUB_EVENT_PATH, 'utf8'));
     const result = await reviewSource(event);
-    await appendFile(process.env.GITHUB_OUTPUT, `number=${result.number}\nhead=${result.head}\nbase=${result.base}\n`);
+    await appendFile(
+        process.env.GITHUB_OUTPUT,
+        result ? `ready=true\nnumber=${result.number}\nhead=${result.head}\nbase=${result.base}\n` : 'ready=false\n',
+    );
+    if (!result)
+        console.log(
+            'Review request is obsolete; no review or status was published. Update the PR branch to request a fresh review.',
+        );
 }

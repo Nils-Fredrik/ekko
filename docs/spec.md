@@ -1092,15 +1092,17 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 
 **Modellbegrensning i Codex-integrasjonen (verifisert 15.11.2026):** GPT-6.1 Sol er ønsket reviewer-modell, men repoets Codex-innstillinger tilbyr ikke modellvalg, og GitHub-kvitteringen oppgir ikke modellidentitet. Aktiveringen bruker derfor integrasjonens leverandørstyrte modell med verifisert bot-identitet, aktuell head-SHA og fersk kvittering. Dette er et dokumentert avvik fra modellkravet over, ikke bevis på GPT-6.1 Sol. Hvis modellvalg eller pålitelig modellmetadata blir tilgjengelig, skal ønsket modell velges og verifiseres.
 
-**Workflows:** `.github/workflows/agent-review.yml` setter pending når en PR åpnes eller oppdateres (`pull_request_target`). `.github/workflows/agent-review-execute.yml` fortsetter på `workflow_run` fra betrodd main, etter kontroll av kildekjøring, workflow-ID/sti og uendret PR-head/base (ADR 0022). Dette unngår Anthropics observerte OIDC-feil på pull_request_target; PR-kode og kilde-artifacts kjøres aldri. Reviewet:
+**Workflows:** `.github/workflows/agent-review.yml` setter pending når en PR åpnes eller oppdateres (`pull_request_target`). `.github/workflows/agent-review-execute.yml` fortsetter på `workflow_run` fra betrodd main, etter kontroll av kildekjøring og workflow-ID/sti. PR-head må fortsatt tilhøre forespørselen; en nyere main før oppstart fanges som ny base og reviewes på nytt (ADR 0022 og 0027). Dette unngår Anthropics observerte OIDC-feil på pull_request_target; PR-kode og kilde-artifacts kjøres aldri. Reviewet:
 1. Leser merkelappen i PR-tittelen og de endrede filene.
 2. For `[Codex]`- og `[Cursor]`-PR-er kjøres `claude-code-action` med Opus 5.5 og en review-instruks som viser til `AGENTS.md`, `docs/spec.md` og akseptkriteriene i Board-oppgaven.
 3. For `[Claude Code]`-PR-er og følsomme endringer postes kommentaren `@codex review` på PR-en.
 4. Hver reviewer avslutter med en tydelig konklusjon: «GODKJENT» eller «ENDRINGER KREVES», med konkrete punkter. Claude leverer en strukturert konklusjon. For Codex validerer gaten botens SHA-bundne status og en fersk reviewkvittering; bare fullført kodereview uten funn oversettes til «GODKJENT». Ukjent format blokkerer (ADR 0022).
 
-**Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre runder med ulike head-SHA-er uten godkjenning postes en `blocker` på Board, og eieren avgjør. Omkjøring av samme kode teller ikke som en ny runde; en godkjenning nullstiller tellingen (ADR 0022).
+**Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre faglige avslag med ulike head-SHA-er uten godkjenning postes en `blocker` på Board, og eieren avgjør. Omkjøring av samme kode teller ikke som en ny runde; en godkjenning nullstiller tellingen (ADR 0022).
 
 **Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test` og `container build`), grønn `agent-review` og oppdatert base før merge. Mergekøen oppdaterer og merger én ferdigmeldt PR om gangen når den er aktivert (ADR 0026). Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
+
+**Driftsfeil og foreldede kjøringer:** Claude har 20 minutters tidsgrense (25 minutter for hele jobben), uten en fast steggrense som kan forkaste et ferdig resultat. Bare vellykket jobb og validert strukturert kvittering kan godkjenne. Tekniske feil og manglende/ukjent review gir blokkerende `error` med egen årsak og teller ikke som faglige avslagsrunder. Et bekreftet avslag gir `failure`. Utdaterte kjøringer gir aldri godkjenning, registrerer ingen avslagsrunde og skal ikke overskrive nyere reviewstatus for samme head. Ved baseendring under review må PR-grenen oppdateres for ny review (ADR 0027).
 
 **Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
 
@@ -1359,6 +1361,11 @@ Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-pa
 - En testPR merket `[Codex]` får review fra Claude, og en merket `[Claude Code]` får review fra Codex.
 - En testPR som endrer en følsom sti får review fra begge.
 - `main` kan ikke merges uten grønn CI og grønn `agent-review`.
+
+**T42 – Stabil reviewkjøring (task:62):**
+- Ferdige Claude-reviewer med mer enn 30 steg forkastes ikke på grunn av stegtelling; tidsgrensen håndheves fortsatt.
+- Tekniske feil, manglende kvittering og faglig avslag har forskjellige statuser; bare verifiserte faglige avslag teller mot Board-eskalering.
+- Ny main før oppstart kan reviewes med uendret PR-head. Foreldede kjøringer og nyere status på samme head er dekket av negative tester og kan ikke gi gammel godkjenning.
 
 #### T42 – Automatisk mergekø (utvidelse, Board task:61)
 
