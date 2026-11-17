@@ -1027,7 +1027,7 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
   - eventuelle avvik fra spesifikasjonen
 - **Kryssreview:** ingen PR merges uten review fra en annen agent enn forfatteren. Hvordan reviewen utløses og hvem som reviewer hva, står i 19.5.
 - **Åpne review-kommentarer først:** ved start av hver økt sjekker agenten egne åpne PR-er. Har en reviewer bedt om endringer, rettes det før agenten tar en ny oppgave.
-- **Merge** gjøres av Nils-Fredrik.
+- **Merge:** når mergekøen er aktivert, merger den ferdigmeldte PR-er etter oppdatert base, grønn CI og kryssreview. Inntil aktivering merger eieren.
 - **CI må være grønn.** Agentene skal ikke deaktivere, hoppe over eller svekke tester for å få grønt bygg.
 - **Avvik fra spesifikasjonen** registreres som beslutning på Board med begrunnelse og oppdateres i `docs/spec.md` i samme PR.
 - **Arkitekturbeslutninger** som ikke står i spesifikasjonen, dokumenteres som ADR i `docs/decisions/`.
@@ -1057,7 +1057,7 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
    - `finding` for oppdagelser som andre bør vite om
    - `question` til eieren
 6. Når PR-en er klar, legges den på oppgaven som `pr:Nils-Fredrik/ekko#<nr>`, og agenten poster `status` med testbevis.
-7. Eieren merger etter kryssreview (19.2), og oppgaven lukkes (`close`).
+7. Mergekøen merger etter kryssreview når den er aktivert; inntil da merger eieren. Oppgaven lukkes (`close`) når nødvendig produksjonskontroll er gjennomført.
 
 **Øvrige regler:**
 - **Svar** gis med `reply` på aktuell post. Tråder som er ferdige, lukkes med `resolve`.
@@ -1100,7 +1100,7 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 
 **Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre faglige avslag med ulike head-SHA-er uten godkjenning postes en `blocker` på Board, og eieren avgjør. Omkjøring av samme kode teller ikke som en ny runde; en godkjenning nullstiller tellingen (ADR 0022).
 
-**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test`), grønn `agent-review` og oppdatert base før eieren kan merge. Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
+**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test` og `container build`), grønn `agent-review` og oppdatert base før merge. Mergekøen oppdaterer og merger én ferdigmeldt PR om gangen når den er aktivert (ADR 0026). Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
 
 **Driftsfeil og foreldede kjøringer:** Claude har 20 minutters tidsgrense (25 minutter for hele jobben), uten en fast steggrense som kan forkaste et ferdig resultat. Bare vellykket jobb og validert strukturert kvittering kan godkjenne. Tekniske feil og manglende/ukjent review gir blokkerende `error` med egen årsak og teller ikke som faglige avslagsrunder. Et bekreftet avslag gir `failure`. Utdaterte kjøringer gir aldri godkjenning, registrerer ingen avslagsrunde og skal ikke overskrive nyere reviewstatus for samme head. Ved baseendring under review må PR-grenen oppdateres for ny review (ADR 0027).
 
@@ -1185,7 +1185,7 @@ Rekkefølgen styres kun av avhengighetene. Alle pakker uten uoppfylte avhengighe
 | T39 | Sikkerhetsgjennomgang | Claude Code / Opus 5.5 | T06, T07, T25, T33, T34 |
 | T40 | Ende-til-ende i produksjon | Claude Code / Opus 5.5 og eier | alle |
 | T41 | Kredittstyrt planlegging for Anthropic | Codex / GPT-6.1 Sol | T17, T19, T20 |
-| T42 | Kryssreview i GitHub | Codex / GPT-6.1 Terra | T01 |
+| T42 | Kryssreview i GitHub og automatisk mergekø | Codex / GPT-6.1 Terra | T01 |
 
 ### T01 – Repo og fundament
 Laravel med Jetstream (Inertia/Vue, team og API på), Tailwind v4, Pest, Pint, Larastan, ESLint, Ziggy og `laravel-vue-i18n` med samme versjoner og struktur som Varde. Opprett `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/ekko.mdc`, `docs/spec.md`, `docs/decisions/`, PR-mal og `scripts/agent-setup.sh` (19.6).
@@ -1366,6 +1366,17 @@ Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-pa
 - Ferdige Claude-reviewer med mer enn 30 steg forkastes ikke på grunn av stegtelling; tidsgrensen håndheves fortsatt.
 - Tekniske feil, manglende kvittering og faglig avslag har forskjellige statuser; bare verifiserte faglige avslag teller mot Board-eskalering.
 - Ny main før oppstart kan reviewes med uendret PR-head. Foreldede kjøringer og nyere status på samme head er dekket av negative tester og kan ikke gi gammel godkjenning.
+
+#### T42 – Automatisk mergekø (utvidelse, Board task:61)
+
+Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Codex] T42 – Automatisk mergekø» følges i task:61 (Board #565 og #580). Den endrer eierstyrt merge til en eksplisitt aktivert, betrodd kø etter ADR 0026. Eieren har også autorisert native auto-merge av PR #68; det aktiverer ikke den generelle køen.
+
+- Køen er av som standard og kjører bare betrodd main med en separat App og et main-avgrenset miljø; ingen bypass av grenbeskyttelsen.
+- Bare betrodde, ferdigmeldte PR-er fra samme repo med agenttittel vurderes. Høyst én baseoppdatering eller merge per kjøring, eldste først, med forrang til native auto-merge.
+- Ingen baseoppdatering ved feilende eller ventende kontroller på head. Siste test/container build og agent-review må være grønne; kontrollene gjentas før oppdatering. Ingen nye reviewrunder på urettet feilende kode.
+- Før merge kreves oppdatert base, autentisk reviewkvittering for head og base, kildebundne påkrevde test/container build/agent-review og ny kontroll av SHA-er og tittel. Konflikt, manglende data og samtidige endringer blokkerer.
+- Gjeldende main må ha vellykket CI og deploy før neste endring. Native auto-merge går uavhengig av køen; stoppknappen påvirker ikke allerede aktiverte native auto-merges.
+- Før generell aktivering: verifiser App-/miljøsperre, to parallelle PR-er, ny head/base, konflikt, rød CI/review, native auto-merge og at merge utløser CI og syntetisk deploy i et isolert testrepo. Dokumenter bevis på task:61; kode-merge alene lukker ikke aktiveringsaksepten.
 
 ---
 

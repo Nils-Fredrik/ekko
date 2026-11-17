@@ -87,6 +87,11 @@ jobs:
                   PR_NUMBER: ${{ needs.prepare.outputs.number }}
                   SNAPSHOT: ${{ needs.prepare.outputs.snapshot }}
                   GITHUB_WORKSPACE: ${{ github.workspace }}
+            - id: review-bots
+              name: Validate configured review bot
+              run: node scripts/merge-queue/config.mjs review-bots
+              env:
+                  MERGE_QUEUE_BOT_SLUG: ${{ vars.MERGE_QUEUE_BOT_SLUG }}
             - id: review
               timeout-minutes: 20
               env:
@@ -97,7 +102,7 @@ jobs:
               with:
                   claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
                   track_progress: 'false'
-                  allowed_bots: 'claude,chatgpt-codex-connector,cursor'
+                  allowed_bots: ${{ steps.review-bots.outputs.allowed-bots }}
                   prompt: |
                       Perform an independent code review of the PR diff in ${{ github.workspace }}/.review/review.diff.
                       Read AGENTS.md and docs/spec.md from this base checkout.

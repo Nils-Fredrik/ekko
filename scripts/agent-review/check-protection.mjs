@@ -11,6 +11,8 @@ if (
     checks?.strict !== true ||
     protection?.enforce_admins?.enabled !== true ||
     !contexts.has('test') ||
+    !checks?.checks?.some((check) => check.context === 'test' && check.app_id === 15368) ||
+    !checks?.checks?.some((check) => check.context === 'container build' && check.app_id === 15368) ||
     !checks?.checks?.some((check) => check.context === 'agent-review' && check.app_id === appId) ||
     protection.allow_force_pushes?.enabled === true ||
     protection.allow_deletions?.enabled === true ||
