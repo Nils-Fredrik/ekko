@@ -2,6 +2,7 @@
 
 namespace App\Onboarding;
 
+use App\AnthropicBudget\Account;
 use App\Engines\Credentials\TenantApiKeys;
 use App\Engines\EnginePricing;
 use App\Jobs\CollectEngineRun;
@@ -9,6 +10,7 @@ use App\Models\Market;
 use App\Models\Run;
 use App\Models\RunBatch;
 use App\Models\Team;
+use App\Scheduling\PromptSchedule;
 use App\Scheduling\WorkerLauncher;
 use App\Usage\BillingAccount;
 use App\Usage\MonthlyUsage;
@@ -57,8 +59,11 @@ final class FirstRun
                     }
                     $price = $this->prices->effectiveAt($key, $now);
                     $account = $this->keys->forEngine($tenant, $setting->engine) === null ? BillingAccount::Platform : BillingAccount::Byok;
-                    // One immediate sample is intentional even for weekly/monthly engines. No daily Sonnet
-                    // additions are granted here; later batches use the shared Anthropic budget planner.
+                    // Shared platform Sonnet keeps its budgeted weekly cadence; BYOK has its own budget.
+                    if ($key === 'claude_sonnet' && $account === BillingAccount::Platform && app(Account::class)->configured()
+                        && ! PromptSchedule::due($prompt->id, $setting->frequency === 'daily' ? 'weekly' : $setting->frequency, $day)) {
+                        continue;
+                    }
                     for ($repetition = 1; $repetition <= min(3, $setting->repetitions, $plan->max_repetitions); $repetition++) {
                         $run = $batch->runs()->create(['prompt_id' => $prompt->id, 'engine_key' => $key, 'repetition' => $repetition]);
                         $candidates[] = new PlannedRun($run->id, true, $account, $price->price_per_call_usd);

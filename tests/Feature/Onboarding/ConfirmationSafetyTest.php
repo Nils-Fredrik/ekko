@@ -10,8 +10,10 @@ use App\Onboarding\Analysis;
 use App\Onboarding\AnalysisStore;
 use App\Onboarding\FirstRun;
 use App\Onboarding\ProposalConfirmer;
+use App\Scheduling\CloudRunAccessToken;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Validation\ValidationException;
 
@@ -78,12 +80,12 @@ test('outer request rollback also rolls back confirmation and queued work', func
 test('first collection respects the applicable quota and budget before enqueue', function (string $limit) {
     [$tenant, , $analysis, $data] = confirmationFixture();
     if ($limit === 'calls') {
-        $tenant->update(['monthly_call_quota_override' => 0]);
+        $tenant->forceFill(['monthly_call_quota_override' => 0])->save();
     } elseif ($limit === 'platform') {
         $tenant->plan->update(['monthly_budget_usd' => '0.50']);
     } else {
-        $tenant->update(['byok_enabled' => true, 'monthly_byok_budget_usd' => '0.50']);
-        TenantApiKey::query()->create(['provider' => 'openai', 'key' => 'synthetic-key']);
+        $tenant->forceFill(['byok_enabled' => true, 'monthly_byok_budget_usd' => '0.50'])->save();
+        TenantApiKey::query()->create(['provider' => 'openai', 'key' => 'synthetic-key', 'last_verified_at' => now()]);
         // An exhausted platform budget must not replace the independent BYOK budget.
         $tenant->plan->update(['monthly_budget_usd' => '0.00']);
     }
@@ -105,4 +107,30 @@ test('market confirmation reuses the brand and existing topic', function () {
     expect(Brand::query()->count())->toBe(1)->and($result['brand']->topics()->count())->toBe(1)
         ->and($result['brand']->markets()->count())->toBe(2)->and($result['market']->language)->toBe('sv')
         ->and($result['market']->prompts()->sole()->topic_id)->toBe($saved['market']->prompts()->sole()->topic_id);
+});
+
+test('the worker is launched only after the request transaction commits', function () {
+    [$tenant, , $analysis, $data] = confirmationFixture();
+    config(['collection.cloud_run.enabled' => true, 'collection.cloud_run.project' => 'ekko-fixture', 'collection.cloud_run.region' => 'europe-west1']);
+    $token = Mockery::mock(CloudRunAccessToken::class);
+    $token->shouldReceive('get')->andReturn('synthetic-token');
+    app()->instance(CloudRunAccessToken::class, $token);
+    Http::preventStrayRequests()->fake([
+        '*/executions*' => Http::response(['executions' => []]),
+        '*:run' => Http::response(['name' => 'operation']),
+    ]);
+    DB::beginTransaction();
+    inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
+    Http::assertNothingSent();
+    DB::commit();
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), ':run'));
+});
+
+test('BYOK collection can run with an exhausted platform budget', function () {
+    [$tenant, , $analysis, $data] = confirmationFixture();
+    $tenant->forceFill(['byok_enabled' => true, 'monthly_byok_budget_usd' => '2.00'])->save();
+    $tenant->plan->update(['monthly_budget_usd' => '0.00']);
+    TenantApiKey::query()->create(['provider' => 'openai', 'key' => 'synthetic-key', 'last_verified_at' => now()]);
+    $result = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
+    expect($result['runs'])->toBe(1)->and(DB::table('jobs')->count())->toBe(1);
 });

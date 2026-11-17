@@ -89,19 +89,29 @@ final class AnalysisStore
 
     public function save(Analysis $analysis): void
     {
+        $this->write($analysis);
+
+        if ($analysis->isFinished()) {
+            CollectionLocks::make($this->lockKey($analysis->tenantId), 10)->block(5, function () use ($analysis): void {
+                $this->forgetPending($analysis);
+            });
+        }
+    }
+
+    private function write(Analysis $analysis): void
+    {
         Cache::put(
             $this->key($analysis->tenantId, $analysis->id),
             $analysis->toArray(),
             now()->addHours((int) config('ekko.wizard.proposal_ttl_hours')),
         );
+    }
 
-        if ($analysis->isFinished()) {
-            CollectionLocks::make($this->lockKey($analysis->tenantId), 10)->block(5, function () use ($analysis): void {
-                $pending = $this->pendingList($analysis->tenantId);
-                unset($pending[$analysis->id]);
-                Cache::put($this->pendingKey($analysis->tenantId), $pending, now()->addDay());
-            });
-        }
+    private function forgetPending(Analysis $analysis): void
+    {
+        $pending = $this->pendingList($analysis->tenantId);
+        unset($pending[$analysis->id]);
+        Cache::put($this->pendingKey($analysis->tenantId), $pending, now()->addDay());
     }
 
     /** @return array<string, int> Analysis id => when the reservation runs out (Unix time). */

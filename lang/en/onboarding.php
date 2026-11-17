@@ -86,5 +86,17 @@ return [
         'back' => 'Back',
         'next' => 'Next',
         'cost' => ':amount USD',
+        'stages' => [
+            'awareness' => 'Awareness',
+            'consideration' => 'Consideration',
+            'decision' => 'Decision',
+        ],
+        'frequencies' => [
+            'daily' => 'Daily',
+            'weekly' => 'Weekly',
+            'monthly' => 'Monthly',
+            'off' => 'Off',
+        ],
+        'estimate_unavailable' => 'The cost estimate could not be loaded.',
     ],
 ];

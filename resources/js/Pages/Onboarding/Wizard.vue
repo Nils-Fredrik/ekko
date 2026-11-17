@@ -259,7 +259,11 @@ function confirm() {
             </section>
 
             <section v-else-if="step === 'edit'" class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
-                <label class="block text-sm" v-for="key in ['name', 'primary_domain', 'country', 'language']" :key="key">
+                <label
+                    v-for="key in ['name', 'primary_domain', 'country', 'language']"
+                    :key="key"
+                    class="block text-sm"
+                >
                     {{ $t(`onboarding.ui.${key === 'primary_domain' ? 'domain' : key}`) }}
                     <input v-model="basis[key]" :class="field" class="mt-1 w-full" />
                 </label>
