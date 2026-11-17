@@ -128,7 +128,7 @@ test('the worker is launched only after the request transaction commits', functi
     inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
     Http::assertNothingSent();
     DB::commit();
-    Http::assertSent(fn ($request) => str_ends_with($request->url(), ':run'));
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/jobs/ekko-wake:run') && $request->body() === '{}');
 });
 
 test('BYOK collection can run with an exhausted platform budget', function () {

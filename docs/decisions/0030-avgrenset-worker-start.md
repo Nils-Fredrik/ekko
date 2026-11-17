@@ -23,6 +23,11 @@ ukryptert direkte tilkobling dersom nettverksadgang senere ble gitt.
   tokenhenting, listefrist og siste API-kall. Aktive eksekveringer kontrolleres
   med paginering. En aktiv jobb gir ingen ny oppstart. Feil ved oppstart fra
   Scheduler gir HTTP 503; senere jobbfeil overvåkes av T36.
+- Daglig dispatch venter inntil 300 sekunder på den felles dispatch-låsen.
+  Poll som møter en opptatt lås, returnerer uten ny planlegging og kontrollerer
+  fortsatt om workeren må startes. Dermed mister ikke normal samtidighet ved
+  kl. 01 dagsplanen eller utløser en falsk jobbfeil. En fastlåst dispatch gir
+  fortsatt feil og driftsvarsel etter ventefristen.
 - Cloud SQL beholder offentlig IPv4 for de eksisterende connectorene, uten
   autoriserte IP-nettverk, men krever `connector_enforcement = REQUIRED` og
   `ssl_mode = ENCRYPTED_ONLY`. Cloud Run bruker fortsatt connectorens Unix-socket;

@@ -416,7 +416,6 @@ Status 16.11.2026: offentlig webtilgang er aktivert, full smoke uten IAM består
 
 Den 15.11.2026 viste live IAM både web og migrate som lesere av migreringspassordet; da fantes ingen Cloud Run-webtjeneste. En målrettet plan med datidens T10-konfigurasjon viste bare sletting av web-granten. En separat, ikke anvendt workload-plan viste riktig skille mellom web og migreringsjobben. Dette er historisk bevis, ikke en gyldig plan for dagens produksjon. Ingen passordverdier ble lest eller lagret. **Ny plan og kontroll av faktisk tilgang og revisjon kreves før funnet kan lukkes.**
 
-
 ## T39-F8: worker-start og SQL-tilkobling
 
 Web kan bare starte den faste `ekko-wake`-jobben uten overrides. Veiviser og
@@ -424,6 +423,11 @@ Web kan bare starte den faste `ekko-wake`-jobben uten overrides. Veiviser og
 `ekko-worker`. Ved treg oppstart, sjekk først `ekko-wake`, deretter workeren.
 HTTP 204 fra poll-endepunktet betyr at oppstart ble akseptert eller at en
 poll-dispatcher allerede kjører. Cloud Run-jobbfeil varsles separat.
+
+Ved samtidig poll og dagsplanlegging hopper poll over en opptatt dispatch-lås
+og kontrollerer fortsatt worker-køen. Dagsplanlegging venter inntil 300 sekunder.
+En overskredet ventefrist er en reell feil: undersøk den aktive dispatch-jobben
+og kjør dagsplanlegging på nytt når den er ferdig. Planleggingen er idempotent.
 
 Ved første utrulling: opprett wake-jobb og begrensede web-/CI-grants fra en
 reviewet, avgrenset Terraform-plan før kode-merge. Bruk gjeldende jobs-digest.

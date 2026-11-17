@@ -55,8 +55,12 @@ final class Dispatcher
             throw new RuntimeException('collection_enqueue_must_commit_atomically');
         }
         $lock = CollectionLocks::make('ekko:dispatch', 3600);
-        if (! $lock->get()) {
-            throw new RuntimeException('dispatcher_busy');
+        if ($plan) {
+            // A poll may own the lock at the daily tick; wait rather than lose today's plan.
+            $lock->block(300);
+        } elseif (! $lock->get()) {
+            // The current dispatcher will enqueue work; the caller still checks the worker.
+            return 0;
         }
         try {
             $tenants = Team::query()->where('personal_team', false)->where('status', TenantStatus::Active->value)->orderBy('id')->get();
