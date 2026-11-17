@@ -836,7 +836,7 @@ Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-
 | `propose_prompts` | Grunnlag for forslag til nye prompts for et tema: promptene som finnes, dekning og plass i pakken. Claude lager forslagene (skriver ingenting) |
 | `upsert_prompts` | Legger til eller endrer prompts (krever skriverett, logges) |
 
-Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Store resultater pagineres med `cursor`. Tekst motorene har skrevet, ligger under feltet `untrusted_engine_output`: i `get_responses` svarteksten, ordlyden i nevnelsene og kildene. Nevnelsene utenfor feltet har bare navn fra tenantens katalog.
+Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Store resultater pagineres med `cursor`. Tekst motorene har skrevet, ligger under feltet `untrusted_engine_output`: i `get_responses` svarteksten, ordlyden i nevnelsene og kildene, og i `list_alerts` navnet i et varsel om ny konkurrent. Nevnelsene utenfor feltet har bare navn fra tenantens katalog.
 
 ---
 
