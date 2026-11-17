@@ -62,14 +62,19 @@ function client({
     changedTitle = false,
     mainConclusion = 'success',
     deployConclusion = 'success',
+    nativeOnSecondList = false,
 } = {}) {
     const calls = [];
     let branchReads = 0,
-        pullReads = 0;
+        pullReads = 0,
+        listReads = 0;
     return {
         calls,
         async pages(path) {
-            if (path.startsWith('/pulls?')) return [pr];
+            if (path.startsWith('/pulls?')) {
+                listReads++;
+                return [nativeOnSecondList && listReads > 1 ? { ...pr, auto_merge: {} } : pr];
+            }
             if (path.includes('/comments')) return comments;
             throw Error(path);
         },
@@ -219,6 +224,23 @@ test('an untrusted or draft PR is ignored without mutations', async () => {
     const c = client({ pr: { ...pull(), draft: true } });
     assert.deepEqual(await reconcile(c, authors), { action: 'empty' });
     assert.deepEqual(mutations(c), []);
+});
+
+test('pauses while native GitHub auto-merge is enabled, including a concurrent enable', async () => {
+    for (const options of [{ pr: { ...pull(), auto_merge: {} } }, { nativeOnSecondList: true }]) {
+        const c = client(options);
+        assert.equal((await reconcile(c, authors)).action, 'native-auto-merge-pending');
+        assert.deepEqual(mutations(c), []);
+    }
+});
+
+test('updates an eligible native auto-merge PR when it is behind and leaves merging to GitHub', async () => {
+    const pr = { ...pull(), auto_merge: {}, mergeable_state: 'behind', base: { ...pull().base, sha: 'd'.repeat(40) } };
+    const c = client({ pr });
+    assert.deepEqual(await reconcile(c, authors), { action: 'updated', number: 61 });
+    assert.deepEqual(mutations(c), [
+        { path: '/pulls/61/update-branch', method: 'PUT', body: { expected_head_sha: head } },
+    ]);
 });
 
 test('waits for the current main CI and stops if deploy failed or was skipped', async () => {

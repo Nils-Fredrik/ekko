@@ -147,21 +147,35 @@ export async function reconcile(client, allowedAuthors) {
     const mainStatus = await mainHealth(client, base);
     if (mainStatus !== 'success') return { action: `main-${mainStatus}` };
     const list = await client.pages('/pulls?state=open&base=main&sort=created&direction=asc');
-    for (const item of list) {
-        if (!eligible(item, allowedAuthors)) continue;
+    // Native auto-merge runs independently. Give those PRs priority and help
+    // an eligible behind PR update, but leave its eventual merge to GitHub.
+    const native = list.filter((pr) => pr.auto_merge != null);
+    for (const item of native.length ? native : list) {
+        if (!eligible(item, allowedAuthors)) {
+            if (native.length) return { action: 'native-auto-merge-pending', number: item.number };
+            continue;
+        }
         const pr = await client.api(`/pulls/${item.number}`);
-        if (!eligible(pr, allowedAuthors) || pr.head.sha !== item.head.sha)
+        if (
+            !eligible(pr, allowedAuthors) ||
+            pr.head.sha !== item.head.sha ||
+            (pr.auto_merge != null) !== !!native.length
+        )
             return { action: 'retry', number: item.number };
         if (pr.mergeable === null || pr.mergeable_state === 'unknown') return { action: 'wait', number: pr.number };
         if (pr.mergeable === false || pr.mergeable_state === 'dirty') return { action: 'conflict', number: pr.number };
         if (pr.mergeable_state === 'behind' || pr.base.sha !== base) {
-            const [current, again] = await Promise.all([
+            const [current, again, open] = await Promise.all([
                 client.api('/branches/main'),
                 client.api(`/pulls/${pr.number}`),
+                client.pages('/pulls?state=open&base=main&sort=created&direction=asc'),
             ]);
+            if (!native.length && open.some((candidate) => candidate.auto_merge != null))
+                return { action: 'native-auto-merge-pending' };
             if (
                 current?.commit?.sha !== base ||
                 !eligible(again, allowedAuthors) ||
+                (again.auto_merge != null) !== !!native.length ||
                 again.head.sha !== pr.head.sha ||
                 again.title !== pr.title
             )
@@ -172,6 +186,7 @@ export async function reconcile(client, allowedAuthors) {
             });
             return { action: 'updated', number: pr.number };
         }
+        if (native.length) return { action: 'native-auto-merge-pending', number: pr.number };
         const [checks, combined] = await Promise.all([
             client.api(`/commits/${pr.head.sha}/check-runs?per_page=100`),
             client.api(`/commits/${pr.head.sha}/status?per_page=100`),
@@ -185,7 +200,12 @@ export async function reconcile(client, allowedAuthors) {
             return { action: 'review', number: pr.number };
         if (pr.mergeable_state !== 'clean') return { action: 'wait', number: pr.number };
         validateProtection(await client.api('/branches/main/protection'));
-        const [latest, again] = await Promise.all([client.api('/branches/main'), client.api(`/pulls/${pr.number}`)]);
+        const [latest, again, open] = await Promise.all([
+            client.api('/branches/main'),
+            client.api(`/pulls/${pr.number}`),
+            client.pages('/pulls?state=open&base=main&sort=created&direction=asc'),
+        ]);
+        if (open.some((candidate) => candidate.auto_merge != null)) return { action: 'native-auto-merge-pending' };
         if (
             latest?.commit?.sha !== base ||
             !eligible(again, allowedAuthors) ||
