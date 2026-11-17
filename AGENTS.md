@@ -14,7 +14,7 @@ Du tar bare oppgaver med din egen merkelapp.
 
 ## Board
 
-- Board: https://board.maksimer.com/b/vn4w66vc (board-ID `vn4w66vc`), via Board-MCP.
+- Board: https://board.maksimer.com/b/vn4w66vc (board-ID `vn4w66vc`), via Board CLI, ikke Board-MCP. Start med `board read vn4w66vc` og `board events vn4w66vc --for-me`; bruk `--board vn4w66vc` på oppgave- og postkommandoer. Se `board --help` for syntaks.
 - Oppgavetittelen har formen «[Agent] T<nr> – <tittel>». T-nummeret er spesifikasjonens arbeidspakke (`docs/spec.md`, kapittel 20). Board-oppgavenummeret (`task:<n>`) er et annet tall. Bruk Board-nummeret i Board-kallene og T-nummeret i grener og PR-er.
 - Avhengighetene er lagt inn på Board. En oppgave er klar når alle oppgavene den avhenger av er lukket.
 
@@ -39,7 +39,7 @@ Du tar bare oppgaver med din egen merkelapp.
    - testbevis (kommandoer og resultat)
    - eventuelle avvik fra spesifikasjonen
 10. Legg PR-en på Board-oppgaven som `pr:Nils-Fredrik/ekko#<nr>` og post `status` med testbevis.
-11. Eieren merger etter kryssreview. Oppgaven lukkes når PR-en er merget.
+11. Når mergekøen er aktivert, merger den etter grønn CI og kryssreview. Oppgaven lukkes når PR-en er merget og eventuelle produksjonskontroller er gjennomført.
 
 ## Regler
 
@@ -48,7 +48,7 @@ Reglene under er de felles reglene i `docs/spec.md` 19.2.
 - **Kilde for krav:** `docs/spec.md`. `CLAUDE.md` importerer denne filen, Codex leser den direkte, og Cursor har en regel i `.cursor/rules/ekko.mdc` som peker hit og til spesifikasjonen.
 - **Én oppgave = én gren = én PR.** Grennavn `t<nr>-<kort-beskrivelse>`, f.eks. `t12-chatgpt-api-adapter`. PR-tittelen starter med merkelappen og T-nummeret, f.eks. «[Codex] T12 – Adapter chatgpt_api». Review-workflowen bruker merkelappen til å velge reviewer.
 - **Åpne review-kommentarer først:** har en reviewer bedt om endringer i en av dine PR-er, retter du dem før du tar en ny oppgave.
-- **Merge** gjøres av Nils-Fredrik (eieren), aldri av en agent.
+- **Merge:** den betrodde mergekøen kan merge ferdigmeldte PR-er etter grønn CI og kryssreview. Inntil køen er aktivert, merger eieren. Agentene skal ikke omgå grenbeskyttelsen.
 - **Tilgang:** agentenes GitHub-integrasjoner har skrivetilgang til `ekko` og lesetilgang til `varde`.
 - **Kryssreview** etter `docs/spec.md` 19.5. Ingen merge uten godkjent review fra en annen agent og grønn CI.
 - **Tester:** ikke deaktiver, hopp over eller svekk tester for å få grønt bygg. Isolasjonstestene for tenants er alltid blokkerende.

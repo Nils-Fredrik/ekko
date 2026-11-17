@@ -43,13 +43,29 @@ test('without trusted proxies, forwarded headers are ignored', function () {
     $this->withServerVariables(fromFrontEnd('203.0.113.99'))->get('/auth/google/redirect')->assertStatus(429);
 });
 
+test('the same client keeps its rate limit through direct and load balancer proxy chains', function (string $chain) {
+    config(['trustedproxy.proxies' => 'REMOTE_ADDR,35.190.63.68']);
+
+    foreach (range(1, 10) as $i) {
+        $this->withServerVariables(fromFrontEnd(sprintf($chain, "198.51.100.{$i}", '203.0.113.10')))
+            ->get('/auth/google/redirect')->assertRedirect();
+    }
+    $this->withServerVariables(fromFrontEnd(sprintf($chain, '198.51.100.99', '203.0.113.10')))
+        ->get('/auth/google/redirect')->assertStatus(429);
+    $this->withServerVariables(fromFrontEnd(sprintf($chain, '198.51.100.99', '203.0.113.20')))
+        ->get('/auth/google/redirect')->assertRedirect();
+})->with([
+    'direct with forged load balancer hop' => '%s, 35.190.63.68, %s',
+    'load balancer with forged leading hops' => '%s, 35.190.63.68, %s, 35.190.63.68',
+]);
+
 test('the scheme is taken from the proxy, but the host never is', function () {
     config(['trustedproxy.proxies' => '*', 'app.url' => 'http://localhost']);
 
     $this->withServerVariables(fromFrontEnd('203.0.113.10') + [
         'HTTP_X_FORWARDED_PROTO' => 'https',
         'HTTP_X_FORWARDED_HOST' => 'evil.example',
-    ])->get('/login')->assertOk();
+    ])->get('http://localhost/login')->assertOk();
 
     $request = request();
     expect($request->ip())->toBe('203.0.113.10')

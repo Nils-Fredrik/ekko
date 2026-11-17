@@ -49,7 +49,7 @@ test('a tenant admin verifies and stores a hidden encrypted API key with a maske
     Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
         && $request->url() === $url && $request->hasHeader($header, $value));
 })->with([
-    'OpenAI' => [ApiKeyProvider::OpenAi, 'https://api.openai.com/v1/models', 'Authorization', 'Bearer test-api-key', 'data'],
+    'OpenAI' => [ApiKeyProvider::OpenAi, 'https://eu.api.openai.com/v1/models', 'Authorization', 'Bearer test-api-key', 'data'],
     'Anthropic' => [ApiKeyProvider::Anthropic, 'https://api.anthropic.com/v1/models', 'x-api-key', 'test-api-key', 'data'],
     'Google' => [ApiKeyProvider::Google, 'https://generativelanguage.googleapis.com/v1beta/models', 'x-goog-api-key', 'test-api-key', 'models'],
     'Perplexity' => [ApiKeyProvider::Perplexity, 'https://api.perplexity.ai/v1/skills?limit=1', 'Authorization', 'Bearer test-api-key', 'skills'],
@@ -87,7 +87,7 @@ test('unverified and unauthorized key changes leave the verified credential inta
     Http::assertSent(fn (Request $request): bool => $request->method() === 'GET'
         && $request->url() === $url && $request->hasHeader('Authorization', 'Bearer test-invalid-key'));
 })->with([
-    'OpenAI' => [ApiKeyProvider::OpenAi, 'https://api.openai.com/v1/models', 'data', 403],
+    'OpenAI' => [ApiKeyProvider::OpenAi, 'https://eu.api.openai.com/v1/models', 'data', 403],
     'Perplexity' => [ApiKeyProvider::Perplexity, 'https://api.perplexity.ai/v1/skills?limit=1', 'skills', 401],
 ]);
 

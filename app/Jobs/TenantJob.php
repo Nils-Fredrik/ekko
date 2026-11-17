@@ -26,6 +26,12 @@ abstract class TenantJob implements ShouldQueue, TenantAware
         return $this->tenantId;
     }
 
+    /** Internal run identifier for log correlation; most jobs do not belong to a single run. */
+    public function logRunId(): ?int
+    {
+        return null;
+    }
+
     /**
      * @return array<int, object>
      */

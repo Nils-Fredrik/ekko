@@ -314,6 +314,7 @@ test('protection audit rejects unbound status sources and unprotected credential
                 strict: true,
                 checks: [
                     { context: 'test', app_id: 15368 },
+                    { context: 'container build', app_id: 15368 },
                     { context: 'agent-review', app_id: 12345 },
                 ],
             },
@@ -333,6 +334,12 @@ test('protection audit rejects unbound status sources and unprotected credential
     const unbound = structuredClone(fixture);
     unbound.protection.required_status_checks.checks[1].app_id = null;
     assert.notEqual(check(unbound), 0);
+    const missingBuild = structuredClone(fixture);
+    missingBuild.protection.required_status_checks.checks.splice(1, 1);
+    assert.notEqual(check(missingBuild), 0);
+    const wrongBuildApp = structuredClone(fixture);
+    wrongBuildApp.protection.required_status_checks.checks[1].app_id = 12345;
+    assert.notEqual(check(wrongBuildApp), 0);
     assert.notEqual(check({ ...fixture, environment: {} }), 0);
 });
 

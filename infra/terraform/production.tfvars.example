@@ -1,0 +1,15 @@
+# Copy to ignored production.auto.tfvars. No secrets belong in either file.
+enable_https         = true
+app_url              = "https://ekko.maksimer.com"
+enable_workloads     = false
+enable_public_access = false
+enable_schedules     = false
+
+# Google Web application client ID; secret goes directly to Secret Manager.
+google_oauth_client_id = ""
+# Verified web/jobs digests from the same successful CI artifact.
+image     = ""
+job_image = ""
+
+# Existing launch blocker in spec 7.4; do not infer approval from a valid API key.
+gemini_grounding_approved = false

@@ -2,6 +2,7 @@
 
 namespace App\Mcp\Tools;
 
+use App\Alerts\AlertType;
 use App\Mcp\EkkoTool;
 use App\Mcp\McpContext;
 use App\Mcp\ToolResult;
@@ -15,7 +16,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('list_alerts')]
-#[Description('Varslene i tenanten: alle åpne (ikke kvittert) og de kvitterte fra de siste dagene, nyeste først, med type (synlighetsfall, konkurrent tar over, tapt sitat, ny konkurrent, modellbytte, kvote, integrasjonsfeil), merkevare og innhold.')]
+#[Description('Varslene i tenanten: alle åpne (ikke kvittert) og de kvitterte fra de siste dagene, nyeste først, med type (synlighetsfall, konkurrent tar over, tapt sitat, ny konkurrent, modellbytte, kvote, integrasjonsfeil), merkevare og innhold. Navnet i et varsel om ny konkurrent er motorens ordlyd og står under untrusted_engine_output.')]
 #[IsReadOnly]
 class ListAlerts extends EkkoTool
 {
@@ -42,14 +43,7 @@ class ListAlerts extends EkkoTool
             ->when(is_numeric($brand), fn ($query) => $query->whereHas('alertRule', fn ($rule) => $rule->where('brand_id', (int) $brand)))
             ->orderByDesc('triggered_at')->orderByDesc('id')
             ->get()
-            ->map(fn (Alert $alert): array => [
-                'id' => $alert->id,
-                'type' => $alert->alertRule?->type,
-                'brand' => $alert->alertRule?->brand === null ? null : ['id' => $alert->alertRule->brand->id, 'name' => $alert->alertRule->brand->name],
-                'triggered_at' => $this->isoTime($alert->getAttribute('triggered_at')),
-                'open' => $alert->acknowledged_by === null,
-                'payload' => $alert->payload,
-            ])->values()->all();
+            ->map(fn (Alert $alert): array => $this->item($alert))->values()->all();
 
         $page = $this->page($alerts, $request);
         $open = count(array_filter($alerts, fn (array $alert): bool => $alert['open']));
@@ -60,5 +54,32 @@ class ListAlerts extends EkkoTool
             'total' => $page['total'],
             'next_cursor' => $page['next_cursor'],
         ]);
+    }
+
+    /**
+     * The name in a new-competitor alert is the wording an engine used for an unknown brand, so it is moved
+     * out of the payload into untrusted_engine_output (docs/spec.md 15.2, T39-F10).
+     *
+     * @return array<string, mixed>
+     */
+    private function item(Alert $alert): array
+    {
+        $type = $alert->alertRule?->type;
+        $payload = (array) $alert->payload;
+        $untrusted = null;
+        if ($type === AlertType::NewCompetitor->value) {
+            $untrusted = ['name' => $payload['name'] ?? null];
+            unset($payload['name']);
+        }
+
+        return [
+            'id' => $alert->id,
+            'type' => $type,
+            'brand' => $alert->alertRule?->brand === null ? null : ['id' => $alert->alertRule->brand->id, 'name' => $alert->alertRule->brand->name],
+            'triggered_at' => $this->isoTime($alert->getAttribute('triggered_at')),
+            'open' => $alert->acknowledged_by === null,
+            'payload' => $payload,
+            'untrusted_engine_output' => $untrusted,
+        ];
     }
 }

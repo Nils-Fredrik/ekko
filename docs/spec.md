@@ -29,7 +29,7 @@ Løsningen er en flerkunde-plattform (multi-tenant). Hvert selskap, både i kons
 **I omfang:**
 - tenant-administrasjon
 - prompt-bibliotek per marked
-- innsamling fra fem motorfamilier
+- ved oppstart: direkte API-innsamling fra OpenAI, Anthropic og Gemini; DataForSEO og Perplexity er utsatt (7.4)
 - automatisk uttrekk av nevnelser og kilder
 - metrikker og dashboard
 - konkurrentsammenligning
@@ -86,7 +86,7 @@ flowchart LR
 
 Ekko har ett miljø, produksjon, i prosjektet `ekko-514612`. Utvikling skjer lokalt mot fixtures, og nye versjoner verifiseres i produksjon før de får trafikk (17.2).
 
-**Adresse:** Ekko nås på Cloud Run-adressen til `ekko-web` (`*.run.app`). Den samme adressen brukes i OAuth-klientene (Google og MCP) og som `APP_URL`. Et eget domene kan kobles på senere ved å endre `APP_URL` og redirect-adressene i OAuth-klientene.
+**Adresse:** `https://ekko.maksimer.com` er kanonisk produksjonsadresse og `APP_URL`. Terraform forvalter en global ekstern Application Load Balancer, statisk IPv4, HTTP→HTTPS-omdirigering og Google-administrert sertifikat med DNS-autorisasjon og TLS ≥1.2. DNS publiseres hos eksisterende leverandør; navneservere flyttes ikke. Google OAuth bruker `https://ekko.maksimer.com/auth/google/callback`. Cloud Run-adressene beholdes for kandidat-røyktest og Scheduler. Se ADR 0024 og `infra/terraform/README.md`.
 
 
 | Komponent | Tjeneste | Konfigurasjon |
@@ -194,7 +194,7 @@ CREATE POLICY tenant_isolation ON brands
 
 Applikasjonen kobler til med en rolle uten `BYPASSRLS`. Ved hver forespørsel og hver jobb settes `app.tenant_ids` til tenantene brukeren eller jobben har lov til å se. For en partner er det egen tenant pluss kunde-tenantene. `ApplyTenantRls` setter tilgangen med `SET LOCAL` i en databasetransaksjon. Motorinnsamleren bruker den samme transaksjonshjelperen i hver databasefase.
 
-Plattformadmin-operasjoner og migreringer bruker en egen databaserolle med `BYPASSRLS`. Den brukes kun av jobben `ekko-migrate` og av eksplisitte admin-handlinger som logges.
+Migreringer bruker en egen databaserolle med `BYPASSRLS`, kun tilgjengelig for jobben `ekko-migrate`. Web-tjenesten bruker den vanlige RLS-rollen også for dagens plattformadmin-handlinger og får verken migreringspassordet, Secret Manager-lesetilgang til det eller `DB_ADMIN_*`-variabler. Hvis en senere admin-handling krever `BYPASSRLS`, må den få en separat rolle uten tabelleierskap eller DDL-rettigheter i en eksplisitt, logget kjørevei; migreringslegitimasjonen skal ikke tilbake til web (T39-F1).
 
 Innloggingsrollen sjekkes ved oppstart i produksjon (T39-F2, `App\Tenancy\Rls\DatabaseRoleCheck`). Kode utenfor `TenantRls::run()` kjører som innloggingsrollen, så en feil `DB_USERNAME` ville ellers latt RLS stoppe ingenting uten at noen merket det. Rollen er usikker hvis minst ett av disse gjelder:
 - Den er superbruker eller har `BYPASSRLS`, `CREATEROLE` eller `CREATEDB`.
@@ -386,25 +386,18 @@ For slike motorer settes `runs.status` til `submitted` etter innsending. `extrac
 
 ### 7.4 Motorer og standardoppsett
 
-Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest mulig kostnad:
-- **ChatGPT, Gemini og Google** hentes via DataForSEO (skraping og SERP). Det gir svarene slik de vises i tjenestene og koster en brøkdel av API-ene.
-- **Claude og Perplexity** har ingen skraping og hentes via API.
-- **Claude** kjøres daglig på Haiku 5.5, som er billig, og ukentlig på Sonnet 5.5 for kjerneprompts. Sonnet-kjøringen gir et kalibreringspunkt mot modellen de fleste Claude-brukere møter.
-- **Alle DataForSEO-motorer** bruker standardkøen, ikke sanntid. Daglige kjøringer tåler ventetiden, og prisen er en tredjedel.
+Eierens oppstartsvalg 15. november 2026 er direkte Anthropic, OpenAI og Gemini. Perplexity og DataForSEO skal ikke brukes ved oppstart. Adaptere og historiske resultater beholdes for senere bruk. API-svar er målinger fra API-ene, ikke en gjengivelse av forbrukerappenes svar.
 
-| `engine_key` | Familie | Metode | Implementasjon | Standardfrekvens | Prompts |
-|---|---|---|---|---|---|
-| `chatgpt_ui` | ChatGPT | Skraping, kø | DataForSEO ChatGPT LLM Scraper (standardkø), med lokasjon og språk | daglig | alle |
-| `gemini_ui` | Gemini | Skraping, kø | DataForSEO Gemini LLM Scraper (standardkø) | daglig | alle |
-| `google_aio` | Google | SERP, kø | DataForSEO SERP API (Google organisk, standardkø), henter `ai_overview`-elementet med kilder | daglig | alle |
-| `google_ai_mode` | Google | SERP, kø | DataForSEO AI Mode-endepunkt (standardkø), der det er tilgjengelig for markedet | daglig | alle |
-| `claude_haiku` | Claude | API | Anthropic Messages API med `claude-haiku-5-5`, grunnversjonen av web search-verktøyet (uten dynamisk filtrering, `max_uses: 2`) og `user_location`. Kilder fra `web_search_result_location`-sitater. | daglig | alle |
-| `claude_sonnet` | Claude | API | Som over, med `claude-sonnet-5-5` | ukentlig | kjerne |
-| `perplexity_api` | Perplexity | API | Perplexity Agent API med `perplexity/sonar` og `web_search`. Kilder fra `search_results` og `url_citation`-annotasjoner. | ukentlig | alle |
-| `chatgpt_api` | ChatGPT | API | OpenAI Responses API med `web_search` og `user_location` | av | – |
-| `gemini_api` | Gemini | API | Gemini API med Google Search-grounding. Kilder fra `groundingMetadata`. | av | – |
+| `engine_key` | Leverandør / metode | Standardfrekvens | Prompts |
+|---|---|---|---|
+| `chatgpt_api` | OpenAI Responses API, EU-endepunkt, `web_search` | daglig | alle |
+| `gemini_api` | Gemini API med Google Search-grounding | daglig etter vilkårsavklaring; sperret i produksjon inntil da | alle |
+| `claude_haiku` | Anthropic Messages API, `claude-haiku-5-5`, grunnversjonen av web search uten dynamisk filtrering, `max_uses: 2`, `user_location` | daglig | alle |
+| `claude_sonnet` | Som over, `claude-sonnet-5-5` | ukentlig | kjerne |
+| `perplexity_api` | Perplexity Agent API, `perplexity/sonar` | av / utsatt | – |
+| `chatgpt_ui`, `gemini_ui`, `google_aio`, `google_ai_mode` | DataForSEO standardkø | av / utsatt | – |
 
-`chatgpt_api` og `gemini_api` er av som standard. De kan slås på for tenants med egne API-nøkler (12.4), f.eks. for å sammenligne API-svar med det appene viser.
+Plattformnøklene brukes som standard. En lagret tenantnøkkel overstyrer bare når tenantens BYOK er aktivert; forbruk belastes tilsvarende plattform- eller BYOK-budsjett. Tomme eksplisitte nøkler avvises. Terraform setter `EKKO_DISABLED_ENGINE_PROVIDERS=perplexity,dataforseo`; sperren gjelder planlegging, kostnadsestimat og innsamling, også polling av innsendte oppgaver. Historikk kan fortsatt leses. `ProductionEngineSeeder` oppretter bare de fire direkte motorene, deaktiverer utsatte leverandører og legger ikke inn demopriser. Eksisterende pakker og operatørvalg overskrives ikke; de må gjennomgås før første schedule aktiveres.
 
 **Konfigurasjon:**
 - Pakken avgjør hvilke motorer en tenant har tilgang til (`plans.allowed_engines`).
@@ -420,7 +413,7 @@ Prinsippet for motorvalget er å hente det brukerne faktisk ser, til lavest muli
 
 `perplexity_api` bruker Agent API (`/v1/agent`) etter at støtten for Sonar Chat Completions opphørte 27. september 2026. Motorens konfigurerte modell har forrang foran `PERPLEXITY_MODEL` (standard `perplexity/sonar`). Agent API får land og eventuell by via nettsøkverktøyets `user_location`. Språk settes med en kort språkinstruks i brukerinnlegget, siden Agent API mangler et språkfilter for søk. Tenantens nøkkel har forrang når den er oppgitt, ellers brukes `PERPLEXITY_API_KEY`. [Migreringsveiledning for Sonar](https://docs.perplexity.ai/docs/agent-api/migrate-from-sonar/how-to)
 
-`chatgpt_api` krever en OpenAI-nøkkel fra tenanten og bruker motorens konfigurerte modell, med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini`). Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
+`chatgpt_api` bruker tenantens aktive BYOK-nøkkel eller `OPENAI_API_KEY`, og motorens konfigurerte modell med `OPENAI_CHATGPT_MODEL` som reserve (standard `gpt-5-mini-2025-08-07`). Innsamling og nøkkelverifisering bruker alltid `https://eu.api.openai.com/v1`, uten global reserve eller HTTP-omdirigering. BYOK må også bruke et Europe-prosjekt. `store=false` sendes på alle Responses-kall. Websøk er påkrevd for dette motorvalget. Responses API får land og eventuell by via `user_location`. Språkkoden legges som en kort språkinstruks etter promptteksten i samme brukerinnlegg.
 
 DataForSEO bruker `task_post` med normal prioritet, `tasks_ready` og `task_get/advanced`. Plattformkontoen konfigureres i `DATAFORSEO_CREDENTIALS` med formatet `login:password`. En oppgave sendes og hentes med samme leverandørkonto.
 
@@ -432,11 +425,11 @@ Adapterne leverer oppgave-ID ved innsending og `null` ved henting mens oppgaven 
 
 Claude-adapterne samler inn svar med `stop_reason` lik `end_turn` og tekstinnhold. `refusal`, `max_tokens` og `pause_turn` gir `anthropic_invalid_response`. En feil fra søkeverktøyet i et HTTP 200-svar gir `anthropic_web_search_failed`. Hvis verktøyet rapporterer `max_uses_exceeded`, kan adapteren fortsatt samle inn et fullført svar og kildene som allerede er sitert.
 
-`gemini_api` krever en Gemini API-nøkkel fra tenanten. Adapteren bruker motorens konfigurerte modell, med `GOOGLE_GEMINI_MODEL` som reserve (standard `gemini-3.8-flash`). Google Search-verktøyet har ingen egne felter for land, by eller språk. Adapteren sender derfor markedet som en instruks i det ene brukerinnlegget. Dette gir modellen kontekst, uten geografisk avgrensning av søkeresultatene.
+`gemini_api` bruker tenantens aktive BYOK-nøkkel eller `GEMINI_API_KEY`. Adapteren bruker motorens konfigurerte modell, med `GOOGLE_GEMINI_MODEL` som reserve (standard `gemini-3.8-flash`). Google Search-verktøyet har ingen egne felter for land, by eller språk. Adapteren sender derfor markedet som en instruks i det ene brukerinnlegget. Dette gir modellen kontekst, uten geografisk avgrensning av søkeresultatene.
 
 Ved Google Search-omdirigeringer beholdes den originale lenken i råsvaret. Til kildeklassifisering bruker adapteren en URL på domenenivå fra et gyldig vertsnavn i `web.domain` når feltet finnes, eller fra en `web.title` som består av et gyldig vertsnavn. Adapteren bruker bare metadataen fra svaret og oppretter en URL til domenets rot for klassifisering. Omdirigeringer uten oppgitt vertsnavn er ukjente og inngår bare i råsvaret. Vanlige kildelenker beholder hele URL-en. Se [Googles eksempel på grounding-svar](https://firebase.google.com/docs/ai-logic/grounding-google-search#understand-the-grounded-result).
 
-I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Adapteren verifiseres med syntetiske svar.
+I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Terraform har derfor `gemini_grounding_approved=false`; både innsamleren og adapteren stopper produksjonskall inntil avklaringen er gjort. Aktivering krever også at motorens `is_enabled` er sann. Adapteren verifiseres med syntetiske svar.
 
 ### 7.5 Gjentakelser og modellversjoner
 
@@ -488,8 +481,8 @@ Modellen skal returnere JSON etter dette skjemaet. Skjemaet tvinges med struktur
 
 **Regler for sammenstilling:**
 - **Deterministiske treff vinner** over modellen for om en kjent merkevare er nevnt.
-- **Modellen beriker** med `is_recommended`, `sentiment` og `answer_type`, og fanger opp ukjente merkevarer (`unknown`). Ukjente merkevarer som går igjen, foreslås som nye konkurrenter i grensesnittet.
-- **Sitater fra annotasjoner vinner** over sitater modellen finner i teksten. Modellen brukes kun til `source_type` og til motorer uten annotasjoner. URL-ene fra annotasjonene sendes med til modellen som `sources`, slik at den kan klassifisere dem selv om de ikke står i svarteksten.
+- **Modellen beriker** med `is_recommended`, `sentiment` og `answer_type`, og fanger opp ukjente merkevarer (`unknown`). En ukjent merkevare lagres bare når navnet står i svarteksten. Ukjente merkevarer som går igjen, foreslås som nye konkurrenter i grensesnittet.
+- **Sitater fra annotasjoner vinner** over sitater modellen finner i teksten. Modellen brukes kun til `source_type` og til motorer uten annotasjoner. Et sitat fra modellen lagres bare når URL-en står i svarteksten eller domenet er nevnt der. URL-ene fra annotasjonene sendes med til modellen som `sources`, slik at den kan klassifisere dem selv om de ikke står i svarteksten.
 - **Anbefaling:** en merkevare som er et eget punkt i en nummerert liste eller punktliste med alternativer, regnes som anbefalt selv uten vurderende ord, med mindre svaret fraråder eller kritiserer den. Et navn som bare står i beskrivelsen av et annet punkt, regnes ikke.
 - **Ugyldig JSON** gir ett nytt forsøk enkeltvis via vanlig Messages API. Feiler det igjen, beholdes de deterministiske resultatene og responsen markeres `extracted` med flagg `llm_failed`.
 - **Batcher følger tenant-grensen:** en batch inneholder bare svar fra én tenant (ADR 0011). Modellens `list_position` lagres bare for ukjente nevnelser. For kjente er listeposisjonen alltid den deterministiske (ADR 0010).
@@ -609,9 +602,9 @@ Pakker defineres av plattformadmin i `plans`. Startoppsett:
 
 | Pakke | Merkevarer | Markeder per merkevare | Prompts per marked | Motorer | Maks frekvens | Kall per måned |
 |---|---|---|---|---|---|---|
-| Basis | 1 | 1 | 30 | ChatGPT, Gemini, Google AI Overviews og AI Mode | daglig | 4 000 |
-| Standard | 3 | 2 | 50 | Basis + Claude og Perplexity | daglig (Claude Haiku), ukentlig (Claude Sonnet og Perplexity) | 50 000 |
-| Byrå | ubegrenset | ubegrenset | 100 | alle, inkludert API-motorer med egne nøkler | daglig | settes per tenant |
+| Basis | 1 | 1 | 30 | OpenAI, Gemini og Claude Haiku direkte | daglig | 4 000 |
+| Standard | 3 | 2 | 50 | Basis + Claude Sonnet | daglig, Sonnet ukentlig | 50 000 |
+| Byrå | ubegrenset | ubegrenset | 100 | de fire direkte motorene, valgfri BYOK | daglig | settes per tenant |
 
 Tallene er utgangspunkt og kan endres uten kodeendring. Plattformadmin kan overstyre kallkvoten per tenant. Startbudsjetter, priser og påslag avklares i A7.
 
@@ -801,7 +794,7 @@ Ekko skal se ut og oppføre seg som Varde og Borg. Tokenene under er hentet fra 
 | GET | `/api/v1/alerts` | read |
 | GET | `/api/v1/usage?month=` | read |
 
-Rate limit: 60 forespørsler per minutt per token. Alle v1-ruter deler telleren. `429` inkluderer `Retry-After`.
+Rate limit: 60 forespørsler per minutt per token og 120 per minutt per bruker, summert over alle brukerens tokens. Alle v1-ruter deler tellerne. `429` inkluderer `Retry-After`. En bruker kan ha høyst 20 aktive API-tokens (utløpte og Claude-tilkoblingens tokens telles ikke), og et nytt token utløper etter 365 dager (`config/ekko.php`, `api`).
 
 Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-api-token-og-kontrakt.md) beskriver tenantbinding og avgrensninger:
 
@@ -836,7 +829,7 @@ Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-
 | `propose_prompts` | Grunnlag for forslag til nye prompts for et tema: promptene som finnes, dekning og plass i pakken. Claude lager forslagene (skriver ingenting) |
 | `upsert_prompts` | Legger til eller endrer prompts (krever skriverett, logges) |
 
-Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Store resultater pagineres med `cursor`.
+Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Store resultater pagineres med `cursor`. Tekst motorene har skrevet, ligger under feltet `untrusted_engine_output`: i `get_responses` svarteksten, ordlyden i nevnelsene og kildene, og i `list_alerts` navnet i et varsel om ny konkurrent. Nevnelsene utenfor feltet har bare navn fra tenantens katalog.
 
 ---
 
@@ -848,13 +841,15 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - API-nøkler i Secret Manager, montert som miljøvariabler.
   - Tenant-nøkler, webhooker og integrasjonskonfigurasjon krypteres i databasen med Laravels `encrypted`-cast.
   - Ingen hemmeligheter i repo, logger eller råsvar.
-- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP). Bak Cloud Run er klientens IP-adresse den siste i `X-Forwarded-For`, den som Googles front la til (`TRUSTED_PROXIES=*`, `config/trustedproxy.php`). Host, port og prefiks hentes aldri fra proxyen.
+- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP). Med produksjonslastbalansereren er `TRUSTED_PROXIES` satt til `REMOTE_ADDR` og dens faste IP, generert av Terraform. Laravel erstatter `REMOTE_ADDR` med faktisk tilkoblingsadresse; Symfony finner nærmeste ubetrodde klient i `X-Forwarded-For`. Dette dekker både domenet og direkte Cloud Run. Bare uten lastbalanserer brukes `*` og siste ledd. Host, port og prefiks hentes aldri fra proxyen. Verifikasjon står i T10-status og runbooken.
 - **Konto og økt (T39-F4):** å bytte e-postadresse krever passordet, og den gamle adressen får varsel. Brukere som bare logger inn med Google, setter først et passord med «Glemt passord». En økt logges ut på alle ruter, også Fortifys, når passordet er byttet eller andre økter er logget ut. Alle passordsjekker (bekreft passord, e-postbytte, passordbytte, logg ut andre økter, slett konto) begrenses til 5 per minutt per bruker og IP. «Glemt passord» gir samme svar for kjente og ukjente adresser, og begrenses til 5 per minutt per IP og 5 per time per adresse. Kjent ulempe: fem kall kan sperre «Glemt passord» for én adresse i en time. Innlogging med passord og Google virker fortsatt.
 - **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
 
 **Sporbarhet:**
 - **Revisjonslogg:** endringer i tenants, pakker, roller, prompts, konkurrenter, varselregler, integrasjoner og nøkler. Det gjelder også sendte og kansellerte invitasjoner (rolle og hvem), opprettelse, nytt navn og stenging av tenant, og opprettelse, endring og sletting av API-tokens. E-postadresser og tokenverdier logges ikke (T39-F6).
-- **Logging:** strukturert JSON til Cloud Logging, med `tenant_id`, `user_id` og `run_id` som felter. Svartekster og prompts logges ikke.
+- **Logging (T39-F7):** strukturert JSON til Cloud Logging via `stderr`, med `severity`, `time` og `context.tenant_id`, `context.user_id` og `context.run_id`. Produksjon bruker `LOG_LEVEL=info`. Bare interne ID-er deles; ukjente ID-er er `null`. HTTP-kontekst ryddes mellom forespørsler, og tenantjobber får egen tenant/run og ingen arvet bruker. Nestede scopes gjenoppretter tidligere kontekst, også ved feil.
+  - `report()` logger feiltype, fil, linje og stackens kodesteder, aldri rå unntaksmelding, SQL/bindings, e-postinnhold, leverandørsvar, custom exception-context eller stackargumenter. Samme regel gjelder innpakkede unntak. Feil beholder ID-konteksten fra innerste scope selv om de rapporteres etter opprydding.
+  - Containerens `zend.exception_ignore_args=On` fjerner stackargumenter. Artisan skriver bare en fast feilmelding ved ubehandlede produksjonsfeil; den vaskede JSON-posten gir kodestedene. Vanlige loggmeldinger må fortsatt være statiske med eksplisitt trygge metadata: ingen prompts, svar, nøkler eller personopplysninger. Se ADR 0025.
 
 **Nettlesersikkerhet og Claude-tilkoblingen (T39-F5):**
 - **Innramming:** ingen side kan vises i en ramme på et annet nettsted (`X-Frame-Options: DENY` og `frame-ancestors 'none'` på alle svar). Dette gjelder særlig samtykkesiden `/oauth/authorize`.
@@ -866,7 +861,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - **Veiviserens nettsidehenting:** kun `https` på standardporten, maks 2 MB per side, ingen private IP-adresser (SSRF-vern) og maks 6 sider. Vertsnavnet slås opp og alle adressene må være offentlige, adressen som ble sjekket festes for tilkoblingen, og hver omdirigering (høyst 3) kontrolleres på nytt. Nettkartet er én ekstra forespørsel og regnes ikke som side (ADR 0018).
 
 **Personvern:**
-- **Region:** alle data i EU (`europe-west1`).
+- **Region:** Ekkos database, bøtter og hemmeligheter ligger i `europe-west1`. Eksterne leverandørers behandling må vurderes separat. OpenAI bruker Europe Storage & Processing og EU-endepunkt; systemdata og tredjepartstjenester er unntatt regionløftet. Googles Gemini-vilkår gir ikke en generell garanti om EU-behandling. Se ADR 0024.
 - **Databehandleravtale:** inngås med hver tenant, fordi brukerkontoer er personopplysninger.
 - **Personopplysninger:** prompts og svar skal ikke inneholde personopplysninger. Veiviseren og prompt-editoren advarer mot e-postadresser og telefonnummer i prompt-tekst.
 - **Sletting:**
@@ -905,6 +900,11 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   4. Røyktest mot revisjonsadressen: innlogging, dashboard, API og MCP svarer uten feil.
   5. Består testen, flyttes all trafikk til ny revisjon, og jobbene oppdateres til nytt image. Feiler den, beholder forrige revisjon trafikken og deployen stopper.
 - **Tilbakerulling:** trafikken flyttes tilbake til forrige revisjon med én kommando, dokumentert i `docs/runbook.md`.
+
+**Produksjonsstatus i T10 (PR #31):** Containerbygg, deployrekkefølge og tilbakeføring er implementert. Deploy-jobben ligger i CI og er aktivert med `EKKO_DEPLOY_ENABLED=true` etter bootstrap og offentlig produksjonsvalidering. CI overfører de kontrollerte web- og jobbimagene som et sjekksumkontrollert artifact fra samme workflow-kjøring; deploy bygger dem ikke på nytt. Første automatiske utrulling fra main gjenstår til eierens merge; denne er ikke erklært verifisert på forhånd. Den autentiserte røyktesten bruker en syntetisk lesebruker, faktisk innlogging og rendret dashboard, REST-metrikker og OAuth/PKCE med MCP initialize/whoami. Den krever T33 og T34 i samme kandidatimage samt ferdig bootstrap av tjenester, IAM/WIF og testidentitet. Røyktesten skriver ingen svartekster eller hemmeligheter til logger og tilbakekaller sin midlertidige MCP-tilkobling.
+
+CI kjører nå Chromium-tester av avvist/gyldig innlogging og tenantens dashboard. Veivisertesten gjenstår til T25/T29 er integrert. Den 16.11.2026 bestod privat Cloud Run-smoke via både domenet og `run.app`, en bevisst feilende kandidat med uendret trafikk og en øvelse med delvis jobbfeil og tilbakeføring. Revisjoner, resultater og begrensninger står i `docs/t10-deploy-draft.md`; dette er ekte Cloud Run-bevis i tillegg til lokale tester. Klient-IP-krysskontrollen er også bestått: alle fire syntetiske sesjoner matcher Googles forespørselslogger, med IPv6 direkte og IPv4 via ALB. Ekte Google-innlogging er kontrollert privat med samme konto før og etter leserinvitasjon: uinvitert konto avvises uten bruker/kobling, invitert konto får bare testtenantens dashboard og leserrolle. Den lokale IAM-transporten krevde manuell omlasting etter redirects. Web er deretter åpnet offentlig med Terraform, og full smoke uten IAM består via både domenet og direkte Cloud Run. Invitert Google-konto når dashboardet uavbrutt i vanlig Chrome uten testtransport eller omlasting. Offentlig avslag med en annen uinvitert Google-konto er også bekreftet i vanlig Chrome, med uendret antall brukere og Google-koblinger. T10 forblir åpen til eierens merge og etterkontroll av den første automatiske utrullingen; merge krever grønn CI og godkjent kryssreview. T10s deploy-aksept gjennomføres med schedules pauset. Godkjente priser/pakker (A7) og Gemini-avklaringen (A4) er fortsatt krav før innsamling aktiveres; webtilgang og automatiske kodeutrullinger kan brukes med disse sperrene beholdt.
+
 - **Migreringer** skal være bakoverkompatible (først legge til, deretter fjerne i en senere utrulling), slik at forrige revisjon fungerer mot ny database ved tilbakerulling.
 - **Ny funksjonalitet** som skal prøves på egne tenants først, skrus av og på med funksjonsflagg per tenant (Laravel Pennant).
 - **Infrastruktur:** all GCP-infrastruktur ligger i `infra/terraform`. Endringer i infrastruktur går også via PR.
@@ -918,7 +918,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - Cloud Run-jobber faktureres for hele instansens levetid, minimum ett minutt per instans. Derfor startes worker-jobben kun når det finnes arbeid, og korte periodiske oppgaver går som interne endepunkter på web-tjenesten (3.1). Timevis forbruksoppdatering bruker oppgavejobben for å behandle tenantene i separate transaksjoner.
 - Gratiskvoten for Cloud Run gjelder per faktureringskonto. Ekko bør ha egen faktureringskonto, slik at kvoten ikke deles med andre tjenester.
 
-**Google Cloud per måned (USD):**
+**Google Cloud per måned (USD), tidligere estimat uten lastbalanserer:**
 
 | Post | Konsernets tenants (~12 merkevarer, ~30 000 kall) | Vekst (~50 merkevarer, ~150 000 kall) | Skala (~200 merkevarer, ~600 000 kall) |
 |---|---|---|---|
@@ -934,7 +934,9 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
 - **Database i skala-nivået:** med betalende kunder bør databasen kjøres med høy tilgjengelighet (regional standby). Det dobler databasekostnaden, slik at summen blir om lag 320–360 dollar.
 - **Rabattavtale:** for maskintyper med dedikerte kjerner kan Cloud SQL-kostnaden reduseres med rabattavtale på 1 eller 3 år. Delte kjerner (`db-f1-micro`, `db-g1-small`) gir ikke slik rabatt.
 
-**Motorkostnader** kommer i tillegg og er den største posten. Estimat per merkevare og marked med 50 prompts (15 kjerneprompts) og standardoppsettet i 7.4:
+**Motorkostnader:** Tabellen nedenfor er det historiske estimatet for det tidligere DataForSEO-/Perplexity-oppsettet, ikke et budsjett for oppstartsvalget i 7.4. Nye priser og token-/søkeanslag for direkte OpenAI/Gemini må legges i `engine_prices` før produksjonsplanlegging aktiveres. Lastbalanserer, IPv4 og trafikk kommer i tillegg til infrastruktursummene over (ADR 0024).
+
+Historisk sammenligningsgrunnlag per merkevare/marked med 50 prompts (15 kjerneprompts):
 
 | Motor | Kall per måned | Per kall (USD) | Per måned (USD) |
 |---|---|---|---|
@@ -1025,7 +1027,7 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
   - eventuelle avvik fra spesifikasjonen
 - **Kryssreview:** ingen PR merges uten review fra en annen agent enn forfatteren. Hvordan reviewen utløses og hvem som reviewer hva, står i 19.5.
 - **Åpne review-kommentarer først:** ved start av hver økt sjekker agenten egne åpne PR-er. Har en reviewer bedt om endringer, rettes det før agenten tar en ny oppgave.
-- **Merge** gjøres av Nils-Fredrik.
+- **Merge:** når mergekøen er aktivert, merger den ferdigmeldte PR-er etter oppdatert base, grønn CI og kryssreview. Inntil aktivering merger eieren.
 - **CI må være grønn.** Agentene skal ikke deaktivere, hoppe over eller svekke tester for å få grønt bygg.
 - **Avvik fra spesifikasjonen** registreres som beslutning på Board med begrunnelse og oppdateres i `docs/spec.md` i samme PR.
 - **Arkitekturbeslutninger** som ikke står i spesifikasjonen, dokumenteres som ADR i `docs/decisions/`.
@@ -1055,7 +1057,7 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
    - `finding` for oppdagelser som andre bør vite om
    - `question` til eieren
 6. Når PR-en er klar, legges den på oppgaven som `pr:Nils-Fredrik/ekko#<nr>`, og agenten poster `status` med testbevis.
-7. Eieren merger etter kryssreview (19.2), og oppgaven lukkes (`close`).
+7. Mergekøen merger etter kryssreview når den er aktivert; inntil da merger eieren. Oppgaven lukkes (`close`) når nødvendig produksjonskontroll er gjennomført.
 
 **Øvrige regler:**
 - **Svar** gis med `reply` på aktuell post. Tråder som er ferdige, lukkes med `resolve`.
@@ -1065,13 +1067,13 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
 
 ### 19.4 Oppsett per agent
 
-Alle tre agentene kobles til Board-MCP (`https://board.maksimer.com/mcp`) og til GitHub.
+Board brukes via CLI etter eierens beslutning 16.11.2026, ikke via Board-MCP. Les først `board read vn4w66vc` og `board events vn4w66vc --for-me`. Oppgave- og postkommandoer bruker `--board vn4w66vc`; `board --help` beskriver syntaksen. GitHub-integrasjonene er uendret.
 
-| Agent | Board-MCP | Instruksjoner | Modell |
+| Agent | Board | Instruksjoner | Modell |
 |---|---|---|---|
-| Claude Code | `claude mcp add --transport http board https://board.maksimer.com/mcp` | `CLAUDE.md` (importerer `AGENTS.md`) | velges per økt: Opus 5.5 eller Sonnet 5.5 etter oppgaven |
-| Codex | Board legges inn som MCP-server i `~/.codex/config.toml` | `AGENTS.md` | GPT-6.1 Sol eller Terra etter oppgaven |
-| Cursor | `.cursor/mcp.json` i repoet med Board som server | `.cursor/rules/ekko.mdc`, som peker til `AGENTS.md` og `docs/spec.md` | Grok 4.7 valgt i modellvelgeren |
+| Claude Code | Board CLI | `CLAUDE.md` (importerer `AGENTS.md`) | velges per økt: Opus 5.5 eller Sonnet 5.5 etter oppgaven |
+| Codex | Board CLI | `AGENTS.md` | GPT-6.1 Sol eller Terra etter oppgaven |
+| Cursor | Board CLI | `.cursor/rules/ekko.mdc`, som peker til `AGENTS.md` og `docs/spec.md` | Grok 4.7 valgt i modellvelgeren |
 
 
 `AGENTS.md` inneholder arbeidsflyten i 19.3 med agentens merkelapp. Hver agent får i tillegg beskjed i sin egen instruksjonsfil om hvilken merkelapp den skal ta.
@@ -1098,7 +1100,7 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 
 **Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre runder med ulike head-SHA-er uten godkjenning postes en `blocker` på Board, og eieren avgjør. Omkjøring av samme kode teller ikke som en ny runde; en godkjenning nullstiller tellingen (ADR 0022).
 
-**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test`), grønn `agent-review` og oppdatert base før eieren kan merge. Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
+**Merge:** status-sjekken `agent-review` blir grønn først når alle påkrevde reviewere har konkludert med «GODKJENT». Grenbeskyttelsen på `main` krever grønn CI (`test` og `container build`), grønn `agent-review` og oppdatert base før merge. Mergekøen oppdaterer og merger én ferdigmeldt PR om gangen når den er aktivert (ADR 0026). Reviewstatus knyttes til aktuell head-SHA og en dedikert GitHub App som påkrevd kilde; ingen kode fra PR-en kjøres av review-workflowen (ADR 0022).
 
 **Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
 
@@ -1175,13 +1177,13 @@ Rekkefølgen styres kun av avhengighetene. Alle pakker uten uoppfylte avhengighe
 | T33 | REST-API v1 | Codex / GPT-6.1 Sol | T21, T05 |
 | T34 | MCP-server | Claude Code / Opus 5.5 | T21, T05 |
 | T35 | Partneroversikt | Cursor / Grok 4.7 | T26, T05 |
-| T36 | Overvåking og runbook | Codex / GPT-6.1 Terra | T10 |
+| T36 | Overvåking og runbook | Codex / GPT-6.1 Terra | T10, T39-F7 |
 | T37 | Ytelsestest | Codex / GPT-6.1 Terra | T21, T26 |
 | T38 | Språkfiler `sv` og `en` | Cursor / Grok 4.7 | T26–T30, T35 |
 | T39 | Sikkerhetsgjennomgang | Claude Code / Opus 5.5 | T06, T07, T25, T33, T34 |
 | T40 | Ende-til-ende i produksjon | Claude Code / Opus 5.5 og eier | alle |
 | T41 | Kredittstyrt planlegging for Anthropic | Codex / GPT-6.1 Sol | T17, T19, T20 |
-| T42 | Kryssreview i GitHub | Codex / GPT-6.1 Terra | T01 |
+| T42 | Kryssreview i GitHub og automatisk mergekø | Codex / GPT-6.1 Terra | T01 |
 
 ### T01 – Repo og fundament
 Laravel med Jetstream (Inertia/Vue, team og API på), Tailwind v4, Pest, Pint, Larastan, ESLint, Ziggy og `laravel-vue-i18n` med samme versjoner og struktur som Varde. Opprett `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/ekko.mdc`, `docs/spec.md`, `docs/decisions/`, PR-mal og `scripts/agent-setup.sh` (19.6).
@@ -1219,7 +1221,7 @@ Migreringer, modeller, fabrikker og seedere for 6.2–6.5. Seedere lager demodat
 - `php artisan migrate:fresh --seed` gir et brukbart demomiljø.
 
 ### T09 – Terraform
-Ressursene i 3.1 i prosjektet `ekko-514612`, med egne tjenestekontoer per komponent (web, jobber, Scheduler, CI) og IAM med minste privilegium. SQL-innlogginger og hemmelighetsversjoner opprettes utenfor Terraform, mens instans, database og hemmelighetsbeholdere forvaltes i Terraform (ADR 0007). SQL-rollen `ekko_app` og administrativ `BYPASSRLS` må verifiseres før produksjon.
+Ressursene i 3.1 i prosjektet `ekko-514612`, med egne tjenestekontoer per komponent (web, jobber, Scheduler, CI) og IAM med minste privilegium. SQL-innlogginger og hemmelighetsversjoner opprettes utenfor Terraform, mens instans, database og hemmelighetsbeholdere forvaltes i Terraform (ADR 0007). SQL-rollen `ekko_app` og migreringsrollens `BYPASSRLS` må verifiseres før produksjon.
 - `terraform plan` er rent etter `apply`.
 - Ingen nøkler i state utover referanser til Secret Manager.
 
@@ -1326,7 +1328,7 @@ Endepunktene i 15.1 med ressurser, paginering og rate limit, samt OpenAPI-beskri
 - Viser kun tilknyttede tenants (isolasjonstest).
 
 ### T36 – Overvåking og runbook
-Varslingspolicyer i 17.4 (Terraform), `docs/runbook.md` med drift, feilsøking, gjenoppretting og nøkkelrotasjon, samt gjennomført gjenopprettingstest mot en midlertidig instans.
+Varslingspolicyer i 17.4 (Terraform), `docs/runbook.md` med drift, feilsøking, gjenoppretting og nøkkelrotasjon, samt gjennomført gjenopprettingstest mot en midlertidig instans. Avhenger også av T39-F7 (strukturert logging og vasking av unntak, Board task:56).
 
 ### T37 – Ytelsestest
 Syntetisk datasett (ett år, 100 prompts, 6 motorer, 3 gjentakelser) og måling av dashboard og API.
@@ -1358,16 +1360,27 @@ Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-pa
 - En testPR som endrer en følsom sti får review fra begge.
 - `main` kan ikke merges uten grønn CI og grønn `agent-review`.
 
+#### T42 – Automatisk mergekø (utvidelse, Board task:61)
+
+Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Codex] T42 – Automatisk mergekø» følges i task:61 (Board #565 og #580). Den endrer eierstyrt merge til en eksplisitt aktivert, betrodd kø etter ADR 0026. Eieren har også autorisert native auto-merge av PR #68; det aktiverer ikke den generelle køen.
+
+- Køen er av som standard og kjører bare betrodd main med en separat App og et main-avgrenset miljø; ingen bypass av grenbeskyttelsen.
+- Bare betrodde, ferdigmeldte PR-er fra samme repo med agenttittel vurderes. Høyst én baseoppdatering eller merge per kjøring, eldste først, med forrang til native auto-merge.
+- Ingen baseoppdatering ved feilende eller ventende kontroller på head. Siste test/container build og agent-review må være grønne; kontrollene gjentas før oppdatering. Ingen nye reviewrunder på urettet feilende kode.
+- Før merge kreves oppdatert base, autentisk reviewkvittering for head og base, kildebundne påkrevde test/container build/agent-review og ny kontroll av SHA-er og tittel. Konflikt, manglende data og samtidige endringer blokkerer.
+- Gjeldende main må ha vellykket CI og deploy før neste endring. Native auto-merge går uavhengig av køen; stoppknappen påvirker ikke allerede aktiverte native auto-merges.
+- Før generell aktivering: verifiser App-/miljøsperre, to parallelle PR-er, ny head/base, konflikt, rød CI/review, native auto-merge og at merge utløser CI og syntetisk deploy i et isolert testrepo. Dokumenter bevis på task:61; kode-merge alene lukker ikke aktiveringsaksepten.
+
 ---
 
 ## 21. Avklaringer
 
 | Nr | Avklaring | Status |
 |---|---|---|
-| A1 | Domene | Ikke aktuelt. Ekko kjører på Cloud Run-adressen (3.1). |
+| A1 | Domene | Avklart: `https://ekko.maksimer.com`, HTTPS gjennom lastbalanserer (3.1, ADR 0024). |
 | A2 | Repo | https://github.com/Nils-Fredrik/ekko. Varde (https://github.com/Nils-Fredrik/varde) brukes som referanse med lesetilgang for agentene (4.1). |
 | A3 | Google Cloud | Prosjekt `ekko-514612` er opprettet. |
-| A4 | Leverandørkontoer og API-nøkler: Anthropic (organisasjonen med Team-abonnementet), Perplexity og DataForSEO. OpenAI og Google (Gemini API) kun for valgfrie API-motorer. | Avklares underveis. Forutsetning for T12–T16. |
-| A5 | App-registrering for Google-innlogging | Avklares underveis. Forutsetning for å ta T07 i bruk. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0008). |
+| A4 | Leverandørkontoer og API-nøkler | Anthropic, OpenAI og Gemini direkte. Versjon 1 finnes i Secret Manager. OpenAI Europe-endepunkt er verifisert med syntetisk websøk. Gemini-grounding må avklares før aktivering. Perplexity og DataForSEO er utsatt. |
+| A5 | App-registrering for Google-innlogging | Web OAuth-klient for `ekko-514612` er opprettet og validert 16.11.2026; klienthemmeligheten har aktiv versjon 1 i Secret Manager. Callback er `https://ekko.maksimer.com/auth/google/callback`. Ekte innlogging og avvisning av uinvitert konto er kontrollert privat 16.11.2026. Offentlig web er åpnet, og invitert konto når dashboardet uavbrutt i vanlig Chrome. En annen uinvitert konto er avvist offentlig, uten ny bruker eller Google-kobling. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0008). |
 | A6 | E-posttjeneste og avsenderadresse for varsler og rapporter | Avklares underveis. Forutsetning for T24 og T32. |
 | A7 | Startpriser og påslag per pakke | Avklares underveis. Forutsetning for T19 og T31. |

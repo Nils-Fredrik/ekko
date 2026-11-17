@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Logging\LogContext;
 use App\Mcp\McpTokens;
 use App\Models\User;
 use Closure;
@@ -38,6 +39,7 @@ final class AuthenticateMcp
             return response()->json(['error' => 'insufficient_scope', 'error_description' => __('auth.two_factor.required')], 403);
         }
 
+        app(LogContext::class)->share(['user_id' => $user->id]);
         $user->withAccessToken($token);
         Auth::guard('sanctum')->setUser($user);
         Auth::shouldUse('sanctum');

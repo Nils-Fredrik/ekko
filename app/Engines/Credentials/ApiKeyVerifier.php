@@ -17,7 +17,7 @@ final class ApiKeyVerifier
 
         $request = Http::acceptJson()->withoutRedirecting()->connectTimeout(3)->timeout(8);
         [$url, $headers, $field] = match ($provider) {
-            ApiKeyProvider::OpenAi => ['https://api.openai.com/v1/models', ['Authorization' => "Bearer {$key}"], 'data'],
+            ApiKeyProvider::OpenAi => ['https://eu.api.openai.com/v1/models', ['Authorization' => "Bearer {$key}"], 'data'],
             ApiKeyProvider::Anthropic => ['https://api.anthropic.com/v1/models', [
                 'x-api-key' => $key,
                 'anthropic-version' => '2023-06-01',

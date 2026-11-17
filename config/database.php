@@ -125,7 +125,7 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
-        // Platform admin actions only (docs/spec.md 5.3): a role with BYPASSRLS. Every use is logged (T05).
+        // Restricted to logged platform admin actions; web falls back to the ordinary RLS role (T39-F1/F2).
         'pgsql_admin' => [
             'driver' => 'pgsql',
             'url' => env('DB_ADMIN_URL'),

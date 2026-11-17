@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
- * The only way into the pgsql_admin connection, a role with BYPASSRLS (docs/spec.md 5.3, T39-F2).
+ * The only way into pgsql_admin (docs/spec.md 5.3, T39-F2). Web uses the RLS role;
+ * a future privileged connection requires a separate audited execution path, never migration credentials.
  * Only the signed-in user can use it, and only as a platform admin; the actor is taken from the session,
  * never passed in. Every use, and every refused attempt, is logged with who and why. tests/Feature/TenantIsolation/CodebaseGuardsTest.php fails if any other file names the
  * connection. The entry goes to the application log: a use across tenants has no tenant revision

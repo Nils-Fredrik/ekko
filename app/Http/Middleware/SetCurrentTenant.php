@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Logging\LogContext;
 use App\Models\Team;
 use App\Models\User;
 use App\Tenancy\ActingAs;
@@ -33,6 +34,7 @@ final class SetCurrentTenant
         $this->access->flush();
 
         $user = $request->user();
+        app(LogContext::class)->share(['user_id' => $user instanceof User ? $user->id : null]);
 
         if ($user instanceof User) {
             // Drop a currentTeam relation set while acting as a tenant in an earlier request on the

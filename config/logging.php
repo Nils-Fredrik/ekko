@@ -1,5 +1,7 @@
 <?php
 
+use App\Logging\SanitizeExceptions;
+use Monolog\Formatter\GoogleCloudLoggingFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -96,13 +98,13 @@ return [
 
         'stderr' => [
             'driver' => 'monolog',
-            'level' => env('LOG_LEVEL', 'debug'),
+            'level' => env('LOG_LEVEL', 'info'),
             'handler' => StreamHandler::class,
             'handler_with' => [
                 'stream' => 'php://stderr',
             ],
-            'formatter' => env('LOG_STDERR_FORMATTER'),
-            'processors' => [PsrLogMessageProcessor::class],
+            'formatter' => GoogleCloudLoggingFormatter::class,
+            'processors' => [SanitizeExceptions::class, PsrLogMessageProcessor::class],
         ],
 
         'syslog' => [

@@ -298,6 +298,36 @@ it('lets annotated citations win and only adds source_type to them', function ()
     });
 });
 
+it('drops model citations and unknown companies the answer does not contain', function () {
+    // T39-F10: without annotations, a model citation needs its URL written out or its domain named in the answer.
+    $a = extractionTenant();
+    $response = collectedResponse($a, 'Fjordkaffe og Kaffebønna AS, ifølge VG.no og https://www.dagbladet.no/test.');
+    $client = new FakeExtractionClient(fn (string $id): array => entry(
+        [
+            reported('Fjordkaffe', 'brand', $a['brand'], false),
+            reported('Kaffebønna AS', 'unknown', null, false),
+            reported('Oppdiktet Kaffe AS', 'unknown', null, true),
+        ],
+        [
+            ['url' => 'https://dagbladet.no/test/', 'source_type' => 'news'],
+            ['url' => 'https://www.vg.no/nyheter/kaffe', 'source_type' => 'news'],
+            ['url' => 'https://made-up.example/kaffe', 'source_type' => 'review'],
+            ['url' => 'https://g.no/kaffe', 'source_type' => 'other'],
+        ],
+    ));
+    app()->instance(ExtractionClient::class, $client);
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    dispatch_sync(new PollExtractionBatch($a['tenant']->id, ExtractionJob::query()->withoutGlobalScopes()->sole()->id));
+
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($response) {
+        expect(Citation::query()->where('response_id', $response->id)->orderBy('rank_in_answer')->pluck('url_normalized')->all())
+            ->toBe(['https://dagbladet.no/test', 'https://vg.no/nyheter/kaffe'])
+            ->and(Mention::query()->where('response_id', $response->id)->where('detection', 'llm')->pluck('surface_name')->all())
+            ->toBe(['Kaffebønna AS']);
+    });
+});
+
 it('waits for a batch that has not ended instead of writing anything', function () {
     $a = extractionTenant();
     $response = collectedResponse($a, 'Fjordkaffe er bra.');

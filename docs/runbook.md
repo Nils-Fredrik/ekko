@@ -1,11 +1,22 @@
 # Driftsrunbook
 
+## Applikasjonslogger (T39-F7)
+
+Web og alle jobbimages bruker `stderr` med Monologs `GoogleCloudLoggingFormatter`. Terraform setter `LOG_LEVEL=info`; kanalen har også `info` som standard. `severity` og `time` tolkes av Cloud Logging. Interne identifikatorer finnes under `jsonPayload.context.tenant_id`, `user_id` og `run_id`; `null` betyr at operasjonen ikke har den identifikatoren. En samlekjøring kan ha flere tenants og får derfor først tenant-ID inne i hvert tenantscope. En tenantjobb arver ikke brukeren som startet den. En innsamlingsjobb har sin interne run-ID.
+
+Ved `Application exception.`: bruk `jsonPayload.context.exception.type`, `file`, `line`, `trace` og `causes` sammen med ID-ene og revisjonen i Cloud Run. Feltet `causes` inneholder bare klassenavn. Ingen unntaksmeldinger, SQL/bindings, e-post, leverandørsvar eller stackargumenter skal ligge i posten. Ikke aktiver rå unntakslogging for å feilsøke produksjon; gjenskap feilen med syntetiske data lokalt. Lokale Artisan-feil beholder vanlig konsollvisning. I produksjon skriver Artisan en fast feiltekst etter den vaskede loggposten.
+
+Avgrens for eksempel Logs Explorer til `resource.type="cloud_run_revision"`, `resource.labels.service_name="ekko-web"`, `severity>=ERROR` og en intern `jsonPayload.context.tenant_id`. Jobber bruker `resource.type="cloud_run_job"`. Filtrer også på tidspunkt/revisjon; bruk ikke kundedata som søkeeksempler i Board eller PR-er.
+
+Testene i `tests/Feature/Logging` dekker SQL, SMTP-debug, innpakkede feil, request-/jobbkontekst og feil etter scope-opprydding. Containerkontrollen kjører en syntetisk feilende Artisan-kommando i begge ferdigbygde images, verifiserer JSON/severity og `zend.exception_ignore_args=On`, og avviser lekkede testmarkører. T36 bygger videre på disse feltene for overvåking. Dette er ikke bevis på at T36-varsler er aktivert.
+
 ## Klientens IP-adresse bak Cloud Run (T39-F3)
 
-`ekko-web` har `TRUSTED_PROXIES=*` (`infra/terraform/workloads.tf`). Appen stoler da på den adressen som kobler til (Googles front) og bruker den siste adressen i `X-Forwarded-For` som klientens. Rategrensene for innlogging, SSO, OAuth og MCP er per klient bare når dette stemmer.
+Med HTTPS-lastbalansereren har `ekko-web` `TRUSTED_PROXIES=REMOTE_ADDR,35.190.63.68`, generert fra Terraform-IP-en. Laravel erstatter `REMOTE_ADDR` med adressen som faktisk kobler til før Symfony tolker kjeden. Både Cloud Runs front og den faste lastbalansereren er dermed betrodd, uten å gjette en intern proxyadresse eller et antall ledd. Host, port og prefiks er aldri betrodd. Bare konfigurasjoner uten lastbalanserer bruker `*`.
 
 - **Verifiser etter første utrulling:** to forespørsler fra ulike nett skal gi ulik `ip()` i loggen, og ti feilede SSO-forsøk fra ett nett skal ikke gi 429 fra et annet.
-- **Legges det en lastbalanserer foran Cloud Run** (egen domenekobling via HTTPS-lastbalanserer), kommer det et ekstra ledd i `X-Forwarded-For`. Da må `TRUSTED_PROXIES` liste **alle** ledd som legger til en adresse: både adressen som kobler til containeren (Cloud Runs interne front, ofte `169.254.0.0/16`) og lastbalansererens adresser. Står bare lastbalansererens adresser der, er ikke den tilkoblende adressen betrodd, og alle klienter blir én adresse igjen. Test dette under verifiseringen, og noter hvordan `X-Forwarded-For` faktisk ser ut på `run.app` (antall ledd).
+- **Ved endret proxykjede:** test både direkte `run.app` og domenet med forfalskede innledende adresser, inkludert en falsk lastbalansereradresse. `*` alene ga lastbalansererens IP for alle på domenet i live-testen 16.11.2026. Sammenlign appens sesjons-IP med Googles forespørselslogg for hver vei; klienten kan bruke IPv6 direkte og IPv4 via domenet, så ulike adresser er ikke alene en feil. Registrer bare testresultatet på Board, ikke klientens IP eller sesjonsdata.
+- **Ved IPv6 på lastbalansereren:** legg også den nye forwarding-adressen inn i `TRUSTED_PROXIES` og gjenta kontrollen. Dagens ALB har bare IPv4; direkte IPv6-trafikk til Cloud Run går ikke gjennom et eget ALB-IPv6-ledd.
 
 ## Databaserollen ved oppstart (T39-F2)
 
@@ -55,7 +66,7 @@ Den gamle automatiske `claude-code-review.yml` erstattes av denne workflowen. `c
 1. Valider review-koden, CI, secrets og integrasjoner. Eieren merger T42 etter uavhengig kryssreview; Begge workflows må finnes på main før ende-til-ende-testen kan kjøre. En PR som retter selve oppstartsfeilen vurderes med eksplisitt uavhengig review og grønn test-CI før eierens merge; en rød automatisk oppstartssjekk er ikke et godkjent review. Utkastet er ikke bevis på aktiv beskyttelse.
 2. Opprett tre små test-PR-er: en ufølsom `[Codex]`, en ufølsom `[Claude Code]`, og en følsom endring. Kontroller henholdsvis Claude, Codex og begge. Gi alle beskrivelse med Board-oppgave og akseptkriterier. Bruk ingen kundedata. Ta med en push fra en av de tillatte botene `claude`, `chatgpt-codex-connector` eller `cursor`; kontroller at review-jobben faktisk starter. Lukk test-PR-ene uten merge.
 3. Kontroller synlig Claude-botkommentar, strukturert konklusjon, fersk Codex-kvittering, korrekt head/merge-SHA og grønn `agent-review`. Test en ny commit og en endret base: gammel godkjenning må ikke godta ny kode. Test tre mislykkede runder og kontroller én Board-blocker.
-4. Først når testene fungerer, aktiver grenbeskyttelse på `main`: krev `test` og `agent-review` (bundet til `AGENT_REVIEW_APP_ID`), oppdatert base, håndheving også for administratorer, og ingen force-push eller sletting. Behold eventuelle strengere eksisterende regler. Ikke sett krav om menneskelig egen-PR-godkjenning som eieren ikke kan oppfylle; agent-godkjenning håndheves av `agent-review`.
+4. Først når testene fungerer, aktiver grenbeskyttelse på `main`: krev `test` og `container build` fra GitHub Actions (App-ID 15368), samt `agent-review` (bundet til `AGENT_REVIEW_APP_ID`), oppdatert base, håndheving også for administratorer, og ingen force-push eller sletting. Behold eventuelle strengere eksisterende regler. Ikke sett krav om menneskelig egen-PR-godkjenning som eieren ikke kan oppfylle; agent-godkjenning håndheves av `agent-review`.
 5. Hent metadata uten å endre noe og kontroller også at PR-workflows ikke får App-nøkkelen:
 
 ```sh
@@ -70,11 +81,13 @@ jq -n --argjson app_id "$AGENT_REVIEW_APP_ID" \
   | node scripts/agent-review/check-protection.mjs
 ```
 
-6. Dokumenter test-PR-er, revisjoner, CI og beskyttelseskontroll på Board. T42 lukkes først når hele aksepten er bekreftet. Eieren er fortsatt den eneste som merger.
+6. Dokumenter test-PR-er, revisjoner, CI og beskyttelseskontroll på Board. T42 lukkes først når hele aksepten er bekreftet. Inntil generell køaktivering merger eieren, eller GitHub med auto-merge eieren har aktivert per PR. Etter kontrollert aktivering kan mergekøen merge etter de samme beskyttelseskravene (ADR 0026).
 
 ### Akseptbevis fra 15.11.2026
 
-Aktivert 15.11.2026: `main` krever `strict: true`, `test` fra GitHub Actions (App-ID `15368`) og `agent-review` fra Ekko Agent Review NF (App-ID `5773706`, bot-ID `357077641`). Kravene gjelder også administratorer. Force-push og sletting er av. `check-protection.mjs` består mot metadata hentet etter aktivering, inkludert miljøets eneste tillatte branch `main`.
+Etterkontroll 17.11.2026 ved retting av PR #68: GitHub-metadata bekrefter nå også `container build` bundet til App 15368, i tillegg til `test` og `agent-review`. Dette erstatter ikke live aksept av den generelle mergekøen, som fortsatt kreves før aktivering.
+
+Historisk aksept 15.11.2026 (før mergekø-utvidelsen): `main` krever `strict: true`, `test` fra GitHub Actions (App-ID `15368`) og `agent-review` fra Ekko Agent Review NF (App-ID `5773706`, bot-ID `357077641`). Kravene gjelder også administratorer. Force-push og sletting er av. `check-protection.mjs` består mot metadata hentet etter aktivering, inkludert miljøets eneste tillatte branch `main`.
 
 Testene ble kjørt i to omganger: `88fac6b` etter #49 og `6f6ebdc` etter #54, som angitt per rad nedenfor. #54 endret bare Claudes lesetilgang og publiseringskvittering (samt tilhørende test/dokumentasjon). Codex-ruting, kildekontroll, eskalering, request-workflow og miljøregel var uendret. Derfor beholdes bevisene for disse kontrollene fra `88fac6b`, mens Claude- og dobbelreview ble kjørt på nytt mot `6f6ebdc`. De midlertidige PR-ene er lukket uten merge. Modellen bak Codex-integrasjonen er ikke eksponert; se avviket i spec 19.5 og Board #457.
 
@@ -91,6 +104,29 @@ Testene ble kjørt i to omganger: `88fac6b` etter #49 og `6f6ebdc` etter #54, so
 
 Claude CLI 2.1.325 ble også testet med syntetiske filer: repo-lesing virket, mens `.git` og filer utenfor arbeidsmappen ble avvist. En separat CLI/MCP-rundtur brukte den ekte publiseringsfunksjonen med syntetisk API og viste identisk publisert og strukturert resultat. Ingen produksjonshemmeligheter ble brukt i disse lokale probene. De 24 deterministiske Node-testene består; funksjonstestene over erstatter ikke CI.
 
+### Drift og stopp av mergekøen (T42, task:61)
+
+Køen er av som standard. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før `EKKO_MERGE_QUEUE_ENABLED=true`. Utvid først grenbeskyttelsen med `container build` fra App 15368, behold `test`, `agent-review`, strict og administratorhåndheving, og kjør metadataauditen over. Aksepten fra 15.11 beviser bare det opprinnelige oppsettet med to sjekker; den er ikke bevis for den utvidede auditen eller aktiv mergekø.
+
+Sett repo-variabelen `MERGE_QUEUE_BOT_SLUG` til kø-Appens eksakte slug uten `[bot]`, uten miljøoverstyringer. Review tillater denne boten i tillegg til de eksisterende. Køen verifiserer at tokenets App har samme slug før den endrer en PR. Isolert aksept må vise at akkurat denne Appens grenoppdatering starter både CI og Claude-review. Tom slug er tillatt for review før aktivering, men stopper køen.
+
+Før aktivering kjøres også denne separate, lesende auditen av kømiljøet. Den opprinnelige auditen over dekker bare review-miljøet. Manglende miljø, jokertegn, tag-regler og ekstra grener skal feile:
+
+```sh
+gh api repos/Nils-Fredrik/ekko/environments/merge-queue > /tmp/ekko-queue-environment.json
+gh api repos/Nils-Fredrik/ekko/environments/merge-queue/deployment-branch-policies > /tmp/ekko-queue-policies.json
+jq -n --slurpfile environment /tmp/ekko-queue-environment.json \
+  --slurpfile policies /tmp/ekko-queue-policies.json \
+  '{environment: $environment[0], policies: $policies[0]}' \
+  | node scripts/merge-queue/config.mjs audit-environment
+```
+
+Denne auditen må bestå etter at kømiljøet er opprettet; den er ikke del av det historiske review-akseptbeviset.
+
+Actions-workflowen «Merge queue» skriver utfallet og PR-nummeret i kjøringssammendraget. Ved failure/conflict/review rettes PR-en i samme gren. Køen oppdaterer heller ikke røde eller ventende heads. Ved main-failure undersøkes siste CI/deploy før en ny merge. `native-auto-merge-pending` betyr at en PR med GitHubs auto-merge holder køen; også en ukvalifisert PR kan gjøre dette. Rett PR-en eller slå av dens native auto-merge.
+
+Stopp ved å sette `EKKO_MERGE_QUEUE_ENABLED=false`. En pågående GitHub-operasjon kan fullføres. Native auto-merge per PR må eventuelt slås av separat; denne bryteren stopper bare den egne køen. Ukvalifiserte App-boter med NONE/CONTRIBUTOR får ikke unntak fra forfatterkravet, og feilende eller kansellerte sjekker fra andre Apps stopper også køen.
+
 ### Feil og gjenoppretting
 
 Manglende eller utløpt token: roter den aktuelle GitHub-hemmeligheten og kjør workflowen igjen. Ikke senk godkjenningskravene for å få grønt. Ved endret Codex-format: hold sjekken rød, hent en ny anonymisert kvittering, oppdater parser og tester gjennom review. Ved endret base: oppdater PR-grenen og kjør ny review. En annullert kjøring eller formatfeil gir ingen godkjenning. Sjekk Board og PR før en ny runde etter eskalering.
@@ -106,3 +142,95 @@ Miljøreglene følger [GitHubs dokumenterte GITHUB_REF-kontroll](https://docs.gi
 Test-PR #46–#48 bekreftet App-identiteten og at miljøet avviser `refs/pull/48/merge` før runner/steps starter. Kommentar-POST på PR krever Pull requests: write for både den dedikerte App-en og trigger-tokenet; Issues: write med Pull requests: read ga 403. Claude-actionens tokenbytte ga 401 «Invalid OIDC token» på pull_request_target, som i [upstream #713](https://github.com/anthropics/claude-code-action/issues/713). Derfor flyttes selve Claude-kjøringen til workflow_run med verifisert kilde. Den pinnede actionen støtter denne automation-hendelsen, men full live godkjenning må fortsatt testes etter eierens merge. Gamle workflow-kjøringer bruker gammel kode; opprett en ny testhendelse etter merge.
 
 Etter #49 virket Claude OIDC på workflow_run, men `Read(~/**)` nektet alle filene under `/home/runner/work/ekko/ekko`. En ekte CLI-test med versjon 2.1.325 gjenskapte feilen under en syntetisk arbeidsmappe i hjemmemappen. Med den rettede regelen kunne Read lese testfilen; `.git` og filen utenfor arbeidsmappen ble fortsatt nektet. En separat CLI/MCP-test med den ekte publiseringsfunksjonen og en simulert HTTP-transport bekreftet at hele retur-objektet blir identisk med strukturert output. Den deterministiske testen avviser fortsatt et omformulert sammendrag. Ingen rettigheter til shell, skriving eller eksterne filer er lagt til.
+
+## Utrulling og tilbakeføring
+
+### Kjør en utrulling på nytt
+
+Verified container artifacts expire after one day. If an artifact has expired,
+rerun the entire CI workflow so that the images are rebuilt, checked and
+transferred together; retrying only the deploy job cannot recover the artifact.
+The image job has a 30-minute limit and deploy has a 90-minute limit. After a
+timeout, inspect the backup, migration, traffic and job-image state before retrying:
+termination may leave a migration or Cloud Run operation running independently.
+
+### Tilbakefør webtrafikk
+
+This procedure applies only after the deployment pipeline is completed and
+approved for production. Identify a previously verified `ekko-web` revision
+that is compatible with the current database schema. With the intended project
+and region explicitly selected, run:
+
+```sh
+PROJECT_ID=ekko-514612 REGION=europe-west1 scripts/rollback-traffic.sh ekko-web-REVISION
+```
+
+Confirm that Cloud Run reports 100% traffic on the requested revision and check
+application health. This moves web traffic only. It does not reverse migrations
+or restore job images; assess and restore those separately if needed. Migrations
+must remain backward compatible so that an earlier revision can run against the
+current schema. Exercise this procedure in an isolated environment before use.
+
+The private production exercise on 16 November 2026 confirmed that a failed
+`gcloud run jobs update` can leave the rejected image in the job configuration.
+After a partial deployment, inspect and restore **all three** application jobs
+(`ekko-dispatch`, `ekko-worker`, `ekko-task`), including the job whose update failed.
+Check each image and Ready condition before resuming schedules. Restoring web
+traffic alone does not repair the worker. See the evidence in
+[T10 deployment status](t10-deploy-draft.md).
+
+## Produksjonsdomene og OAuth (T10)
+
+Kanonisk URL er `https://ekko.maksimer.com`; Google-callback er `/auth/google/callback` på samme vert. Terraform klargjør IP, DNS-autorisert sertifikat og global ekstern lastbalanserer, med HTTP→HTTPS og TLS ≥1.2. DNS-postene og kontrollert bootstrapstatus står i [T10-status](t10-deploy-draft.md); oppsett og OAuth-prosedyre står i [Terraform-README](../infra/terraform/README.md).
+
+Ved planlegging fra en ny arbeidskopi: kopier `production.tfvars.example` til ignorert `production.auto.tfvars`, behold `enable_https=true` og fyll inn eksisterende workload-valg. Standardverdien false må ikke brukes til å fjerne allerede provisionert HTTPS. Før offentlig åpning kontrolleres sertifikatstatus ACTIVE, domene/redirect, OAuth-innlogging for invitert konto og avvisning for uinvitert konto, samt klient-IP og spoofing både direkte og via lastbalansereren. Direkte kandidatadresser brukes fortsatt av røyktesten. Public IAM og schedules er separate brytere og skal fortsatt være av under bootstrap. Privat Google-test kan bekrefte appens tilgangskontroll, men en lokal headertransport kan miste IAM-token på nettleserens redirectkjede og gi Cloud Run 403 før appen nås. Slik 403 er ikke bevis på at Ekko avviste kontoen. Etter offentlig åpning gjentas hele innloggingen uten testtransport og uten manuell omlasting; dokumenter både uinvitert avslag og invitert dashboard.
+
+Ved offentlig Google-aksept brukes en annen, uinvitert Google-konto til avslaget: den tidligere testkontoen har nå bruker og Google-kobling. Eieren forvalter den inviterte kontoen som en bevisst testidentitet med bare lesertilgang i testtenanten med null kvote; identifikatoren lagres ikke i repo/Board. Tilgangen gjennomgås ved avslutning av produksjonsaksepten. Invitasjonen i den private testen ble opprettet direkte som fixture; opprettelse og utsending via UI/e-post er ikke verifisert, og avhenger av e-postoppsettet i A6.
+
+Deploy og innsamling har separate aktiveringskrav. T10 kan rulle ut nye web-/jobbimages og kjøre migrering/røyktest mens alle schedules er pauset. Før `enable_schedules=true` må eieren godkjenne A7-priser, pakker og kvoter, og motoroppsettet må respektere Gemini-sperren i A4. Offentlig webtilgang eller `EKKO_DEPLOY_ENABLED=true` er ikke en aktivering av innsamling.
+
+
+Status 16.11.2026: offentlig webtilgang er aktivert, full smoke uten IAM består på begge opprinnelser og invitert Google-konto når dashboardet uten omlasting i vanlig Chrome. En annen uinvitert Google-konto er også avvist offentlig, med uendret antall brukere og Google-koblinger. `EKKO_DEPLOY_ENABLED=true` er satt; første automatiske main-utrulling kontrolleres etter eierens merge. Alle ni schedules er PAUSED. Se siste avsnitt i T10-statusen for aktiv revisjon og etterkontroll.
+
+## Tilbakekall migreringslegitimasjon fra web (T39-F1)
+
+`ekko-web` skal bare få `DB_USERNAME=ekko_app` og `DB_PASSWORD` fra `ekko-db-password`. Den skal verken få `DB_ADMIN_*` eller Secret Manager-lesetilgang til `ekko-db-admin-password`. Migreringsjobben beholder `ekko_migrate` og sitt separate passord. En endring i Terraform-filen alene tilbakekaller ikke en allerede opprettet IAM-grant.
+
+### Kontrollert plan og apply
+
+1. Kontroller dagens webrevisjoner, trafikk, hemmelighetsreferanser og IAM uten å lese hemmelighetsverdier. Web er nå opprettet gjennom T10. Bruk en gjennomgått konfigurasjon som kombinerer F1 med den faktisk utrullede T10-konfigurasjonen og bevarer andre ressurser. En isolert plan på main uten hele den utrullede T10-konfigurasjonen kan foreslå utilsiktede slettinger og skal ikke brukes.
+2. Opprett først en webrevisjon uten `DB_ADMIN_*`. En vanlig `scripts/deploy.sh` endrer bare image og arver miljøet; den fjerner ikke disse variablene. Koordiner med øvrige deployer slik at ingen andre endrer tjenesten samtidig. Kontroller at 100 % av trafikken er låst til navngitte, verifiserte revisjoner, og noter fordelingen for tilbakeføring. Stopp hvis trafikk peker på `LATEST`. Deretter kan operatøren opprette en kandidat uten trafikk:
+
+    ```sh
+    ekko_f1_suffix="f1-$(date -u +%Y%m%d%H%M%S)"
+    gcloud run services update ekko-web --project=ekko-514612 --region=europe-west1 \
+      --remove-env-vars=DB_ADMIN_USERNAME --remove-secrets=DB_ADMIN_PASSWORD \
+      --no-traffic --tag=f1-candidate --revision-suffix="$ekko_f1_suffix"
+    ```
+
+    Kontroller med `gcloud run services describe ekko-web --project=ekko-514612 --region=europe-west1` at kandidaten `ekko-web-$ekko_f1_suffix` er klar, at taggen `f1-candidate` peker på denne revisjonen, at kandidaten har 0 % trafikk, og at den tidligere trafikkfordelingen er uendret. Kontroller kandidatens miljø og hemmelighetsreferanser uten å skrive ut verdier: ingen `DB_ADMIN_*`, `DB_USERNAME=ekko_app`, og `DB_PASSWORD` refererer til `ekko-db-password`. Kontroller også at image og øvrig konfigurasjon er forventet.
+
+    Bruk HTTPS-URL-en som Cloud Run viser for `f1-candidate`, og kjør den autentiserte røyktesten med den syntetiske testidentiteten som beskrevet i `docs/t10-deploy-draft.md`: `scripts/smoke.sh <kandidatens-https-url>`. Stopp ved feil; ikke tilbakekall tilgang. Når testen består, flytt trafikken til kandidaten og kontroller faktisk trafikk og offentlig røyktest:
+
+    ```sh
+    gcloud run services update-traffic ekko-web --project=ekko-514612 --region=europe-west1 \
+      --to-revisions="ekko-web-$ekko_f1_suffix=100"
+    ```
+
+    Ved feil, gjenopprett den noterte trafikkfordelingen og undersøk før du fortsetter. Kontroller at ingen revisjon med trafikk refererer til migreringshemmeligheten før IAM-tilgangen tilbakekalles. En gammel revisjon med slik referanse kan ikke brukes til tilbakeføring etter tilbakekallingen uten at tilgangen først gjenopprettes kontrollert.
+3. Initialiser mot `ekko-514612-tfstate`, prefix `ekko/production`. Kontroller IAM og lag en ny, lagret plan avgrenset til den eksisterende granten:
+
+    ```sh
+    terraform plan -input=false \
+      '-target=google_secret_manager_secret_iam_member.read["web/db-admin-password"]' \
+      -out=/tmp/ekko-web-admin-revoke.tfplan
+    ```
+
+    Dette er et avgrenset unntak for å tilbakekalle en konkret feilgrant. Hvis granten fortsatt finnes, kontroller med `terraform show` at planen viser nøyaktig **0 add, 0 change, 1 destroy**, der eneste sletting er web-medlemskapet på `ekko-db-admin-password`. Hemmeligheten, versjonene og migreringskontoens tilgang skal beholdes. Hvis planen er tom, kontroller faktisk IAM før tiltaket erklæres fullført. Ikke bruk en gammel plan eller workload-forhåndsvisningen som apply-plan.
+
+4. Etter review/merge og kontrollene over brukes akkurat den nykontrollerte planen: `terraform apply /tmp/ekko-web-admin-revoke.tfplan`. Kontroller IAM med `gcloud secrets get-iam-policy ekko-db-admin-password --project=ekko-514612`; web skal være borte og migrate fortsatt til stede. Kontroller også at web ikke har en bredere arvet rolle som gir tilgang. Les aldri selve hemmelighetsverdien for å teste dette.
+5. Kjør den samme avgrensede planen igjen med `-detailed-exitcode`; forvent returkode 0. Kontroller revisjonsmiljø og røyktest etter endringen. Kjør så en full Terraform-plan med den aktuelle T10-konfigurasjonen: gjennomgå og løs eventuell drift separat til planen er ren. Kjør ikke en full apply uten å ha kontrollert alle endringene og deres virkning på trafikk og jobber.
+
+### Bevis 15.11.2026
+
+Den 15.11.2026 viste live IAM både web og migrate som lesere av migreringspassordet; da fantes ingen Cloud Run-webtjeneste. En målrettet plan med datidens T10-konfigurasjon viste bare sletting av web-granten. En separat, ikke anvendt workload-plan viste riktig skille mellom web og migreringsjobben. Dette er historisk bevis, ikke en gyldig plan for dagens produksjon. Ingen passordverdier ble lest eller lagret. **Ny plan og kontroll av faktisk tilgang og revisjon kreves før funnet kan lukkes.**

@@ -104,7 +104,7 @@ test('a durable database job executes collection with tenant context and records
     $engine = dispatchEngine();
     $tenant = dispatchTenant($engine, 1);
     Http::preventStrayRequests()->fake([
-        'https://api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'no-nb')),
+        'https://eu.api.openai.com/v1/responses' => Http::response(EngineFixtures::load('chatgpt_api', 'no-nb')),
     ]);
     $tenant->forceFill(['byok_enabled' => true])->save();
     app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], fn () => TenantApiKey::query()->create([

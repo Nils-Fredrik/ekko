@@ -32,7 +32,11 @@ final class GeminiApiAdapter implements EngineAdapter
 
     public function collect(EngineRequest $request): EngineResult
     {
-        $apiKey = trim($request->apiKey ?? '');
+        if (app()->environment('production') && ! config('engines.gemini_grounding_approved', false)) {
+            throw new EngineCallFailed('gemini_grounding_not_approved');
+        }
+
+        $apiKey = trim((string) ($request->apiKey ?? config('engines.gemini_api.api_key', '')));
 
         if ($apiKey === '') {
             throw new EngineCallFailed('gemini_missing_api_key');
