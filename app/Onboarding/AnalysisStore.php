@@ -4,7 +4,10 @@ namespace App\Onboarding;
 
 use App\Scheduling\CollectionLocks;
 use Closure;
+use Illuminate\Cache\DatabaseStore;
+use Illuminate\Cache\Repository;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -64,7 +67,24 @@ final class AnalysisStore
             return null;
         }
 
-        return Analysis::fromArray($data);
+        $analysis = Analysis::fromArray($data);
+        if ($this->confirmations()->has($this->key($tenantId, $id))) {
+            $analysis->status = Analysis::CONFIRMED;
+        }
+
+        return $analysis;
+    }
+
+    /** The marker commits with the configuration and queue, even when proposals use Redis/array cache. */
+    public function markConfirmed(Analysis $analysis): void
+    {
+        $this->confirmations()->put($this->key($analysis->tenantId, $analysis->id), true,
+            now()->addHours((int) config('ekko.wizard.proposal_ttl_hours')));
+    }
+
+    private function confirmations(): Repository
+    {
+        return new Repository(new DatabaseStore(DB::connection(), 'cache', 'onboarding-confirmed:'));
     }
 
     public function save(Analysis $analysis): void

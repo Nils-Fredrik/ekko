@@ -2,6 +2,7 @@
 
 use App\Models\Brand;
 use App\Models\Engine;
+use App\Models\EnginePrice;
 use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\Run;
@@ -12,6 +13,7 @@ require_once __DIR__.'/../../Support/Onboarding/helpers.php';
 
 it('saves a confirmed proposal and queues one run per core prompt', function () {
     $engine = Engine::factory()->create(['is_enabled' => true]);
+    EnginePrice::factory()->create(['engine_key' => $engine->key, 'valid_from' => now()->subDay()]);
     $plan = Plan::factory()->create([
         'max_brands' => 2,
         'max_markets_per_brand' => 2,

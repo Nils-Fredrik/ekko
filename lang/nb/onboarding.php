@@ -49,7 +49,17 @@ return [
         'exceeds_budget' => 'Estimert kostnad sammen med forbruket hittil denne måneden overstiger budsjettet.',
         'exceeds_byok_budget' => 'Estimert kostnad med egne nøkler sammen med forbruket hittil denne måneden overstiger budsjettet for egne nøkler.',
     ],
+    'frequencies' => [
+        'daily' => 'Daglig',
+        'weekly' => 'Ukentlig',
+        'monthly' => 'Månedlig',
+        'off' => 'Av',
+    ],
     'ui' => [
+        'add_competitor' => 'Legg til konkurrent',
+        'add_topic' => 'Legg til tema',
+        'estimating' => 'Beregner kostnad…',
+
         'title' => 'Veiviser',
         'name' => 'Navn',
         'domain' => 'Domene',

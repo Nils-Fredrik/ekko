@@ -7,6 +7,7 @@ use App\Models\BrandAlias;
 use App\Models\Competitor;
 use App\Models\CompetitorAlias;
 use App\Models\Engine;
+use App\Models\EnginePrice;
 use App\Models\Market;
 use App\Models\Plan;
 use App\Models\Prompt;
@@ -35,12 +36,14 @@ final class ProposalConfirmer
      */
     public function confirm(Team $tenant, Analysis $analysis, array $data): array
     {
-        if ($analysis->status !== Analysis::READY) {
-            throw ValidationException::withMessages(['analysis' => __('onboarding.errors.not_ready')]);
-        }
-
-        $plan = $tenant->plan()->first();
-        $saved = DB::transaction(function () use ($analysis, $data, $plan): array {
+        return DB::transaction(function () use ($tenant, $analysis, $data): array {
+            // Serialize both retries and different analyses competing for the last plan slot.
+            $tenant = Team::query()->lock('for no key update')->findOrFail($tenant->id);
+            $analysis = $this->store->find($tenant->id, $analysis->id);
+            if ($analysis === null || $analysis->status !== Analysis::READY) {
+                throw ValidationException::withMessages(['analysis' => __('onboarding.errors.not_ready')]);
+            }
+            $plan = $tenant->plan()->first();
             $brand = $analysis->kind === Analysis::MARKET
                 ? $this->existingBrand($analysis)
                 : $this->createBrand($plan, $data);
@@ -56,14 +59,11 @@ final class ProposalConfirmer
             $this->createPrompts($market, $topics, $data['prompts'] ?? [], $plan);
             $this->createEngines($market, $data['engines'] ?? [], $plan);
 
-            return [$brand, $market];
+            $runs = $this->firstRun->start($tenant, $market);
+            $this->store->markConfirmed($analysis);
+
+            return ['brand' => $brand, 'market' => $market, 'runs' => $runs];
         });
-
-        $analysis->status = Analysis::CONFIRMED;
-        $this->store->save($analysis);
-        $runs = $this->firstRun->start($tenant, $saved[1]);
-
-        return ['brand' => $saved[0], 'market' => $saved[1], 'runs' => $runs];
     }
 
     /** @param  array<string, mixed>  $data */
@@ -181,10 +181,10 @@ final class ProposalConfirmer
                 throw ValidationException::withMessages(["prompts.{$index}.text" => __('onboarding.errors.invalid_prompt')]);
             }
             $text = trim((string) ($row['text'] ?? ''));
-            $key = (string) ($row['cross_market_key'] ?? '');
+            $key = Str::slug((string) ($row['cross_market_key'] ?? ''), '_');
             $intent = $row['intent'] ?? null;
             $stage = $row['funnel_stage'] ?? null;
-            if ($text === '' || mb_strlen($text) > 10000 || ! isset($topics[$key])
+            if ($text === '' || str_contains($text, "\0") || mb_strlen($text) > 10000 || ! isset($topics[$key])
                 || ! in_array($intent, OnboardingSchema::INTENTS, true)
                 || ! in_array($stage, OnboardingSchema::FUNNEL_STAGES, true)
                 || $this->personalData->hasPersonalData($text)) {
@@ -236,6 +236,9 @@ final class ProposalConfirmer
                 ]);
             }
             $seen[$key] = true;
+            if ($frequency !== 'off' && ! EnginePrice::query()->where('engine_key', $key)->where('valid_from', '<=', now())->exists()) {
+                throw ValidationException::withMessages(["engines.{$index}.engine_key" => __('onboarding.issues.no_price', ['engine' => $key])]);
+            }
             $market->marketEngines()->create([
                 'engine_key' => $key,
                 'frequency' => $frequency,

@@ -49,7 +49,17 @@ return [
         'exceeds_budget' => "The estimated cost, together with this month's usage so far, exceeds the budget.",
         'exceeds_byok_budget' => "The estimated cost with your own keys, together with this month's usage so far, exceeds the budget for own keys.",
     ],
+    'frequencies' => [
+        'daily' => 'Daily',
+        'weekly' => 'Weekly',
+        'monthly' => 'Monthly',
+        'off' => 'Off',
+    ],
     'ui' => [
+        'add_competitor' => 'Add competitor',
+        'add_topic' => 'Add topic',
+        'estimating' => 'Calculating cost…',
+
         'title' => 'Wizard',
         'name' => 'Name',
         'domain' => 'Domain',

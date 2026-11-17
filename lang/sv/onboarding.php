@@ -49,7 +49,17 @@ return [
         'exceeds_budget' => 'Beräknad kostnad tillsammans med förbrukningen hittills denna månad överstiger budgeten.',
         'exceeds_byok_budget' => 'Beräknad kostnad med egna nycklar tillsammans med förbrukningen hittills denna månad överstiger budgeten för egna nycklar.',
     ],
+    'frequencies' => [
+        'daily' => 'Dagligen',
+        'weekly' => 'Varje vecka',
+        'monthly' => 'Varje månad',
+        'off' => 'Av',
+    ],
     'ui' => [
+        'add_competitor' => 'Lägg till konkurrent',
+        'add_topic' => 'Lägg till ämne',
+        'estimating' => 'Beräknar kostnad…',
+
         'title' => 'Guiden',
         'name' => 'Namn',
         'domain' => 'Domän',

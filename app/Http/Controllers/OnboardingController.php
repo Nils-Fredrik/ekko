@@ -90,7 +90,7 @@ class OnboardingController extends Controller
             'topics.*.name' => ['required', 'string', 'max:100'],
             'topics.*.cross_market_key' => ['required', 'string', 'max:100'],
             'prompts' => ['sometimes', 'array', 'max:50'],
-            'prompts.*.text' => ['required', 'string', 'max:10000'],
+            'prompts.*.text' => ['required', 'string', 'max:'.Prompt::TEXT_MAX, Prompt::nullByteRule()],
             'prompts.*.cross_market_key' => ['required', 'string', 'max:100'],
             'prompts.*.intent' => ['required', Rule::in(OnboardingSchema::INTENTS)],
             'prompts.*.funnel_stage' => ['required', Rule::in(OnboardingSchema::FUNNEL_STAGES)],
