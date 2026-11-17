@@ -504,7 +504,7 @@ function onboardingCloudRun(): void
     app()->instance(CloudRunAccessToken::class, $token);
 }
 
-it('starts the worker within the request, once the queued analysis is committed', function () {
+it('starts the fixed dispatcher within the request, once the queued analysis is committed', function () {
     [$tenant, $owner] = wizardTenant();
     OnboardingFakes::bind();
     onboardingCloudRun();
@@ -523,7 +523,7 @@ it('starts the worker within the request, once the queued analysis is committed'
     $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->assertStatus(202)->assertJsonPath('status', 'queued');
 
     expect($queued)->toBe(1);
-    Http::assertSent(fn ($request) => str_ends_with($request->url(), 'jobs/ekko-worker:run'));
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), 'jobs/ekko-wake:run'));
 });
 
 it('answers the request even when the worker cannot be started', function () {

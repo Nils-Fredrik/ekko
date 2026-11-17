@@ -2,18 +2,23 @@
 
 namespace App\Http\Controllers\Internal;
 
-use App\Scheduling\Dispatcher;
-use App\Scheduling\WorkerLauncher;
-use Carbon\CarbonImmutable;
+use App\Scheduling\DispatcherLauncher;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 final class ExtractionPollController
 {
-    public function __invoke(Dispatcher $dispatcher, WorkerLauncher $worker): Response
+    public function __invoke(DispatcherLauncher $dispatcher): Response
     {
-        $dispatcher->dispatch(CarbonImmutable::now('UTC'), plan: false);
-        $worker->startIfPending();
+        try {
+            $dispatcher->start();
+        } catch (Throwable $failure) {
+            Log::error('dispatch.wake_failed', ['error_type' => $failure::class]);
 
-        return $dispatcher->failures > 0 ? response('', 503) : response()->noContent();
+            return response('', 503);
+        }
+
+        return response()->noContent();
     }
 }
