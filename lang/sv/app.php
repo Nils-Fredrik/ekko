@@ -24,6 +24,7 @@ return [
             'system' => 'Följ systemet',
         ],
         'brands' => 'Varumärken',
+        'wizard' => 'Guiden',
     ],
     'dashboard' => [
         'overview' => 'Översikt',

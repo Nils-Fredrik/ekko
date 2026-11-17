@@ -1297,8 +1297,9 @@ Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kap
 - Alle skjemaer har validering og feilvisning som i Varde.
 
 ### T29 – Veiviser, UI
-`Onboarding/Wizard.vue` etter kapittel 13, med redigerbare forslag og kostnadsestimat.
+`Onboarding/Wizard.vue` etter kapittel 13, med redigerbare forslag og kostnadsestimat. Bekreftelsen lagrer merkevare, alias, domene, konkurrenter, marked, temaer, prompts og motorer i én transaksjon, og starter første kjøring for kjerneprompts.
 - Nettlesertest fra start til første kjøring.
+- ClickHouse, loggopplasting og GA4 settes opp når merkevaresidene for det finnes (T28). Veiviseren har et steg som hopper over dem.
 
 ### T30 – Admin-sider
 `Admin/Tenants.vue`, `Plans.vue`, `Engines.vue` og `Usage.vue`.

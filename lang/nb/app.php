@@ -24,6 +24,7 @@ return [
             'system' => 'Følg systemet',
         ],
         'brands' => 'Merkevarer',
+        'wizard' => 'Veiviser',
     ],
     'dashboard' => [
         'overview' => 'Oversikt',

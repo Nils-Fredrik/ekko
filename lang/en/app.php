@@ -24,6 +24,7 @@ return [
             'system' => 'Follow system',
         ],
         'brands' => 'Brands',
+        'wizard' => 'Wizard',
     ],
     'dashboard' => [
         'overview' => 'Overview',

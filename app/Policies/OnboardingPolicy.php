@@ -37,6 +37,11 @@ class OnboardingPolicy
         return $this->allowedInCurrentTenant($user, TenantPermission::ManageMarkets);
     }
 
+    public function confirm(User $user, Analysis $analysis): bool
+    {
+        return $this->view($user, $analysis);
+    }
+
     public function view(User $user, Analysis $analysis): bool
     {
         if ($this->context->id() !== $analysis->tenantId) {

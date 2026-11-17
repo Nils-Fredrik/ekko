@@ -72,14 +72,18 @@ Route::middleware([
 
     Route::get('/admin/usage', UsageController::class)->name('admin.usage');
 
-    // The onboarding wizard's backend (docs/spec.md 13, ADR 0018): proposals as JSON, nothing is saved.
+    // The onboarding wizard (docs/spec.md 13, ADR 0018). Proposals stay in the cache until confirm saves them.
     Route::prefix('onboarding')->name('onboarding.')->group(function () {
+        Route::get('wizard', [OnboardingController::class, 'create'])->name('wizard');
         Route::post('analyses', [OnboardingController::class, 'storeBrandAnalysis'])
             ->middleware('throttle:onboarding')
             ->name('analyses.store');
         Route::get('analyses/{analysis}', [OnboardingController::class, 'show'])
             ->whereUuid('analysis')
             ->name('analyses.show');
+        Route::post('analyses/{analysis}/confirm', [OnboardingController::class, 'confirm'])
+            ->whereUuid('analysis')
+            ->name('analyses.confirm');
         Route::post('cost-estimate', [OnboardingController::class, 'estimate'])->name('cost-estimate');
     });
     Route::post('/brands/{brand}/market-proposals', [OnboardingController::class, 'storeMarketAnalysis'])

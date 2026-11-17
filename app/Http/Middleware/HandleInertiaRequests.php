@@ -4,8 +4,10 @@ namespace App\Http\Middleware;
 
 use App\Models\Team;
 use App\Models\User;
+use App\Onboarding\Analysis;
 use App\Tenancy\ActingAs;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -63,6 +65,11 @@ class HandleInertiaRequests extends Middleware
                 fn (string $provider) => filled(config("services.{$provider}.client_id")) && filled(config("services.{$provider}.client_secret")),
             )),
             'actingAs' => fn () => $this->actingAs($request),
+            'canOnboard' => function () use ($request): bool {
+                $user = $request->user();
+
+                return $user instanceof User && Gate::forUser($user)->allows('createBrandAnalysis', Analysis::class);
+            },
         ];
     }
 
