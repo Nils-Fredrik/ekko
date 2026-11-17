@@ -91,7 +91,7 @@ class PromptController extends Controller
         return $request->validate([
             'market_id' => $creating ? ['required', 'integer', 'min:1'] : ['prohibited'],
             'topic_id' => ['sometimes', 'nullable', 'integer', 'min:1'],
-            'text' => [$creating ? 'required' : 'sometimes', 'required', 'string', 'max:10000', 'not_regex:/\x00/'],
+            'text' => [$creating ? 'required' : 'sometimes', 'required', 'string', 'max:'.Prompt::TEXT_MAX, Prompt::nullByteRule()],
             'intent' => [$creating ? 'required' : 'sometimes', 'required', Rule::in(['category', 'comparison', 'brand', 'problem', 'local'])],
             'funnel_stage' => [$creating ? 'required' : 'sometimes', 'required', Rule::in(['awareness', 'consideration', 'decision'])],
             'priority' => ['sometimes', Rule::in(['core', 'standard'])],

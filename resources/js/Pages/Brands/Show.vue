@@ -1,4 +1,5 @@
 <script setup>
+import BrandNav from '@/Components/Brand/BrandNav.vue';
 import BottomSheet from '@/Components/UI/BottomSheet.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
 import TrendChart from '@/Components/Dashboard/TrendChart.vue';
@@ -76,6 +77,7 @@ function shareText(share) {
 
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+                <BrandNav :brand-id="brand.id" />
                 <div class="hidden flex-wrap items-end gap-3 sm:flex">
                     <label class="flex flex-col gap-1 text-xs text-shell-text/70">
                         {{ $t('app.dashboard.period') }}

@@ -22,7 +22,7 @@ class PromptFactory extends Factory
             'funnel_stage' => 'awareness',
             'priority' => 'standard',
             'is_active' => true,
-            'text_hash' => fn (array $attributes): string => hash('sha256', $attributes['text']),
+            'text_hash' => fn (array $attributes): string => Prompt::hashText($attributes['text']),
         ];
     }
 }

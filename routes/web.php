@@ -6,7 +6,11 @@ use App\Http\Controllers\Admin\UsageController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\BotLogUploadController;
+use App\Http\Controllers\BrandCompetitorController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\BrandCrawlerController;
+use App\Http\Controllers\BrandPromptController;
+use App\Http\Controllers\BrandSourceController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OnboardingController;
@@ -65,6 +69,16 @@ Route::middleware([
     Route::get('/dashboard', HomeController::class)->name('dashboard');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+    Route::get('/brands/{brand}/prompts', [BrandPromptController::class, 'index'])->name('brands.prompts.index');
+    Route::get('/brands/{brand}/prompts/export', [BrandPromptController::class, 'export'])->name('brands.prompts.export');
+    Route::post('/brands/{brand}/prompts/import', [BrandPromptController::class, 'import'])->name('brands.prompts.import');
+    Route::get('/brands/{brand}/prompts/{prompt}', [BrandPromptController::class, 'show'])->name('brands.prompts.show');
+    Route::patch('/brands/{brand}/prompts/{prompt}', [BrandPromptController::class, 'update'])->name('brands.prompts.update');
+    Route::get('/brands/{brand}/responses/{response}/raw', [BrandPromptController::class, 'raw'])->name('brands.responses.raw');
+    Route::get('/brands/{brand}/competitors', [BrandCompetitorController::class, 'index'])->name('brands.competitors.index');
+    Route::post('/brands/{brand}/competitors', [BrandCompetitorController::class, 'store'])->name('brands.competitors.store');
+    Route::get('/brands/{brand}/sources', BrandSourceController::class)->name('brands.sources');
+    Route::get('/brands/{brand}/crawlers', BrandCrawlerController::class)->name('brands.crawlers');
     Route::post('/alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
 
     Route::get('/teams/{team}/bot-log-uploads', [BotLogUploadController::class, 'index'])->name('bot-log-uploads.index');
