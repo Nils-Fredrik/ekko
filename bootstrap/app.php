@@ -63,6 +63,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(ApplyTenantRls::class, SetCurrentTenant::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        $exceptions->dontFlash(['key', 'webhook_url']);
         $exceptions->report(function (Throwable $failure): void {
             Log::error('Application exception.', [
                 ...app(LogContext::class)->forException($failure),

@@ -3,11 +3,19 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonInterface;
 use Database\Factories\ReportFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $tenant_id
+ * @property CarbonInterface $period_start
+ * @property CarbonInterface $period_end
+ * @property string|null $pdf_uri
+ * @property CarbonInterface|null $sent_at
+ */
 class Report extends Model
 {
     use BelongsToTenant;

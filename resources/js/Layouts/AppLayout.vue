@@ -79,6 +79,19 @@ const logout = () => {
                                 <NavLink :href="route('brands.index')" :active="route().current('brands.*')">
                                     {{ $t('app.nav.brands') }}
                                 </NavLink>
+                                <NavLink :href="route('alerts.index')" :active="route().current('alerts.*')">
+                                    {{ $t('app.nav.alerts') }}
+                                </NavLink>
+                                <NavLink :href="route('reports.index')" :active="route().current('reports.*')">
+                                    {{ $t('app.nav.reports') }}
+                                </NavLink>
+                                <NavLink
+                                    v-if="page.props.canViewUsage"
+                                    :href="route('usage.index')"
+                                    :active="route().current('usage.index')"
+                                >
+                                    {{ $t('app.nav.usage') }}
+                                </NavLink>
                             </div>
                         </div>
 
@@ -283,6 +296,33 @@ const logout = () => {
                         @click="menuOpen = false"
                     >
                         {{ $t('app.nav.brands') }}
+                    </Link>
+                    <Link
+                        :href="route('alerts.index')"
+                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
+                        :class="route().current('alerts.*') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'"
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('app.nav.alerts') }}
+                    </Link>
+                    <Link
+                        :href="route('reports.index')"
+                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
+                        :class="route().current('reports.*') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'"
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('app.nav.reports') }}
+                    </Link>
+                    <Link
+                        v-if="page.props.canViewUsage"
+                        :href="route('usage.index')"
+                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
+                        :class="
+                            route().current('usage.index') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'
+                        "
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('app.nav.usage') }}
                     </Link>
                     <Link
                         :href="route('profile.show')"
