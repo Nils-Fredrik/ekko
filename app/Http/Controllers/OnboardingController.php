@@ -32,6 +32,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -183,6 +184,9 @@ class OnboardingController extends Controller
         $plan = $tenant->plan()->first();
         if ($plan instanceof Plan && $plan->max_markets_per_brand !== null && $brand->markets()->count() >= $plan->max_markets_per_brand) {
             return $this->refuse('market_limit', 422);
+        }
+        if ($brand->markets()->where('country', strtoupper($data['country']))->where('language', $this->language($data['language']))->exists()) {
+            throw ValidationException::withMessages(['country' => __('onboarding.errors.market_exists')]);
         }
         if (! Topic::query()->where('brand_id', $brand->id)->whereNotNull('cross_market_key')->exists()) {
             return $this->refuse('no_topics', 422);

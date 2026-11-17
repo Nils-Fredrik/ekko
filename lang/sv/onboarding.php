@@ -5,6 +5,7 @@
 return [
     'invalid_domain' => 'Ange en giltig domän, till exempel exempel.se.',
     'errors' => [
+        'market_exists' => 'Varumärket har redan en marknad med detta land och språk.',
         'market_changed' => 'Land och språk måste vara samma som i analysen. Starta en ny analys för en annan marknad.',
         'core_limit' => 'Du kan välja högst :max kärnprompter.',
         'brand_limit' => 'Paketet tillåter inte fler varumärken.',
@@ -58,6 +59,8 @@ return [
         'off' => 'Av',
     ],
     'ui' => [
+        'no_active_engines' => 'Inga motorer är aktiva. Inställningarna sparas utan att starta en körning.',
+        'save_without_run' => 'Spara utan körning',
         'add_market' => 'Lägg till marknad',
         'market_title' => 'Ny marknad',
         'add_competitor' => 'Lägg till konkurrent',
@@ -85,7 +88,7 @@ return [
         'estimate' => 'Beräknad kostnad per månad',
         'issues' => 'Varningar',
         'integrations' => 'Integrationer',
-        'integrations_later' => 'ClickHouse, logguppladdning och GA4 kan läggas till senare. De behövs inte för första körningen.',
+        'integrations_later' => 'Konfiguration för ClickHouse, logguppladdning och GA4 är ännu inte tillgänglig här. Dessa integrationer är valfria.',
         'confirm' => 'Spara och starta första körningen',
         'back' => 'Tillbaka',
         'next' => 'Nästa',

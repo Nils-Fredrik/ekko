@@ -5,6 +5,7 @@
 return [
     'invalid_domain' => 'Enter a valid domain, for example example.com.',
     'errors' => [
+        'market_exists' => 'The brand already has a market with this country and language.',
         'market_changed' => 'Country and language must match the analysis. Start a new analysis for another market.',
         'core_limit' => 'You can select at most :max core prompts.',
         'brand_limit' => 'The plan does not allow more brands.',
@@ -58,6 +59,8 @@ return [
         'off' => 'Off',
     ],
     'ui' => [
+        'no_active_engines' => 'No engines are active. The configuration will be saved without starting a run.',
+        'save_without_run' => 'Save without a run',
         'add_market' => 'Add market',
         'market_title' => 'New market',
         'add_competitor' => 'Add competitor',
@@ -84,7 +87,7 @@ return [
         'estimate' => 'Estimated cost per month',
         'issues' => 'Warnings',
         'integrations' => 'Integrations',
-        'integrations_later' => 'ClickHouse, log upload and GA4 can be added later. They are not needed for the first run.',
+        'integrations_later' => 'Setup for ClickHouse, log uploads and GA4 is not yet available here. These integrations are optional.',
         'confirm' => 'Save and start the first run',
         'back' => 'Back',
         'next' => 'Next',

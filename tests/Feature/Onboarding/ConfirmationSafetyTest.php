@@ -189,3 +189,39 @@ test('market confirmation cannot relabel analysed prompts with another country o
     expect($saved['brand']->markets()->count())->toBe(1)
         ->and($store->find($tenant->id, $market->id)->status)->toBe(Analysis::READY);
 })->with([['country', 'DE'], ['language', 'de']]);
+
+test('market analysis rejects an existing locale before dispatching work', function () {
+    [$tenant, $owner, $analysis, $data] = confirmationFixture();
+    $saved = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
+    Queue::fake();
+    $this->actingAs($owner)->postJson(route('brands.market-proposals.store', $saved['brand']), ['country' => 'no', 'language' => 'NB'])
+        ->assertUnprocessable()->assertJsonValidationErrors('country');
+    Queue::assertNothingPushed();
+});
+
+test('confirmation rejects a duplicate locale from existing markets or competing analyses', function (bool $competing) {
+    [$tenant, $owner, $analysis, $data] = confirmationFixture();
+    $saved = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
+    $store = app(AnalysisStore::class);
+    $data['country'] = $competing ? 'SE' : 'NO';
+    $data['language'] = $competing ? 'sv' : 'nb';
+    $proposals = [];
+    foreach (range(1, $competing ? 2 : 1) as $index) {
+        $proposal = $store->create($tenant->id, $owner->id, Analysis::MARKET, ['brand_id' => $saved['brand']->id, 'country' => $data['country'], 'language' => $data['language']]);
+        $proposal->status = Analysis::READY;
+        $store->save($proposal);
+        $proposals[] = $proposal;
+    }
+    if ($competing) {
+        inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $proposals[0], $data));
+    }
+    $jobs = DB::table('jobs')->count();
+    $runs = Run::query()->count();
+    $rejected = $proposals[count($proposals) - 1];
+    $this->actingAs($owner)->postJson(route('onboarding.analyses.confirm', $rejected->id), $data)
+        ->assertUnprocessable()->assertJsonValidationErrors('country');
+    expect($saved['brand']->markets()->count())->toBe($competing ? 2 : 1)
+        ->and(Run::query()->count())->toBe($runs)
+        ->and(DB::table('jobs')->count())->toBe($jobs)
+        ->and($store->find($tenant->id, $rejected->id)->status)->toBe(Analysis::READY);
+})->with([false, true]);

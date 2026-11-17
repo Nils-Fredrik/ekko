@@ -5,6 +5,7 @@
 return [
     'invalid_domain' => 'Oppgi et gyldig domene, for eksempel eksempel.no.',
     'errors' => [
+        'market_exists' => 'Merkevaren har allerede et marked med dette landet og språket.',
         'market_changed' => 'Land og språk må være de samme som i analysen. Start en ny analyse for et annet marked.',
         'core_limit' => 'Du kan velge maksimalt :max kjerneprompts.',
         'brand_limit' => 'Pakken tillater ikke flere merkevarer.',
@@ -58,6 +59,8 @@ return [
         'off' => 'Av',
     ],
     'ui' => [
+        'no_active_engines' => 'Ingen motorer er aktive. Oppsettet lagres uten å starte en kjøring.',
+        'save_without_run' => 'Lagre uten kjøring',
         'add_market' => 'Legg til marked',
         'market_title' => 'Nytt marked',
         'add_competitor' => 'Legg til konkurrent',
@@ -85,7 +88,7 @@ return [
         'estimate' => 'Estimert kostnad per måned',
         'issues' => 'Advarsler',
         'integrations' => 'Integrasjoner',
-        'integrations_later' => 'ClickHouse, loggopplasting og GA4 kan legges til senere. De er ikke nødvendige for første kjøring.',
+        'integrations_later' => 'Oppsett for ClickHouse, loggopplasting og GA4 er foreløpig ikke tilgjengelig her. Disse integrasjonene er valgfrie.',
         'confirm' => 'Lagre og start første kjøring',
         'back' => 'Tilbake',
         'next' => 'Neste',

@@ -29,8 +29,8 @@ let poll = null;
 const basis = ref({
     name: props.brand?.name ?? '',
     primary_domain: props.brand?.primary_domain ?? '',
-    country: 'NO',
-    language: 'nb',
+    country: props.brand ? '' : 'NO',
+    language: props.brand ? '' : 'nb',
 });
 const basisFields = computed(() =>
     props.brand ? ['country', 'language'] : ['name', 'primary_domain', 'country', 'language'],
@@ -174,6 +174,7 @@ const estimatePayload = computed(() => ({
     prompt_count: draft.value.prompts.length,
     core_prompt_count: coreCount.value,
 }));
+const noActiveEngines = computed(() => !estimatePayload.value.engines.some((engine) => engine.frequency !== 'off'));
 const payloadKey = computed(() => JSON.stringify(estimatePayload.value));
 const estimateCurrent = computed(() => !estimating.value && estimatedPayload.value === payloadKey.value);
 watch([payloadKey, step], () => {
@@ -435,6 +436,7 @@ function confirm() {
                     />
                 </div>
                 <PrimaryButton type="button" @click="loadEstimate">{{ $t('onboarding.ui.estimate') }}</PrimaryButton>
+                <p v-if="noActiveEngines" role="status" class="text-sm">{{ $t('onboarding.ui.no_active_engines') }}</p>
                 <InputError :message="estimateError" />
                 <p v-if="estimating" class="text-sm">{{ $t('onboarding.ui.estimating') }}</p>
                 <p v-if="estimate" class="text-sm">
@@ -459,13 +461,14 @@ function confirm() {
                 <p v-if="estimate" class="text-sm">
                     {{ $t('onboarding.ui.cost', { amount: estimate.total_cost_usd }) }}
                 </p>
+                <p v-if="noActiveEngines" role="status" class="text-sm">{{ $t('onboarding.ui.no_active_engines') }}</p>
                 <InputError :message="estimateError" />
                 <div class="flex gap-3">
                     <button type="button" class="text-sm" @click="step = 'engines'">
                         {{ $t('onboarding.ui.back') }}
                     </button>
                     <PrimaryButton :disabled="form.processing || !estimateCurrent" @click="confirm">
-                        {{ $t('onboarding.ui.confirm') }}
+                        {{ $t(noActiveEngines ? 'onboarding.ui.save_without_run' : 'onboarding.ui.confirm') }}
                     </PrimaryButton>
                 </div>
             </section>

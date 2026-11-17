@@ -432,7 +432,7 @@ it('only uses examples from other languages than the new market', function () {
     });
     $fakes = OnboardingFakes::bind(OnboardingFakes::marketJson(['running_shoes']));
 
-    $this->actingAs($owner)->postJson("/brands/{$brand->id}/market-proposals", ['country' => 'SE', 'language' => 'sv'])->assertStatus(202);
+    $this->actingAs($owner)->postJson("/brands/{$brand->id}/market-proposals", ['country' => 'FI', 'language' => 'sv'])->assertStatus(202);
 
     expect($fakes->model->requests[0]->user)->not->toContain('Redan svensk prompt')->toContain('Hvilke løpesko');
 });

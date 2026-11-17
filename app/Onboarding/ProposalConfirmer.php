@@ -54,6 +54,9 @@ final class ProposalConfirmer
             $brand = $analysis->kind === Analysis::MARKET
                 ? $this->existingBrand($analysis)
                 : $this->createBrand($plan, $data);
+            if ($brand->markets()->where('country', strtoupper((string) $data['country']))->where('language', $data['language'])->exists()) {
+                throw ValidationException::withMessages(['country' => __('onboarding.errors.market_exists')]);
+            }
             $this->guardMarketLimit($brand, $plan);
             $market = $brand->markets()->create([
                 'country' => strtoupper((string) $data['country']),
