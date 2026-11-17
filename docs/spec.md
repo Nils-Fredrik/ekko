@@ -1297,6 +1297,7 @@ Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kap
 ### T28 – Innstillinger, varsler, rapporter, forbruk, team
 `Brands/Settings.vue`, `Alerts/Index.vue`, `Reports/Index.vue`, `Usage/Index.vue` og utvidelser i `Teams/Show.vue` (Slack, rapportprofil, egne nøkler).
 - Alle skjemaer har validering og feilvisning som i Varde.
+- En motor kan bare aktiveres i merkevareinnstillingene når den har en gjeldende pris; dette gjelder også ved endret promptomfang. Avvisning gir feltfeil og ruller tilbake øvrige innstillinger.
 - Rapportprofilen i T28 er primærfargen. Logo-opplasting hører til PDF-en i T32.
 
 ### T29 – Veiviser, UI

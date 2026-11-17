@@ -6,6 +6,7 @@ use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\BrandAlias;
+use App\Models\EnginePrice;
 use App\Models\Integration;
 use App\Models\MarketEngine;
 use App\Models\Report;
@@ -21,6 +22,7 @@ use Tests\Support\Metrics\MetricsWorld;
 
 test('brand settings save aliases domains markets and engines and keep a regex alias', function () {
     $world = MetricsWorld::create();
+    EnginePrice::factory()->create(['engine_key' => $world->engine->key, 'valid_from' => now()->subDay()]);
     $engine = MarketEngine::factory()->create(['market_id' => $world->market->id, 'engine_key' => $world->engine->key]);
     BrandAlias::factory()->create(['brand_id' => $world->brand->id, 'alias' => 'fjord', 'match_mode' => 'regex']);
     $owner = $world->tenant->owner;
@@ -51,6 +53,7 @@ test('brand settings save aliases domains markets and engines and keep a regex a
 
 test('two engines in one market cannot share a scope, and a blank threshold uses the default', function () {
     $world = MetricsWorld::create();
+    EnginePrice::factory()->create(['engine_key' => $world->engine->key, 'valid_from' => now()->subDay()]);
     $all = MarketEngine::factory()->create([
         'market_id' => $world->market->id,
         'engine_key' => $world->engine->key,
@@ -380,3 +383,29 @@ test('failed credential validation never flashes secrets into session old input'
         ->assertRedirect()->assertSessionHasErrors('webhook_url')->assertSessionMissing('_old_input.webhook_url');
     expect(serialize(session()->all()))->not->toContain($webhook);
 });
+
+test('brand settings reject enabling an unpriced engine before changing or replacing its scope', function (string $scope, bool $futurePrice) {
+    $world = MetricsWorld::create();
+    $engine = MarketEngine::factory()->create(['market_id' => $world->market->id, 'engine_key' => $world->engine->key, 'frequency' => 'off', 'prompt_scope' => 'all']);
+    if ($futurePrice) {
+        EnginePrice::factory()->create(['engine_key' => $world->engine->key, 'valid_from' => now()->addDay()]);
+    }
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $name = $world->brand->name;
+    $data = ['name' => 'Must roll back', 'engines' => [['id' => $engine->id, 'frequency' => 'daily', 'prompt_scope' => $scope, 'repetitions' => 1]]];
+    $this->actingAs($owner)->putJson(route('brands.settings.update', $world->brand), $data)
+        ->assertUnprocessable()->assertJsonValidationErrors('engines.0.frequency');
+    expect($engine->fresh()->frequency)->toBe('off')->and($engine->fresh()->prompt_scope)->toBe('all')
+        ->and($world->brand->fresh()->name)->toBe($name);
+
+    $data['name'] = $name;
+    $data['engines'][0]['frequency'] = 'off';
+    $this->put(route('brands.settings.update', $world->brand), $data)->assertSessionHasNoErrors();
+    expect($engine->fresh()->frequency)->toBe('off')->and($engine->fresh()->prompt_scope)->toBe($scope);
+
+    EnginePrice::factory()->create(['engine_key' => $world->engine->key, 'valid_from' => now()->subDay()]);
+    $data['engines'][0]['frequency'] = 'daily';
+    $this->put(route('brands.settings.update', $world->brand), $data)->assertSessionHasNoErrors();
+    expect($engine->fresh()->frequency)->toBe('daily');
+})->with(['all', 'core'])->with([false, true]);

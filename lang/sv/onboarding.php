@@ -64,7 +64,7 @@ return [
         'add_market' => 'Lägg till marknad',
         'market_title' => 'Ny marknad',
         'add_competitor' => 'Lägg till konkurrent',
-        'add_topic' => 'Lägg till ämne',
+        'add_topic' => 'Lägg till tema',
         'estimating' => 'Beräknar kostnad…',
 
         'title' => 'Guiden',

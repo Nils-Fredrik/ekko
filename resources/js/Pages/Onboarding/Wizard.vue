@@ -78,6 +78,10 @@ async function start() {
             fill(response.data);
             return;
         }
+        if (response.data.status === 'confirmed') {
+            fail({ error: { message: trans('onboarding.errors.not_ready') } });
+            return;
+        }
         if (response.data.status === 'failed') {
             fail(response.data);
             return;
@@ -94,6 +98,10 @@ async function refresh(id) {
         analysis.value = response.data;
         if (response.data.status === 'ready') {
             fill(response.data);
+            return;
+        }
+        if (response.data.status === 'confirmed') {
+            fail({ error: { message: trans('onboarding.errors.not_ready') } });
             return;
         }
         if (response.data.status === 'failed') {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Dashboard\DashboardLabels;
 use App\Models\Brand;
+use App\Models\EnginePrice;
 use App\Models\Integration;
 use App\Models\Market;
 use App\Models\MarketEngine;
@@ -274,6 +275,11 @@ class BrandSettingsController extends Controller
                 ]);
             }
             Gate::authorize('update', $engine);
+            if ($row['frequency'] !== 'off' && ! EnginePrice::query()->where('engine_key', $engine->engine_key)->where('valid_from', '<=', now())->exists()) {
+                throw ValidationException::withMessages([
+                    "engines.{$index}.frequency" => __('onboarding.issues.no_price', ['engine' => DashboardLabels::engines([$engine->engine_key])[$engine->engine_key]]),
+                ]);
+            }
             if ($engine->prompt_scope !== $row['prompt_scope']) {
                 $moves[] = [$engine, $row];
 
