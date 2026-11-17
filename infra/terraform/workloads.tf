@@ -4,6 +4,7 @@ locals {
 
   jobs = var.enable_workloads ? {
     dispatch = { command = ["php", "artisan", "ekko:dispatch-due"], timeout = "3600s" }
+    wake     = { command = ["php", "artisan", "ekko:dispatch-due", "--poll"], timeout = "3600s" }
     worker   = { command = ["sh", "-c", "pids=''; for i in 1 2 3 4 5 6 7 8; do php artisan queue:work --stop-when-empty --max-time=3300 --timeout=${local.worker_job_timeout_seconds} & pids=\"$pids $!\"; done; status=0; for pid in $pids; do wait $pid || status=1; done; exit $status"], timeout = "3900s" }
     task     = { command = ["sh", "-c"], timeout = "3600s" }
     migrate  = { command = ["php", "artisan", "migrate", "--force"], timeout = "3600s" }
@@ -152,7 +153,7 @@ resource "google_cloud_run_v2_job" "job" {
     task_count  = 1
     parallelism = each.key == "worker" ? null : 1
     template {
-      service_account = google_service_account.component[each.key].email
+      service_account = google_service_account.component[each.key == "wake" ? "dispatch" : each.key].email
       timeout         = each.value.timeout
       max_retries     = 0
       containers {
@@ -205,10 +206,9 @@ resource "google_cloud_run_v2_job" "job" {
   depends_on = [google_project_service.api, google_secret_manager_secret_iam_member.read, google_project_iam_member.cloudsql_client]
 }
 
-# Both dispatcher and extraction-poll (web) can start workers with task-count
-# overrides. Each permission is scoped to the worker job.
+# Only the dispatcher identity can start workers with task-count overrides.
 resource "google_cloud_run_v2_job_iam_member" "worker_executor" {
-  for_each = var.enable_workloads ? toset(["dispatch", "web"]) : toset([])
+  for_each = var.enable_workloads ? toset(["dispatch"]) : toset([])
   project  = var.project_id
   location = var.region
   name     = google_cloud_run_v2_job.job["worker"].name
@@ -242,10 +242,29 @@ resource "google_project_iam_custom_role" "worker_execution_reader" {
 }
 
 resource "google_cloud_run_v2_job_iam_member" "worker_execution_reader" {
-  for_each = var.enable_workloads ? toset(["dispatch", "web"]) : toset([])
+  for_each = var.enable_workloads ? toset(["dispatch"]) : toset([])
   project  = var.project_id
   location = var.region
   name     = google_cloud_run_v2_job.job["worker"].name
   role     = google_project_iam_custom_role.worker_execution_reader.name
   member   = "serviceAccount:${google_service_account.component[each.key].email}"
+}
+
+# Web can invoke only a fixed poll dispatcher; no command, environment or task-count overrides.
+resource "google_cloud_run_v2_job_iam_member" "web_wake" {
+  count    = var.enable_workloads ? 1 : 0
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_job.job["wake"].name
+  role     = "roles/run.jobsExecutor"
+  member   = "serviceAccount:${google_service_account.component["web"].email}"
+}
+
+resource "google_cloud_run_v2_job_iam_member" "web_wake_reader" {
+  count    = var.enable_workloads ? 1 : 0
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_job.job["wake"].name
+  role     = google_project_iam_custom_role.worker_execution_reader.name
+  member   = "serviceAccount:${google_service_account.component["web"].email}"
 }
