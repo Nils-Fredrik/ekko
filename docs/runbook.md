@@ -415,3 +415,22 @@ Status 16.11.2026: offentlig webtilgang er aktivert, full smoke uten IAM består
 ### Bevis 15.11.2026
 
 Den 15.11.2026 viste live IAM både web og migrate som lesere av migreringspassordet; da fantes ingen Cloud Run-webtjeneste. En målrettet plan med datidens T10-konfigurasjon viste bare sletting av web-granten. En separat, ikke anvendt workload-plan viste riktig skille mellom web og migreringsjobben. Dette er historisk bevis, ikke en gyldig plan for dagens produksjon. Ingen passordverdier ble lest eller lagret. **Ny plan og kontroll av faktisk tilgang og revisjon kreves før funnet kan lukkes.**
+
+
+## T39-F9: workflow-tillit
+
+Alle eksterne Actions er pinnet til commit-SHA. Ved oppdatering: slå opp taggen
+hos action-eieren, gjennomgå commit/endringer og oppdater SHA og versjonskommentar
+sammen. CI tester at ingen eksterne actions bruker flytende tags.
+
+Automatisk review støtter bare PR-er fra eget repo med OWNER/MEMBER/COLLABORATOR
+som forfatter. En fork-PR eller ubekreftet forfatter gir ikke adgang til betalt
+review. `@claude` krever en betrodd omtale og sjekker PR-ens repo via GitHub API.
+Beskrivelsesendringer skal ikke kansellere en pågående review; kode, tittel og
+base krever fortsatt ny vurdering. Ved teknisk feil kan source-request kjøres
+på nytt når årsaken er rettet. Ikke omgå SHA- eller reviewer-kontrollene.
+
+WIF ble kontrollert mot live provider etter T10 den 17.11.2026: bare `push` på
+`refs/heads/main` fra riktig repo-/eier-ID og `.github/workflows/ci.yml@refs/heads/main`
+kan deploye. Se ADR 0031 og `infra/terraform/deploy.tf` før workflow-navn eller
+repo endres. Denne oppgaven utvider ingen IAM-rettigheter.

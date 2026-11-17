@@ -1,3 +1,4 @@
+import { trustedPullRequest } from './policy.mjs';
 import { appendFile, readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 
@@ -69,6 +70,7 @@ export async function reviewSource(event, { env = process.env, request = fetch }
     const pr = await api(`/pulls/${source.number}`);
     if (pr.number !== source.number || pr.base?.repo?.id !== event.repository.id || pr.base.ref !== 'main')
         throw new Error('PR does not belong to the trusted repository and base');
+    if (!trustedPullRequest(pr, repo)) throw new Error('PR author and source repository are not trusted');
     // GitHub can update the PR metadata attached to an older run. The run's
     // immutable head remains authoritative. Never review newer code on its behalf.
     if (
