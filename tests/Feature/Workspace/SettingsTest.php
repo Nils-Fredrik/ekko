@@ -237,6 +237,111 @@ test('a brand admin can connect clickhouse and ga4 without the secrets returning
         ->and($ga4->fresh()->config['service_account']['private_key'])->toBe($key);
 });
 
+test('clickhouse fields stay hidden and unsaved when no endpoint is configured', function () {
+    $world = MetricsWorld::create();
+    config(['ekko.bot_logs.clickhouse_endpoints' => []]);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $name = $world->brand->name;
+
+    $this->actingAs($owner)->get(route('brands.settings', $world->brand))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('clickhouseEndpoints', []));
+
+    $this->actingAs($owner)
+        ->from(route('brands.settings', $world->brand))
+        ->put(route('brands.settings.update', $world->brand), [
+            'name' => 'Should not stick',
+            'clickhouse_database' => 'logs',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('clickhouse_host');
+
+    expect($world->brand->fresh()->name)->toBe($name)
+        ->and(Integration::query()->where('brand_id', $world->brand->id)->where('type', 'clickhouse_logs')->exists())->toBeFalse();
+});
+
+test('a partial integration is rejected and a blank secret keeps the stored one', function () {
+    $world = MetricsWorld::create();
+    config(['ekko.bot_logs.clickhouse_endpoints' => ['https://logs.example.test']]);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)
+        ->from(route('brands.settings', $world->brand))
+        ->put(route('brands.settings.update', $world->brand), ['clickhouse_database' => 'logs'])
+        ->assertRedirect()
+        ->assertSessionHasErrors('clickhouse_host');
+
+    $this->actingAs($owner)
+        ->from(route('brands.settings', $world->brand))
+        ->put(route('brands.settings.update', $world->brand), [
+            'clickhouse_database' => 'logs-db',
+            'clickhouse_table' => 'hits',
+            'clickhouse_user' => 'reader',
+            'clickhouse_password' => 'secret',
+            'clickhouse_host' => 'https://logs.example.test',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('clickhouse_database');
+
+    $this->actingAs($owner)
+        ->from(route('brands.settings', $world->brand))
+        ->put(route('brands.settings.update', $world->brand), [
+            'ga4_property_id' => '0',
+            'ga4_client_email' => 'ga4@example.test',
+            'ga4_private_key' => 'key',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors(['ga4_property_id' => __('app.workspace.ga4_property_invalid')]);
+
+    $this->actingAs($owner)
+        ->from(route('brands.settings', $world->brand))
+        ->put(route('brands.settings.update', $world->brand), [
+            'ga4_property_id' => '123',
+            'ga4_client_email' => 'not-an-email',
+            'ga4_private_key' => 'key',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors(['ga4_client_email' => __('app.workspace.ga4_email_invalid')]);
+
+    $this->actingAs($owner)
+        ->from(route('brands.settings', $world->brand))
+        ->put(route('brands.settings.update', $world->brand), [
+            'ga4_property_id' => '123',
+            'ga4_client_email' => 'ga4@example.test',
+            'ga4_private_key' => "bad\0key",
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors(['ga4_private_key' => __('app.workspace.ga4_key_invalid')]);
+
+    $password = '  clickhouse secret  ';
+    $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
+        'clickhouse_host' => 'https://logs.example.test',
+        'clickhouse_database' => 'logs',
+        'clickhouse_table' => 'hits',
+        'clickhouse_user' => 'reader',
+        'clickhouse_password' => $password,
+        'ga4_property_id' => '123',
+        'ga4_client_email' => 'ga4@example.test',
+        'ga4_private_key' => "-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n",
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $clickhouse = Integration::query()->where('brand_id', $world->brand->id)->where('type', 'clickhouse_logs')->firstOrFail();
+    $clickhouse->forceFill(['status' => 'error', 'last_failed_on' => '2026-11-01'])->save();
+
+    $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
+        'clickhouse_database' => 'daily',
+        'clickhouse_password' => '',
+    ])->assertRedirect()->assertSessionHasNoErrors();
+
+    $fresh = $clickhouse->fresh();
+    expect($fresh->config['database'])->toBe('daily')
+        ->and($fresh->config['password'])->toBe($password)
+        ->and($fresh->status)->toBe('pending')
+        ->and($fresh->last_failed_on)->toBeNull();
+});
+
 test('alerts can be acknowledged and a rule rejects an invalid threshold', function () {
     $world = MetricsWorld::create();
     $rule = AlertRule::factory()->create(['brand_id' => $world->brand->id, 'type' => 'visibility_drop', 'threshold' => '10']);

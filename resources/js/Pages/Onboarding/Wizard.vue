@@ -478,56 +478,58 @@ function confirm() {
             <section v-else class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
                 <h3 class="font-medium">{{ $t('onboarding.ui.integrations') }}</h3>
                 <p class="text-sm">{{ $t('onboarding.ui.integrations_later') }}</p>
-                <label v-if="clickhouseEndpoints.length > 0" class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_host') }}
-                    <select
-                        v-model="form.clickhouse_host"
-                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
-                    >
-                        <option value="">{{ $t('app.workspace.clickhouse_unchanged') }}</option>
-                        <option v-for="endpoint in clickhouseEndpoints" :key="endpoint" :value="endpoint">
-                            {{ endpoint }}
-                        </option>
-                    </select>
-                    <InputError :message="form.errors.clickhouse_host" />
-                </label>
-                <label class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_database') }}
-                    <input
-                        v-model="form.clickhouse_database"
-                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
-                        autocomplete="off"
-                    />
-                    <InputError :message="form.errors.clickhouse_database" />
-                </label>
-                <label class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_table') }}
-                    <input
-                        v-model="form.clickhouse_table"
-                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
-                        autocomplete="off"
-                    />
-                    <InputError :message="form.errors.clickhouse_table" />
-                </label>
-                <label class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_user') }}
-                    <input
-                        v-model="form.clickhouse_user"
-                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
-                        autocomplete="off"
-                    />
-                    <InputError :message="form.errors.clickhouse_user" />
-                </label>
-                <label class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_password') }}
-                    <input
-                        v-model="form.clickhouse_password"
-                        type="password"
-                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
-                        autocomplete="new-password"
-                    />
-                    <InputError :message="form.errors.clickhouse_password" />
-                </label>
+                <template v-if="clickhouseEndpoints.length > 0">
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_host') }}
+                        <select
+                            v-model="form.clickhouse_host"
+                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        >
+                            <option value="">{{ $t('app.workspace.clickhouse_none') }}</option>
+                            <option v-for="endpoint in clickhouseEndpoints" :key="endpoint" :value="endpoint">
+                                {{ endpoint }}
+                            </option>
+                        </select>
+                        <InputError :message="form.errors.clickhouse_host" />
+                    </label>
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_database') }}
+                        <input
+                            v-model="form.clickhouse_database"
+                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                            autocomplete="off"
+                        />
+                        <InputError :message="form.errors.clickhouse_database" />
+                    </label>
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_table') }}
+                        <input
+                            v-model="form.clickhouse_table"
+                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                            autocomplete="off"
+                        />
+                        <InputError :message="form.errors.clickhouse_table" />
+                    </label>
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_user') }}
+                        <input
+                            v-model="form.clickhouse_user"
+                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                            autocomplete="off"
+                        />
+                        <InputError :message="form.errors.clickhouse_user" />
+                    </label>
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_password') }}
+                        <input
+                            v-model="form.clickhouse_password"
+                            type="password"
+                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                            autocomplete="new-password"
+                        />
+                        <InputError :message="form.errors.clickhouse_password" />
+                    </label>
+                </template>
                 <label class="block text-sm">
                     {{ $t('app.workspace.ga4_property') }}
                     <input

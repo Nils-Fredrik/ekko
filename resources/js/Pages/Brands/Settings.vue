@@ -220,61 +220,63 @@ function save() {
                         }}
                     </p>
                 </div>
-                <label v-if="clickhouseEndpoints.length > 0" class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_host') }}
-                    <select v-model="form.clickhouse_host" :disabled="!can.manage" :class="field" class="mt-1">
-                        <option value="">{{ $t('app.workspace.clickhouse_unchanged') }}</option>
-                        <option v-for="endpoint in clickhouseEndpoints" :key="endpoint" :value="endpoint">
-                            {{ endpoint }}
-                        </option>
-                    </select>
-                    <InputError :message="form.errors.clickhouse_host" />
-                </label>
-                <label class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_database') }}
-                    <input
-                        v-model="form.clickhouse_database"
-                        :disabled="!can.manage"
-                        :class="field"
-                        class="mt-1"
-                        autocomplete="off"
-                    />
-                    <InputError :message="form.errors.clickhouse_database" />
-                </label>
-                <label class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_table') }}
-                    <input
-                        v-model="form.clickhouse_table"
-                        :disabled="!can.manage"
-                        :class="field"
-                        class="mt-1"
-                        autocomplete="off"
-                    />
-                    <InputError :message="form.errors.clickhouse_table" />
-                </label>
-                <label class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_user') }}
-                    <input
-                        v-model="form.clickhouse_user"
-                        :disabled="!can.manage"
-                        :class="field"
-                        class="mt-1"
-                        autocomplete="off"
-                    />
-                    <InputError :message="form.errors.clickhouse_user" />
-                </label>
-                <label class="block text-sm">
-                    {{ $t('app.workspace.clickhouse_password') }}
-                    <input
-                        v-model="form.clickhouse_password"
-                        :disabled="!can.manage"
-                        type="password"
-                        :class="field"
-                        class="mt-1"
-                        autocomplete="new-password"
-                    />
-                    <InputError :message="form.errors.clickhouse_password" />
-                </label>
+                <template v-if="clickhouseEndpoints.length > 0">
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_host') }}
+                        <select v-model="form.clickhouse_host" :disabled="!can.manage" :class="field" class="mt-1">
+                            <option value="">{{ $t('app.workspace.clickhouse_unchanged') }}</option>
+                            <option v-for="endpoint in clickhouseEndpoints" :key="endpoint" :value="endpoint">
+                                {{ endpoint }}
+                            </option>
+                        </select>
+                        <InputError :message="form.errors.clickhouse_host" />
+                    </label>
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_database') }}
+                        <input
+                            v-model="form.clickhouse_database"
+                            :disabled="!can.manage"
+                            :class="field"
+                            class="mt-1"
+                            autocomplete="off"
+                        />
+                        <InputError :message="form.errors.clickhouse_database" />
+                    </label>
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_table') }}
+                        <input
+                            v-model="form.clickhouse_table"
+                            :disabled="!can.manage"
+                            :class="field"
+                            class="mt-1"
+                            autocomplete="off"
+                        />
+                        <InputError :message="form.errors.clickhouse_table" />
+                    </label>
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_user') }}
+                        <input
+                            v-model="form.clickhouse_user"
+                            :disabled="!can.manage"
+                            :class="field"
+                            class="mt-1"
+                            autocomplete="off"
+                        />
+                        <InputError :message="form.errors.clickhouse_user" />
+                    </label>
+                    <label class="block text-sm">
+                        {{ $t('app.workspace.clickhouse_password') }}
+                        <input
+                            v-model="form.clickhouse_password"
+                            :disabled="!can.manage"
+                            type="password"
+                            :class="field"
+                            class="mt-1"
+                            autocomplete="new-password"
+                        />
+                        <InputError :message="form.errors.clickhouse_password" />
+                    </label>
+                </template>
                 <a v-if="logUploadUrl && !hasClickHouse" :href="logUploadUrl" class="text-sm">
                     {{ $t('app.workspace.upload_logs') }}
                 </a>

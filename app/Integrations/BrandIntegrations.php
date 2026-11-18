@@ -86,8 +86,7 @@ final class BrandIntegrations
         foreach ($this->clickHouseConfig($provided) as $key => $value) {
             $config[$key] = $value;
         }
-        $integration->config = $config;
-        $integration->save();
+        $this->saveConfig($integration, $config);
     }
 
     /** @param  array<string, mixed>  $data */
@@ -107,7 +106,7 @@ final class BrandIntegrations
             foreach (['property_id', 'client_email', 'private_key'] as $key) {
                 if (! isset($provided[$key])) {
                     throw ValidationException::withMessages([
-                        'ga4_'.($key === 'property_id' ? 'property_id' : ($key === 'client_email' ? 'client_email' : 'private_key')) => __('app.workspace.ga4_required'),
+                        'ga4_'.$key => __('app.workspace.ga4_required'),
                     ]);
                 }
             }
@@ -124,8 +123,18 @@ final class BrandIntegrations
         Gate::authorize('update', $integration);
         $config = $integration->config;
         $account = is_array($config['service_account'] ?? null) ? $config['service_account'] : [];
-        $next = $this->ga4Config($provided, $account);
-        $integration->config = array_merge($config, $next);
+        $this->saveConfig($integration, array_merge($config, $this->ga4Config($provided, $account)));
+    }
+
+    /** @param  array<string, mixed>  $config */
+    private function saveConfig(Integration $integration, array $config): void
+    {
+        $changed = $config != $integration->config;
+        $integration->config = $config;
+        if ($changed) {
+            $integration->status = 'pending';
+            $integration->last_failed_on = null;
+        }
         $integration->save();
     }
 
@@ -141,7 +150,8 @@ final class BrandIntegrations
             if (! array_key_exists($input, $data) || ! is_string($data[$input])) {
                 continue;
             }
-            $value = trim($data[$input]);
+            $secret = in_array($input, ['clickhouse_password', 'ga4_private_key'], true);
+            $value = $secret ? $data[$input] : trim($data[$input]);
             if ($value !== '') {
                 $provided[$key] = $value;
             }
@@ -212,7 +222,7 @@ final class BrandIntegrations
         if (isset($provided['private_key'])) {
             if (str_contains($provided['private_key'], "\0")) {
                 throw ValidationException::withMessages([
-                    'ga4_private_key' => __('app.workspace.ga4_required'),
+                    'ga4_private_key' => __('app.workspace.ga4_key_invalid'),
                 ]);
             }
             $account['private_key'] = $provided['private_key'];
