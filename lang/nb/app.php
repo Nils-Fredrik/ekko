@@ -29,6 +29,16 @@ return [
         'alerts' => 'Varsler',
         'reports' => 'Rapporter',
         'usage' => 'Forbruk',
+        'partner' => 'Kunder',
+    ],
+    'partner' => [
+        'title' => 'Kunder',
+        'intro' => 'Synlighet, endring og varsler for kundene de siste :days dagene.',
+        'empty' => 'Ingen kunder er koblet til.',
+        'client' => 'Kunde',
+        'visibility' => 'Synlighet',
+        'change' => 'Endring',
+        'alerts' => 'Varsler',
     ],
     'dashboard' => [
         'overview' => 'Oversikt',
