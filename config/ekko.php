@@ -115,6 +115,8 @@ return [
         'password.confirm',
         'password.confirm.store',
         'password.confirmation',
+        'social.confirm',
+        'social.callback',
         'logout',
         'locale.update',
         'verification.*',

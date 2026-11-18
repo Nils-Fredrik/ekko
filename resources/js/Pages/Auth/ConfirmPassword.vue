@@ -1,4 +1,5 @@
 <script setup>
+import SsoConfirmButtons from '@/Components/SsoConfirmButtons.vue';
 import { ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AuthenticationCard from '@/Components/AuthenticationCard.vue';
@@ -50,8 +51,11 @@ const submit = () => {
                     autocomplete="current-password"
                     autofocus
                 />
-                <InputError class="mt-2" :message="form.errors.password" />
+                <!-- A failed confirmation with Google comes back as a page error, not a form error. -->
+                <InputError class="mt-2" :message="form.errors.password || $page.props.errors.password" />
             </div>
+
+            <SsoConfirmButtons />
 
             <div class="flex justify-end mt-4">
                 <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">

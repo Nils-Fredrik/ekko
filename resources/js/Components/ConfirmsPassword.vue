@@ -1,4 +1,5 @@
 <script setup>
+import SsoConfirmButtons from './SsoConfirmButtons.vue';
 import { ref, reactive, nextTick } from 'vue';
 import DialogModal from './DialogModal.vue';
 import InputError from './InputError.vue';
@@ -99,6 +100,8 @@ const closeModal = () => {
 
                     <InputError :message="form.error" class="mt-2" />
                 </div>
+
+                <SsoConfirmButtons />
             </template>
 
             <template #footer>
