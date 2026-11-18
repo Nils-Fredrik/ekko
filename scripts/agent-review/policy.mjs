@@ -3,13 +3,17 @@ import { matchesGlob } from 'node:path';
 const CODEX_ID = 199175422;
 const marker = /^<!-- codex-pull-request-review-summary -->\s*\n<!-- codex-review-state:v1 (\{[^\n]*\}) -->/;
 
+export function agentFromTitle(title) {
+    return /^\[(Codex|Cursor|Claude Code)\] T\d+\s*[–-]\s*\S/.exec(title)?.[1] ?? null;
+}
+
 // A malformed title or an incomplete file list must never waive a reviewer.
 export function requiredReviewers(title, files, paths) {
     if (!Array.isArray(files) || !files.length || !Array.isArray(paths) || !paths.length) {
         throw new Error('Missing changed files or sensitive-path configuration');
     }
-    const match = /^\[(Codex|Cursor|Claude Code)\] T\d+\s*[–-]\s*\S/.exec(title);
-    if (!match) throw new Error('Invalid agent title');
+    const agent = agentFromTitle(title);
+    if (!agent) throw new Error('Invalid agent title');
     if (files.some((file) => typeof file !== 'string' || !file || file.startsWith('/'))) {
         throw new Error('Invalid changed-file path');
     }
@@ -18,8 +22,8 @@ export function requiredReviewers(title, files, paths) {
     const normalizeDots = (value) => value.replace(/(^|\/)\./g, '$1_');
     const sensitive = files.some((file) => paths.some((path) => matchesGlob(normalizeDots(file), normalizeDots(path))));
     return {
-        claude: sensitive || match[1] !== 'Claude Code',
-        codex: sensitive || match[1] === 'Claude Code',
+        claude: sensitive || agent !== 'Claude Code',
+        codex: sensitive || agent === 'Claude Code',
     };
 }
 

@@ -228,7 +228,7 @@ Codex krever bot-ID 199175422, en oppdatert `codex-review-state:v1` med full hea
 
 Statusen skrives til aktuell head-SHA av den dedikerte App-en. Head, base og test-merge-SHA beholdes i snapshotkontrollen. `main` må derfor kreve oppdatert base (`strict: true`). Tre ulike mislykkede head-SHA-er siden siste godkjenning utløser Board-blocker på T42, med lenke til den berørte PR-en. Omkjøring eller tittelredigering på samme head teller ikke som nye runder. Eieren vurderer videre retting; workflowen merger aldri. Manglende Board-autentisering gjør gaten rød, og feil ved eskalering gir ingen godkjenning. Ved feil etter vellykket Board-post men før lagret rundekvittering kan en duplikat forekomme; PR-referansen gjør den gjenkjennelig.
 
-Den gamle automatiske `claude-code-review.yml` erstattes av denne workflowen. `claude.yml` for eksplisitt `@claude` beholdes. Slå av overlappende automatiske Codex-utløsere dersom de skaper duplikater, og verifiser den eksplisitte triggeren før aktivering.
+Den gamle automatiske `claude-code-review.yml` erstattes av denne workflowen. `claude.yml` for eksplisitte spørsmål og rettinger til `@claude` beholdes. Ikke post en ekstra `@claude review` eller `@codex review` når automatisk review er bestilt. En ren `@claude review`-kommando på en PR med automatisk Claude-review avvises før Claude-tokenet brukes, etter samme tittel-/følsomhetspolicy. For en Claude Code-PR uten følsomme filer er bare Codex automatisk påkrevd; en eksplisitt ekstra Claude-review er derfor fortsatt mulig. Tekniske feil i automatisk review håndteres med omkjøring i Actions. Slå av overlappende automatiske Codex-utløsere dersom de skaper duplikater, og verifiser den eksplisitte triggeren før aktivering.
 
 ### Kontrollert aktivering
 
@@ -275,9 +275,9 @@ Claude CLI 2.1.325 ble også testet med syntetiske filer: repo-lesing virket, me
 
 ### Drift og stopp av mergekøen (T42, task:61)
 
-**Registrert driftsstatus:** Køen ble kortvarig aktivert 17.11.2026. Første kjøring stoppet korrekt ved reviewfeil i PR #74, uten å endre noen PR. Den ble satt tilbake til `false` under kryssreview mens en manglende isolert test av grønn ny head med gammel kvittering ble supplert. Se [akseptbevis](t42-merge-queue-evidence.md). Kontroller aktuell repo-variabel `EKKO_MERGE_QUEUE_ENABLED` for gjeldende av/på-status; dette avsnittet er historikk. Første App-merge og vellykkede produksjonsdeploy gjenstår, og task:61 holdes åpen til begge er dokumentert.
+**Registrert driftsstatus:** Køen ble kortvarig aktivert 17.11.2026. Første kjøring stoppet korrekt ved reviewfeil i PR #74, uten å endre noen PR. Den ble satt tilbake til `false` under kryssreview mens en manglende isolert test av grønn ny head med gammel kvittering ble supplert. PR81 ble deretter godkjent, merget og deployet, begge metadataauditer bestod igjen, og køen ble reaktivert 18.11.2026. Se [akseptbevis](t42-merge-queue-evidence.md). Kontroller aktuell repo-variabel `EKKO_MERGE_QUEUE_ENABLED` for gjeldende av/på-status; dette avsnittet er historikk. Første App-merge og vellykkede produksjonsdeploy gjenstår, og task:61 holdes åpen til begge er dokumentert.
 
-**Standard og oppsettskrav:** En ny installasjon er deaktivert når `EKKO_MERGE_QUEUE_ENABLED` ikke er `true`. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før aktivering. Grenbeskyttelsen skal kreve `container build` og `test` fra App 15368 samt `agent-review` fra review-Appen, strict og administratorhåndheving. Metadataauditene må bestå. Det historiske review-akseptbeviset fra 15.11 dekker bare det opprinnelige oppsettet med to sjekker; den utvidede auditen og køaksepten er dokumentert separat i T42-beviset over. Etter godkjent kryssreview og merge av det supplerte beviset kan køen reaktiveres for kontroll av første ordinære App-merge og produksjonsdeploy.
+**Standard og oppsettskrav:** En ny installasjon er deaktivert når `EKKO_MERGE_QUEUE_ENABLED` ikke er `true`. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før aktivering. Grenbeskyttelsen skal kreve `container build` og `test` fra App 15368 samt `agent-review` fra review-Appen, strict og administratorhåndheving. Metadataauditene må bestå. Det historiske review-akseptbeviset fra 15.11 dekker bare det opprinnelige oppsettet med to sjekker; den utvidede auditen og køaksepten er dokumentert separat i T42-beviset over. Ved ny aktivering kreves godkjent kryssreview og merge av akseptbeviset før kontroll av første ordinære App-merge og produksjonsdeploy.
 
 Sett repo-variabelen `MERGE_QUEUE_BOT_SLUG` til kø-Appens eksakte slug uten `[bot]`, uten miljøoverstyringer. Review tillater denne boten i tillegg til de eksisterende. Køen verifiserer at tokenets App har samme slug før den endrer en PR. Isolert aksept må vise at akkurat denne Appens grenoppdatering starter både CI og Claude-review. Tom slug er tillatt for review før aktivering, men stopper køen.
 
@@ -293,6 +293,8 @@ jq -n --slurpfile environment /tmp/ekko-queue-environment.json \
 ```
 
 Denne auditen må bestå etter at kømiljøet er opprettet; den er ikke del av det historiske review-akseptbeviset.
+
+Vellykket fullføring av CI (både PR og main/deploy) eller Agent review execution fra eget repo vekker køen direkte. Kildehendelsen gir ingen godkjenning i seg selv; køen leser gjeldende krav, kontroller og SHA-er på nytt fra main. Cron er reserve og kan være forsinket hos GitHub.
 
 Actions-workflowen «Merge queue» skriver utfallet og PR-nummeret i kjøringssammendraget. Ved failure/conflict/review rettes PR-en i samme gren. Køen oppdaterer heller ikke røde eller ventende heads. Ved main-failure undersøkes siste CI/deploy før en ny merge. `native-auto-merge-pending` betyr at en PR med GitHubs auto-merge holder køen; også en ukvalifisert PR kan gjøre dette. Rett PR-en eller slå av dens native auto-merge.
 
@@ -361,6 +363,10 @@ After a partial deployment, inspect and restore **all three** application jobs
 Check each image and Ready condition before resuming schedules. Restoring web
 traffic alone does not repair the worker. See the evidence in
 [T10 deployment status](t10-deploy-draft.md).
+
+## Krav om tofaktor (T07-F1)
+
+Plattformadmin og partner-rådgivere må ha tofaktor (spec 5.4). Under eierens testing før lansering kan kravet slås av med `require_two_factor = false` i `production.auto.tfvars` og en Terraform-apply. Det setter `EKKO_REQUIRE_TWO_FACTOR=false` på web og jobbene. Ingen som har satt opp tofaktor, mister den. Sett verdien tilbake til `true` (standard) og kjør apply før T40. Kontroller etterpå at en plattformadmin uten tofaktor sendes til profilsiden.
 
 ## Produksjonsdomene og OAuth (T10)
 

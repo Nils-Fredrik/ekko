@@ -107,3 +107,64 @@ test('password login by a user with confirmed two-factor authentication goes thr
 
     $this->assertGuest();
 });
+
+// T07-F1: the owner can switch the requirement off while testing before launch. It is on by default.
+test('the requirement is on in the test environment', function () {
+    expect(config('ekko.require_two_factor'))->toBeTrue()
+        ->and(User::factory()->platformAdmin(false)->create()->requiresTwoFactor())->toBeTrue();
+});
+
+test('with the requirement switched off, a platform admin and a partner advisor without two-factor get in', function () {
+    config(['ekko.require_two_factor' => false]);
+    $admin = User::factory()->platformAdmin(false)->withPersonalTeam()->create();
+    $advisor = partnerAdvisor(false);
+
+    expect($admin->requiresTwoFactor())->toBeFalse()
+        ->and($advisor->requiresTwoFactor())->toBeFalse();
+    $this->actingAs($admin)->get('/dashboard')->assertOk();
+    $this->actingAs($advisor)->get('/dashboard')->assertOk();
+});
+
+test('with the requirement switched off, the API answers a partner advisor without two-factor', function () {
+    config(['ekko.require_two_factor' => false]);
+    Sanctum::actingAs(partnerAdvisor(false), ['read']);
+
+    $this->getJson('/api/user')->assertOk();
+});
+
+test('only an explicit false switches the requirement off', function (?string $value, bool $required) {
+    $previous = [$_ENV['EKKO_REQUIRE_TWO_FACTOR'] ?? null, $_SERVER['EKKO_REQUIRE_TWO_FACTOR'] ?? null];
+    try {
+        if ($value === null) {
+            unset($_ENV['EKKO_REQUIRE_TWO_FACTOR'], $_SERVER['EKKO_REQUIRE_TWO_FACTOR']);
+        } else {
+            $_ENV['EKKO_REQUIRE_TWO_FACTOR'] = $_SERVER['EKKO_REQUIRE_TWO_FACTOR'] = $value;
+        }
+
+        expect((require config_path('ekko.php'))['require_two_factor'])->toBe($required);
+    } finally {
+        foreach (['_ENV', '_SERVER'] as $index => $global) {
+            if ($previous[$index] === null) {
+                unset($GLOBALS[$global]['EKKO_REQUIRE_TWO_FACTOR']);
+            } else {
+                $GLOBALS[$global]['EKKO_REQUIRE_TWO_FACTOR'] = $previous[$index];
+            }
+        }
+    }
+})->with([
+    'not set' => [null, true],
+    'empty' => ['', true],
+    '(empty)' => ['(empty)', true],
+    'true' => ['true', true],
+    'unknown' => ['nei', true],
+    'false' => ['false', false],
+    '(false)' => ['(false)', false],
+]);
+
+test('with the requirement switched off, two-factor that is set up is still asked for at login', function () {
+    config(['ekko.require_two_factor' => false]);
+    $admin = User::factory()->platformAdmin()->withPersonalTeam()->withTwoFactor()->create();
+
+    $this->post('/login', ['email' => $admin->email, 'password' => 'password'])->assertRedirect(route('two-factor.login'));
+    $this->assertGuest();
+});
