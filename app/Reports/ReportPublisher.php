@@ -179,9 +179,8 @@ final class ReportPublisher
     {
         $schedule->loadMissing('brand');
         $current = new MetricsFilter($schedule->brand_id, $from, $to);
-        $length = CarbonImmutable::parse($from)->diffInDays(CarbonImmutable::parse($to)) + 1;
-        $previousEnd = CarbonImmutable::parse($from)->subDay();
-        $previous = new MetricsFilter($schedule->brand_id, $previousEnd->subDays((int) $length - 1), $previousEnd);
+        [$previousFrom, $previousTo] = ReportWindow::compared($schedule->cadence, $from, $to);
+        $previous = new MetricsFilter($schedule->brand_id, $previousFrom, $previousTo);
         $now = $this->metrics->summary($current);
         $then = $this->metrics->summary($previous);
 
@@ -217,17 +216,35 @@ final class ReportPublisher
         ];
     }
 
-    /** @return array{label: string, value: string, change: string} */
+    /** @return array{label: string, value: string, low: bool, change: string} */
     private function headline(string $label, Metric $current, Metric $previous, bool $rate): array
     {
+        $shown = $this->sample($current, $rate);
+
         return [
             'label' => __($label),
-            'value' => $rate ? $this->percent($current->value) : $this->number($current->value, 1),
+            'value' => $shown['text'],
+            'low' => $shown['low'],
             'change' => $this->delta($current->value, $previous->value, $rate),
         ];
     }
 
-    /** @return list<array{engine: string, visibility: string, share_of_voice: string}> */
+    /**
+     * A percentage keeps its sample size, and a small sample is faded (docs/spec.md 9).
+     *
+     * @return array{text: string, low: bool}
+     */
+    private function sample(Metric $metric, bool $rate): array
+    {
+        $value = $rate ? $this->percent($metric->value) : $this->number($metric->value, 1);
+
+        return [
+            'text' => $value.' '.__('reports.sample', ['n' => $metric->n]),
+            'low' => $metric->isLowSample(),
+        ];
+    }
+
+    /** @return list<array{engine: string, visibility: array{text: string, low: bool}, share_of_voice: array{text: string, low: bool}}> */
     private function engines(MetricsFilter $filter): array
     {
         $rows = $this->metrics->breakdown($filter, 'engine');
@@ -235,15 +252,15 @@ final class ReportPublisher
         foreach ($rows as $key => $summary) {
             $engines[] = [
                 'engine' => (string) $key,
-                'visibility' => $this->percent($summary->visibility->value),
-                'share_of_voice' => $this->percent($summary->shareOfVoice->value),
+                'visibility' => $this->sample($summary->visibility, true),
+                'share_of_voice' => $this->sample($summary->shareOfVoice, true),
             ];
         }
 
         return $engines;
     }
 
-    /** @return list<array{prompt: string, visibility: string, change: string}> */
+    /** @return list<array{prompt: string, visibility: array{text: string, low: bool}, change: string}> */
     private function prompts(MetricsFilter $current, MetricsFilter $previous): array
     {
         $now = $this->metrics->breakdown($current, 'prompt');
@@ -256,7 +273,7 @@ final class ReportPublisher
             $ranked[] = [
                 'id' => (int) $id,
                 'magnitude' => ($after !== null && $before !== null) ? abs($after - $before) : -1,
-                'visibility' => $this->percent($after),
+                'visibility' => $this->sample($summary->visibility, true),
                 'change' => $this->delta($after, $before, true),
             ];
         }
@@ -271,14 +288,14 @@ final class ReportPublisher
         ], $ranked);
     }
 
-    /** @return list<array{name: string, mentions: int, visibility: string, share_of_voice: string}> */
+    /** @return list<array{name: string, mentions: int, visibility: array{text: string, low: bool}, share_of_voice: array{text: string, low: bool}}> */
     private function competitors(MetricsFilter $filter): array
     {
         return array_map(fn (array $row): array => [
             'name' => $row['name'],
             'mentions' => $row['mentions'],
-            'visibility' => $this->percent($row['visibility']->value),
-            'share_of_voice' => $this->percent($row['share_of_voice']->value),
+            'visibility' => $this->sample($row['visibility'], true),
+            'share_of_voice' => $this->sample($row['share_of_voice'], true),
         ], $this->metrics->competitorComparison($filter));
     }
 

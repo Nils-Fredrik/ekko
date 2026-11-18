@@ -39,6 +39,7 @@ return [
     'insight_prompt' => 'Skriv två eller tre meningar på svenska (locale :locale) om utvecklingen för :brand. Siffror: :summary. Hitta inte på siffror som inte står där.',
     'empty' => 'Inga data i perioden.',
     'empty_value' => '–',
+    'sample' => 'n :n',
     'logo' => 'Logotyp',
     'logo_saved' => 'En logotyp är sparad.',
     'logo_help' => 'PNG eller JPEG, visas i PDF-rapporten.',

@@ -39,6 +39,7 @@ return [
     'insight_prompt' => 'Skriv to eller tre setninger på norsk (locale :locale) om utviklingen for :brand. Tall: :summary. Ikke finn opp tall som ikke står der.',
     'empty' => 'Ingen data i perioden.',
     'empty_value' => '–',
+    'sample' => 'n :n',
     'logo' => 'Logo',
     'logo_saved' => 'En logo er lagret.',
     'logo_help' => 'PNG eller JPEG, vist i PDF-rapporten.',

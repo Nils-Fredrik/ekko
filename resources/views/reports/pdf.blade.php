@@ -17,7 +17,7 @@
         .cards { width: 100%; }
         .cards td { width: 25%; vertical-align: top; border: 1px solid #e7e5e4; }
         .value { font-size: 16px; }
-        .muted { color: #78716c; }
+        .muted, .low { color: #a8a29e; }
     </style>
 </head>
 <body>
@@ -42,7 +42,7 @@
                     @foreach ($row as $headline)
                         <td>
                             <div class="muted">{{ $headline['label'] }}</div>
-                            <div class="value">{{ $headline['value'] }}</div>
+                            <div @class(['value', 'low' => $headline['low']])>{{ $headline['value'] }}</div>
                             <div class="muted">{{ $headline['change'] }}</div>
                         </td>
                     @endforeach

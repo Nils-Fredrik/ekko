@@ -39,6 +39,7 @@ return [
     'insight_prompt' => 'Write two or three sentences in English (locale :locale) about how :brand developed. Figures: :summary. Do not invent figures that are not listed.',
     'empty' => 'No data in the period.',
     'empty_value' => '–',
+    'sample' => 'n :n',
     'logo' => 'Logo',
     'logo_saved' => 'A logo is saved.',
     'logo_help' => 'PNG or JPEG, drawn in the PDF report.',

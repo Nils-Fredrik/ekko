@@ -14,6 +14,7 @@ use App\Models\UsageEvent;
 use App\Reports\InsightPrice;
 use App\Reports\InsightWriter;
 use App\Reports\ReportPublisher;
+use App\Reports\ReportWindow;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Illuminate\Filesystem\FilesystemAdapter;
@@ -857,6 +858,33 @@ test('a missing logo does not stop the report', function () {
 
     $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertSuccessful();
     expect(Report::query()->count())->toBe(1);
+});
+
+test('a monthly report is compared with the previous calendar month', function () {
+    expect(ReportWindow::compared('monthly', '2026-10-01', '2026-10-31'))->toBe(['2026-09-01', '2026-09-30'])
+        ->and(ReportWindow::compared('monthly', '2026-03-01', '2026-03-31'))->toBe(['2026-02-01', '2026-02-28'])
+        ->and(ReportWindow::compared('weekly', '2026-11-09', '2026-11-15'))->toBe(['2026-11-02', '2026-11-08']);
+});
+
+test('a report shows the sample size and fades a small sample', function () {
+    $world = MetricsWorld::create('UTC');
+    app(TenantContext::class)->set($world->tenant->id);
+    $schedule = ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'monthly',
+        'locale' => 'nb',
+        'recipients' => ['reports@example.test'],
+    ]);
+    app()->setLocale('nb');
+    $html = view('reports.pdf', app(ReportPublisher::class)->viewData(
+        $world->tenant,
+        $schedule,
+        '2026-10-01',
+        '2026-10-31',
+        null,
+    ))->render();
+
+    expect($html)->toContain('n 0')->toContain('class="value low"');
 });
 
 function clearReportBudget(): void

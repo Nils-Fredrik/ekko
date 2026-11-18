@@ -13,7 +13,11 @@
             @foreach ($rows as $row)
                 <tr>
                     @foreach ($row as $cell)
-                        <td>{{ $cell }}</td>
+                        @if (is_array($cell))
+                            <td @class(['low' => $cell['low'] ?? false])>{{ $cell['text'] }}</td>
+                        @else
+                            <td>{{ $cell }}</td>
+                        @endif
                     @endforeach
                 </tr>
             @endforeach
