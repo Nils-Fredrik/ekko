@@ -14,6 +14,7 @@ use App\Models\Engine;
 use App\Models\ModelChange;
 use App\Models\Prompt;
 use App\Models\Topic;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Metrics\MetricsWorld;
 
 /**
@@ -416,6 +417,64 @@ test('share of voice is split across the brand and each active competitor', func
         ->and($parts[2]['mentions'])->toBe(25);
 });
 
+test('voice parts use a fixed number of queries as active competitors grow', function () {
+    ['w' => $w] = metricsData();
+
+    foreach ([0, 8] as $additionalCompetitors) {
+        Competitor::factory()->count($additionalCompetitors)->for($w->brand)->create();
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        try {
+            $parts = service()->voiceParts(metricsFilter($w));
+            $queries = DB::getQueryLog();
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        expect($queries)->toHaveCount(2)
+            ->and($parts)->toHaveCount(3 + $additionalCompetitors)
+            ->and($parts[0]['mentions'])->toBe(28)
+            ->and($parts[0]['share'])->toBe(28 / 67)
+            ->and($parts[0]['n'])->toBe(40)
+            ->and(array_sum(array_column($parts, 'mentions')))->toBe(67);
+    }
+});
+
+test('voice parts apply the same filters to the brand and competitors', function () {
+    ['w' => $w, 'topic2' => $topic2] = metricsData();
+
+    $parts = service()->voiceParts(metricsFilter($w, [
+        'from' => '2026-11-03', 'to' => '2026-11-03',
+        'marketIds' => [$w->market->id], 'engineKeys' => [$w->engine->key],
+        'promptIds' => [$w->p2->id], 'topicIds' => [$topic2->id],
+        'intents' => ['comparison'], 'funnelStages' => ['decision'],
+    ]));
+
+    expect(array_column($parts, 'mentions'))->toBe([3, 9, 0])
+        ->and(array_column($parts, 'share'))->toBe([3 / 12, 9 / 12, 0.0])
+        ->and(array_column($parts, 'n'))->toBe([10, 10, 10]);
+});
+
+test('voice parts retain zero competitors and handle empty daily data and non-object JSON', function () {
+    ['w' => $w] = metricsData();
+    $empty = service()->voiceParts(metricsFilter($w, ['from' => '2027-01-01', 'to' => '2027-01-02']));
+    expect(array_column($empty, 'mentions'))->toBe([0, 0, 0])
+        ->and(array_column($empty, 'share'))->toBe([null, null, null])
+        ->and(array_column($empty, 'n'))->toBe([0, 0, 0]);
+
+    AggDaily::query()->update(['competitor_mentions' => '[]']);
+    $parts = service()->voiceParts(metricsFilter($w));
+    expect(array_column($parts, 'mentions'))->toBe([28, 0, 0])
+        ->and(array_column($parts, 'share'))->toBe([1.0, 0.0, 0.0])
+        ->and(array_column($parts, 'n'))->toBe([40, 40, 40]);
+
+    Competitor::query()->where('brand_id', $w->brand->id)->update(['is_active' => false]);
+    expect(service()->voiceParts(metricsFilter($w)))->toBe([
+        ['id' => 'brand', 'name' => null, 'mentions' => 28, 'share' => 1.0, 'n' => 40],
+    ]);
+});
+
 test('metrics only see the tenant in the context', function () {
     ['w' => $a] = metricsData();
     $b = MetricsWorld::create();
@@ -423,7 +482,11 @@ test('metrics only see the tenant in the context', function () {
 
     // Tenant B is in the context now: tenant A's brand has no data there.
     expect(service()->visibility(metricsFilter($a))->n)->toBe(0)
-        ->and(service()->visibility(metricsFilter($b))->n)->toBe(100);
+        ->and(service()->visibility(metricsFilter($b))->n)->toBe(100)
+        ->and(service()->voiceParts(metricsFilter($a)))->toBe([
+            ['id' => 'brand', 'name' => null, 'mentions' => 0, 'share' => null, 'n' => 0],
+        ])
+        ->and(service()->voiceParts(metricsFilter($b))[0]['mentions'])->toBe(100);
 });
 
 test('a filter that starts after it ends or has a bad date is refused', function () {
