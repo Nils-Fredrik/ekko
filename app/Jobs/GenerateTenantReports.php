@@ -17,6 +17,7 @@ use App\Reports\InsightWriter;
 use App\Reports\ReportPublisher;
 use App\Tenancy\Rls\TenantRls;
 use Carbon\CarbonImmutable;
+use Illuminate\Cache\Lock;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -41,6 +42,9 @@ class GenerateTenantReports extends TenantJob
     public function handle(TenantRls $rls, ReportPublisher $publisher, InsightWriter $insights): void
     {
         $lock = Cache::lock('reports:tenant:'.$this->tenantId, InsightWriter::CLAIM_SECONDS);
+        if (! $lock instanceof Lock) {
+            throw new RuntimeException('The report lock cannot be renewed.');
+        }
         if (! $lock->get()) {
             // Monday the 1st starts the weekly and monthly triggers together. The run that
             // already holds the lock does the work, so this one must not fail the command.
@@ -52,13 +56,13 @@ class GenerateTenantReports extends TenantJob
         }
 
         try {
-            $this->generate($rls, $publisher, $insights);
+            $this->generate($rls, $publisher, $insights, $lock);
         } finally {
             $lock->release();
         }
     }
 
-    private function generate(TenantRls $rls, ReportPublisher $publisher, InsightWriter $insights): void
+    private function generate(TenantRls $rls, ReportPublisher $publisher, InsightWriter $insights, Lock $lock): void
     {
         $now = CarbonImmutable::now('UTC');
         $tenant = Team::query()->findOrFail($this->tenantId);
@@ -68,6 +72,8 @@ class GenerateTenantReports extends TenantJob
         $failed = false;
         foreach ($due as $item) {
             try {
+                $this->hold($lock);
+                $rls->run([$this->tenantId], fn () => $publisher->claim($item));
                 $text = $this->insight($rls, $insights, $item);
             } catch (Throwable $e) {
                 report($e);
@@ -76,6 +82,7 @@ class GenerateTenantReports extends TenantJob
                 continue;
             }
             try {
+                $this->hold($lock);
                 /** @var array{path: string, data: array<string, mixed>} $document */
                 $document = $rls->run([$this->tenantId], fn (): array => $publisher->document($tenant, $item, $text));
                 $publisher->write($document['path'], $document['data'], $item->locale);
@@ -90,6 +97,7 @@ class GenerateTenantReports extends TenantJob
         $unsent = $rls->run([$this->tenantId], fn (): array => $publisher->unsent($tenant, $now));
         foreach ($unsent as $report) {
             try {
+                $this->hold($lock);
                 $this->send($rls, $report);
             } catch (Throwable $e) {
                 report($e);
@@ -97,10 +105,17 @@ class GenerateTenantReports extends TenantJob
             }
         }
 
-        // The paid insight stays on disk. A failed render must fail the command so the
-        // same period is retried, instead of waiting until the next week selects another one.
+        // Cloud Run does not retry the task. Failing the command records the attempt.
+        // The next scheduled run finishes periods that were started but not stored or fully sent.
         if ($failed) {
             throw new RuntimeException('A report could not be finished.');
+        }
+    }
+
+    private function hold(Lock $lock): void
+    {
+        if (! $lock->refresh(InsightWriter::CLAIM_SECONDS)) {
+            throw new RuntimeException('The tenant report lock could not be renewed.');
         }
     }
 
@@ -114,7 +129,8 @@ class GenerateTenantReports extends TenantJob
         $path = 'reports/'.$this->tenantId.'/'.$item->scheduleId.'-'.$item->from.'.insight.json';
         $saved = $insights->remembered($disk, $path);
         if ($saved !== null) {
-            $rls->run([$this->tenantId], function () use ($insights, $item, $saved): void {
+            $booked = false;
+            $rls->run([$this->tenantId], function () use ($insights, $item, $saved, &$booked): void {
                 $cycle = explode(':', $saved['operation'])[2] ?? '';
                 $allocation = AnthropicInsightAllocation::query()
                     ->where('brand_id', $item->brandId)
@@ -122,9 +138,16 @@ class GenerateTenantReports extends TenantJob
                     ->first();
                 if ($allocation instanceof AnthropicInsightAllocation) {
                     $insights->bookStored($saved['operation'], $saved['cost'], $allocation->id);
+                    $booked = true;
                 }
             });
-            $insights->settleBooked($saved['operation'], $saved['cost'], $saved['overage']);
+            if ($booked) {
+                $insights->settleBooked($saved['operation'], $saved['cost'], $saved['overage']);
+            } else {
+                Log::warning('Insight draft was kept but the allocation is gone, so it was not settled.', [
+                    'operation' => $saved['operation'],
+                ]);
+            }
 
             return $saved['text'] !== '' ? $saved['text'] : null;
         }
@@ -199,9 +222,11 @@ class GenerateTenantReports extends TenantJob
         }
         $path = $report->pdf_uri;
         $disk = config()->string('ekko.reports.disk');
-        $pdf = is_string($path) ? Storage::disk($disk)->get($path) : null;
+        $pdf = is_string($path) && $path !== '' && Storage::disk($disk)->exists($path)
+            ? Storage::disk($disk)->get($path)
+            : null;
         if (! is_string($pdf) || $pdf === '') {
-            return;
+            throw new RuntimeException('The stored report PDF could not be read.');
         }
 
         $brand = $schedule->brand;
@@ -210,6 +235,8 @@ class GenerateTenantReports extends TenantJob
             fn (string $recipient): bool => $recipient !== '',
         ));
         if ($recipients === []) {
+            report(new RuntimeException('The report has no recipients.'));
+
             return;
         }
 

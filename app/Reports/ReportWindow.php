@@ -27,4 +27,24 @@ final class ReportWindow
 
         return [$start->toDateString(), $start->addDays(6)->toDateString()];
     }
+
+    /**
+     * Completed periods a later run may still finish, newest first.
+     * Four weeks and two months cover the next scheduled trigger after a failed one.
+     *
+     * @return list<array{0: string, 1: string}>
+     */
+    public static function recent(string $cadence, DateTimeZone $timezone, CarbonImmutable $now): array
+    {
+        $limit = $cadence === 'monthly' ? 2 : 4;
+        $windows = [];
+        $cursor = $now;
+        for ($i = 0; $i < $limit; $i++) {
+            $window = self::previous($cadence, $timezone, $cursor);
+            $windows[] = $window;
+            $cursor = CarbonImmutable::parse($window[0], $timezone)->startOfDay();
+        }
+
+        return $windows;
+    }
 }

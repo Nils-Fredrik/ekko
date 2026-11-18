@@ -27,31 +27,42 @@ final class ReportPublisher
         $timezone = $this->timezone($tenant);
         $due = [];
         foreach (ReportSchedule::query()->orderBy('id')->get() as $schedule) {
-            [$from, $to] = ReportWindow::previous($schedule->cadence, $timezone, $now);
-            $exists = Report::query()
-                ->where('report_schedule_id', $schedule->id)
-                ->whereDate('period_start', $from)
-                ->whereDate('period_end', $to)
-                ->exists();
-            if ($exists) {
-                continue;
+            $windows = ReportWindow::recent($schedule->cadence, $timezone, $now);
+            $open = [];
+            foreach ($windows as $index => [$from, $to]) {
+                $report = Report::query()
+                    ->where('report_schedule_id', $schedule->id)
+                    ->whereDate('period_start', $from)
+                    ->whereDate('period_end', $to)
+                    ->first();
+                $stored = $report instanceof Report && is_string($report->pdf_uri) && $report->pdf_uri !== '';
+                if ($stored) {
+                    continue;
+                }
+                // Only the latest period starts by itself. An older one is retried after a failed attempt stored a row.
+                if ($index > 0 && ! $report instanceof Report) {
+                    continue;
+                }
+                $open[] = [$from, $to];
             }
-            $filter = new MetricsFilter($schedule->brand_id, $from, $to);
-            $summary = $this->metrics->summary($filter);
-            $due[] = new DueReport(
-                $schedule->id,
-                $schedule->brand_id,
-                $schedule->cadence,
-                $schedule->locale,
-                $schedule->recipients,
-                $from,
-                $to,
-                [
-                    'responses' => $summary->responses,
-                    'visibility' => $summary->visibility->value,
-                    'share_of_voice' => $summary->shareOfVoice->value,
-                ],
-            );
+            foreach (array_reverse($open) as [$from, $to]) {
+                $filter = new MetricsFilter($schedule->brand_id, $from, $to);
+                $summary = $this->metrics->summary($filter);
+                $due[] = new DueReport(
+                    $schedule->id,
+                    $schedule->brand_id,
+                    $schedule->cadence,
+                    $schedule->locale,
+                    $schedule->recipients,
+                    $from,
+                    $to,
+                    [
+                        'responses' => $summary->responses,
+                        'visibility' => $summary->visibility->value,
+                        'share_of_voice' => $summary->shareOfVoice->value,
+                    ],
+                );
+            }
         }
 
         return $due;
@@ -94,15 +105,46 @@ final class ReportPublisher
         }
     }
 
+    /** Marks the period as started so a later run retries it when the PDF is still missing. */
+    public function claim(DueReport $due): Report
+    {
+        $existing = $this->find($due);
+        if ($existing instanceof Report) {
+            return $existing;
+        }
+
+        return ReportSchedule::query()->findOrFail($due->scheduleId)->reports()->create([
+            'period_start' => $due->from,
+            'period_end' => $due->to,
+            'pdf_uri' => null,
+        ]);
+    }
+
     public function record(DueReport $due, string $path): Report
     {
-        $schedule = ReportSchedule::query()->findOrFail($due->scheduleId);
+        $existing = $this->find($due);
+        if ($existing instanceof Report) {
+            $existing->forceFill(['pdf_uri' => $path])->save();
 
-        return $schedule->reports()->create([
+            return $existing;
+        }
+
+        return ReportSchedule::query()->findOrFail($due->scheduleId)->reports()->create([
             'period_start' => $due->from,
             'period_end' => $due->to,
             'pdf_uri' => $path,
         ]);
+    }
+
+    private function find(DueReport $due): ?Report
+    {
+        $report = Report::query()
+            ->where('report_schedule_id', $due->scheduleId)
+            ->whereDate('period_start', $due->from)
+            ->whereDate('period_end', $due->to)
+            ->first();
+
+        return $report instanceof Report ? $report : null;
     }
 
     /** @return list<Report> */
@@ -111,15 +153,18 @@ final class ReportPublisher
         $timezone = $this->timezone($tenant);
         $reports = [];
         foreach (ReportSchedule::query()->orderBy('id')->get() as $schedule) {
-            [$from, $to] = ReportWindow::previous($schedule->cadence, $timezone, $now);
-            $report = Report::query()
+            $windows = ReportWindow::recent($schedule->cadence, $timezone, $now);
+            $oldest = $windows[array_key_last($windows)][0];
+            $pending = Report::query()
                 ->with('reportSchedule.brand')
                 ->where('report_schedule_id', $schedule->id)
-                ->whereDate('period_start', $from)
-                ->whereDate('period_end', $to)
+                ->whereNotNull('pdf_uri')
+                ->where('pdf_uri', '!=', '')
                 ->whereNull('sent_at')
-                ->first();
-            if ($report instanceof Report) {
+                ->whereDate('period_end', '>=', $oldest)
+                ->orderBy('period_start')
+                ->get();
+            foreach ($pending as $report) {
                 $reports[] = $report;
             }
         }

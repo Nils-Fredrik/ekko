@@ -172,7 +172,7 @@ test('a failed pdf render does not spend the insight allocation again', function
     });
 
     $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertFailed();
-    expect(Report::query()->count())->toBe(0)
+    expect(Report::query()->sole()->pdf_uri)->toBeNull()
         ->and(AnthropicInsightAllocation::query()->sole()->consumed_at)->not->toBeNull();
     Http::assertSent(fn ($request): bool => str_contains((string) data_get($request->data(), 'messages.0.content'), 'på svenska'));
 
@@ -316,7 +316,7 @@ test('a report waits when another run already owns the insight claim', function 
     expect($admission)->not->toBeNull();
 
     $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertFailed();
-    expect(Report::query()->pluck('report_schedule_id')->all())->toBe([$weekly->id]);
+    expect(Report::query()->whereNotNull('pdf_uri')->pluck('report_schedule_id')->all())->toBe([$weekly->id]);
     Http::assertNothingSent();
 
     Storage::disk(config()->string('ekko.reports.disk'))->put(
@@ -485,6 +485,95 @@ test('a failed recipient is skipped on the next delivery', function () {
         return $recipient === null ? '' : $recipient->getAddress();
     })->all();
     expect($addresses)->toBe(['one@example.test', 'two@example.test']);
+});
+
+test('a failed render is stored on the next scheduled run', function () {
+    Storage::fake(config()->string('ekko.reports.disk'));
+    Mail::fake();
+    config(['services.anthropic.key' => '']);
+    Pdf::swap(new class extends FakePdfBuilder
+    {
+        public int $saves = 0;
+
+        public function save(string $path): self
+        {
+            $this->saves++;
+            if ($this->saves === 1) {
+                throw new RuntimeException('render failed');
+            }
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, '%PDF-fake');
+
+            return $this;
+        }
+    });
+    $this->travelTo('2026-11-17 12:00:00');
+    $world = MetricsWorld::create('UTC');
+    app(TenantContext::class)->set($world->tenant->id);
+    ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'weekly',
+        'locale' => 'nb',
+        'recipients' => ['week@example.test'],
+    ]);
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertFailed();
+    expect(Report::query()->sole()->pdf_uri)->toBeNull();
+
+    $this->travelTo('2026-11-24 12:00:00');
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertSuccessful();
+    expect(Report::query()->orderBy('period_start')->pluck('pdf_uri')->all())->each->not->toBeNull()
+        ->and(Report::query()->count())->toBe(2);
+});
+
+test('a failed recipient is delivered on the next scheduled run', function () {
+    Storage::fake(config()->string('ekko.reports.disk'));
+    config(['services.anthropic.key' => '']);
+    Pdf::swap(new class extends FakePdfBuilder
+    {
+        public function save(string $path): self
+        {
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, '%PDF-fake');
+
+            return $this;
+        }
+    });
+    $this->travelTo('2026-11-17 12:00:00');
+    $world = MetricsWorld::create('UTC');
+    app(TenantContext::class)->set($world->tenant->id);
+    ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'weekly',
+        'locale' => 'nb',
+        'recipients' => ['one@example.test', 'two@example.test'],
+    ]);
+    $failSecond = true;
+    $seen = 0;
+    Event::listen(MessageSending::class, function () use (&$seen, &$failSecond): void {
+        $seen++;
+        if ($failSecond && $seen === 2) {
+            throw new RuntimeException('second recipient failed');
+        }
+    });
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertFailed();
+    $first = Report::query()->sole();
+    expect($first->sent_to)->toBe(['one@example.test'])->and($first->sent_at)->toBeNull();
+
+    $failSecond = false;
+    $this->travelTo('2026-11-24 12:00:00');
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertSuccessful();
+
+    expect($first->fresh()->sent_to)->toBe(['one@example.test', 'two@example.test'])
+        ->and($first->fresh()->sent_at)->not->toBeNull()
+        ->and(Report::query()->count())->toBe(2);
+    $transport = Mail::mailer()->getSymfonyTransport();
+    expect($transport)->toBeInstanceOf(ArrayTransport::class);
+    $addresses = $transport->messages()->map(function ($message): string {
+        $recipient = $message->getEnvelope()->getRecipients()[0] ?? null;
+
+        return $recipient === null ? '' : $recipient->getAddress();
+    })->all();
+    expect($addresses)->toBe(['one@example.test', 'two@example.test', 'one@example.test', 'two@example.test']);
 });
 
 test('a missing insight draft is absent instead of a storage error', function () {
