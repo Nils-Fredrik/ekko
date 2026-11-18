@@ -313,6 +313,8 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
 | `usage-rollup` | hver time, via `ekko-task` | `ekko:usage-rollup` og kvotekontroll |
 
+**Avgrenset aktivering:** Terraform-bryteren `enable_dashboard_schedules` aktiverer `extraction-poll`, `aggregate` og `usage-rollup` uten å aktivere øvrige schedules. Polling kan gjenoppta allerede kølagt innsamling og sende inn betalte uttrekk, men planlegger ikke nye daglige kjøringer. Begge brytere er av som standard; `enable_schedules` aktiverer alle ordinære schedules. Aktivering krever eierens godkjenning og verifisering etter [runbook](runbook.md#automatisk-behandling-av-innsamlede-svar).
+
 **Fordeling over uka:** Ved ukentlig frekvens kjøres et prompt på ukedagen `crc32(prompt_id) % 7`. Ved månedlig frekvens kjøres det på dag `crc32(prompt_id) % 28 + 1`. Prompts med `priority = core` kan ha høyere frekvens enn resten av markedet, begrenset av pakken. Dette gir jevn belastning og jevn kostnad.
 
 Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-autentisering står i [ADR 0020](decisions/0020-dispatch-og-worker.md). Køoppgaver som fortsatt venter seks timer etter den ene nye innsendingen, avsluttes som feilet. Produksjonsstart verifiseres med T10 etter bootstrap. [ADR 0030](decisions/0030-avgrenset-worker-start.md) avgrenser web til en fast poll-jobb og håndhever connector/TLS for Cloud SQL. Et vellykket `extraction-poll`-kall bekrefter oppstart/allerede aktiv dispatcher; senere jobbfeil varsles av T36.

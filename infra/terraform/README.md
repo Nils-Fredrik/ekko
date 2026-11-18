@@ -7,7 +7,7 @@ Identity Federation is defined in `deploy.tf`. The deployment workflow runs on
 push to `main` when `EKKO_DEPLOY_ENABLED=true`; this repository variable is now
 enabled after the documented public acceptance checks. The first automatic
 main deployment is verified after the owner's merge of T10. Collection schedules
-remain paused independently. T36 monitoring is enabled separately from collection schedules; see `docs/runbook.md`. No Terraform resource should
+remain paused independently. `enable_dashboard_schedules=true` enables only extraction polling, hourly aggregation and hourly usage rollup. It does not schedule new daily collection, reports, alerts, integration sync or tenant deletion. Polling can resume collection work already queued and submits billable extraction batches, so it still requires the owner's authorization. The global `enable_schedules` flag enables all collection schedules, including these three. T36 monitoring is enabled separately from collection schedules; see `docs/runbook.md`. No Terraform resource should
 ever contain a secret value.
 
 ## Bootstrap and prerequisites

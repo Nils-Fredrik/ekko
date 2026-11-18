@@ -51,6 +51,12 @@ variable "enable_schedules" {
   default     = false
 }
 
+variable "enable_dashboard_schedules" {
+  description = "Enable extraction polling, aggregation and usage rollup independently of daily collection and other schedules. Polling also resumes already queued collection work."
+  type        = bool
+  default     = false
+}
+
 variable "app_db_user" {
   description = "Database role without BYPASSRLS, created outside Terraform."
   type        = string
