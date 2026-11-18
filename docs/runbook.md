@@ -275,7 +275,9 @@ Claude CLI 2.1.325 ble også testet med syntetiske filer: repo-lesing virket, me
 
 ### Drift og stopp av mergekøen (T42, task:61)
 
-Køen er av som standard. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før `EKKO_MERGE_QUEUE_ENABLED=true`. Utvid først grenbeskyttelsen med `container build` fra App 15368, behold `test`, `agent-review`, strict og administratorhåndheving, og kjør metadataauditen over. Aksepten fra 15.11 beviser bare det opprinnelige oppsettet med to sjekker; den er ikke bevis for den utvidede auditen eller aktiv mergekø.
+**Registrert driftsstatus:** Køen ble kortvarig aktivert 17.11.2026. Første kjøring stoppet korrekt ved reviewfeil i PR #74, uten å endre noen PR. Den ble satt tilbake til `false` under kryssreview mens en manglende isolert test av grønn ny head med gammel kvittering ble supplert. Se [akseptbevis](t42-merge-queue-evidence.md). Kontroller aktuell repo-variabel `EKKO_MERGE_QUEUE_ENABLED` for gjeldende av/på-status; dette avsnittet er historikk. Første App-merge og vellykkede produksjonsdeploy gjenstår, og task:61 holdes åpen til begge er dokumentert.
+
+**Standard og oppsettskrav:** En ny installasjon er deaktivert når `EKKO_MERGE_QUEUE_ENABLED` ikke er `true`. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før aktivering. Grenbeskyttelsen skal kreve `container build` og `test` fra App 15368 samt `agent-review` fra review-Appen, strict og administratorhåndheving. Metadataauditene må bestå. Det historiske review-akseptbeviset fra 15.11 dekker bare det opprinnelige oppsettet med to sjekker; den utvidede auditen og køaksepten er dokumentert separat i T42-beviset over. Etter godkjent kryssreview og merge av det supplerte beviset kan køen reaktiveres for kontroll av første ordinære App-merge og produksjonsdeploy.
 
 Sett repo-variabelen `MERGE_QUEUE_BOT_SLUG` til kø-Appens eksakte slug uten `[bot]`, uten miljøoverstyringer. Review tillater denne boten i tillegg til de eksisterende. Køen verifiserer at tokenets App har samme slug før den endrer en PR. Isolert aksept må vise at akkurat denne Appens grenoppdatering starter både CI og Claude-review. Tom slug er tillatt for review før aktivering, men stopper køen.
 
@@ -440,3 +442,21 @@ CLI-oppgaver; legg ikke til autoriserte offentlige IP-nettverk. Legg SQL-endring
 utenfor aktive datalastinger og ytelsesmålinger. Kontroller appens `/up`, en
 ordinær deploy-røyktest og helsekontrolljobben etter endringen. Ikke tilbakefør
 transportkravene for å få en direkte, ukryptert klient til å virke.
+
+## T39-F9: workflow-tillit
+
+Alle eksterne Actions er pinnet til commit-SHA. Ved oppdatering: slå opp taggen
+hos action-eieren, gjennomgå commit/endringer og oppdater SHA og versjonskommentar
+sammen. CI tester at ingen eksterne actions bruker flytende tags.
+
+Automatisk review støtter bare PR-er fra eget repo med OWNER/MEMBER/COLLABORATOR
+som forfatter. En fork-PR eller ubekreftet forfatter gir ikke adgang til betalt
+review. `@claude` krever en betrodd omtale og sjekker PR-ens repo via GitHub API.
+Beskrivelsesendringer skal ikke kansellere en pågående review; kode, tittel og
+base krever fortsatt ny vurdering. Ved teknisk feil kan source-request kjøres
+på nytt når årsaken er rettet. Ikke omgå SHA- eller reviewer-kontrollene.
+
+WIF ble kontrollert mot live provider etter T10 den 17.11.2026: bare `push` på
+`refs/heads/main` fra riktig repo-/eier-ID og `.github/workflows/ci.yml@refs/heads/main`
+kan deploye. Se ADR 0031 og `infra/terraform/deploy.tf` før workflow-navn eller
+repo endres. Denne oppgaven utvider ingen IAM-rettigheter.

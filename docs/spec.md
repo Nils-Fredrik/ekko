@@ -869,7 +869,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - Råsvar slettes etter 400 dager.
   - Aggregater beholdes så lenge tenanten er aktiv.
   - Ved stenging av en tenant slettes alle data etter 30 dager, med mulighet for eksport (CSV og JSON) før sletting.
-    - «Slett tenant» stenger tenanten (status `closed`, `closed_at`) og krever nylig bekreftet passord. Alle mister tilgang med en gang.
+    - «Slett tenant» stenger tenanten (status `closed`, `closed_at`) og krever nylig bekreftet passord. Alle mister tilgang med en gang. Plattformadmin stenger også fra `Admin/Tenants` med samme passordkrav. En stengt tenant kan ikke settes tilbake til `active` eller `paused`.
     - `ekko:purge-closed-tenants` (daglig, Cloud Scheduler) sletter tenanten 30 dager etter `closed_at`, først alle versjoner av råsvarene i GCS under `{tenantId}/` og så databasen. Tenantens revisjonslogg følger med, så selve slettingen logges i applikasjonsloggen (`tenant.purged`).
     - En tenant som ble stengt før `closed_at` fantes, slettes ikke automatisk (T39-F6).
     - Køede innsamlinger for en stengt tenant stoppes før kallet til motoren (`error_code` `tenant_closed`), slik at stengingen ikke gir nye kostnader.
@@ -1094,6 +1094,8 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 **Følsomme endringer:** PR-er som endrer filer under tenant-isolasjon, innlogging, roller og policies, MCP, egne API-nøkler, hemmeligheter eller `infra/` får alltid review fra både Claude Opus 5.5 og Codex (ønsket GPT-6.1 Sol; se modellbegrensning under), uansett forfatter. Hvilke stier som regnes som følsomme, defineres i `.github/review-paths.yml`.
 
 **Modellbegrensning i Codex-integrasjonen (verifisert 15.11.2026):** GPT-6.1 Sol er ønsket reviewer-modell, men repoets Codex-innstillinger tilbyr ikke modellvalg, og GitHub-kvitteringen oppgir ikke modellidentitet. Aktiveringen bruker derfor integrasjonens leverandørstyrte modell med verifisert bot-identitet, aktuell head-SHA og fersk kvittering. Dette er et dokumentert avvik fra modellkravet over, ikke bevis på GPT-6.1 Sol. Hvis modellvalg eller pålitelig modellmetadata blir tilgjengelig, skal ønsket modell velges og verifiseres.
+
+**Workflow-tillit (T39-F9, ADR 0031):** Eksterne Actions pinnes til full commit-SHA. Automatisk review krever head og base i eget repo og PR-forfatter med OWNER, MEMBER eller COLLABORATOR, kontrollert før credentials og igjen ved PR-lesing. Interaktive `@claude`-omtaler krever en betrodd omtale-forfatter og samme repo for PR-grenene. Bare vellykkede review-forespørsler deler kanselleringsgruppe per PR; hoppet-over metadatahendelser får egen gruppe og avbryter ikke pågående review. WIF for deploy er avgrenset til repo-/eier-ID, `push` på `main` og repoets `ci.yml`.
 
 **Workflows:** `.github/workflows/agent-review.yml` setter pending når en PR åpnes eller oppdateres (`pull_request_target`). `.github/workflows/agent-review-execute.yml` fortsetter på `workflow_run` fra betrodd main, etter kontroll av kildekjøring og workflow-ID/sti. PR-head må fortsatt tilhøre forespørselen; en nyere main før oppstart fanges som ny base og reviewes på nytt (ADR 0022 og 0027). Dette unngår Anthropics observerte OIDC-feil på pull_request_target; PR-kode og kilde-artifacts kjøres aldri. Reviewet:
 1. Leser merkelappen i PR-tittelen og de endrede filene.
@@ -1345,7 +1347,7 @@ Syntetisk datasett (ett år, 100 prompts, 6 motorer, 3 gjentakelser) og måling 
 
 ### T38 – Språkfiler
 Komplette `sv`- og `en`-filer.
-- Ingen manglende nøkler (automatisk kontroll i CI).
+- Ingen manglende nøkler (automatisk kontroll i CI). `tests/Unit/LanguageFilesTest.php` krever samme filer, nøkler og plassholdere i `nb`, `sv` og `en`, og at nøkler brukt i PHP-koden finnes i alle tre. `tests/Unit/TranslationCoverageTest.php` gjør det samme for frontend (T38-F1).
 
 ### T39 – Sikkerhetsgjennomgang
 Gjennomgang av isolasjon, RLS, roller, innlogging, egne API-nøkler, SSRF, MCP-tilganger, hemmeligheter og logger.
@@ -1384,6 +1386,7 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 - Før merge kreves oppdatert base, autentisk reviewkvittering for head og base, kildebundne påkrevde test/container build/agent-review og ny kontroll av SHA-er og tittel. Konflikt, manglende data og samtidige endringer blokkerer.
 - Gjeldende main må ha vellykket CI og deploy før neste endring. Native auto-merge går uavhengig av køen; stoppknappen påvirker ikke allerede aktiverte native auto-merges.
 - Før generell aktivering: verifiser App-/miljøsperre, to parallelle PR-er, ny head/base, konflikt, rød CI/review, native auto-merge og at merge utløser CI og syntetisk deploy i et isolert testrepo. Dokumenter bevis på task:61; kode-merge alene lukker ikke aktiveringsaksepten.
+- Isolert live aksept er dokumentert i [akseptbeviset](t42-merge-queue-evidence.md), inkludert grønn ny head med kvittering for forrige head. Første produksjonskjøring 17.11.2026 stoppet ved PR-feil uten merge; køen er midlertidig av under kryssreview av beviset. Første App-merge og påfølgende vellykkede produksjonsdeploy gjenstår. Task:61 holdes åpen til dette er verifisert og dokumentert etter ADR 0026 punkt 5.
 
 ---
 

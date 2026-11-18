@@ -60,7 +60,7 @@ return [
         'choose' => 'Välj :name',
         'create' => 'Skapa :name',
         'delete' => 'Ta bort :name',
-        'duplicate' => 'Dubblett: namn',
+        'duplicate' => 'Dubblett av :name',
         'edit' => 'Redigera :name',
         'export' => 'Export :name',
         'hide' => 'Göm :name',

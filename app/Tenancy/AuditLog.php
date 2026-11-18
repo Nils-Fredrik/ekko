@@ -74,6 +74,22 @@ final class AuditLog
         $this->record($tenant, 'tenant.renamed', $by, null, ['from' => $from, 'to' => $tenant->name]);
     }
 
+    /**
+     * @param  array{plan_id: int|null, partner_team_id: int|null, status: string, monthly_call_quota_override: int|null}  $from
+     */
+    public function tenantSettingsChanged(User $by, Team $tenant, array $from): void
+    {
+        $this->record($tenant, 'tenant.settings_changed', $by, null, [
+            'from' => $from,
+            'to' => [
+                'plan_id' => $tenant->plan_id,
+                'partner_team_id' => $tenant->partner_team_id,
+                'status' => $tenant->status->value,
+                'monthly_call_quota_override' => $tenant->monthly_call_quota_override,
+            ],
+        ]);
+    }
+
     /** Closing starts the 30 days before the tenant and its data are deleted (docs/spec.md 16). */
     public function tenantClosed(User $by, Team $tenant): void
     {

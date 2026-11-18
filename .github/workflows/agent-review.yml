@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
     request:
-        if: github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.title || github.event.changes.base)
+        if: github.event.pull_request.head.repo.full_name == github.repository && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) && github.event.pull_request.draft == false && (github.event.action != 'edited' || github.event.changes.title || github.event.changes.base)
         environment: agent-review
         runs-on: ubuntu-latest
         permissions:
