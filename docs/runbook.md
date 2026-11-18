@@ -275,9 +275,9 @@ Claude CLI 2.1.325 ble også testet med syntetiske filer: repo-lesing virket, me
 
 ### Drift og stopp av mergekøen (T42, task:61)
 
-**Registrert driftsstatus:** Køen ble kortvarig aktivert 17.11.2026. Første kjøring stoppet korrekt ved reviewfeil i PR #74, uten å endre noen PR. Den ble satt tilbake til `false` under kryssreview mens en manglende isolert test av grønn ny head med gammel kvittering ble supplert. Se [akseptbevis](t42-merge-queue-evidence.md). Kontroller aktuell repo-variabel `EKKO_MERGE_QUEUE_ENABLED` for gjeldende av/på-status; dette avsnittet er historikk. Første App-merge og vellykkede produksjonsdeploy gjenstår, og task:61 holdes åpen til begge er dokumentert.
+**Registrert driftsstatus:** Køen ble kortvarig aktivert 17.11.2026. Første kjøring stoppet korrekt ved reviewfeil i PR #74, uten å endre noen PR. Den ble satt tilbake til `false` under kryssreview mens en manglende isolert test av grønn ny head med gammel kvittering ble supplert. PR81 ble deretter godkjent, merget og deployet, begge metadataauditer bestod igjen, og køen ble reaktivert 18.11.2026. Se [akseptbevis](t42-merge-queue-evidence.md). Kontroller aktuell repo-variabel `EKKO_MERGE_QUEUE_ENABLED` for gjeldende av/på-status; dette avsnittet er historikk. Første App-merge og vellykkede produksjonsdeploy gjenstår, og task:61 holdes åpen til begge er dokumentert.
 
-**Standard og oppsettskrav:** En ny installasjon er deaktivert når `EKKO_MERGE_QUEUE_ENABLED` ikke er `true`. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før aktivering. Grenbeskyttelsen skal kreve `container build` og `test` fra App 15368 samt `agent-review` fra review-Appen, strict og administratorhåndheving. Metadataauditene må bestå. Det historiske review-akseptbeviset fra 15.11 dekker bare det opprinnelige oppsettet med to sjekker; den utvidede auditen og køaksepten er dokumentert separat i T42-beviset over. Etter godkjent kryssreview og merge av det supplerte beviset kan køen reaktiveres for kontroll av første ordinære App-merge og produksjonsdeploy.
+**Standard og oppsettskrav:** En ny installasjon er deaktivert når `EKKO_MERGE_QUEUE_ENABLED` ikke er `true`. Følg [ADR 0026](decisions/0026-automatisk-mergeko.md) for App, main-avgrenset miljø, tillatte forfattere og isolert aksept før aktivering. Grenbeskyttelsen skal kreve `container build` og `test` fra App 15368 samt `agent-review` fra review-Appen, strict og administratorhåndheving. Metadataauditene må bestå. Det historiske review-akseptbeviset fra 15.11 dekker bare det opprinnelige oppsettet med to sjekker; den utvidede auditen og køaksepten er dokumentert separat i T42-beviset over. Ved ny aktivering kreves godkjent kryssreview og merge av akseptbeviset før kontroll av første ordinære App-merge og produksjonsdeploy.
 
 Sett repo-variabelen `MERGE_QUEUE_BOT_SLUG` til kø-Appens eksakte slug uten `[bot]`, uten miljøoverstyringer. Review tillater denne boten i tillegg til de eksisterende. Køen verifiserer at tokenets App har samme slug før den endrer en PR. Isolert aksept må vise at akkurat denne Appens grenoppdatering starter både CI og Claude-review. Tom slug er tillatt for review før aktivering, men stopper køen.
 
@@ -293,6 +293,8 @@ jq -n --slurpfile environment /tmp/ekko-queue-environment.json \
 ```
 
 Denne auditen må bestå etter at kømiljøet er opprettet; den er ikke del av det historiske review-akseptbeviset.
+
+Vellykket fullføring av CI (både PR og main/deploy) eller Agent review execution fra eget repo vekker køen direkte. Kildehendelsen gir ingen godkjenning i seg selv; køen leser gjeldende krav, kontroller og SHA-er på nytt fra main. Cron er reserve og kan være forsinket hos GitHub.
 
 Actions-workflowen «Merge queue» skriver utfallet og PR-nummeret i kjøringssammendraget. Ved failure/conflict/review rettes PR-en i samme gren. Køen oppdaterer heller ikke røde eller ventende heads. Ved main-failure undersøkes siste CI/deploy før en ny merge. `native-auto-merge-pending` betyr at en PR med GitHubs auto-merge holder køen; også en ukvalifisert PR kan gjøre dette. Rett PR-en eller slå av dens native auto-merge.
 

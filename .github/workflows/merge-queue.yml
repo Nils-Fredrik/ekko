@@ -3,6 +3,9 @@ name: Merge queue
 on:
     push:
         branches: [main]
+    workflow_run:
+        workflows: [CI, Agent review execution]
+        types: [completed]
     schedule:
         - cron: '*/5 * * * *'
     workflow_dispatch:
@@ -10,14 +13,19 @@ on:
 permissions:
     contents: read
 
-# A queued event may replace another pending event; the periodic run recovers it.
+# Ignored completion events must not replace a pending reconciliation.
+# Eligible events still share one queue; cron recovers dropped/delayed events.
 concurrency:
-    group: ekko-merge-queue
+    group: ${{ (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_repository.full_name == github.repository)) && 'ekko-merge-queue' || format('ekko-merge-queue-ignored-{0}', github.run_id) }}
     cancel-in-progress: false
 
 jobs:
     reconcile:
-        if: github.ref == 'refs/heads/main' && vars.EKKO_MERGE_QUEUE_ENABLED == 'true'
+        if: >-
+            github.ref == 'refs/heads/main' && vars.EKKO_MERGE_QUEUE_ENABLED == 'true' &&
+            (github.event_name != 'workflow_run' ||
+             (github.event.workflow_run.conclusion == 'success' &&
+              github.event.workflow_run.head_repository.full_name == github.repository))
         environment: merge-queue
         runs-on: ubuntu-latest
         timeout-minutes: 5
