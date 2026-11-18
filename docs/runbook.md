@@ -364,6 +364,10 @@ Check each image and Ready condition before resuming schedules. Restoring web
 traffic alone does not repair the worker. See the evidence in
 [T10 deployment status](t10-deploy-draft.md).
 
+## Krav om tofaktor (T07-F1)
+
+Plattformadmin og partner-rådgivere må ha tofaktor (spec 5.4). Under eierens testing før lansering kan kravet slås av med `require_two_factor = false` i `production.auto.tfvars` og en Terraform-apply. Det setter `EKKO_REQUIRE_TWO_FACTOR=false` på web og jobbene. Ingen som har satt opp tofaktor, mister den. Sett verdien tilbake til `true` (standard) og kjør apply før T40. Kontroller etterpå at en plattformadmin uten tofaktor sendes til profilsiden.
+
 ## Produksjonsdomene og OAuth (T10)
 
 Kanonisk URL er `https://ekko.maksimer.com`; Google-callback er `/auth/google/callback` på samme vert. Terraform klargjør IP, DNS-autorisert sertifikat og global ekstern lastbalanserer, med HTTP→HTTPS og TLS ≥1.2. DNS-postene og kontrollert bootstrapstatus står i [T10-status](t10-deploy-draft.md); oppsett og OAuth-prosedyre står i [Terraform-README](../infra/terraform/README.md).
