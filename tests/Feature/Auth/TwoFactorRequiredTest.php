@@ -109,7 +109,7 @@ test('password login by a user with confirmed two-factor authentication goes thr
 });
 
 // T07-F1: the owner can switch the requirement off while testing before launch. It is on by default.
-test('the requirement is on unless switched off', function () {
+test('the requirement is on in the test environment', function () {
     expect(config('ekko.require_two_factor'))->toBeTrue()
         ->and(User::factory()->platformAdmin(false)->create()->requiresTwoFactor())->toBeTrue();
 });
@@ -124,6 +124,42 @@ test('with the requirement switched off, a platform admin and a partner advisor 
     $this->actingAs($admin)->get('/dashboard')->assertOk();
     $this->actingAs($advisor)->get('/dashboard')->assertOk();
 });
+
+test('with the requirement switched off, the API answers a partner advisor without two-factor', function () {
+    config(['ekko.require_two_factor' => false]);
+    Sanctum::actingAs(partnerAdvisor(false), ['read']);
+
+    $this->getJson('/api/user')->assertOk();
+});
+
+test('only an explicit false switches the requirement off', function (?string $value, bool $required) {
+    $previous = [$_ENV['EKKO_REQUIRE_TWO_FACTOR'] ?? null, $_SERVER['EKKO_REQUIRE_TWO_FACTOR'] ?? null];
+    try {
+        if ($value === null) {
+            unset($_ENV['EKKO_REQUIRE_TWO_FACTOR'], $_SERVER['EKKO_REQUIRE_TWO_FACTOR']);
+        } else {
+            $_ENV['EKKO_REQUIRE_TWO_FACTOR'] = $_SERVER['EKKO_REQUIRE_TWO_FACTOR'] = $value;
+        }
+
+        expect((require config_path('ekko.php'))['require_two_factor'])->toBe($required);
+    } finally {
+        foreach (['_ENV', '_SERVER'] as $index => $global) {
+            if ($previous[$index] === null) {
+                unset($GLOBALS[$global]['EKKO_REQUIRE_TWO_FACTOR']);
+            } else {
+                $GLOBALS[$global]['EKKO_REQUIRE_TWO_FACTOR'] = $previous[$index];
+            }
+        }
+    }
+})->with([
+    'not set' => [null, true],
+    'empty' => ['', true],
+    '(empty)' => ['(empty)', true],
+    'true' => ['true', true],
+    'unknown' => ['nei', true],
+    'false' => ['false', false],
+    '(false)' => ['(false)', false],
+]);
 
 test('with the requirement switched off, two-factor that is set up is still asked for at login', function () {
     config(['ekko.require_two_factor' => false]);

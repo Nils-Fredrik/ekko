@@ -31,6 +31,7 @@ Eieren besluttet 2026-11-14 at Microsoft-innlogging ikke trengs i denne runden.
    - `verified`-middleware (Jetstreams godta-rute har den) holder ubekreftede brukere ute, og `TeamInvitationController::accept` krever i tillegg selv en bekreftet adresse, så sjekken ikke avhenger av rutens middleware.
    - SSO regnes som bekreftelse, fordi leverandøren har verifisert adressen.
 6. **2FA påkrevd** for plattformadmin og alle med rollen partner-rådgiver i en tenant (`User::requiresTwoFactor()`). Middleware `EnsureTwoFactorEnabled` ligger i `web`-gruppen og på API-ruten. Til 2FA er bekreftet (`two_factor_confirmed_at`) kommer brukeren bare til sidene i `config('ekko.two_factor_exempt_routes')` (profil, 2FA, passordbekreftelse, utlogging, e-postbekreftelse), og får ellers en omdirigering til profilsiden, eller 403 for JSON. 2FA er valgfritt for øvrige roller.
+   - Tillegg 2026-11-18 (T07-F1): mens eieren tester før lansering kan kravet slås av med `EKKO_REQUIRE_TWO_FACTOR=false` (Terraform `require_two_factor`). Da gir `requiresTwoFactor()` `false` for alle. Bare en eksplisitt `false` slår det av, og en tom verdi beholder kravet. Oppsatt 2FA blir fortsatt spurt etter ved innlogging. Kravet slås på igjen før T40 (spec 5.4, runbook).
 7. **Innloggingsbegrensning:** Fortifys `login`-begrenser (5 per minutt per e-post og IP) og `two-factor`-begrenseren, begge dekket av tester, pluss `sso` over.
 
 ## Konsekvenser
