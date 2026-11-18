@@ -1,4 +1,5 @@
 <script setup>
+import SsoConfirmButtons from '@/Components/SsoConfirmButtons.vue';
 import { ref } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
 import AuthenticationCard from '@/Components/AuthenticationCard.vue';
@@ -23,8 +24,6 @@ const submit = () => {
         },
     });
 };
-
-const providerName = (provider) => ({ google: 'Google' })[provider] ?? provider;
 </script>
 
 <template>
@@ -55,19 +54,7 @@ const providerName = (provider) => ({ google: 'Google' })[provider] ?? provider;
                 <InputError class="mt-2" :message="form.errors.password" />
             </div>
 
-            <div v-if="$page.props.ssoConfirmProviders?.length" class="mt-4">
-                <p class="text-sm text-gray-600">
-                    {{ $t('auth.sso.confirm_hint', { provider: providerName($page.props.ssoConfirmProviders[0]) }) }}
-                </p>
-                <a
-                    v-for="provider in $page.props.ssoConfirmProviders"
-                    :key="provider"
-                    :href="route('social.confirm', { provider })"
-                    class="mt-2 inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                >
-                    {{ $t('auth.sso.confirm_with', { provider: providerName(provider) }) }}
-                </a>
-            </div>
+            <SsoConfirmButtons />
 
             <div class="flex justify-end mt-4">
                 <PrimaryButton class="ms-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">

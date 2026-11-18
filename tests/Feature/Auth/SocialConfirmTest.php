@@ -37,13 +37,33 @@ function pendingConfirmation(User $user, string $provider = 'google'): array
 test('confirming sends a user with a linked account to Google, which is asked to authenticate again', function () {
     $user = googleLinkedUser();
 
-    $response = $this->actingAs($user)->from('/user/profile')->get('/auth/google/confirm');
+    $response = $this->actingAs($user)->get('/auth/google/confirm?return='.urlencode('/brands?tab=1'));
 
     $response->assertRedirectContains('accounts.google.com')
         ->assertRedirectContains('prompt=select_account')
         ->assertRedirectContains('max_age=0');
     expect(session('sso.confirm'))->toBe(['user_id' => $user->id, 'provider' => 'google'])
-        ->and(session('url.intended'))->toBe(url('/user/profile'));
+        ->and(session('url.intended'))->toBe(url('/brands?tab=1'));
+});
+
+test('the user only comes back to a page in the app, never to another site', function (string $return) {
+    $user = googleLinkedUser();
+
+    $this->actingAs($user)->withHeader('Referer', 'https://evil.example/x')
+        ->get('/auth/google/confirm?return='.urlencode($return))
+        ->assertRedirectContains('accounts.google.com');
+
+    expect(session('url.intended'))->toBe(route('profile.show'));
+})->with(['https://evil.example/x', '//evil.example/x', '/\\evil.example/x', 'javascript:alert(1)', '']);
+
+test('a destination the password confirmation page stored is kept', function () {
+    $user = googleLinkedUser();
+
+    $this->actingAs($user)->withSession(['url.intended' => url('/admin/tenants')])
+        ->get('/auth/google/confirm?return=/brands')
+        ->assertRedirectContains('accounts.google.com');
+
+    expect(session('url.intended'))->toBe(url('/admin/tenants'));
 });
 
 test('a user without a linked account cannot start a confirmation', function () {
@@ -78,11 +98,14 @@ test('another Google account confirms nothing', function () {
     googleLinkedUser('google-2');
     googleReturns('google-2');
 
-    $this->actingAs($user)->withSession(pendingConfirmation($user))
+    $this->actingAs($user)->withSession([...pendingConfirmation($user), 'url.intended' => url('/admin/tenants')])
         ->get('/auth/google/callback')
-        ->assertRedirect(route('profile.show'));
+        ->assertRedirect(route('password.confirm'))
+        ->assertSessionHasErrors('password');
 
-    expect(session('auth.password_confirmed_at'))->toBeNull();
+    // Back on the confirmation page, where the user was going is kept for another try.
+    expect(session('auth.password_confirmed_at'))->toBeNull()
+        ->and(session('url.intended'))->toBe(url('/admin/tenants'));
     $this->post('/user/two-factor-authentication')->assertRedirect(route('password.confirm'));
     expect($user->fresh()->two_factor_secret)->toBeNull();
 });
@@ -108,7 +131,7 @@ test('a failed provider call confirms nothing', function () {
 
     $this->actingAs($user)->withSession(pendingConfirmation($user))
         ->get('/auth/google/callback')
-        ->assertRedirect(route('profile.show'));
+        ->assertRedirect(route('password.confirm'));
 
     expect(session('auth.password_confirmed_at'))->toBeNull();
 });
@@ -116,11 +139,16 @@ test('a failed provider call confirms nothing', function () {
 test('a platform admin who must set up two-factor authentication can confirm with Google', function () {
     $admin = googleLinkedUser(platformAdmin: true);
 
-    $this->actingAs($admin)->get('/auth/google/confirm')->assertRedirectContains('accounts.google.com');
+    $this->actingAs($admin)->get('/auth/google/confirm?return=/user/profile')->assertRedirectContains('accounts.google.com');
 
     googleReturns('google-1');
-    $this->get('/auth/google/callback')->assertRedirect();
+    $this->get('/auth/google/callback')->assertRedirect(route('profile.show'));
     expect(session('auth.password_confirmed_at'))->toBeInt();
+
+    // The profile page is exempt from the requirement, so this is no loop, and two-factor can be enabled.
+    $this->get(route('profile.show'))->assertOk();
+    $this->post('/user/two-factor-authentication')->assertRedirect();
+    expect($admin->fresh()->two_factor_secret)->not->toBeNull();
 });
 
 test('pages say which providers the signed-in user can confirm with', function () {

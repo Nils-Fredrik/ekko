@@ -45,9 +45,13 @@ class SocialLoginController extends Controller
         }
 
         $request->session()->put('sso.confirm', ['user_id' => $user->getKey(), 'provider' => $provider]);
-        // The password.confirm page has already stored where to go; the modal on a page has not.
+        // The password.confirm page has already stored where to go. The modal on a page sends the page as
+        // ?return=, which must be a path in the app: never the Referer or a full URL, which another site controls.
         if (! $request->session()->has('url.intended')) {
-            $request->session()->put('url.intended', url()->previous(route('profile.show')));
+            $return = $request->query('return');
+            $request->session()->put('url.intended', is_string($return) && preg_match('#^/(?![/\\\\])#', $return) === 1
+                ? url($return)
+                : route('profile.show'));
         }
 
         $driver = Socialite::driver($provider);
@@ -139,7 +143,7 @@ class SocialLoginController extends Controller
         } catch (Throwable $e) {
             Log::warning('sso.confirm_failed', ['provider' => $provider, 'exception' => $e::class]);
 
-            return $this->confirmationFailed($request);
+            return $this->confirmationFailed();
         }
 
         $linked = $providerUserId !== '' && $user->socialAccounts()
@@ -148,7 +152,7 @@ class SocialLoginController extends Controller
         if (! $linked) {
             Log::warning('sso.confirm_denied', ['provider' => $provider]);
 
-            return $this->confirmationFailed($request);
+            return $this->confirmationFailed();
         }
 
         $request->session()->passwordConfirmed();
@@ -157,11 +161,13 @@ class SocialLoginController extends Controller
         return redirect()->intended(route('profile.show'));
     }
 
-    private function confirmationFailed(Request $request): RedirectResponse
+    /**
+     * Back to the password confirmation page, which keeps where the user was going, so they can try again with
+     * the right account or a password.
+     */
+    private function confirmationFailed(): RedirectResponse
     {
-        $request->session()->forget('url.intended');
-
-        return redirect()->route('profile.show')->dangerBanner(__('auth.sso.confirm_failed'));
+        return redirect()->route('password.confirm')->withErrors(['password' => __('auth.sso.confirm_failed')]);
     }
 
     private function deny(string $message): RedirectResponse
