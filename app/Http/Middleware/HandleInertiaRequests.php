@@ -3,13 +3,13 @@
 namespace App\Http\Middleware;
 
 use App\Engines\Credentials\ApiKeyProvider;
-use App\Enums\TenantRole;
 use App\Models\Team;
 use App\Models\TenantApiKey;
 use App\Models\UsageEvent;
 use App\Models\User;
 use App\Onboarding\Analysis;
 use App\Tenancy\ActingAs;
+use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -83,11 +83,11 @@ class HandleInertiaRequests extends Middleware
             'canViewPartner' => function () use ($request): bool {
                 $user = $request->user();
                 $team = $user?->currentTeam;
-                if (! $user instanceof User || ! $team instanceof Team || $team->personal_team || $team->partner_team_id !== null) {
+                if (! $user instanceof User || ! $team instanceof Team) {
                     return false;
                 }
 
-                return $team->users()->where('users.id', $user->id)->wherePivot('role', TenantRole::PartnerAdvisor->value)->exists();
+                return app(TenantAccess::class)->advisesPartner($user, $team);
             },
             // Only the team page. Secrets stay on the server: the webhook and API keys are present or absent.
             'teamProfile' => fn () => $this->teamProfile($request),
