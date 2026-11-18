@@ -65,10 +65,20 @@ class HandleInertiaRequests extends Middleware
                 return $shared;
             },
             // Providers with credentials; the login page shows a button for each.
-            'ssoProviders' => fn () => array_values(array_filter(
-                config('ekko.sso_providers'),
-                fn (string $provider) => filled(config("services.{$provider}.client_id")) && filled(config("services.{$provider}.client_secret")),
-            )),
+            'ssoProviders' => fn (): array => $this->configuredSsoProviders(),
+            // Providers the signed-in user can confirm with instead of a password (T07-F2).
+            'ssoConfirmProviders' => function () use ($request): array {
+                $user = $request->user();
+                if (! $user instanceof User) {
+                    return [];
+                }
+                $configured = $this->configuredSsoProviders();
+                if ($configured === []) {
+                    return [];
+                }
+
+                return array_values(array_intersect($configured, $user->socialAccounts()->pluck('provider')->all()));
+            },
             'actingAs' => fn () => $this->actingAs($request),
             'canOnboard' => function () use ($request): bool {
                 $user = $request->user();
@@ -173,5 +183,18 @@ class HandleInertiaRequests extends Middleware
             'reason' => $state['reason'],
             'started_at' => $state['started_at'],
         ];
+    }
+
+    /**
+     * Providers with credentials, in the order of ekko.sso_providers.
+     *
+     * @return list<string>
+     */
+    private function configuredSsoProviders(): array
+    {
+        return array_values(array_filter(
+            config('ekko.sso_providers'),
+            fn (string $provider) => filled(config("services.{$provider}.client_id")) && filled(config("services.{$provider}.client_secret")),
+        ));
     }
 }

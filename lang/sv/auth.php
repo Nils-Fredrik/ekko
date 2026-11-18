@@ -9,6 +9,9 @@ return [
     'sso' => [
         'failed' => 'Inloggningen med det externa kontot misslyckades. Försök igen.',
         'not_invited' => 'Det här kontot har inte tillgång till Ekko. Be en administratör om en inbjudan.',
+        'confirm_with' => 'Bekräfta med :provider',
+        'confirm_hint' => 'Loggade du in med :provider? Då bekräftar du med det kontot i stället för lösenord.',
+        'confirm_failed' => 'Bekräftelsen misslyckades. Använd samma konto som du loggar in med och försök igen.',
     ],
     'invitation' => [
         'expired' => 'Inbjudan har gått ut. Be om en ny inbjudan.',
