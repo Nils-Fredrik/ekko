@@ -51,7 +51,8 @@ const submit = () => {
                     autocomplete="current-password"
                     autofocus
                 />
-                <InputError class="mt-2" :message="form.errors.password" />
+                <!-- A failed confirmation with Google comes back as a page error, not a form error. -->
+                <InputError class="mt-2" :message="form.errors.password || $page.props.errors.password" />
             </div>
 
             <SsoConfirmButtons />

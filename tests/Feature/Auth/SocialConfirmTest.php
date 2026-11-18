@@ -29,9 +29,9 @@ function googleReturns(string $providerUserId): void
     Socialite::fake('google', (new SocialiteUser)->map(['id' => $providerUserId, 'name' => 'Someone', 'email' => 'someone@example.test']));
 }
 
-function pendingConfirmation(User $user, string $provider = 'google'): array
+function pendingConfirmation(User $user, string $provider = 'google', ?string $return = null): array
 {
-    return ['sso.confirm' => ['user_id' => $user->getKey(), 'provider' => $provider]];
+    return ['sso.confirm' => ['user_id' => $user->getKey(), 'provider' => $provider, 'return' => $return]];
 }
 
 test('confirming sends a user with a linked account to Google, which is asked to authenticate again', function () {
@@ -42,8 +42,9 @@ test('confirming sends a user with a linked account to Google, which is asked to
     $response->assertRedirectContains('accounts.google.com')
         ->assertRedirectContains('prompt=select_account')
         ->assertRedirectContains('max_age=0');
-    expect(session('sso.confirm'))->toBe(['user_id' => $user->id, 'provider' => 'google'])
-        ->and(session('url.intended'))->toBe(url('/brands?tab=1'));
+    // Kept with the pending confirmation, so a confirmation cancelled at Google leaves no url.intended behind.
+    expect(session('sso.confirm'))->toBe(['user_id' => $user->id, 'provider' => 'google', 'return' => url('/brands?tab=1')])
+        ->and(session('url.intended'))->toBeNull();
 });
 
 test('the user only comes back to a page in the app, never to another site', function (string $return) {
@@ -53,7 +54,8 @@ test('the user only comes back to a page in the app, never to another site', fun
         ->get('/auth/google/confirm?return='.urlencode($return))
         ->assertRedirectContains('accounts.google.com');
 
-    expect(session('url.intended'))->toBe(route('profile.show'));
+    expect(session('sso.confirm.return'))->toBeNull()
+        ->and(session('url.intended'))->toBeNull();
 })->with(['https://evil.example/x', '//evil.example/x', '/\\evil.example/x', 'javascript:alert(1)', '']);
 
 test('a destination the password confirmation page stored is kept', function () {
@@ -106,6 +108,11 @@ test('another Google account confirms nothing', function () {
     // Back on the confirmation page, where the user was going is kept for another try.
     expect(session('auth.password_confirmed_at'))->toBeNull()
         ->and(session('url.intended'))->toBe(url('/admin/tenants'));
+
+    // The page shows why.
+    $this->get(route('password.confirm'))
+        ->assertInertia(fn (AssertableInertia $page) => $page->component('Auth/ConfirmPassword')
+            ->where('errors.password', __('auth.sso.confirm_failed')));
     $this->post('/user/two-factor-authentication')->assertRedirect(route('password.confirm'));
     expect($user->fresh()->two_factor_secret)->toBeNull();
 });
@@ -163,4 +170,38 @@ test('pages say which providers the signed-in user can confirm with', function (
     config(['services.google.client_secret' => null]);
     $this->actingAs($linked)->get('/user/profile')
         ->assertInertia(fn (AssertableInertia $page) => $page->where('ssoConfirmProviders', []));
+});
+
+test('from the modal, the user comes back to the page after confirming', function () {
+    $user = googleLinkedUser();
+    googleReturns('google-1');
+
+    $this->actingAs($user)->withSession(pendingConfirmation($user, return: url('/brands')))
+        ->get('/auth/google/callback')
+        ->assertRedirect(url('/brands'));
+
+    expect(session('auth.password_confirmed_at'))->toBeInt();
+});
+
+test('from the modal, a failed confirmation goes to the password page, which then leads back to the page', function () {
+    $user = googleLinkedUser('google-1');
+    googleReturns('google-2');
+
+    $this->actingAs($user)->withSession(pendingConfirmation($user, return: url('/brands')))
+        ->get('/auth/google/callback')
+        ->assertRedirect(route('password.confirm'));
+
+    expect(session('url.intended'))->toBe(url('/brands'));
+});
+
+test('a session logged out elsewhere is logged out before it can be confirmed', function () {
+    $user = googleLinkedUser();
+    googleReturns('google-1');
+
+    // As after "log out other browser sessions" or a password change: the stored hash no longer matches.
+    $this->actingAs($user)->withSession([...pendingConfirmation($user), 'password_hash_web' => bcrypt('old password')])
+        ->get('/auth/google/callback');
+
+    $this->assertGuest();
+    expect(session('auth.password_confirmed_at'))->toBeNull();
 });

@@ -38,8 +38,9 @@ Route::redirect('/', '/dashboard')->name('home');
 Route::put('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
 // Login with Google (docs/spec.md 5.4), rate limited per IP. The callback is the one URL registered with the
-// provider, so it also finishes a confirmation for a signed-in user (T07-F2); a guest logs in there.
-Route::middleware('throttle:sso')->prefix('auth/{provider}')->whereIn('provider', config('ekko.sso_providers'))->group(function () {
+// provider, so it also finishes a confirmation for a signed-in user (T07-F2); a guest logs in there. A signed-in
+// session that was logged out elsewhere is logged out here too before it can be confirmed (T39-F4).
+Route::middleware(['throttle:sso', config('jetstream.auth_session')])->prefix('auth/{provider}')->whereIn('provider', config('ekko.sso_providers'))->group(function () {
     Route::get('redirect', [SocialLoginController::class, 'redirect'])->middleware('guest')->name('social.redirect');
     Route::get('callback', [SocialLoginController::class, 'callback'])->name('social.callback');
     // A signed-in user with a linked account confirms with the provider instead of a password (T07-F2).
