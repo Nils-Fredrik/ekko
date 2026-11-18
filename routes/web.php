@@ -36,10 +36,13 @@ Route::redirect('/', '/dashboard')->name('home');
 // Language, including on the login page before anyone is signed in (docs/spec.md 14.1).
 Route::put('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
-// Login with Google (docs/spec.md 5.4). Guests only, rate limited per IP.
-Route::middleware(['guest', 'throttle:sso'])->prefix('auth/{provider}')->whereIn('provider', config('ekko.sso_providers'))->group(function () {
-    Route::get('redirect', [SocialLoginController::class, 'redirect'])->name('social.redirect');
+// Login with Google (docs/spec.md 5.4), rate limited per IP. The callback is the one URL registered with the
+// provider, so it also finishes a confirmation for a signed-in user (T07-F2); a guest logs in there.
+Route::middleware('throttle:sso')->prefix('auth/{provider}')->whereIn('provider', config('ekko.sso_providers'))->group(function () {
+    Route::get('redirect', [SocialLoginController::class, 'redirect'])->middleware('guest')->name('social.redirect');
     Route::get('callback', [SocialLoginController::class, 'callback'])->name('social.callback');
+    // A signed-in user with a linked account confirms with the provider instead of a password (T07-F2).
+    Route::get('confirm', [SocialLoginController::class, 'confirm'])->middleware('auth:'.config('fortify.guard'))->name('social.confirm');
 });
 
 // Fortify routes that check the password or send a mail, defined again with a rate limit (T39-F4). The app

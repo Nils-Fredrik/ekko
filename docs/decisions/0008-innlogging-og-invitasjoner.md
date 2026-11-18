@@ -52,3 +52,11 @@ Reviewen av PR #15 fant at Microsoft-innlogging med `common` åpner for kontoove
 - Å binde til én katalog med `MICROSOFT_TENANT_ID` er en ekstra sperre, ikke en erstatning.
 
 Koden for dette finnes i historikken til PR #15 (commit `1c365d6`).
+
+## Tillegg 2026-11-18: bekreftelse med Google (T07-F2)
+
+En bruker som er opprettet via Google, har et tilfeldig passord som ingen kjenner. Der appen krever bekreftet passord (slå på 2FA, «opptre som tenant», slette tenant), kan en bruker med koblet Google-konto bekrefte med Google i stedet.
+
+- `GET /auth/google/confirm` (innlogget) lagrer en ventende bekreftelse for brukeren og leverandøren i økten, og sender til Google med `prompt=select_account` og `max_age=0`.
+- Callbacken er den samme adressen som ved innlogging, fordi bare den er registrert hos Google. For en innlogget bruker gir den bare bekreftelse når økten har en ventende bekreftelse for den samme brukeren og leverandøren, og når Google returnerer nettopp den kontoen som er koblet til brukeren. Da settes `auth.password_confirmed_at`, som ved passord. Alt annet gir ingen bekreftelse.
+- Begrensning: Socialite gir ikke ID-tokenet videre, så appen sjekker ikke `auth_time`. Det er Google som avgjør om brukeren må autentisere seg på nytt. Bekreftelsen viser at den som sitter ved maskinen, har kontroll over den koblede Google-kontoen nå. Det er en svakere sjekk enn et passord bare brukeren kjenner, men det er den samme kontoen brukeren logger inn med.
