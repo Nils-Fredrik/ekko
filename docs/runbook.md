@@ -228,7 +228,7 @@ Codex krever bot-ID 199175422, en oppdatert `codex-review-state:v1` med full hea
 
 Statusen skrives til aktuell head-SHA av den dedikerte App-en. Head, base og test-merge-SHA beholdes i snapshotkontrollen. `main` må derfor kreve oppdatert base (`strict: true`). Tre ulike mislykkede head-SHA-er siden siste godkjenning utløser Board-blocker på T42, med lenke til den berørte PR-en. Omkjøring eller tittelredigering på samme head teller ikke som nye runder. Eieren vurderer videre retting; workflowen merger aldri. Manglende Board-autentisering gjør gaten rød, og feil ved eskalering gir ingen godkjenning. Ved feil etter vellykket Board-post men før lagret rundekvittering kan en duplikat forekomme; PR-referansen gjør den gjenkjennelig.
 
-Den gamle automatiske `claude-code-review.yml` erstattes av denne workflowen. `claude.yml` for eksplisitt `@claude` beholdes. Slå av overlappende automatiske Codex-utløsere dersom de skaper duplikater, og verifiser den eksplisitte triggeren før aktivering.
+Den gamle automatiske `claude-code-review.yml` erstattes av denne workflowen. `claude.yml` for eksplisitte spørsmål og rettinger til `@claude` beholdes. Ikke post en ekstra `@claude review` eller `@codex review` når automatisk review er bestilt. En ren `@claude review`-kommando på en PR med automatisk Claude-review avvises før Claude-tokenet brukes, etter samme tittel-/følsomhetspolicy. For en Claude Code-PR uten følsomme filer er bare Codex automatisk påkrevd; en eksplisitt ekstra Claude-review er derfor fortsatt mulig. Tekniske feil i automatisk review håndteres med omkjøring i Actions. Slå av overlappende automatiske Codex-utløsere dersom de skaper duplikater, og verifiser den eksplisitte triggeren før aktivering.
 
 ### Kontrollert aktivering
 

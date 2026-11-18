@@ -1112,7 +1112,7 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 
 **Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
 
-**Før workflowen er på plass** (frem til T42 er merget) utløses review manuelt ved å kommentere `@claude review` eller `@codex review` på PR-en.
+**Automatisk bestilling:** T42-workflowene er på plass. Agentene poster ikke rutinemessig `@claude review` eller `@codex review` når de åpner eller oppdaterer en PR. Ved teknisk feil kjøres den automatiske reviewen om i Actions. En ren `@claude review`-kommando hoppes over av den interaktive workflowen når den samme PR-en allerede skal ha automatisk Claude-review, vurdert etter samme tittel-, tillits- og følsomhetsregler. Konkrete interaktive spørsmål/rettinger, issue-omtaler og PR-er uten automatisk Claude-review beholdes (T42-F1, task:68).
 
 ### 19.6 Lokalt oppsett
 

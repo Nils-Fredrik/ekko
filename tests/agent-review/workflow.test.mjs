@@ -111,3 +111,110 @@ test('interactive credentials are gated after a checkout of trusted main', async
     assert.match(workflow, /if: steps.source.outputs.trusted == 'true'\s+id: claude/);
     assert.ok(workflow.indexOf('interactive-source.mjs') < workflow.indexOf('secrets.CLAUDE_CODE_OAUTH_TOKEN'));
 });
+
+function automaticMentionFixture(title = '[Claude Code] T07-F1 – Authentication') {
+    const event = {
+        repository: { full_name: repo },
+        issue: { number: 83, pull_request: {} },
+        comment: { author_association: 'OWNER', body: '@claude review' },
+    };
+    const env = { GITHUB_REPOSITORY: repo, GITHUB_EVENT_NAME: 'issue_comment', GH_TOKEN: 'fixture-token' };
+    const pr = {
+        ...trusted,
+        number: 83,
+        title,
+        state: 'open',
+        draft: false,
+        changed_files: 1,
+        head: { ...trusted.head, sha: 'a'.repeat(40) },
+        base: { ...trusted.base, sha: 'b'.repeat(40) },
+    };
+    let files = [{ filename: 'app/Tenancy/Access.php' }];
+    let reads = 0;
+    let changedHead = false;
+    const calls = [];
+    const request = async (url) => {
+        calls.push(url);
+        const base = `https://api.github.com/repos/${repo}/pulls/83`;
+        if (url === base) {
+            reads++;
+            return Response.json(changedHead && reads > 1 ? { ...pr, head: { ...pr.head, sha: 'c'.repeat(40) } } : pr);
+        }
+        assert.ok(url.startsWith(base + '/files?per_page=100&page='));
+        const page = Number(new URL(url).searchParams.get('page'));
+        return Response.json(files.slice((page - 1) * 100, page * 100));
+    };
+    return {
+        event,
+        pr,
+        calls,
+        check: () => interactiveSource(event, { env, request }),
+        setFiles: (value) => {
+            files = value;
+        },
+        changeHead: () => {
+            changedHead = true;
+        },
+    };
+}
+
+test('plain review commands do not launch a second Claude review for Codex or Cursor PRs', async () => {
+    for (const agent of ['Codex', 'Cursor']) {
+        const f = automaticMentionFixture(`[${agent}] T42-F1 – Review`);
+        f.event.comment.body = '  @claude review\n';
+        assert.equal(await f.check(), false);
+        assert.equal(f.calls.length, 1);
+    }
+});
+
+test('Claude-authored PRs suppress duplicates only when the automatic policy requires Claude', async () => {
+    const sensitive = automaticMentionFixture();
+    assert.equal(await sensitive.check(), false);
+    const ordinary = automaticMentionFixture();
+    ordinary.setFiles([{ filename: 'docs/example.md' }]);
+    assert.equal(await ordinary.check(), true);
+    const renamed = automaticMentionFixture();
+    renamed.setFiles([{ filename: 'docs/example.md', previous_filename: 'app/Tenancy/Access.php' }]);
+    assert.equal(await renamed.check(), false);
+});
+
+test('the interactive duplicate guard checks every changed file and rejects incomplete or changing data', async () => {
+    const paged = automaticMentionFixture();
+    paged.pr.changed_files = 101;
+    paged.setFiles([
+        ...Array.from({ length: 100 }, (_, i) => ({ filename: `docs/${i}.md` })),
+        { filename: 'config/auth.php' },
+    ]);
+    assert.equal(await paged.check(), false);
+    assert.equal(paged.calls.filter((url) => url.includes('/files?')).length, 2);
+    const incomplete = automaticMentionFixture();
+    incomplete.pr.changed_files = 2;
+    await assert.rejects(incomplete.check(), /incomplete/);
+    const changed = automaticMentionFixture();
+    changed.changeHead();
+    await assert.rejects(changed.check(), /PR changed/);
+});
+
+test('targeted requests and PRs outside automatic review retain interactive Claude', async () => {
+    for (const body of [
+        '@claude explain this migration',
+        '@claude review only the query plan',
+        '@claude fix the failing test',
+    ]) {
+        const f = automaticMentionFixture('[Codex] T37 – Performance');
+        f.event.comment.body = body;
+        assert.equal(await f.check(), true);
+        assert.equal(f.calls.length, 1);
+    }
+    for (const attributes of [
+        { title: 'Manual change' },
+        { draft: true },
+        { state: 'closed' },
+        { author_association: 'NONE' },
+    ]) {
+        const f = automaticMentionFixture();
+        Object.assign(f.pr, attributes);
+        assert.equal(await f.check(), true);
+        assert.equal(f.calls.length, 1);
+    }
+});
