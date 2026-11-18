@@ -50,7 +50,7 @@ Reglene under er de felles reglene i `docs/spec.md` 19.2.
 - **Åpne review-kommentarer først:** har en reviewer bedt om endringer i en av dine PR-er, retter du dem før du tar en ny oppgave.
 - **Merge:** den betrodde mergekøen kan merge ferdigmeldte PR-er etter grønn CI og kryssreview. Inntil køen er aktivert, merger eieren. Agentene skal ikke omgå grenbeskyttelsen.
 - **Tilgang:** agentenes GitHub-integrasjoner har skrivetilgang til `ekko` og lesetilgang til `varde`.
-- **Kryssreview** etter `docs/spec.md` 19.5. Ingen merge uten godkjent review fra en annen agent og grønn CI.
+- **Kryssreview** etter `docs/spec.md` 19.5. Ingen merge uten godkjent review fra en annen agent og grønn CI. Review bestilles automatisk når PR-en åpnes eller oppdateres; ikke post rutinemessig `@claude review` eller `@codex review` i tillegg. Det gir doble kjøringer. Ved teknisk feil brukes Actions sin omkjøring av den automatiske reviewen. Konkrete interaktive spørsmål og rettinger til `@claude` er fortsatt tillatt.
 - **Tester:** ikke deaktiver, hopp over eller svekk tester for å få grønt bygg. Isolasjonstestene for tenants er alltid blokkerende.
 - **Nye ruter og MCP-tools** føres inn i registeret i `tests/Feature/TenantIsolation/routes.php` (eller `mcp-tools.php`) med tilgangsklasse, og en rute med parameter må si hvordan en annen tenants ressurs testes. Uten oppføring feiler `composer test`. Tenant-eide modeller bruker `BelongsToTenant`, og køjobber arver `App\Jobs\TenantJob` (`docs/decisions/0005-isolasjonstestsuite.md`).
 - **Varde** (`Nils-Fredrik/varde`) er kun referanse. Les og kopier mønstre derfra (`docs/spec.md` 4.1), men gjør aldri endringer, commits, grener eller PR-er i Varde. Kopier aldri miljøfiler eller hemmeligheter.

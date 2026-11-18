@@ -98,6 +98,14 @@ return [
     'sso_providers' => ['google'],
 
     /*
+    | Whether the platform admin and partner advisors must use two-factor authentication (docs/spec.md 5.4).
+    | On unless EKKO_REQUIRE_TWO_FACTOR=false, which the owner may set while testing before launch (T07-F1).
+    | A user who has set up two-factor authentication keeps it either way.
+    */
+    // Only an explicit false switches it off: an empty or unknown value keeps the requirement.
+    'require_two_factor' => env('EKKO_REQUIRE_TWO_FACTOR', true) !== false,
+
+    /*
     | Route names a user who must have two-factor authentication may use before it is set up:
     | enough to set it up, confirm the password and log out.
     */

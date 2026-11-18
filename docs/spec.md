@@ -221,6 +221,7 @@ Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
 ### 5.4 Innlogging
 
 - **E-post og passord** via Jetstream. 2FA er påkrevd for plattformadmin og partner-rådgivere og valgfritt for andre.
+  - Kravet kan slås av med `EKKO_REQUIRE_TWO_FACTOR=false` (Terraform `require_two_factor`), bare mens eieren tester før lansering (eierens beslutning 2026-11-18, T07-F1). Standard er på, og det slås på igjen før T40. Den som har satt opp 2FA, blir fortsatt spurt ved innlogging.
 - **Google** via Socialite. En Google-konto kobles til en eksisterende invitert bruker basert på verifisert e-postadresse. Det finnes ingen åpen registrering. Microsoft er utsatt (eierens beslutning 2026-11-14); hva som kreves når den kommer, står i `docs/decisions/0008-innlogging-og-invitasjoner.md`.
 - **Bekreftelse uten passord:** en bruker med koblet Google-konto kan bekrefte med Google i stedet for passord, der appen ellers krever bekreftet passord (slå på 2FA, «opptre som tenant»). Google bes om kontovelger og ny autentisering (`prompt=select_account`, `max_age=0`). Bare den kontoen som er koblet til den innloggede brukeren, i en bekreftelse som økten selv startet, gir bekreftelse. Callback-adressen er den samme som ved innlogging (T07-F2).
 - **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager, kontrollert på serveren. Den kan bare godtas av en innlogget bruker med samme, bekreftede e-postadresse. Å endre e-postadressen krever ny bekreftelse. En Google-konto med en gyldig invitasjon får opprettet brukeren og godtar invitasjonene (ellers ingen bruker). Kontoer kobles til eksisterende brukere bare når leverandøren har verifisert e-posten og brukerens egen adresse er bekreftet. Detaljer i `docs/decisions/0008-innlogging-og-invitasjoner.md`.
@@ -843,7 +844,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - API-nøkler i Secret Manager, montert som miljøvariabler.
   - Tenant-nøkler, webhooker og integrasjonskonfigurasjon krypteres i databasen med Laravels `encrypted`-cast.
   - Ingen hemmeligheter i repo, logger eller råsvar.
-- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere. Innloggingsforsøk begrenses (5 per minutt per e-post og IP). Med produksjonslastbalansereren er `TRUSTED_PROXIES` satt til `REMOTE_ADDR` og dens faste IP, generert av Terraform. Laravel erstatter `REMOTE_ADDR` med faktisk tilkoblingsadresse; Symfony finner nærmeste ubetrodde klient i `X-Forwarded-For`. Dette dekker både domenet og direkte Cloud Run. Bare uten lastbalanserer brukes `*` og siste ledd. Host, port og prefiks hentes aldri fra proxyen. Verifikasjon står i T10-status og runbooken.
+- **Innlogging:** 2FA påkrevd for plattformadmin og partner-rådgivere (kan slås av under testing før lansering, se 5.4). Innloggingsforsøk begrenses (5 per minutt per e-post og IP). Med produksjonslastbalansereren er `TRUSTED_PROXIES` satt til `REMOTE_ADDR` og dens faste IP, generert av Terraform. Laravel erstatter `REMOTE_ADDR` med faktisk tilkoblingsadresse; Symfony finner nærmeste ubetrodde klient i `X-Forwarded-For`. Dette dekker både domenet og direkte Cloud Run. Bare uten lastbalanserer brukes `*` og siste ledd. Host, port og prefiks hentes aldri fra proxyen. Verifikasjon står i T10-status og runbooken.
 - **Konto og økt (T39-F4):** å bytte e-postadresse krever passordet, og den gamle adressen får varsel. Brukere som bare logger inn med Google, setter først et passord med «Glemt passord». En økt logges ut på alle ruter, også Fortifys, når passordet er byttet eller andre økter er logget ut. Alle passordsjekker (bekreft passord, e-postbytte, passordbytte, logg ut andre økter, slett konto) begrenses til 5 per minutt per bruker og IP. «Glemt passord» gir samme svar for kjente og ukjente adresser, og begrenses til 5 per minutt per IP og 5 per time per adresse. Kjent ulempe: fem kall kan sperre «Glemt passord» for én adresse i en time. Innlogging med passord og Google virker fortsatt.
 - **Opptre som tenant:** plattformadmin kan se en tenant som den ser seg selv. Handlingen logges med årsak og vises som banner.
 
@@ -1112,7 +1113,7 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 
 **Kostnad for Claude-reviewene:** `claude-code-action` er programmatisk bruk. Den skal ikke bruke API-nøkkelen fra Console-organisasjonen som mottar Team-kredittene (12.5), ellers trekkes reviewene fra Ekkos pott. Den bruker i stedet et eget token knyttet til et Team-sete, eller en separat API-nøkkel, lagret som GitHub-hemmelighet.
 
-**Før workflowen er på plass** (frem til T42 er merget) utløses review manuelt ved å kommentere `@claude review` eller `@codex review` på PR-en.
+**Automatisk bestilling:** T42-workflowene er på plass. Agentene poster ikke rutinemessig `@claude review` eller `@codex review` når de åpner eller oppdaterer en PR. Ved teknisk feil kjøres den automatiske reviewen om i Actions. En ren `@claude review`-kommando hoppes over av den interaktive workflowen når den samme PR-en allerede skal ha automatisk Claude-review, vurdert etter samme tittel-, tillits- og følsomhetsregler. Konkrete interaktive spørsmål/rettinger, issue-omtaler og PR-er uten automatisk Claude-review beholdes (T42-F1, task:68).
 
 ### 19.6 Lokalt oppsett
 
@@ -1381,13 +1382,13 @@ Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-pa
 
 Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Codex] T42 – Automatisk mergekø» følges i task:61 (Board #565 og #580). Den endrer eierstyrt merge til en eksplisitt aktivert, betrodd kø etter ADR 0026. Eieren har også autorisert native auto-merge av PR #68; det aktiverer ikke den generelle køen.
 
-- Køen er av som standard og kjører bare betrodd main med en separat App og et main-avgrenset miljø; ingen bypass av grenbeskyttelsen.
+- Køen er av som standard og kjører bare betrodd main med en separat App og et main-avgrenset miljø; ingen bypass av grenbeskyttelsen. Push til main og vellykket fullføring av CI eller review fra eget repo vekker køen. Planlagt kjøring er reserve, siden GitHub kan forsinke cron.
 - Bare betrodde, ferdigmeldte PR-er fra samme repo med agenttittel vurderes. Høyst én baseoppdatering eller merge per kjøring, eldste først, med forrang til native auto-merge.
 - Ingen baseoppdatering ved feilende eller ventende kontroller på head. Siste test/container build og agent-review må være grønne; kontrollene gjentas før oppdatering. Ingen nye reviewrunder på urettet feilende kode.
 - Før merge kreves oppdatert base, autentisk reviewkvittering for head og base, kildebundne påkrevde test/container build/agent-review og ny kontroll av SHA-er og tittel. Konflikt, manglende data og samtidige endringer blokkerer.
 - Gjeldende main må ha vellykket CI og deploy før neste endring. Native auto-merge går uavhengig av køen; stoppknappen påvirker ikke allerede aktiverte native auto-merges.
 - Før generell aktivering: verifiser App-/miljøsperre, to parallelle PR-er, ny head/base, konflikt, rød CI/review, native auto-merge og at merge utløser CI og syntetisk deploy i et isolert testrepo. Dokumenter bevis på task:61; kode-merge alene lukker ikke aktiveringsaksepten.
-- Isolert live aksept er dokumentert i [akseptbeviset](t42-merge-queue-evidence.md), inkludert grønn ny head med kvittering for forrige head. Første produksjonskjøring 17.11.2026 stoppet ved PR-feil uten merge; køen er midlertidig av under kryssreview av beviset. Første App-merge og påfølgende vellykkede produksjonsdeploy gjenstår. Task:61 holdes åpen til dette er verifisert og dokumentert etter ADR 0026 punkt 5.
+- Isolert live aksept er dokumentert i [akseptbeviset](t42-merge-queue-evidence.md), inkludert grønn ny head med kvittering for forrige head. Første produksjonskjøring 17.11.2026 stoppet ved PR-feil uten merge; køen ble reaktivert 18.11.2026 etter godkjent kryssreview, merge og deploy av beviset. Første App-merge og påfølgende vellykkede produksjonsdeploy gjenstår. Task:61 holdes åpen til dette er verifisert og dokumentert etter ADR 0026 punkt 5.
 
 ---
 

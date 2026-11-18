@@ -344,25 +344,35 @@ final class MetricsService
      */
     public function voiceParts(MetricsFilter $filter): array
     {
-        $responses = (int) $this->dailyQuery($filter)->sum('agg_daily.responses');
-        $brandMentions = (int) $this->dailyQuery($filter)->sum('agg_daily.brand_mentioned');
-        $parts = [[
-            'id' => 'brand',
-            'name' => null,
-            'mentions' => $brandMentions,
-        ]];
-
         $competitors = Competitor::query()
             ->where('brand_id', $filter->brandId)
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        foreach ($competitors as $competitor) {
+        // Scan the filtered daily rows once, rather than once per competitor and counter.
+        $query = $this->dailyQuery($filter)->toBase()->selectRaw(
+            'coalesce(sum(agg_daily.responses), 0) as responses, coalesce(sum(agg_daily.brand_mentioned), 0) as brand_mentions',
+        );
+        foreach ($competitors as $index => $competitor) {
+            $query->selectRaw(
+                "coalesce(sum((case when jsonb_typeof(agg_daily.competitor_mentions) = 'object' then agg_daily.competitor_mentions->>? else null end)::bigint), 0) as competitor_{$index}",
+                [(string) $competitor->id],
+            );
+        }
+        $totals = (array) $query->first();
+        $responses = (int) $totals['responses'];
+        $parts = [[
+            'id' => 'brand',
+            'name' => null,
+            'mentions' => (int) $totals['brand_mentions'],
+        ]];
+
+        foreach ($competitors as $index => $competitor) {
             $parts[] = [
                 'id' => (string) $competitor->id,
                 'name' => $competitor->name,
-                'mentions' => $this->competitorMentions($filter, $competitor->id),
+                'mentions' => (int) $totals["competitor_{$index}"],
             ];
         }
 
@@ -586,14 +596,6 @@ final class MetricsService
         } catch (Throwable) {
             return new DateTimeZone('UTC');
         }
-    }
-
-    private function competitorMentions(MetricsFilter $filter, int $competitorId): int
-    {
-        return (int) $this->dailyQuery($filter)->toBase()->selectRaw(
-            "coalesce(sum((case when jsonb_typeof(agg_daily.competitor_mentions) = 'object' then agg_daily.competitor_mentions->>? else null end)::bigint), 0) as mentions",
-            [(string) $competitorId],
-        )->value('mentions');
     }
 
     /**

@@ -18,6 +18,7 @@ use App\Http\Controllers\BrandSourceController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PartnerOverviewController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\TeamSettingsController;
 use App\Http\Controllers\UsageController;
@@ -77,6 +78,7 @@ Route::middleware([
     Route::put('/admin/billing/{team}/markup', [BillingController::class, 'update'])->name('admin.billing.markup');
 
     Route::get('/dashboard', HomeController::class)->name('dashboard');
+    Route::get('/partner', PartnerOverviewController::class)->name('partner.index');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}/settings', [BrandSettingsController::class, 'show'])->name('brands.settings');
     Route::put('/brands/{brand}/settings', [BrandSettingsController::class, 'update'])->name('brands.settings.update');
