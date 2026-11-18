@@ -18,6 +18,7 @@ use App\Reports\ReportPublisher;
 use App\Tenancy\Rls\TenantRls;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -41,7 +42,13 @@ class GenerateTenantReports extends TenantJob
     {
         $lock = Cache::lock('reports:tenant:'.$this->tenantId, InsightWriter::CLAIM_SECONDS);
         if (! $lock->get()) {
-            throw new RuntimeException('Another report run is already handling this tenant.');
+            // Monday the 1st starts the weekly and monthly triggers together. The run that
+            // already holds the lock does the work, so this one must not fail the command.
+            Log::info('Skipped report generation because another run holds the tenant lock.', [
+                'tenant_id' => $this->tenantId,
+            ]);
+
+            return;
         }
 
         try {
@@ -149,8 +156,8 @@ class GenerateTenantReports extends TenantJob
         app()->setLocale($item->locale);
         try {
             $draft = $insights->draft($loaded['admission'], $loaded['name'], $item->summary, $item->locale);
-        } catch (Throwable $e) {
-            // Unknown outcome, including a timeout: keep the claim and any overage reservation.
+        } catch (InsightPending $e) {
+            // Unknown HTTP outcome, including a timeout: keep the claim and any overage reservation.
             report($e);
 
             return null;
@@ -163,11 +170,25 @@ class GenerateTenantReports extends TenantJob
             return null;
         }
 
-        $insights->remember($disk, $path, $draft);
-        $rls->run([$this->tenantId], fn () => $insights->book($draft));
-        $insights->settleBooked($draft->admission->operation, $draft->cost, $draft->admission->overageOperation);
+        $stored = false;
+        try {
+            $insights->remember($disk, $path, $draft);
+            $stored = true;
+        } catch (Throwable $e) {
+            report($e);
+        }
 
-        return $draft->text !== '' ? $draft->text : null;
+        try {
+            $rls->run([$this->tenantId], fn () => $insights->book($draft));
+            $insights->settleBooked($draft->admission->operation, $draft->cost, $draft->admission->overageOperation);
+        } catch (Throwable $e) {
+            report($e);
+            // The draft is on disk, so the next run books it. A storage failure has no file
+            // to recover from, and the charge was not recorded either.
+            throw $e;
+        }
+
+        return $stored && $draft->text !== '' ? $draft->text : null;
     }
 
     private function send(TenantRls $rls, Report $report): void

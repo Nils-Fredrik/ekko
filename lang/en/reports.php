@@ -48,7 +48,6 @@ return [
     ],
     'command' => [
         'done' => 'Reports were generated for :tenants tenants.',
-        'queued' => 'Report jobs were queued for :tenants tenants.',
         'failed' => ':failed of :tenants tenants failed.',
     ],
 ];

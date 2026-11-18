@@ -48,7 +48,6 @@ return [
     ],
     'command' => [
         'done' => 'Rapporter er laget for :tenants tenants.',
-        'queued' => 'Rapportjobber er lagt i kø for :tenants tenants.',
         'failed' => ':failed av :tenants tenants feilet.',
     ],
 ];

@@ -17,8 +17,7 @@ use Throwable;
 class GenerateReports extends Command
 {
     protected $signature = 'ekko:send-reports
-        {--tenant=* : Only these tenant ids}
-        {--sync : Accepted. Generation always runs in this process}';
+        {--tenant=* : Only these tenant ids}';
 
     protected $description = 'Generate and send the latest completed PDF report per tenant';
 

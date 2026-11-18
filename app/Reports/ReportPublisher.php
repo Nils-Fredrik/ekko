@@ -265,7 +265,11 @@ final class ReportPublisher
         if (! is_string($path) || ! str_starts_with($path, $prefix) || str_contains($path, '..')) {
             return null;
         }
-        $bytes = Storage::disk(config()->string('ekko.reports.disk'))->get($path);
+        $storage = Storage::disk(config()->string('ekko.reports.disk'));
+        if (! $storage->exists($path)) {
+            return null;
+        }
+        $bytes = $storage->get($path);
         if (! is_string($bytes) || $bytes === '') {
             return null;
         }

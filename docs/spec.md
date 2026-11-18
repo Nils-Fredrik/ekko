@@ -1323,7 +1323,7 @@ CSV-eksport etter 12.3 med partneraggregering og påslag.
 ### T32 – PDF-rapporter
 Rapportmal etter 11.2 i samme stil som grensesnittet, generering, lagring og utsending, med profil fra tenant eller partner.
 - PDF for testdata genereres på under 30 sekunder.
-- Rapporten er visuelt kontrollert i `nb` og `sv`.
+- Rapporttekstene i `nb` og `sv` kontrolleres i den rendrede HTML-en. PDF-filen er ikke visuelt gjennomgått.
 
 ### T33 – REST-API v1
 Endepunktene i 15.1 med ressurser, paginering og rate limit, samt OpenAPI-beskrivelse i `docs/api.yaml`.

@@ -32,6 +32,7 @@ final class InsightWriter
     public function __construct(
         private readonly Account $account,
         private readonly EnginePricing $pricing,
+        private readonly InsightPrice $prices,
     ) {}
 
     public function admit(Brand $brand): ?InsightAdmission
@@ -176,9 +177,11 @@ final class InsightWriter
             }
         }
         $text = trim($text);
-        $cost = $this->pricing->cost($admission->price, new EngineResult($text, $model, [], $input, $output, 0, []));
 
-        return new InsightDraft($admission, $text, $cost);
+        return new InsightDraft($admission, $text, $this->prices->quote(
+            $admission->price,
+            new EngineResult($text, $model, [], $input, $output, 0, []),
+        ));
     }
 
     /** Records the paid call on the tenant. The caller settles the platform account afterwards. */
