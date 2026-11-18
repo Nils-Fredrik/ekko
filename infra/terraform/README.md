@@ -80,8 +80,9 @@ ever contain a secret value.
    The future dispatcher must bound the worker task-count override at eight;
    the worker uses Cloud Run automatic parallelism for the requested count.
 
-The `ekko-task` identity can create PDF objects in the reports bucket. Scheduled
-report generation uploads each new PDF under a unique object name. The worker
+Web and `ekko-task` both have object access on the reports bucket. Web stores the
+logo there, and the task job reads that logo when it writes the PDF. Web then
+downloads the same object. The worker
 allows 420 seconds per queue job to cover up to three 120-second engine calls
 and retry delays. All workloads use a 450-second database queue reservation.
 Keep individual job timeout overrides below the reservation time. Cloud Run

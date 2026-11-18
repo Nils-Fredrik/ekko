@@ -20,20 +20,25 @@ use App\Onboarding\Fetch\PageTransport;
 use App\Onboarding\Model\AnthropicOnboardingClient;
 use App\Onboarding\Model\OnboardingModelClient;
 use App\Policies\OnboardingPolicy;
+use App\Storage\GcsReportsAdapter;
 use App\Tenancy\ActingAs;
 use App\Tenancy\Rls\DatabaseRoleCheck;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
+use Google\Cloud\Storage\StorageClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\PersonalAccessToken;
 use Laravel\Sanctum\Sanctum;
+use League\Flysystem\Filesystem;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -64,6 +69,7 @@ class AppServiceProvider extends ServiceProvider
     {
         app(LogContext::class)->clear();
         $this->configurePdf();
+        $this->configureReportDisk();
 
         // A login role that could bypass row-level security stops the instance (T39-F2): /up is the web service's
         // startup probe, and the worker and the ekko:* commands check before they start. The migrations run as
@@ -137,5 +143,19 @@ class AppServiceProvider extends ServiceProvider
             'laravel-pdf.chrome.operation_timeout' => 60000,
             'laravel-pdf.chrome.timeout' => 60000,
         ]);
+    }
+
+    /** Logos and PDFs share the reports bucket when EKKO_REPORTS_BUCKET is set (docs/spec.md 11.2). */
+    private function configureReportDisk(): void
+    {
+        Storage::extend('gcs', function (mixed $app, array $config): FilesystemAdapter {
+            $project = $config['project_id'] ?? null;
+            $client = new StorageClient([
+                'projectId' => is_string($project) && $project !== '' ? $project : null,
+            ]);
+            $adapter = new GcsReportsAdapter($client, (string) ($config['bucket'] ?? ''));
+
+            return new FilesystemAdapter(new Filesystem($adapter), $adapter, $config);
+        });
     }
 }

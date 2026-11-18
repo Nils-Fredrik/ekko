@@ -11,10 +11,12 @@ use App\Models\Team;
 use App\Reports\DueReport;
 use App\Reports\InsightAdmission;
 use App\Reports\InsightDraft;
+use App\Reports\InsightPending;
 use App\Reports\InsightWriter;
 use App\Reports\ReportPublisher;
 use App\Tenancy\Rls\TenantRls;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
@@ -36,6 +38,20 @@ class GenerateTenantReports extends TenantJob
 
     public function handle(TenantRls $rls, ReportPublisher $publisher, InsightWriter $insights): void
     {
+        $lock = Cache::lock('reports:tenant:'.$this->tenantId, 900);
+        if (! $lock->get()) {
+            throw new RuntimeException('Another report run is already handling this tenant.');
+        }
+
+        try {
+            $this->generate($rls, $publisher, $insights);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function generate(TenantRls $rls, ReportPublisher $publisher, InsightWriter $insights): void
+    {
         $now = CarbonImmutable::now('UTC');
         $tenant = Team::query()->findOrFail($this->tenantId);
         /** @var list<DueReport> $due */
@@ -43,7 +59,14 @@ class GenerateTenantReports extends TenantJob
 
         $failed = false;
         foreach ($due as $item) {
-            $text = $this->insight($rls, $insights, $item);
+            try {
+                $text = $this->insight($rls, $insights, $item);
+            } catch (InsightPending $pending) {
+                report($pending);
+                $failed = true;
+
+                continue;
+            }
             try {
                 /** @var array{path: string, data: array<string, mixed>} $document */
                 $document = $rls->run([$this->tenantId], fn (): array => $publisher->document($tenant, $item, $text));
@@ -58,7 +81,12 @@ class GenerateTenantReports extends TenantJob
         /** @var list<Report> $unsent */
         $unsent = $rls->run([$this->tenantId], fn (): array => $publisher->unsent($tenant, $now));
         foreach ($unsent as $report) {
-            $this->send($rls, $report);
+            try {
+                $this->send($rls, $report);
+            } catch (Throwable $e) {
+                report($e);
+                $failed = true;
+            }
         }
 
         // The paid insight stays on disk. A failed render must fail the command so the
@@ -94,6 +122,15 @@ class GenerateTenantReports extends TenantJob
             return $admission === null ? null : ['name' => $brand->name, 'admission' => $admission];
         });
         if ($loaded === null) {
+            $pending = $rls->run([$this->tenantId], function () use ($insights, $item): bool {
+                $brand = Brand::query()->find($item->brandId);
+
+                return $brand instanceof Brand && $insights->claimed($brand);
+            });
+            if ($pending) {
+                throw new InsightPending('The insight claim is still open.');
+            }
+
             return null;
         }
 
@@ -102,8 +139,10 @@ class GenerateTenantReports extends TenantJob
         try {
             $draft = $insights->draft($loaded['admission'], $loaded['name'], $item->summary, $item->locale);
         } catch (Throwable $e) {
+            // Unknown outcome, including a timeout: keep the claim and any overage reservation.
             report($e);
-            $draft = null;
+
+            return null;
         } finally {
             app()->setLocale($previous);
         }
@@ -141,13 +180,28 @@ class GenerateTenantReports extends TenantJob
         if ($recipients === []) {
             return;
         }
-        Mail::to($recipients)->locale($schedule->locale)->send(new ReportMail(
-            $brand instanceof Brand ? $brand->name : '',
-            $report->period_start->toDateString(),
-            $report->period_end->toDateString(),
-            $pdf,
-        ));
 
-        $rls->run([$this->tenantId], fn () => $report->forceFill(['sent_at' => CarbonImmutable::now('UTC')])->save());
+        $claimed = $rls->run([$this->tenantId], fn (): int => Report::query()
+            ->whereKey($report->id)
+            ->whereNull('sent_at')
+            ->update(['sent_at' => CarbonImmutable::now('UTC')]));
+        if ($claimed !== 1) {
+            return;
+        }
+
+        try {
+            foreach ($recipients as $recipient) {
+                Mail::to($recipient)->locale($schedule->locale)->send(new ReportMail(
+                    $brand instanceof Brand ? $brand->name : '',
+                    $report->period_start->toDateString(),
+                    $report->period_end->toDateString(),
+                    $pdf,
+                ));
+            }
+        } catch (Throwable $e) {
+            $rls->run([$this->tenantId], fn () => $report->forceFill(['sent_at' => null])->save());
+
+            throw $e;
+        }
     }
 }

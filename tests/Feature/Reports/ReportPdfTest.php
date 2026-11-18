@@ -13,6 +13,7 @@ use App\Reports\InsightWriter;
 use App\Reports\ReportPublisher;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -165,7 +166,9 @@ test('a failed pdf render does not spend the insight allocation again', function
     $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertSuccessful();
     expect(Report::query()->sole()->pdf_uri)->not->toBeNull();
     Http::assertSentCount(1);
-    Mail::assertSent(ReportMail::class, fn (ReportMail $mail): bool => $mail->hasTo('one@example.test') && $mail->hasTo('two@example.test'));
+    Mail::assertSent(ReportMail::class, fn (ReportMail $mail): bool => $mail->hasTo('one@example.test'));
+    Mail::assertSent(ReportMail::class, fn (ReportMail $mail): bool => $mail->hasTo('two@example.test'));
+    expect(Mail::sent(ReportMail::class))->toHaveCount(2);
     clearReportBudget();
 });
 
@@ -200,6 +203,116 @@ test('a second report run cannot claim an insight allocation that is already cla
 
     $rls->run([$world->tenant->id], fn () => $writer->release($first));
     expect(AnthropicInsightAllocation::query()->sole()->consumed_at)->toBeNull();
+    clearReportBudget();
+});
+
+test('an unknown insight outage keeps the claim and the reservation', function () {
+    Storage::fake(config()->string('ekko.reports.disk'));
+    Mail::fake();
+    config(['services.anthropic.key' => 'test-key', 'ekko.anthropic.monthly_pool_usd' => '100']);
+    Http::fake(function (): void {
+        throw new ConnectionException('timed out');
+    });
+    Pdf::swap(new class extends FakePdfBuilder
+    {
+        public function save(string $path): self
+        {
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, '%PDF-fake');
+
+            return $this;
+        }
+    });
+    $this->travelTo('2026-11-17 12:00:00');
+    $world = MetricsWorld::create('UTC');
+    $engine = Engine::factory()->create(['key' => 'claude_sonnet', 'provider' => 'anthropic', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create([
+        'valid_from' => '2026-01-01 00:00:00',
+        'price_per_call_usd' => '0.01000000',
+        'price_per_1k_input_tokens_usd' => '1.00000000',
+        'price_per_1k_output_tokens_usd' => '1.00000000',
+        'price_per_search_usd' => '0.00000000',
+    ]);
+    app(TenantContext::class)->set($world->tenant->id);
+    ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'monthly',
+        'locale' => 'nb',
+        'recipients' => ['reports@example.test'],
+    ]);
+    AnthropicInsightAllocation::query()->create([
+        'brand_id' => $world->brand->id,
+        'cycle_start' => '2026-11-01',
+        'cost_usd' => '0.05000000',
+    ]);
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertSuccessful();
+    $sent = count(Http::recorded());
+    expect(AnthropicInsightAllocation::query()->sole()->consumed_at)->not->toBeNull()
+        ->and(DB::table('anthropic_budget_holds')->where('operation', 'like', 'insight:'.$world->brand->id.':2026-11-01:overage:%')->whereNull('settled_at')->count())->toBe(1)
+        ->and(UsageEvent::query()->where('kind', 'pdf')->count())->toBe(0);
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertSuccessful();
+    expect(count(Http::recorded()))->toBe($sent);
+    clearReportBudget();
+});
+
+test('a report waits when another run already owns the insight claim', function () {
+    Storage::fake(config()->string('ekko.reports.disk'));
+    Mail::fake();
+    config(['services.anthropic.key' => 'test-key', 'ekko.anthropic.monthly_pool_usd' => '100']);
+    Http::fake();
+    Pdf::swap(new class extends FakePdfBuilder
+    {
+        public function save(string $path): self
+        {
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, '%PDF-fake');
+
+            return $this;
+        }
+    });
+    $this->travelTo('2026-11-17 12:00:00');
+    $world = MetricsWorld::create('UTC');
+    $engine = Engine::factory()->create(['key' => 'claude_sonnet', 'provider' => 'anthropic', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create([
+        'valid_from' => '2026-01-01 00:00:00',
+        'price_per_call_usd' => '0.01000000',
+        'price_per_1k_input_tokens_usd' => '1.00000000',
+        'price_per_1k_output_tokens_usd' => '1.00000000',
+        'price_per_search_usd' => '0.00000000',
+    ]);
+    app(TenantContext::class)->set($world->tenant->id);
+    $schedule = ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'monthly',
+        'locale' => 'nb',
+        'recipients' => ['reports@example.test'],
+    ]);
+    AnthropicInsightAllocation::query()->create([
+        'brand_id' => $world->brand->id,
+        'cycle_start' => '2026-11-01',
+        'cost_usd' => '0.05000000',
+    ]);
+    $rls = app(TenantRls::class);
+    $admission = $rls->run([$world->tenant->id], fn () => app(InsightWriter::class)->admit($world->brand));
+    expect($admission)->not->toBeNull();
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertFailed();
+    expect(Report::query()->count())->toBe(0);
+    Http::assertNothingSent();
+
+    Storage::disk(config()->string('ekko.reports.disk'))->put(
+        'reports/'.$world->tenant->id.'/'.$schedule->id.'-2026-10-01.insight.json',
+        json_encode([
+            'text' => 'Beholdt tekst',
+            'cost' => '0.01000000',
+            'operation' => 'insight:'.$world->brand->id.':2026-11-01',
+            'overage' => null,
+        ], JSON_THROW_ON_ERROR),
+    );
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertSuccessful();
+    expect(Report::query()->count())->toBe(1);
+    Http::assertNothingSent();
     clearReportBudget();
 });
 

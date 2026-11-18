@@ -49,6 +49,13 @@ return [
             'report' => false,
         ],
 
+        'reports' => [
+            'driver' => 'gcs',
+            'bucket' => env('EKKO_REPORTS_BUCKET'),
+            'project_id' => env('GOOGLE_CLOUD_PROJECT'),
+            'throw' => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

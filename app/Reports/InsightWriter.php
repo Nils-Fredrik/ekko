@@ -80,6 +80,18 @@ final class InsightWriter
         return new InsightAdmission($allocation->id, $brand->id, $cycle, $operation, $overage, $price);
     }
 
+    /** True when this cycle's allocation is already taken and the text may still be in another run. */
+    public function claimed(Brand $brand): bool
+    {
+        $cycle = $this->account->cycle()->start->toDateString();
+
+        return AnthropicInsightAllocation::query()
+            ->where('brand_id', $brand->id)
+            ->whereDate('cycle_start', $cycle)
+            ->whereNotNull('consumed_at')
+            ->exists();
+    }
+
     public function release(InsightAdmission $admission): void
     {
         if ($admission->overageOperation !== null) {
@@ -126,8 +138,9 @@ final class InsightWriter
                     ]),
                 ]],
             ]);
-        } catch (Throwable) {
-            return null;
+        } catch (Throwable $failure) {
+            // A timeout can already have been billed. Keep the claim and the reservation.
+            throw new InsightPending('The insight call had no known result.', 0, $failure);
         }
 
         if (! $response->successful()) {

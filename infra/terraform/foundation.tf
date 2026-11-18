@@ -204,14 +204,15 @@ resource "google_storage_bucket_iam_member" "reports_worker" {
   member = "serviceAccount:${google_service_account.component["worker"].email}"
 }
 
+# The task job reads the logo uploaded by web and writes the PDF that web later downloads.
 resource "google_storage_bucket_iam_member" "reports_task" {
   bucket = google_storage_bucket.reports.name
-  role   = "roles/storage.objectCreator"
+  role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.component["task"].email}"
 }
 
 resource "google_storage_bucket_iam_member" "reports_web" {
   bucket = google_storage_bucket.reports.name
-  role   = "roles/storage.objectViewer"
+  role   = "roles/storage.objectUser"
   member = "serviceAccount:${google_service_account.component["web"].email}"
 }
