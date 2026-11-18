@@ -88,7 +88,7 @@ return [
         'estimate' => 'Estimert kostnad per måned',
         'issues' => 'Advarsler',
         'integrations' => 'Integrasjoner',
-        'integrations_later' => 'Oppsett for ClickHouse, loggopplasting og GA4 er foreløpig ikke tilgjengelig her. Disse integrasjonene er valgfrie.',
+        'integrations_later' => 'Integrasjonene er valgfrie. La feltene stå tomme for å hoppe over dem. Loggfiler lastes opp fra merkevaren etterpå.',
         'confirm' => 'Lagre og start første kjøring',
         'back' => 'Tilbake',
         'next' => 'Neste',

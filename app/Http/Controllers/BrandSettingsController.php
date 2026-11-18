@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Dashboard\DashboardLabels;
+use App\Integrations\BrandIntegrations;
 use App\Models\Brand;
 use App\Models\EnginePrice;
 use App\Models\Integration;
@@ -25,6 +26,8 @@ use Inertia\Response;
 class BrandSettingsController extends Controller
 {
     private const DOMAIN = '/\A(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\z/i';
+
+    public function __construct(private BrandIntegrations $integrations) {}
 
     public function show(Brand $brand): Response
     {
@@ -78,7 +81,8 @@ class BrandSettingsController extends Controller
                     'last_sync_at' => $integration->last_sync_at?->toIso8601String(),
                 ])->values()
                 : [],
-            'clickhouseEndpoints' => $seeIntegrations ? $this->clickhouseEndpoints() : [],
+            'clickhouseEndpoints' => $seeIntegrations ? $this->integrations->endpoints() : [],
+            'logUploadUrl' => $seeIntegrations ? route('bot-log-uploads.index', ['team' => current_tenant_id()]) : null,
             'can' => [
                 'manage' => Gate::allows('update', $brand),
                 'integrations' => $seeIntegrations,
@@ -108,7 +112,7 @@ class BrandSettingsController extends Controller
             'engines.*.frequency' => ['required', Rule::in(['daily', 'weekly', 'monthly', 'off'])],
             'engines.*.prompt_scope' => ['required', Rule::in(['all', 'core'])],
             'engines.*.repetitions' => ['required', 'integer', 'between:1,3'],
-            'clickhouse_host' => ['sometimes', 'nullable', 'string', 'max:255'],
+            ...$this->integrations->rules(),
         ], [], [
             'name' => __('app.workspace.name'),
             'primary_domain' => __('app.workspace.primary_domain'),
@@ -123,6 +127,13 @@ class BrandSettingsController extends Controller
             'engines.*.prompt_scope' => __('app.workspace.prompt_scope'),
             'engines.*.repetitions' => __('app.workspace.repetitions'),
             'clickhouse_host' => __('app.workspace.clickhouse_host'),
+            'clickhouse_database' => __('app.workspace.clickhouse_database'),
+            'clickhouse_table' => __('app.workspace.clickhouse_table'),
+            'clickhouse_user' => __('app.workspace.clickhouse_user'),
+            'clickhouse_password' => __('app.workspace.clickhouse_password'),
+            'ga4_property_id' => __('app.workspace.ga4_property'),
+            'ga4_client_email' => __('app.workspace.ga4_email'),
+            'ga4_private_key' => __('app.workspace.ga4_key'),
         ]);
 
         DB::transaction(function () use ($brand, $data): void {
@@ -132,7 +143,7 @@ class BrandSettingsController extends Controller
             $this->saveDomains($locked, $data);
             $this->saveMarkets($locked, $data);
             $this->saveEngines($locked, $data);
-            $this->saveClickHouse($locked, $data);
+            $this->integrations->apply($locked, $data);
         });
 
         return back();
@@ -349,46 +360,5 @@ class BrandSettingsController extends Controller
         if ($messages !== []) {
             throw ValidationException::withMessages($messages);
         }
-    }
-
-    /** @param  array<string, mixed>  $data */
-    private function saveClickHouse(Brand $brand, array $data): void
-    {
-        if (! array_key_exists('clickhouse_host', $data) || ! is_string($data['clickhouse_host']) || $data['clickhouse_host'] === '') {
-            return;
-        }
-
-        $host = $data['clickhouse_host'];
-        if (! in_array($host, $this->clickhouseEndpoints(), true)) {
-            throw ValidationException::withMessages([
-                'clickhouse_host' => __('app.workspace.clickhouse_invalid'),
-            ]);
-        }
-
-        $integration = $brand->integrations()->where('type', 'clickhouse_logs')->first();
-        if (! $integration instanceof Integration) {
-            throw ValidationException::withMessages([
-                'clickhouse_host' => __('app.workspace.clickhouse_missing'),
-            ]);
-        }
-
-        Gate::authorize('update', $integration);
-        $config = $integration->config;
-        $config['host'] = $host;
-        $integration->config = $config;
-        $integration->save();
-    }
-
-    /** @return list<string> */
-    private function clickhouseEndpoints(): array
-    {
-        $endpoints = [];
-        foreach (config()->array('ekko.bot_logs.clickhouse_endpoints') as $endpoint) {
-            if (is_string($endpoint) && $endpoint !== '') {
-                $endpoints[] = $endpoint;
-            }
-        }
-
-        return $endpoints;
     }
 }

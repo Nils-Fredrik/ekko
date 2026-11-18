@@ -3,6 +3,7 @@
 use App\Models\Brand;
 use App\Models\Engine;
 use App\Models\EnginePrice;
+use App\Models\Integration;
 use App\Models\MarketEngine;
 use App\Models\Plan;
 use App\Models\Run;
@@ -42,6 +43,27 @@ function confirmationFixture(): array
 
     return [$tenant, $owner, $analysis, $data];
 }
+
+test('an optional wizard step stores clickhouse and ga4 on the new brand', function () {
+    [$tenant, $owner, $analysis, $data] = confirmationFixture();
+    config(['ekko.bot_logs.clickhouse_endpoints' => ['https://logs.example.test']]);
+    $data['clickhouse_host'] = 'https://logs.example.test';
+    $data['clickhouse_database'] = 'logs';
+    $data['clickhouse_table'] = 'hits';
+    $data['clickhouse_user'] = 'reader';
+    $data['clickhouse_password'] = 'wizard-secret';
+    $data['ga4_property_id'] = '123456789';
+    $data['ga4_client_email'] = 'ga4@example.test';
+    $data['ga4_private_key'] = 'wizard-key';
+
+    $this->actingAs($owner);
+    $result = inTenant($tenant, fn () => app(ProposalConfirmer::class)->confirm($tenant, $analysis, $data));
+
+    $stored = inTenant($tenant, fn () => Integration::query()->where('brand_id', $result['brand']->id)->get()->keyBy('type'));
+    expect($stored['clickhouse_logs']->config['password'])->toBe('wizard-secret')
+        ->and($stored['ga4']->config['property_id'])->toBe('123456789')
+        ->and($stored['ga4']->config['service_account']['private_key'])->toBe('wizard-key');
+});
 
 test('stale ready proposals cannot confirm twice and topic keys normalize consistently', function () {
     [$tenant, , $analysis, $data] = confirmationFixture();

@@ -2,6 +2,7 @@
 
 namespace App\Onboarding;
 
+use App\Integrations\BrandIntegrations;
 use App\Models\Brand;
 use App\Models\BrandAlias;
 use App\Models\Competitor;
@@ -28,7 +29,12 @@ use Illuminate\Validation\ValidationException;
  */
 final class ProposalConfirmer
 {
-    public function __construct(private ProposalParser $personalData, private FirstRun $firstRun, private AnalysisStore $store) {}
+    public function __construct(
+        private ProposalParser $personalData,
+        private FirstRun $firstRun,
+        private AnalysisStore $store,
+        private BrandIntegrations $integrations,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -66,6 +72,7 @@ final class ProposalConfirmer
                 : $this->createTopics($brand, $data['topics'] ?? []);
             $this->createPrompts($market, $topics, $data['prompts'] ?? [], $plan);
             $this->createEngines($market, $data['engines'] ?? [], $plan);
+            $this->integrations->apply($brand, $data);
 
             $runs = $this->firstRun->start($tenant, $market);
             $this->store->markConfirmed($analysis);
