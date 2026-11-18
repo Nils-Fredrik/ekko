@@ -88,7 +88,7 @@ return [
         'estimate' => 'Beräknad kostnad per månad',
         'issues' => 'Varningar',
         'integrations' => 'Integrationer',
-        'integrations_later' => 'Konfiguration för ClickHouse, logguppladdning och GA4 är ännu inte tillgänglig här. Dessa integrationer är valfria.',
+        'integrations_later' => 'Integrationerna är valfria. Lämna fälten tomma för att hoppa över dem. Loggfiler laddas upp från varumärket efteråt.',
         'confirm' => 'Spara och starta första körningen',
         'back' => 'Tillbaka',
         'next' => 'Nästa',

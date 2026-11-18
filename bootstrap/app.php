@@ -32,6 +32,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias(['two-factor.required' => EnsureTwoFactorEnabled::class]);
+        $middleware->trimStrings(except: ['clickhouse_password', 'ga4_private_key']);
 
         // The client's address and scheme from the proxies in config/trustedproxy.php (T39-F3). Host, Port and
         // Prefix are never trusted, so a forwarded header cannot change the URLs the app generates.
@@ -63,7 +64,12 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(ApplyTenantRls::class, SetCurrentTenant::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->dontFlash(['key', 'webhook_url']);
+        $exceptions->dontFlash([
+            'key',
+            'webhook_url',
+            'clickhouse_password',
+            'ga4_private_key',
+        ]);
         $exceptions->report(function (Throwable $failure): void {
             Log::error('Application exception.', [
                 ...app(LogContext::class)->forException($failure),

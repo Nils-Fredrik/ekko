@@ -87,7 +87,7 @@ return [
         'estimate' => 'Estimated cost per month',
         'issues' => 'Warnings',
         'integrations' => 'Integrations',
-        'integrations_later' => 'Setup for ClickHouse, log uploads and GA4 is not yet available here. These integrations are optional.',
+        'integrations_later' => 'The integrations are optional. Leave the fields empty to skip them. Log files are uploaded from the brand afterwards.',
         'confirm' => 'Save and start the first run',
         'back' => 'Back',
         'next' => 'Next',

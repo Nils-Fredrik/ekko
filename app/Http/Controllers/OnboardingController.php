@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Dashboard\DashboardLabels;
+use App\Integrations\BrandIntegrations;
 use App\Jobs\RunOnboardingAnalysis;
 use App\Models\Brand;
 use App\Models\Engine;
@@ -80,6 +81,7 @@ class OnboardingController extends Controller
         return Inertia::render('Onboarding/Wizard', [
             'engines' => $engines,
             'maxCore' => (int) config('ekko.wizard.suggestions.max_core_prompts'),
+            'clickhouseEndpoints' => app(BrandIntegrations::class)->endpoints(),
             'brand' => $brand === null ? null : [
                 'id' => $brand->id,
                 'name' => $brand->name,
@@ -92,7 +94,7 @@ class OnboardingController extends Controller
     /**
      * Saves the edited proposal and starts the first run of its core prompts.
      */
-    public function confirm(Request $request, string $analysis, AnalysisStore $store, ProposalConfirmer $confirmer): RedirectResponse
+    public function confirm(Request $request, string $analysis, AnalysisStore $store, ProposalConfirmer $confirmer, BrandIntegrations $integrations): RedirectResponse
     {
         $tenantId = app(TenantContext::class)->id();
         abort_if($tenantId === null, 403);
@@ -124,6 +126,7 @@ class OnboardingController extends Controller
             'engines.*.engine_key' => ['required', 'string', 'max:64'],
             'engines.*.frequency' => ['required', Rule::in(['daily', 'weekly', 'monthly', 'off'])],
             'engines.*.repetitions' => ['required', 'integer', 'between:1,3'],
+            ...$integrations->rules(),
         ], [], [
             'name' => __('onboarding.ui.name'),
             'primary_domain' => __('onboarding.ui.domain'),
