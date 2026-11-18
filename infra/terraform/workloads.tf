@@ -29,6 +29,7 @@ locals {
     LOG_LEVEL                      = "info"
     EKKO_DISABLED_ENGINE_PROVIDERS = "perplexity,dataforseo"
     EKKO_GEMINI_GROUNDING_APPROVED = tostring(var.gemini_grounding_approved)
+    EKKO_REQUIRE_TWO_FACTOR        = tostring(var.require_two_factor)
     GOOGLE_CLOUD_PROJECT           = var.project_id
     GOOGLE_CLOUD_REGION            = var.region
     EKKO_START_WORKER              = "true"

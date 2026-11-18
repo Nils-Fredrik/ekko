@@ -208,13 +208,24 @@ return [
     // Login with Google: the provider is a fixed name, not a tenant resource, and the
     // callback creates a user only for an unexpired invitation (SocialLoginTest).
     'social.redirect' => RouteAccess::guest(),
-    'social.callback' => RouteAccess::guest(),
+    // The callback also finishes a confirmation for a signed-in user, only for an account linked to that user
+    // (SocialConfirmTest).
+    'social.callback' => RouteAccess::public(),
+    'social.confirm' => RouteAccess::user(own: function (): array {
+        // A provider without credentials answers 404, so the positive control configures Google.
+        config(['services.google.client_id' => 'test-id', 'services.google.client_secret' => 'test-secret']);
+
+        return ['params' => ['provider' => 'google']];
+    })->withoutForeignCheck('the provider is a fixed name, and only an account linked to the signed-in user confirms (SocialConfirmTest)'),
 
     // The signed-in user's own account.
     'logout' => RouteAccess::user(),
     // The overview and the brand list have no resource id. They show the signed-in tenant only,
     // and the leak scan checks that tenant B never appears. The brand page is addressed by id.
     'dashboard' => RouteAccess::user(),
+    // No resource id. A partner advisor sees only clients of the current partner tenant.
+    // PartnerOverviewTest checks that another partner's client never appears.
+    'partner.index' => RouteAccess::user(),
     'brands.index' => RouteAccess::user(),
     'brands.show' => RouteAccess::tenant(
         foreign: function (Scenario $s) {
