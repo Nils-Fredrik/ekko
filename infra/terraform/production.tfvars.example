@@ -1,9 +1,10 @@
 # Copy to ignored production.auto.tfvars. No secrets belong in either file.
-enable_https         = true
-app_url              = "https://ekko.maksimer.com"
-enable_workloads     = false
-enable_public_access = false
-enable_schedules     = false
+enable_https               = true
+app_url                    = "https://ekko.maksimer.com"
+enable_workloads           = false
+enable_public_access       = false
+enable_schedules           = false
+enable_dashboard_schedules = false
 
 # Google Web application client ID; secret goes directly to Secret Manager.
 google_oauth_client_id = ""
@@ -17,6 +18,6 @@ gemini_grounding_approved = false
 require_two_factor = true
 
 # Deploy monitor-health before starting its independent schedule.
-enable_monitoring = false
+enable_monitoring          = false
 enable_monitoring_schedule = false
-monitoring_email = ""
+monitoring_email           = ""
