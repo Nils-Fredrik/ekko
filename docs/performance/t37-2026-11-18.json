@@ -1,0 +1,235 @@
+{
+  "board_task": 37,
+  "evidence_task": 70,
+  "report": {
+    "fixture": {
+      "agg_daily": 219000,
+      "agg_source_daily": 2190,
+      "aggregated_responses": 657000,
+      "brand_id": 7,
+      "citations": 657000,
+      "days": 365,
+      "engines": 6,
+      "from": "2025-11-19",
+      "mentions": 438000,
+      "prompts": 100,
+      "repetitions": 3,
+      "responses": 657000,
+      "runs": 657000,
+      "tenant_id": 7,
+      "to": "2026-11-18"
+    },
+    "measured_at": "2026-11-18T17:22:43.712248+00:00",
+    "mode": "serial authenticated HTTP; full response; warm service",
+    "origin": "https://ekko.maksimer.com",
+    "partial": false,
+    "routes": [
+      {
+        "max_ms": 472.83,
+        "min_ms": 259.68,
+        "p95_ms": 357.7,
+        "passed": true,
+        "route": "/dashboard"
+      },
+      {
+        "max_ms": 412.63,
+        "min_ms": 256.86,
+        "p95_ms": 349.43,
+        "passed": true,
+        "route": "/brands/7?days=7"
+      },
+      {
+        "max_ms": 620.8,
+        "min_ms": 311.43,
+        "p95_ms": 398.45,
+        "passed": true,
+        "route": "/brands/7?days=28"
+      },
+      {
+        "max_ms": 1650.48,
+        "min_ms": 369.35,
+        "p95_ms": 492.93,
+        "passed": true,
+        "route": "/brands/7?days=90"
+      },
+      {
+        "max_ms": 432.36,
+        "min_ms": 230.63,
+        "p95_ms": 312.62,
+        "passed": true,
+        "route": "/api/v1/brands/7/metrics"
+      }
+    ],
+    "samples_per_route": 100,
+    "threshold_ms": 800,
+    "warmups_per_route": 5
+  },
+  "method": {
+    "location": "Cloud Run europe-west1 via public HTTPS",
+    "python_image": "docker.io/library/python@sha256:9aaa474097d094040649f2162a627c0049b408f52138d980916788d80f04802f",
+    "measure_script_sha256": "7b23d227474ed02c3df355dd8240b7fef18bfbd3b3ac10f13e6b0a3ed8baa1a1",
+    "samples": 100,
+    "warmup": 5
+  },
+  "deployment_before_measurement": {
+    "pr": 89,
+    "merge_sha": "500ec37500bf1019d764b32ab9df607eb4196cf9",
+    "main_sha": "23de8a195b01c8ede1a32cb9bd84ec964e7d62c1",
+    "ci_run": 44351886984,
+    "web": {
+      "spec": {
+        "template": {
+          "metadata": {
+            "annotations": {
+              "autoscaling.knative.dev/maxScale": "4",
+              "autoscaling.knative.dev/minScale": "0",
+              "run.googleapis.com/cloudsql-instances": "ekko-514612:europe-west1:ekko-postgres",
+              "run.googleapis.com/cpu-throttling": "false",
+              "run.googleapis.com/sessionAffinity": "false"
+            }
+          },
+          "spec": {
+            "containerConcurrency": 80,
+            "containers": [
+              {
+                "resources": {
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "1Gi"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "traffic": [
+          {
+            "percent": 100,
+            "revisionName": "ekko-web-00041-clq"
+          },
+          {
+            "revisionName": "ekko-web-r44351886984-1",
+            "tag": "candidate",
+            "url": "https://candidate---ekko-web-rdj2oacpcq-ew.a.run.app"
+          }
+        ]
+      }
+    },
+    "image_digest": "europe-west1-docker.pkg.dev/ekko-514612/ekko/web@sha256:94cff2c7338406a0ac2324768fbdbed4c332e13458126898bb3d1da93132f825",
+    "ci_revision": "ekko-web-r44351886984-1",
+    "changed_environment_names": [
+      "EKKO_CLICKHOUSE_ENDPOINTS"
+    ],
+    "active_spec_sha256": "d926556e8bf5c5c80579ab850b68819fb074630f86ab6d967d3ed24017001105"
+  },
+  "deployment_after_measurement": {
+    "pr": 89,
+    "merge_sha": "500ec37500bf1019d764b32ab9df607eb4196cf9",
+    "main_sha": "23de8a195b01c8ede1a32cb9bd84ec964e7d62c1",
+    "ci_run": 44351886984,
+    "web": {
+      "spec": {
+        "template": {
+          "metadata": {
+            "annotations": {
+              "autoscaling.knative.dev/maxScale": "4",
+              "autoscaling.knative.dev/minScale": "0",
+              "run.googleapis.com/cloudsql-instances": "ekko-514612:europe-west1:ekko-postgres",
+              "run.googleapis.com/cpu-throttling": "false",
+              "run.googleapis.com/sessionAffinity": "false"
+            }
+          },
+          "spec": {
+            "containerConcurrency": 80,
+            "containers": [
+              {
+                "resources": {
+                  "limits": {
+                    "cpu": "1",
+                    "memory": "1Gi"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "status": {
+        "traffic": [
+          {
+            "percent": 100,
+            "revisionName": "ekko-web-00041-clq"
+          },
+          {
+            "revisionName": "ekko-web-r44351886984-1",
+            "tag": "candidate",
+            "url": "https://candidate---ekko-web-rdj2oacpcq-ew.a.run.app"
+          }
+        ]
+      }
+    },
+    "image_digest": "europe-west1-docker.pkg.dev/ekko-514612/ekko/web@sha256:94cff2c7338406a0ac2324768fbdbed4c332e13458126898bb3d1da93132f825",
+    "ci_revision": "ekko-web-r44351886984-1",
+    "changed_environment_names": [
+      "EKKO_CLICKHOUSE_ENDPOINTS"
+    ],
+    "active_spec_sha256": "d926556e8bf5c5c80579ab850b68819fb074630f86ab6d967d3ed24017001105"
+  },
+  "database": {
+    "databaseVersion": "POSTGRES_16",
+    "region": "europe-west1",
+    "settings": {
+      "availabilityType": "ZONAL",
+      "dataDiskSizeGb": "20",
+      "dataDiskType": "PD_SSD",
+      "tier": "db-g1-small"
+    }
+  },
+  "cleanup": {
+    "fixture": {
+      "completed_at": "2026-11-18T17:29:26+00:00",
+      "fixture_key": "1a2f7db5-d2ff-4fb9-b74f-d9dbd1d5f9a2",
+      "teams": 0,
+      "users": 0
+    },
+    "deleted_jobs": [
+      "ekko-t37-cleanup-1a2f7db5",
+      "ekko-t37-final-1a2f7db5",
+      "ekko-t37-measure-1a2f7db5",
+      "ekko-t37-prepare-1a2f7db5"
+    ],
+    "executions": [
+      {
+        "name": "projects/ekko-514612/locations/europe-west1/jobs/ekko-t37-cleanup-1a2f7db5/executions/ekko-t37-cleanup-1a2f7db5-4gtph",
+        "startTime": "2026-11-18T17:28:15.698106Z",
+        "completionTime": "2026-11-18T17:29:29.169807Z",
+        "succeededCount": 1,
+        "failedCount": null
+      },
+      {
+        "name": "projects/ekko-514612/locations/europe-west1/jobs/ekko-t37-final-1a2f7db5/executions/ekko-t37-final-1a2f7db5-q57xw",
+        "startTime": "2026-11-18T16:19:09.444598Z",
+        "completionTime": "2026-11-18T17:13:12.687709Z",
+        "succeededCount": 1,
+        "failedCount": null
+      },
+      {
+        "name": "projects/ekko-514612/locations/europe-west1/jobs/ekko-t37-measure-1a2f7db5/executions/ekko-t37-measure-1a2f7db5-kflc7",
+        "startTime": "2026-11-18T17:22:19.420007Z",
+        "completionTime": "2026-11-18T17:27:09.127936Z",
+        "succeededCount": 1,
+        "failedCount": null
+      },
+      {
+        "name": "projects/ekko-514612/locations/europe-west1/jobs/ekko-t37-prepare-1a2f7db5/executions/ekko-t37-prepare-1a2f7db5-z9kgl",
+        "startTime": "2026-11-18T17:21:05.439820Z",
+        "completionTime": "2026-11-18T17:21:22.846525Z",
+        "succeededCount": 1,
+        "failedCount": null
+      }
+    ],
+    "deleted_secret": "ekko-t37-measure-1a2f7db5"
+  }
+}
