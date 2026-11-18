@@ -50,9 +50,9 @@ Sletting krever den nøyaktige UUID-en og både syntetiske identiteter. Den avvi
 
 ## Verifisert før produksjon
 
-Generator, dimensjoner, faktisk aggregering, tenant-isolert opprydding og avvisning av endrede identiteter er dekket av `tests/Feature/Performance`. Python-testene dekker p95, Inertia-parsing og avvisning av ufullstendige/utdaterte datasett og kjøres i CI. Full produksjonsmåling 17.11.2026 på revisjon `ekko-web-r44158308567-1` med årsvolumet ga p95 473,75 ms på oversikten, 510,89/582,73/811,75 ms på merkevaresiden (7/28/90 dager) og 439,26 ms på REST. 90-dagersvisningen oppfylte ikke kravet. Den syntetiske tenanten, brukerne, tokenet og den midlertidige generatorjobben ble slettet og fravær kontrollert. Task:37 holdes åpen til en ny full produksjonsmåling består.
+Generator, dimensjoner, faktisk aggregering, tenant-isolert opprydding og avvisning av endrede identiteter er dekket av `tests/Feature/Performance`. Python-testene dekker p95, Inertia-parsing og avvisning av ufullstendige/utdaterte datasett og kjøres i CI. Full produksjonsmåling 17.11.2026 på revisjon `ekko-web-r44158308567-1` med årsvolumet ga p95 473,75 ms på oversikten, 510,89/582,73/811,75 ms på merkevaresiden (7/28/90 dager) og 439,26 ms på REST. 90-dagersvisningen oppfylte ikke kravet. Den syntetiske tenanten, brukerne, tokenet og den midlertidige generatorjobben ble slettet og fravær kontrollert. Task:37 ble derfor holdt åpen frem til sluttmålingen nedenfor.
 
-Oppfølgingen samler `MetricsService::voiceParts()` sine tellere for svar, merkevare og aktive konkurrenter i én filtrert `agg_daily`-spørring. Tidligere krevde dette to skanninger pluss én per konkurrent; nå brukes to databasekall totalt (konkurrentliste og aggregat), også når listen vokser. Formler, filtre og tenant-kontekst er uendret. Metrikktestene kontrollerer tallene, tomme perioder, JSON uten konkurrentobjekt og fast antall spørringer. Dette er ikke i seg selv bevis på p95 under 800 ms; ny produksjonsmåling skal knyttes til den deployede revisjonen før aksept.
+Oppfølgingen samler `MetricsService::voiceParts()` sine tellere for svar, merkevare og aktive konkurrenter i én filtrert `agg_daily`-spørring. Tidligere krevde dette to skanninger pluss én per konkurrent; nå brukes to databasekall totalt (konkurrentliste og aggregat), også når listen vokser. Formler, filtre og tenant-kontekst er uendret. Metrikktestene kontrollerer tallene, tomme perioder, JSON uten konkurrentobjekt og fast antall spørringer. Produksjonsmålingen av denne første rettingen er dokumentert nedenfor.
 
 ## Oppfølging av 90-dagersvisningen 18.11.2026
 
@@ -60,4 +60,28 @@ Etter PR #84 ble hele årssettet målt fra Cloud Run i `europe-west1` mot offent
 
 Separat SQL-profilering viste fem aggregatspørringer for siden, med korrekt indeksbruk. `MetricsService::dashboard()` samler nå gjeldende periodes total, dagserie, motorfordeling og konkurrentandeler i én aggregatspørring med PostgreSQLs [GROUPING SETS](https://www.postgresql.org/docs/16/queries-table-expressions.html#QUERIES-GROUPING-SETS). Sammenligningsperioden leses fortsatt separat. Det reduserer siden fra fem til to aggregatspørringer. Hvert grupperingsnivå summerer tellere før de eksisterende formlene brukes; prosentverdier gjennomsnittsberegnes ikke. Filtre, tenant-scope/RLS, nullverdier, aktive konkurrenter og responsformat beholdes. Det innføres ingen cache eller endringer i databasekapasitet eller innstillinger.
 
-Regresjonstestene kontrollerer håndberegnede tall, samsvar med de individuelle metrikk-API-ene for alle filterdimensjoner, tomme perioder, JSON uten konkurrentobjekt, flere konkurrenter og gjenbruk av tjenesten på tvers av tenant-kontekster. Ny full HTTP-måling etter deploy er fortsatt påkrevd før T37 kan lukkes.
+Regresjonstestene kontrollerer håndberegnede tall, samsvar med de individuelle metrikk-API-ene for alle filterdimensjoner, tomme perioder, JSON uten konkurrentobjekt, flere konkurrenter og gjenbruk av tjenesten på tvers av tenant-kontekster. Rettingen ble levert i [PR #89](https://github.com/Nils-Fredrik/ekko/pull/89), med full HTTP-måling etter deploy som dokumentert nedenfor.
+
+## Bestått produksjonsmåling 18.11.2026
+
+T37s ytelseskrav er oppfylt med hele årssettet. Målingen startet 17:22:43 UTC fra en midlertidig Cloud Run-jobb i `europe-west1` mot `https://ekko.maksimer.com`. Uendret `scripts/performance/measure.py` kjørte fem oppvarminger og 100 målte forespørsler per rute, validerte svarvolumet i hver respons og rapporterte `partial: false`.
+
+| Rute | p95 (ms) | Maks (ms) | Krav p95 < 800 ms |
+|---|---:|---:|---|
+| Oversikt `/dashboard` | 357,70 | 472,83 | Bestått |
+| Merkevare, 7 dager | 349,43 | 412,63 | Bestått |
+| Merkevare, 28 dager | 398,45 | 620,80 | Bestått |
+| Merkevare, 90 dager | 492,93 | 1650,48 | Bestått |
+| REST-metrikker, 28 dager | 312,62 | 432,36 | Bestått |
+
+Dette er p95 for varme, serielle HTTP-kall inklusive full respons. Maksimum på 90-dagersvisningen viser at enkeltkall fortsatt kan overstige 800 ms. Testen gir ingen garanti for kaldstart, samtidige brukere, nettleserrendering eller klienter i andre regioner.
+
+Målt main-commit er `23de8a195b01c8ede1a32cb9bd84ec964e7d62c1`, som inneholder PR #89 (`500ec37500bf1019d764b32ab9df607eb4196cf9`). [CI/deploy 44351886984](https://github.com/Nils-Fredrik/ekko/actions/runs/44351886984) var grønn før målingen. Aktiv revisjon `ekko-web-00041-clq` hadde 100 % trafikk og samme image-digest som CI-revisjonen `ekko-web-r44351886984-1`: `sha256:94cff2c7338406a0ac2324768fbdbed4c332e13458126898bb3d1da93132f825`. Mellom disse revisjonene var kun miljøvariabelen `EKKO_CLICKHOUSE_ENDPOINTS` endret; resten av runtime-spesifikasjonen var identisk. Aktiv revisjon, digest, main-commit, trafikk og konfigurasjon var uendret før/etter målingen.
+
+Web kjørte med 1 vCPU / 1 GiB, concurrency 80, min 0 / maks 4 instanser og CPU uten throttling. Cloud SQL var PostgreSQL 16, `db-g1-small`, 20 GB SSD, ZONAL i `europe-west1`. Kapasiteten ble ikke økt for testen.
+
+Den isolerte testtenanten hadde 365 dager (19.11.2025–18.11.2026), 100 prompts, seks motorer og tre gjentakelser. Verifikasjonen viste 657 000 runs/svar/sitater, 438 000 omtaler, 219 000 dagsaggregater, 2190 kildeaggregater og 657 000 aggregerte svar. Generatoren brukte applikasjonens vanlige `ekko_app`-rolle med RLS og den faktiske `DailyAggregator`, uten leverandørkall eller kundedata.
+
+Oppryddingen var bekreftet 17:29:26 UTC: testtenant og begge testbrukere var borte (0/0). Den reviewede slettefunksjonen fjernet tenantdata, token og sesjoner. Alle fire midlertidige jobber (generator, klargjøring, måling og sletting) og den midlertidige Secret Manager-hemmeligheten ble deretter slettet, med fravær kontrollert via API. Alle fire jobbutførelser fullførte med suksess. [Maskinlesbart måle- og oppryddingsbevis](performance/t37-2026-11-18.json) inneholder bare syntetiske identifikatorer, måletall og driftsmetadata; ingen hemmeligheter eller responsinnhold. Board: task:37 og dokumentasjonsoppfølging task:70.
+
+Lokale kontroller av applikasjonskoden i PR #89 og den påfølgende dokumentasjons-PR #90 var grønne: `composer test` (2053 tester, 11 716 assertions), `composer lint` og `npm run lint` (fire eksisterende `v-html`-advarsler). PR #89 hadde også grønn frontend-build og tre Python-tester av måleverktøyet. Denne oppfølgingen endrer kun dokumentasjon og målebevis.
