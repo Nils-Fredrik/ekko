@@ -142,7 +142,7 @@ const logout = () => {
                                                 {{ $t('Create New Team') }}
                                             </DropdownLink>
 
-                                            <template v-if="user.all_teams.length > 1">
+                                            <template v-if="user.all_teams.length > 1 && !page.props.actingAs">
                                                 <div class="border-t border-line-soft" />
 
                                                 <div class="block px-4 py-2 text-xs text-dark-beige">
@@ -200,8 +200,26 @@ const logout = () => {
                                             {{ $t('API Tokens') }}
                                         </DropdownLink>
 
+                                        <DropdownLink
+                                            v-if="user.is_platform_admin"
+                                            :href="route('admin.tenants.index')"
+                                        >
+                                            {{ $t('admin.nav.tenants') }}
+                                        </DropdownLink>
+
+                                        <DropdownLink v-if="user.is_platform_admin" :href="route('admin.plans.index')">
+                                            {{ $t('admin.nav.plans') }}
+                                        </DropdownLink>
+
+                                        <DropdownLink
+                                            v-if="user.is_platform_admin"
+                                            :href="route('admin.engines.index')"
+                                        >
+                                            {{ $t('admin.nav.engines') }}
+                                        </DropdownLink>
+
                                         <DropdownLink v-if="user.is_platform_admin" :href="route('admin.usage')">
-                                            {{ $t('anthropic_budget.title') }}
+                                            {{ $t('admin.nav.usage') }}
                                         </DropdownLink>
 
                                         <DropdownLink
@@ -379,6 +397,14 @@ const logout = () => {
                     </Link>
                     <Link
                         v-if="$page.props.auth.user.is_platform_admin"
+                        :href="route('admin.tenants.index')"
+                        class="rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('admin.nav.tenants') }}
+                    </Link>
+                    <Link
+                        v-if="$page.props.auth.user.is_platform_admin"
                         :href="route('admin.billing.index')"
                         class="rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
                         @click="menuOpen = false"
@@ -402,7 +428,11 @@ const logout = () => {
                         {{ $t('Switch Teams') }}
                     </div>
                     <div class="px-3 py-1.5 text-sm text-ink">{{ user.current_team.name }}</div>
-                    <form v-for="team in user.all_teams" :key="team.id" @submit.prevent="switchToTeam(team)">
+                    <form
+                        v-for="team in page.props.actingAs ? [] : user.all_teams"
+                        :key="team.id"
+                        @submit.prevent="switchToTeam(team)"
+                    >
                         <button
                             v-if="team.id != user.current_team_id"
                             type="submit"

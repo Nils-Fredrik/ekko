@@ -2,6 +2,9 @@
 
 use App\Http\Controllers\Admin\ActingAsController;
 use App\Http\Controllers\Admin\BillingController;
+use App\Http\Controllers\Admin\EngineController as AdminEngineController;
+use App\Http\Controllers\Admin\PlanController as AdminPlanController;
+use App\Http\Controllers\Admin\TenantController as AdminTenantController;
 use App\Http\Controllers\Admin\UsageController as AdminUsageController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\SocialLoginController;
@@ -108,6 +111,15 @@ Route::middleware([
     Route::get('/teams/{team}/bot-log-uploads', [BotLogUploadController::class, 'index'])->name('bot-log-uploads.index');
     Route::post('/brands/{brand}/bot-log-uploads', [BotLogUploadController::class, 'store'])->name('bot-log-uploads.store');
 
+    Route::get('/admin/tenants', [AdminTenantController::class, 'index'])->name('admin.tenants.index');
+    Route::post('/admin/tenants', [AdminTenantController::class, 'store'])->name('admin.tenants.store');
+    Route::put('/admin/tenants/{team}', [AdminTenantController::class, 'update'])->name('admin.tenants.update');
+    Route::get('/admin/plans', [AdminPlanController::class, 'index'])->name('admin.plans.index');
+    Route::post('/admin/plans', [AdminPlanController::class, 'store'])->name('admin.plans.store');
+    Route::put('/admin/plans/{plan}', [AdminPlanController::class, 'update'])->name('admin.plans.update');
+    Route::get('/admin/engines', [AdminEngineController::class, 'index'])->name('admin.engines.index');
+    Route::put('/admin/engines/{engine}', [AdminEngineController::class, 'update'])->name('admin.engines.update');
+    Route::post('/admin/engines/{engine}/prices', [AdminEngineController::class, 'storePrice'])->name('admin.engines.prices.store');
     Route::get('/admin/usage', AdminUsageController::class)->name('admin.usage');
 
     // The onboarding wizard (docs/spec.md 13, ADR 0018). Proposals stay in the cache until confirm saves them.

@@ -5,12 +5,14 @@ use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\Engine;
 use App\Models\Market;
+use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\Report;
 use App\Models\ReportSchedule;
 use App\Models\Response;
 use App\Models\Run;
 use App\Models\RunBatch;
+use App\Models\Team;
 use App\Models\Topic;
 use App\Onboarding\AnalysisStore;
 use App\Tenancy\TenantContext;
@@ -131,6 +133,57 @@ foreach (['brands', 'alerts', 'usage'] as $resource) {
 }
 
 return [
+    'admin.tenants.index' => RouteAccess::platformAdmin(),
+    'admin.tenants.store' => RouteAccess::platformAdmin(own: fn () => ['data' => [
+        'name' => 'Isolasjon',
+        'plan_id' => Plan::factory()->create()->id,
+    ]]),
+    'admin.tenants.update' => RouteAccess::platformAdmin(own: function () {
+        $plan = Plan::factory()->create();
+        $team = Team::factory()->tenant()->withPlan($plan)->create();
+
+        return ['params' => ['team' => $team->id], 'data' => [
+            'name' => $team->name,
+            'plan_id' => $plan->id,
+            'status' => 'active',
+        ]];
+    }),
+    'admin.plans.index' => RouteAccess::platformAdmin(),
+    'admin.plans.store' => RouteAccess::platformAdmin(own: fn () => ['data' => [
+        'name' => 'Isolasjonspakke',
+        'max_frequency' => 'weekly',
+        'max_repetitions' => 1,
+        'allowed_engines' => [],
+        'engine_max_frequencies' => [],
+    ]]),
+    'admin.plans.update' => RouteAccess::platformAdmin(own: function () {
+        $plan = Plan::factory()->create();
+
+        return ['params' => ['plan' => $plan->id], 'data' => [
+            'name' => $plan->name,
+            'max_frequency' => 'daily',
+            'max_repetitions' => 1,
+            'allowed_engines' => [],
+            'engine_max_frequencies' => [],
+        ]];
+    }),
+    'admin.engines.index' => RouteAccess::platformAdmin(),
+    'admin.engines.update' => RouteAccess::platformAdmin(own: function () {
+        $engine = Engine::factory()->create();
+
+        return ['params' => ['engine' => $engine->key], 'data' => ['model_id' => 'demo', 'is_enabled' => true]];
+    }),
+    'admin.engines.prices.store' => RouteAccess::platformAdmin(own: function () {
+        $engine = Engine::factory()->create();
+
+        return ['params' => ['engine' => $engine->key], 'data' => [
+            'valid_from' => now('UTC')->addDay()->format('Y-m-d H:i:s'),
+            'price_per_call_usd' => '0.01000000',
+            'price_per_1k_input_tokens_usd' => '0',
+            'price_per_1k_output_tokens_usd' => '0',
+            'price_per_search_usd' => '0',
+        ]];
+    }),
     'admin.billing.index' => RouteAccess::platformAdmin(),
     'admin.billing.export' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['data' => ['month' => '2026-10']]),
     'admin.billing.markup' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id], 'data' => ['markup_percent' => '10.0000']]),

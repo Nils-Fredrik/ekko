@@ -869,7 +869,7 @@ Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Stor
   - Råsvar slettes etter 400 dager.
   - Aggregater beholdes så lenge tenanten er aktiv.
   - Ved stenging av en tenant slettes alle data etter 30 dager, med mulighet for eksport (CSV og JSON) før sletting.
-    - «Slett tenant» stenger tenanten (status `closed`, `closed_at`) og krever nylig bekreftet passord. Alle mister tilgang med en gang.
+    - «Slett tenant» stenger tenanten (status `closed`, `closed_at`) og krever nylig bekreftet passord. Alle mister tilgang med en gang. Plattformadmin stenger også fra `Admin/Tenants` med samme passordkrav. En stengt tenant kan ikke settes tilbake til `active` eller `paused`.
     - `ekko:purge-closed-tenants` (daglig, Cloud Scheduler) sletter tenanten 30 dager etter `closed_at`, først alle versjoner av råsvarene i GCS under `{tenantId}/` og så databasen. Tenantens revisjonslogg følger med, så selve slettingen logges i applikasjonsloggen (`tenant.purged`).
     - En tenant som ble stengt før `closed_at` fantes, slettes ikke automatisk (T39-F6).
     - Køede innsamlinger for en stengt tenant stoppes før kallet til motoren (`error_code` `tenant_closed`), slik at stengingen ikke gir nye kostnader.
@@ -1347,7 +1347,7 @@ Syntetisk datasett (ett år, 100 prompts, 6 motorer, 3 gjentakelser) og måling 
 
 ### T38 – Språkfiler
 Komplette `sv`- og `en`-filer.
-- Ingen manglende nøkler (automatisk kontroll i CI).
+- Ingen manglende nøkler (automatisk kontroll i CI). `tests/Unit/LanguageFilesTest.php` krever samme filer, nøkler og plassholdere i `nb`, `sv` og `en`, og at nøkler brukt i PHP-koden finnes i alle tre. `tests/Unit/TranslationCoverageTest.php` gjør det samme for frontend (T38-F1).
 
 ### T39 – Sikkerhetsgjennomgang
 Gjennomgang av isolasjon, RLS, roller, innlogging, egne API-nøkler, SSRF, MCP-tilganger, hemmeligheter og logger.
@@ -1386,6 +1386,7 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 - Før merge kreves oppdatert base, autentisk reviewkvittering for head og base, kildebundne påkrevde test/container build/agent-review og ny kontroll av SHA-er og tittel. Konflikt, manglende data og samtidige endringer blokkerer.
 - Gjeldende main må ha vellykket CI og deploy før neste endring. Native auto-merge går uavhengig av køen; stoppknappen påvirker ikke allerede aktiverte native auto-merges.
 - Før generell aktivering: verifiser App-/miljøsperre, to parallelle PR-er, ny head/base, konflikt, rød CI/review, native auto-merge og at merge utløser CI og syntetisk deploy i et isolert testrepo. Dokumenter bevis på task:61; kode-merge alene lukker ikke aktiveringsaksepten.
+- Isolert live aksept er dokumentert i [akseptbeviset](t42-merge-queue-evidence.md), inkludert grønn ny head med kvittering for forrige head. Første produksjonskjøring 17.11.2026 stoppet ved PR-feil uten merge; køen er midlertidig av under kryssreview av beviset. Første App-merge og påfølgende vellykkede produksjonsdeploy gjenstår. Task:61 holdes åpen til dette er verifisert og dokumentert etter ADR 0026 punkt 5.
 
 ---
 
