@@ -394,7 +394,7 @@ Eierens oppstartsvalg 15. november 2026 er direkte Anthropic, OpenAI og Gemini. 
 | `engine_key` | Leverandør / metode | Standardfrekvens | Prompts |
 |---|---|---|---|
 | `chatgpt_api` | OpenAI Responses API, EU-endepunkt, `web_search` | daglig | alle |
-| `gemini_api` | Gemini API med Google Search-grounding | daglig etter vilkårsavklaring; sperret i produksjon inntil da | alle |
+| `gemini_api` | Gemini API med Google Search-grounding | daglig (aktivert 18.11.2026 etter vilkårsavklaring) | alle |
 | `claude_haiku` | Anthropic Messages API, `claude-haiku-5-5`, grunnversjonen av web search uten dynamisk filtrering, `max_uses: 2`, `user_location` | daglig | alle |
 | `claude_sonnet` | Som over, `claude-sonnet-5-5` | ukentlig | kjerne |
 | `perplexity_api` | Perplexity Agent API, `perplexity/sonar` | av / utsatt | – |
@@ -432,7 +432,7 @@ Claude-adapterne samler inn svar med `stop_reason` lik `end_turn` og tekstinnhol
 
 Ved Google Search-omdirigeringer beholdes den originale lenken i råsvaret. Til kildeklassifisering bruker adapteren en URL på domenenivå fra et gyldig vertsnavn i `web.domain` når feltet finnes, eller fra en `web.title` som består av et gyldig vertsnavn. Adapteren bruker bare metadataen fra svaret og oppretter en URL til domenets rot for klassifisering. Omdirigeringer uten oppgitt vertsnavn er ukjente og inngår bare i råsvaret. Vanlige kildelenker beholder hele URL-en. Se [Googles eksempel på grounding-svar](https://firebase.google.com/docs/ai-logic/grounding-google-search#understand-the-grounded-result).
 
-I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Terraform har derfor `gemini_grounding_approved=false`; både innsamleren og adapteren stopper produksjonskall inntil avklaringen er gjort. Aktivering krever også at motorens `is_enabled` er sann. Adapteren verifiseres med syntetiske svar.
+I henhold til [Googles vilkår for Grounding with Google Search](https://ai.google.dev/gemini-api/terms#grounding-with-google-search) må bruk til Ekkos analyse, råsvarslagring og automatiserte kildeinnsamling avklares med Google før `gemini_api` aktiveres i produksjon, også for tenants med egne nøkler. Bryteren `gemini_grounding_approved` i Terraform stopper produksjonskall i både innsamleren og adapteren når den er `false`. Aktivering krever også at motorens `is_enabled` er sann. Adapteren verifiseres med syntetiske svar. Eieren meldte 18.11.2026 at bruken er avklart med Google. Bryteren ble da satt til `true` og motoren aktivert i produksjon. Plattformnøkkelen hører til prosjektet `ekko-514612` med betalt nivå.
 
 ### 7.5 Gjentakelser og modellversjoner
 
@@ -1401,7 +1401,7 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 | A1 | Domene | Avklart: `https://ekko.maksimer.com`, HTTPS gjennom lastbalanserer (3.1, ADR 0024). |
 | A2 | Repo | https://github.com/Nils-Fredrik/ekko. Varde (https://github.com/Nils-Fredrik/varde) brukes som referanse med lesetilgang for agentene (4.1). |
 | A3 | Google Cloud | Prosjekt `ekko-514612` er opprettet. |
-| A4 | Leverandørkontoer og API-nøkler | Anthropic, OpenAI og Gemini direkte. Versjon 1 finnes i Secret Manager. OpenAI Europe-endepunkt er verifisert med syntetisk websøk. Gemini-grounding må avklares før aktivering. Perplexity og DataForSEO er utsatt. |
+| A4 | Leverandørkontoer og API-nøkler | Anthropic, OpenAI og Gemini direkte. Versjon 1 finnes i Secret Manager. OpenAI Europe-endepunkt er verifisert med syntetisk websøk. Gemini-grounding er avklart med Google og aktivert 18.11.2026. Perplexity og DataForSEO er utsatt. |
 | A5 | App-registrering for Google-innlogging | Web OAuth-klient for `ekko-514612` er opprettet og validert 16.11.2026; klienthemmeligheten har aktiv versjon 1 i Secret Manager. Callback er `https://ekko.maksimer.com/auth/google/callback`. Ekte innlogging og avvisning av uinvitert konto er kontrollert privat 16.11.2026. Offentlig web er åpnet, og invitert konto når dashboardet uavbrutt i vanlig Chrome. En annen uinvitert konto er avvist offentlig, uten ny bruker eller Google-kobling. Microsoft er utsatt; en senere Microsoft-registrering må sende ID-token-claimet `xms_edov` (docs/decisions/0008). |
 | A6 | E-posttjeneste og avsenderadresse for varsler og rapporter | Avklares underveis. Forutsetning for T24 og T32. |
 | A7 | Startpriser og påslag per pakke | Avklares underveis. Forutsetning for T19 og T31. |
