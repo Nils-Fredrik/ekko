@@ -29,6 +29,16 @@ return [
         'alerts' => 'Alerts',
         'reports' => 'Reports',
         'usage' => 'Usage',
+        'partner' => 'Clients',
+    ],
+    'partner' => [
+        'title' => 'Clients',
+        'intro' => 'Visibility, change and alerts for clients over the last :days days.',
+        'empty' => 'No clients are linked.',
+        'client' => 'Client',
+        'visibility' => 'Visibility',
+        'change' => 'Change',
+        'alerts' => 'Alerts',
     ],
     'dashboard' => [
         'overview' => 'Overview',

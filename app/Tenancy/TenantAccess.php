@@ -69,6 +69,16 @@ final class TenantAccess
         return $this->roleIn($user, $tenant) !== null;
     }
 
+    /** The signed-in team is a partner, and this user advises it. A closed partner does not qualify. */
+    public function advisesPartner(User $user, Team $partner): bool
+    {
+        if ($partner->personal_team || $partner->partner_team_id !== null || $partner->status === TenantStatus::Closed) {
+            return false;
+        }
+
+        return $this->membershipRole($user, $partner) === TenantRole::PartnerAdvisor;
+    }
+
     public function can(User $user, Team $tenant, TenantPermission $permission): bool
     {
         return $this->roleIn($user, $tenant)?->grants($permission) ?? false;
