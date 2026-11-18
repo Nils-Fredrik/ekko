@@ -17,6 +17,7 @@ use App\Tenancy\Rls\TenantRls;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -40,6 +41,7 @@ class GenerateTenantReports extends TenantJob
         /** @var list<DueReport> $due */
         $due = $rls->run([$this->tenantId], fn (): array => $publisher->due($tenant, $now));
 
+        $failed = false;
         foreach ($due as $item) {
             $text = $this->insight($rls, $insights, $item);
             try {
@@ -49,6 +51,7 @@ class GenerateTenantReports extends TenantJob
                 $rls->run([$this->tenantId], fn () => $publisher->record($item, $document['path']));
             } catch (Throwable $e) {
                 report($e);
+                $failed = true;
             }
         }
 
@@ -56,6 +59,12 @@ class GenerateTenantReports extends TenantJob
         $unsent = $rls->run([$this->tenantId], fn (): array => $publisher->unsent($tenant, $now));
         foreach ($unsent as $report) {
             $this->send($rls, $report);
+        }
+
+        // The paid insight stays on disk. A failed render must fail the command so the
+        // same period is retried, instead of waiting until the next week selects another one.
+        if ($failed) {
+            throw new RuntimeException('A report PDF could not be rendered.');
         }
     }
 
@@ -99,7 +108,7 @@ class GenerateTenantReports extends TenantJob
             app()->setLocale($previous);
         }
         if (! $draft instanceof InsightDraft) {
-            $insights->release($loaded['admission']);
+            $rls->run([$this->tenantId], fn () => $insights->release($loaded['admission']));
 
             return null;
         }

@@ -153,7 +153,7 @@ final class ReportPublisher
                 $this->headline('reports.position', $now->averagePosition, $then->averagePosition, false),
                 $this->headline('reports.first_place', $now->firstPlaceRate, $then->firstPlaceRate, true),
                 $this->headline('reports.citation', $now->citationRate, $then->citationRate, true),
-                $this->headline('reports.sentiment', $now->sentiment, $then->sentiment, true),
+                $this->headline('reports.sentiment', $now->sentiment, $then->sentiment, false),
             ],
             'responses' => $now->responses,
             'engines' => $this->engines($current),

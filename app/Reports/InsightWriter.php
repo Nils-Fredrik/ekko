@@ -46,9 +46,21 @@ final class InsightWriter
             return null;
         }
 
+        // Weekly and monthly schedules can start together when the 1st is a Monday.
+        // Claim the row before this transaction ends, so only one of them calls Sonnet.
+        $claimed = AnthropicInsightAllocation::query()
+            ->whereKey($allocation->id)
+            ->whereNull('consumed_at')
+            ->update(['consumed_at' => CarbonImmutable::now('UTC')]);
+        if ($claimed !== 1) {
+            return null;
+        }
+
         try {
             $price = $this->pricing->effectiveAt('claude_sonnet', CarbonImmutable::now('UTC'));
         } catch (ModelNotFoundException) {
+            $this->releaseClaim($allocation->id);
+
             return null;
         }
 
@@ -59,6 +71,8 @@ final class InsightWriter
         if ($ceiling > $held) {
             $overage = $operation.':overage:'.Str::uuid()->toString();
             if (! Account::independent()->reserve($overage, $ceiling - $held, false)) {
+                $this->releaseClaim($allocation->id);
+
                 return null;
             }
         }
@@ -71,6 +85,13 @@ final class InsightWriter
         if ($admission->overageOperation !== null) {
             Account::independent()->settle($admission->overageOperation);
         }
+        $this->releaseClaim($admission->allocationId);
+    }
+
+    /** Gives the allocation back when the Sonnet call never happened. */
+    private function releaseClaim(int $allocationId): void
+    {
+        AnthropicInsightAllocation::query()->whereKey($allocationId)->update(['consumed_at' => null]);
     }
 
     /**
