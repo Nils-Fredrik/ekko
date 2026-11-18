@@ -99,6 +99,12 @@ variable "gemini_grounding_approved" {
   default     = false
 }
 
+variable "require_two_factor" {
+  description = "Require two-factor authentication for the platform admin and partner advisors (docs/spec.md 5.4). Only false while the owner tests before launch."
+  type        = bool
+  default     = true
+}
+
 variable "enable_monitoring" {
   description = "Create operational alert policies and a paused health schedule."
   type        = bool

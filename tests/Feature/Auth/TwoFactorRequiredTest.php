@@ -107,3 +107,28 @@ test('password login by a user with confirmed two-factor authentication goes thr
 
     $this->assertGuest();
 });
+
+// T07-F1: the owner can switch the requirement off while testing before launch. It is on by default.
+test('the requirement is on unless switched off', function () {
+    expect(config('ekko.require_two_factor'))->toBeTrue()
+        ->and(User::factory()->platformAdmin(false)->create()->requiresTwoFactor())->toBeTrue();
+});
+
+test('with the requirement switched off, a platform admin and a partner advisor without two-factor get in', function () {
+    config(['ekko.require_two_factor' => false]);
+    $admin = User::factory()->platformAdmin(false)->withPersonalTeam()->create();
+    $advisor = partnerAdvisor(false);
+
+    expect($admin->requiresTwoFactor())->toBeFalse()
+        ->and($advisor->requiresTwoFactor())->toBeFalse();
+    $this->actingAs($admin)->get('/dashboard')->assertOk();
+    $this->actingAs($advisor)->get('/dashboard')->assertOk();
+});
+
+test('with the requirement switched off, two-factor that is set up is still asked for at login', function () {
+    config(['ekko.require_two_factor' => false]);
+    $admin = User::factory()->platformAdmin()->withPersonalTeam()->withTwoFactor()->create();
+
+    $this->post('/login', ['email' => $admin->email, 'password' => 'password'])->assertRedirect(route('two-factor.login'));
+    $this->assertGuest();
+});

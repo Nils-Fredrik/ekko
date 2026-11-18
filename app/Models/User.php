@@ -87,10 +87,15 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * Whether this user must use two-factor authentication: the platform admin and partner
-     * advisors (docs/spec.md 5.4). Optional for everyone else.
+     * advisors (docs/spec.md 5.4), unless the requirement is switched off (ekko.require_two_factor). Optional
+     * for everyone else.
      */
     public function requiresTwoFactor(): bool
     {
+        if (! config('ekko.require_two_factor')) {
+            return false;
+        }
+
         return $this->isPlatformAdmin()
             || $this->teams()->wherePivot('role', TenantRole::PartnerAdvisor->value)->exists();
     }

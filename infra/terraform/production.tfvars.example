@@ -13,6 +13,8 @@ job_image = ""
 
 # Existing launch blocker in spec 7.4; do not infer approval from a valid API key.
 gemini_grounding_approved = false
+# Two-factor authentication for the platform admin and partner advisors. false only while the owner tests before launch.
+require_two_factor = true
 
 # Deploy monitor-health before starting its independent schedule.
 enable_monitoring = false
