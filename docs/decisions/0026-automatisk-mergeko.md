@@ -1,6 +1,6 @@
 # 0026 – Automatisk mergekø
 
-- **Status:** Beslutningen er godkjent; isolert live aksept er dokumentert. Første App-merge og deploy i produksjon gjenstår, og task:61 holdes åpen. Køen ble reaktivert 18. november etter godkjent kryssreview og merge av [akseptbevis](../t42-merge-queue-evidence.md).
+- **Status:** Godkjent og verifisert. Isolert live aksept og første ordinære App-merge med vellykket produksjonsdeploy er dokumentert i [akseptbeviset](../t42-merge-queue-evidence.md): PR89 ble merget av kø-Appen 18. november 2026, og CI/deploy 44347688339 bestod. Køen ble reaktivert samme dag etter godkjent kryssreview og merge av det isolerte beviset.
 - **Dato:** 2026-11-17
 - **Board:** task:61 / T42; opprettet i #565, oppfølging og autorisasjon for auto-merge av PR #68 i #580. Den generelle køen forblir av før separat aksept og aktivering.
 

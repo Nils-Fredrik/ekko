@@ -1,6 +1,6 @@
 # T42 – Akseptbevis for automatisk mergekø
 
-Board: task:61. Køimplementasjonen ble levert i PR #68; dette dokumentet gjelder isolert live aksept og driftsoppsett etter ADR 0026.
+Board: task:61, med produksjonsaksept i task:69 (T42-F2). Køimplementasjonen ble levert i PR #68; dette dokumentet gjelder isolert live aksept, driftsoppsett og første ordinære produksjons-App-merge etter ADR 0026.
 
 ## Avgrensning
 
@@ -50,9 +50,19 @@ Før aktivering består begge runbookens metadataauditer. `main` krever strict b
 
 Repo-variabelen `EKKO_MERGE_QUEUE_ENABLED` ble satt til `true` 17. november 2026. [Første produksjonskjøring 44194296978](https://github.com/Nils-Fredrik/ekko/actions/runs/44194296978) utstedte App-token og verifiserte bot-slug uten feil, men stoppet med `failure (PR #74)` på en reelt rød PR. Ingen produksjons-PR ble endret. Ved kryssreview av dette akseptbeviset ble det avdekket at PR 10 ikke testet gammel head-kvittering uavhengig av rød CI. Køen ble derfor satt tilbake til `false` mens det separate PR 14-tilfellet over ble gjennomført. Etter godkjent kryssreview, merge av PR81 (`b6cddd7`) og grønn CI/deploy 44196738290 ble begge metadataauditer kjørt på nytt og køen reaktivert 18. november. Kjøring 44205371395 ventet korrekt på `main-pending`; 44206000246 stoppet deretter ved rødt review i PR77 uten mutasjon. Aktuell repo-variabel er autoritativ for driftsstatus.
 
-**Gjenstående produksjonsaksept:** Første merge utført av produksjonsappen og påfølgende vellykkede produksjonsdeploy er ennå ikke kontrollert. Task:61 skal forbli åpen til disse er verifisert og dokumentert med App-actor, merge-SHA og CI/deploy-kjøring etter ADR 0026 punkt 5. Verken den første køkjøringens korrekte stopp, syntetisk deploy i testrepoet eller en native auto-merge av denne dokumentasjons-PR-en oppfyller dette punktet. Etter godkjent review og merge kan køen reaktiveres og den første ordinære App-mergen følges gjennom produksjonsdeploy; produksjon skal ikke brukes som testfixture.
+**Produksjonsaksept oppfylt 18. november 2026:** Den ordinære ytelsesrettelsen i [PR89](https://github.com/Nils-Fredrik/ekko/pull/89) ble merget av produksjonsappen, med påfølgende vellykket produksjonsdeploy. Dette oppfyller ADR 0026 punkt 5. PR89 var ordinært produktarbeid; ingen syntetisk køtest ble lagt i produksjonsrepoet. Native auto-merge og direkte mergekommando ble ikke brukt for PR89.
 
-Siste kontrollerte produksjonsdeploy var grønn [CI 44158308567](https://github.com/Nils-Fredrik/ekko/actions/runs/44158308567) på `5824ed3549c6921c49884f75ff7ff38830b31279`. Køen kan ikke løse reelle reviewfeil eller konflikter. `EKKO_MERGE_QUEUE_ENABLED=false` stopper nye køoperasjoner; native auto-merge på enkelt-PR-er fortsetter uavhengig av bryteren.
+| Kontroll | Verifisert bevis |
+| --- | --- |
+| Head og review-base | `7cee4647e72b8892d8398dfb4759fa56ffd36147` / `fca7176d7f52e468bb3200b9deb55e07f44a857a` |
+| Review og PR-CI | Claude GODKJENT og autentisk head/base-kvittering i [44346695425](https://github.com/Nils-Fredrik/ekko/actions/runs/44346695425); test/container build grønne i [44346620185](https://github.com/Nils-Fredrik/ekko/actions/runs/44346620185) |
+| Køens merge | [44347631589](https://github.com/Nils-Fredrik/ekko/actions/runs/44347631589), `workflow_run`, `Merge queue: merged (PR #89)` |
+| Actor, tidspunkt og merge-SHA | `merged_by=ekko-merge-queue-nf[bot]`, 18.11.2026 kl. 17:28:41 CET; `500ec37500bf1019d764b32ab9df607eb4196cf9` |
+| Produksjonsdeploy | [44347688339](https://github.com/Nils-Fredrik/ekko/actions/runs/44347688339), `event=push`, samme App-actor og merge-SHA; test, container build og deploy alle `success` |
+| Aktiv webrevisjon ved kontroll | `ekko-web-r44347688339-1`, 100 % trafikk etter smoke-test |
+| Kø etter merge | Push [44347688137](https://github.com/Nils-Fredrik/ekko/actions/runs/44347688137) ventet med `main-pending`; etter grønn deploy bekreftet [44350011969](https://github.com/Nils-Fredrik/ekko/actions/runs/44350011969), `workflow_run`, tom kø |
+
+Køen kan ikke løse reelle reviewfeil eller konflikter. `EKKO_MERGE_QUEUE_ENABLED=false` stopper nye køoperasjoner; native auto-merge på enkelt-PR-er fortsetter uavhengig av bryteren.
 
 ## Oppvekking etter ferdige kontroller (18. november 2026)
 
@@ -65,9 +75,9 @@ Dette er testet med den faktiske workflowen i det isolerte repoet. Workflow-navn
 - Kjøringene 44237466245 og 44237469829 ventet på nye kontroller. Deretter ga [44237553379](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/actions/runs/44237553379), `event=workflow_run`, `merged (PR #17)`, merge `65b36b9eba3a8368ab71cdbe2ba6bcbf9839c3a2`, utført av testappen.
 - Push-kjøring 44237582441 ventet igjen med `main-pending`; [44237612993](https://github.com/Nils-Fredrik/ekko-merge-queue-acceptance/actions/runs/44237612993), `event=workflow_run`, bekreftet grønn main-CI/deploy og `empty`. Dermed fortsetter køen uten å vente på cron etter både review og deploy.
 
-Triggeroppfølgingen består 65 Node-tester for kø/review, 1990 PHP-tester med 11290 assertions, composer lint og npm lint (fire eksisterende advarsler). Dette er isolert testbevis; første produksjons-App-merge og deploy gjenstår fortsatt.
+Triggeroppfølgingen bestod 65 Node-tester for kø/review, 1990 PHP-tester med 11290 assertions, composer lint og npm lint (fire eksisterende advarsler). Dette er historisk isolert testbevis; senere produksjonsaksept er dokumentert over.
 
-## Lokal verifikasjon
+## Historisk lokal verifikasjon ved isolert aksept
 
 - `node --test tests/merge-queue/*.test.mjs`: 20 bestått.
 - `composer test`: 1908 bestått, 11038 assertions, inkludert tenant-isolasjon.
