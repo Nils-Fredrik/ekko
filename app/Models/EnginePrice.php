@@ -6,8 +6,10 @@ use Database\Factories\EnginePriceFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
+ * @property Carbon $valid_from
  * @property string $price_per_call_usd
  * @property string $price_per_1k_input_tokens_usd
  * @property string $price_per_1k_output_tokens_usd

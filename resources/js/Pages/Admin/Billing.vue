@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
+import AdminNav from '@/Components/AdminNav.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BillingMarkupForm from '@/Components/BillingMarkupForm.vue';
 import InputError from '@/Components/InputError.vue';
@@ -18,6 +19,7 @@ const ready = computed(() => props.rows.length > 0 && props.rows.every((row) => 
             <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ $t('billing.title') }}</h2>
         </template>
         <div class="mx-auto max-w-7xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
+            <AdminNav />
             <section class="rounded-2xl border border-line bg-white p-6 text-ink">
                 <p class="text-sm text-ink-soft">{{ $t('billing.intro') }}</p>
                 <form
