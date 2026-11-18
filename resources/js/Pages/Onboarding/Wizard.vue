@@ -10,6 +10,7 @@ const props = defineProps({
     engines: { type: Array, required: true },
     brand: { type: Object, default: null },
     maxCore: { type: Number, required: true },
+    clickhouseEndpoints: { type: Array, default: () => [] },
 });
 
 const field = 'rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
@@ -48,6 +49,14 @@ const form = useForm({
     topics: [],
     prompts: [],
     engines: [],
+    clickhouse_host: '',
+    clickhouse_database: '',
+    clickhouse_table: '',
+    clickhouse_user: '',
+    clickhouse_password: '',
+    ga4_property_id: '',
+    ga4_client_email: '',
+    ga4_private_key: '',
 });
 
 const coreCount = computed(() => draft.value.prompts.filter((prompt) => prompt.priority === 'core').length);
@@ -469,6 +478,84 @@ function confirm() {
             <section v-else class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
                 <h3 class="font-medium">{{ $t('onboarding.ui.integrations') }}</h3>
                 <p class="text-sm">{{ $t('onboarding.ui.integrations_later') }}</p>
+                <label v-if="clickhouseEndpoints.length > 0" class="block text-sm">
+                    {{ $t('app.workspace.clickhouse_host') }}
+                    <select
+                        v-model="form.clickhouse_host"
+                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                    >
+                        <option value="">{{ $t('app.workspace.clickhouse_unchanged') }}</option>
+                        <option v-for="endpoint in clickhouseEndpoints" :key="endpoint" :value="endpoint">
+                            {{ endpoint }}
+                        </option>
+                    </select>
+                    <InputError :message="form.errors.clickhouse_host" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.clickhouse_database') }}
+                    <input
+                        v-model="form.clickhouse_database"
+                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.clickhouse_database" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.clickhouse_table') }}
+                    <input
+                        v-model="form.clickhouse_table"
+                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.clickhouse_table" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.clickhouse_user') }}
+                    <input
+                        v-model="form.clickhouse_user"
+                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.clickhouse_user" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.clickhouse_password') }}
+                    <input
+                        v-model="form.clickhouse_password"
+                        type="password"
+                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        autocomplete="new-password"
+                    />
+                    <InputError :message="form.errors.clickhouse_password" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.ga4_property') }}
+                    <input
+                        v-model="form.ga4_property_id"
+                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.ga4_property_id" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.ga4_email') }}
+                    <input
+                        v-model="form.ga4_client_email"
+                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.ga4_client_email" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.ga4_key') }}
+                    <textarea
+                        v-model="form.ga4_private_key"
+                        rows="3"
+                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.ga4_private_key" />
+                </label>
                 <p v-if="estimate" class="text-sm">
                     {{ $t('onboarding.ui.cost', { amount: estimate.total_cost_usd }) }}
                 </p>

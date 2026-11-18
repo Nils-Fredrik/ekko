@@ -15,6 +15,7 @@ const props = defineProps({
     engines: { type: Array, required: true },
     integrations: { type: Array, required: true },
     clickhouseEndpoints: { type: Array, required: true },
+    logUploadUrl: { type: String, default: null },
     can: { type: Object, required: true },
 });
 
@@ -35,7 +36,16 @@ const form = useForm({
         repetitions: row.repetitions,
     })),
     clickhouse_host: '',
+    clickhouse_database: '',
+    clickhouse_table: '',
+    clickhouse_user: '',
+    clickhouse_password: '',
+    ga4_property_id: '',
+    ga4_client_email: '',
+    ga4_private_key: '',
 });
+
+const hasClickHouse = props.integrations.some((integration) => integration.type === 'clickhouse_logs');
 
 const field = 'w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
 
@@ -219,6 +229,88 @@ function save() {
                         </option>
                     </select>
                     <InputError :message="form.errors.clickhouse_host" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.clickhouse_database') }}
+                    <input
+                        v-model="form.clickhouse_database"
+                        :disabled="!can.manage"
+                        :class="field"
+                        class="mt-1"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.clickhouse_database" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.clickhouse_table') }}
+                    <input
+                        v-model="form.clickhouse_table"
+                        :disabled="!can.manage"
+                        :class="field"
+                        class="mt-1"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.clickhouse_table" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.clickhouse_user') }}
+                    <input
+                        v-model="form.clickhouse_user"
+                        :disabled="!can.manage"
+                        :class="field"
+                        class="mt-1"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.clickhouse_user" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.clickhouse_password') }}
+                    <input
+                        v-model="form.clickhouse_password"
+                        :disabled="!can.manage"
+                        type="password"
+                        :class="field"
+                        class="mt-1"
+                        autocomplete="new-password"
+                    />
+                    <InputError :message="form.errors.clickhouse_password" />
+                </label>
+                <a v-if="logUploadUrl && !hasClickHouse" :href="logUploadUrl" class="text-sm">
+                    {{ $t('app.workspace.upload_logs') }}
+                </a>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.ga4_property') }}
+                    <input
+                        v-model="form.ga4_property_id"
+                        :disabled="!can.manage"
+                        :class="field"
+                        class="mt-1"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.ga4_property_id" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.ga4_email') }}
+                    <input
+                        v-model="form.ga4_client_email"
+                        :disabled="!can.manage"
+                        :class="field"
+                        class="mt-1"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.ga4_client_email" />
+                </label>
+                <label class="block text-sm">
+                    {{ $t('app.workspace.ga4_key') }}
+                    <textarea
+                        v-model="form.ga4_private_key"
+                        :disabled="!can.manage"
+                        :class="field"
+                        class="mt-1"
+                        rows="3"
+                        autocomplete="off"
+                    />
+                    <InputError :message="form.errors.ga4_private_key" />
                 </label>
             </section>
 

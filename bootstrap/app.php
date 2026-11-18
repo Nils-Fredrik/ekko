@@ -63,7 +63,12 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->prependToPriorityList(ApplyTenantRls::class, SetCurrentTenant::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->dontFlash(['key', 'webhook_url']);
+        $exceptions->dontFlash([
+            'key',
+            'webhook_url',
+            'clickhouse_password',
+            'ga4_private_key',
+        ]);
         $exceptions->report(function (Throwable $failure): void {
             Log::error('Application exception.', [
                 ...app(LogContext::class)->forException($failure),

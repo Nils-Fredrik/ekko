@@ -182,6 +182,61 @@ test('a clickhouse host must be on the allowlist and the stored config stays off
         ->and($integration->fresh()->config['password'])->toBe('clickhouse-secret-value');
 });
 
+test('a brand admin can connect clickhouse and ga4 without the secrets returning to the page', function () {
+    $world = MetricsWorld::create();
+    config(['ekko.bot_logs.clickhouse_endpoints' => ['https://logs.example.test']]);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $secret = 'clickhouse-new-secret';
+    $key = "-----BEGIN PRIVATE KEY-----\nnot-a-real-key\n-----END PRIVATE KEY-----";
+
+    $this->actingAs($owner)
+        ->from(route('brands.settings', $world->brand))
+        ->put(route('brands.settings.update', $world->brand), [
+            'clickhouse_host' => 'https://logs.example.test',
+            'clickhouse_database' => 'logs',
+            'clickhouse_table' => 'hits',
+            'clickhouse_user' => 'reader',
+            'clickhouse_password' => $secret,
+            'ga4_property_id' => '123456789',
+            'ga4_client_email' => 'ga4@example.test',
+            'ga4_private_key' => $key,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $clickhouse = Integration::query()->where('brand_id', $world->brand->id)->where('type', 'clickhouse_logs')->first();
+    $ga4 = Integration::query()->where('brand_id', $world->brand->id)->where('type', 'ga4')->first();
+    expect($clickhouse)->not->toBeNull()
+        ->and($clickhouse->config['password'])->toBe($secret)
+        ->and($ga4)->not->toBeNull()
+        ->and($ga4->config['service_account']['private_key'])->toBe($key);
+
+    $this->actingAs($owner)->get(route('brands.settings', $world->brand))
+        ->assertOk()
+        ->assertDontSee($secret)
+        ->assertDontSee($key)
+        ->assertDontSee('ga4@example.test')
+        ->assertInertia(fn ($page) => $page
+            ->where('logUploadUrl', route('bot-log-uploads.index', ['team' => $world->tenant->id]))
+            ->has('integrations', 2));
+
+    $this->actingAs($owner)
+        ->from(route('brands.settings', $world->brand))
+        ->put(route('brands.settings.update', $world->brand), [
+            'clickhouse_host' => 'https://evil.example.test',
+            'clickhouse_password' => 'rejected-secret',
+            'ga4_private_key' => 'rejected-key',
+        ])
+        ->assertRedirect()
+        ->assertSessionHasErrors('clickhouse_host')
+        ->assertSessionMissing('_old_input.clickhouse_password')
+        ->assertSessionMissing('_old_input.ga4_private_key');
+
+    expect($clickhouse->fresh()->config['password'])->toBe($secret)
+        ->and($ga4->fresh()->config['service_account']['private_key'])->toBe($key);
+});
+
 test('alerts can be acknowledged and a rule rejects an invalid threshold', function () {
     $world = MetricsWorld::create();
     $rule = AlertRule::factory()->create(['brand_id' => $world->brand->id, 'type' => 'visibility_drop', 'threshold' => '10']);
