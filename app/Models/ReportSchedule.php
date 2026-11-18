@@ -9,6 +9,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $brand_id
+ * @property string $cadence
+ * @property list<string> $recipients
+ * @property string $locale
+ * @property string $branding
+ */
 class ReportSchedule extends Model
 {
     use BelongsToTenant;

@@ -12,6 +12,7 @@ use App\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -58,13 +59,16 @@ class TeamSettingsController extends Controller
         }
         $data = $request->validate([
             'primary' => ['nullable', 'string', 'regex:/\A#[0-9a-fA-F]{6}\z/'],
+            'logo' => ['nullable', 'file', 'image', 'mimes:png,jpg,jpeg', 'max:1024'],
         ], [
             'primary.regex' => __('app.workspace.color_invalid'),
         ], [
             'primary' => __('app.workspace.primary_color'),
+            'logo' => __('reports.logo'),
         ]);
 
         $branding = $team->branding ?? [];
+        $changed = false;
         $primary = is_string($data['primary'] ?? null) && $data['primary'] !== '' ? strtolower($data['primary']) : null;
         $current = is_string($branding['primary'] ?? null) ? strtolower($branding['primary']) : null;
         if ($current !== $primary) {
@@ -73,6 +77,20 @@ class TeamSettingsController extends Controller
             } else {
                 $branding['primary'] = $primary;
             }
+            $changed = true;
+        }
+        $logo = $request->file('logo');
+        if ($logo !== null) {
+            $path = 'branding/'.$team->id.'/logo.'.$logo->extension();
+            $previous = $branding['logo'] ?? null;
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, (string) $logo->get());
+            if (is_string($previous) && $previous !== $path) {
+                Storage::disk(config()->string('ekko.reports.disk'))->delete($previous);
+            }
+            $branding['logo'] = $path;
+            $changed = true;
+        }
+        if ($changed) {
             $team->forceFill(['branding' => $branding])->save();
             $audit->reportBrandingChanged($this->user($request), $team);
         }

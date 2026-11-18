@@ -1,7 +1,7 @@
 # Adapted from Varde: one PHP base, separate dependency and asset stages.
 FROM php:8.4-apache-trixie@sha256:901b0dbcd2419cc9cd307ea05e57403449ce722ccd5b32335da6e8d39f2b1ee0 AS base
 COPY --from=mlocati/php-extension-installer:2@sha256:1afade3e29cfc97362cf5885e5ac333bf2faab1146cb28ebbb59b17e68f87e88 /usr/bin/install-php-extensions /usr/local/bin/
-RUN install-php-extensions pdo_pgsql intl bcmath zip pcntl opcache \
+RUN install-php-extensions pdo_pgsql intl bcmath zip pcntl opcache sockets \
     && cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
     && a2enmod rewrite headers \
     && sed -i 's/^Listen 80$/Listen 8080/' /etc/apache2/ports.conf

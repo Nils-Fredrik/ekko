@@ -207,7 +207,9 @@ return [
     | under reports/{tenant}/. The ekko-reports bucket replaces local once it exists.
     */
     'reports' => [
-        'disk' => 'local',
+        'disk' => filled(env('EKKO_REPORTS_BUCKET')) ? 'reports' : 'local',
+        // Chromium for spatie/laravel-pdf. The jobs image sets CHROME_PATH.
+        'chrome_binary' => env('CHROME_PATH'),
     ],
 
     'bot_logs' => [

@@ -325,7 +325,7 @@ return [
         'slack_url' => 'Webhook-adress',
         'clear_slack' => 'Ta bort webhook',
         'report_profile' => 'Rapportprofil',
-        'report_profile_help' => 'Primärfärg i rapporter som använder egen profil.',
+        'report_profile_help' => 'Primärfärg och logotyp i rapporter som använder egen profil.',
         'primary_color' => 'Primärfärg',
         'api_keys' => 'Egna API-nycklar',
         'api_keys_help' => 'Nyckeln kontrolleras hos leverantören och lagras krypterad. Den visas inte igen.',
