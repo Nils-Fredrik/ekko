@@ -1347,6 +1347,8 @@ Varslingspolicyer i 17.4 (Terraform), `docs/runbook.md` med drift, feilsøking, 
 Syntetisk datasett (ett år, 100 prompts, 6 motorer, 3 gjentakelser) og måling av dashboard og API.
 - p95 under 800 ms på dashboard-sidene, målt mot en egen testtenant i produksjon som slettes etterpå.
 
+90-dagersvisningens gjeldende total, dagserie, motorfordeling og konkurrentandeler hentes samlet av `MetricsService::dashboard()`; sammenligningsperioden hentes separat. Formler, filtre og isolasjon følger kapittel 9. Målemetode, tidligere feilede målinger og verifikasjon før aksept er dokumentert i [ytelsestesten](performance.md).
+
 ### T38 – Språkfiler
 Komplette `sv`- og `en`-filer.
 - Ingen manglende nøkler (automatisk kontroll i CI). `tests/Unit/LanguageFilesTest.php` krever samme filer, nøkler og plassholdere i `nb`, `sv` og `en`, og at nøkler brukt i PHP-koden finnes i alle tre. `tests/Unit/TranslationCoverageTest.php` gjør det samme for frontend (T38-F1).

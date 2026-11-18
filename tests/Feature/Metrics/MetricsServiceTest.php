@@ -155,6 +155,91 @@ test('the summary has every metric, and toArray is the shape for the API', funct
         ->and(array_keys($summary->toArray()))->toBe(['responses', 'visibility', 'recommendation_rate', 'share_of_voice', 'average_position', 'first_place_rate', 'citation_rate', 'sentiment']);
 });
 
+test('the combined dashboard preserves weighted totals, chronological days and every engine', function () {
+    ['w' => $w, 'engine2' => $engine2] = metricsData();
+
+    $dashboard = service()->dashboard(metricsFilter($w));
+
+    expect($dashboard['summary']->responses)->toBe(40)
+        ->and($dashboard['summary']->visibility->value)->toBe(0.7)
+        ->and($dashboard['summary']->shareOfVoice->value)->toBe(28 / 67)
+        ->and($dashboard['summary']->sentiment->value)->toBe(11.5 / 28)
+        ->and(array_column($dashboard['series'], 'period'))->toBe(['2026-11-02', '2026-11-03', '2026-11-10'])
+        ->and(array_map(fn (array $point) => $point['summary']->visibility->value, $dashboard['series']))->toBe([0.5, 0.3, 1.0])
+        ->and($dashboard['engines'][$w->engine->key]->responses)->toBe(20)
+        ->and($dashboard['engines'][$w->engine->key]->visibility->value)->toBe(0.4)
+        ->and($dashboard['engines'][$engine2->key]->responses)->toBe(20)
+        ->and(array_column($dashboard['voice'], 'mentions'))->toBe([28, 14, 25]);
+});
+
+test('the combined dashboard honors every dimension and agrees with the individual metric APIs', function () {
+    ['w' => $w, 'engine2' => $engine2, 'topic2' => $topic2] = metricsData();
+
+    $filters = [[], ['from' => '2026-11-03', 'to' => '2026-11-03'], ['marketIds' => [$w->market->id]],
+        ['marketIds' => [0]], ['engineKeys' => [$engine2->key]], ['topicIds' => [$topic2->id]],
+        ['intents' => ['comparison']], ['funnelStages' => ['decision']], ['promptIds' => [$w->p1->id]],
+        ['engineKeys' => [$w->engine->key], 'topicIds' => [$topic2->id], 'intents' => ['comparison']]];
+
+    foreach ($filters as $overrides) {
+        $filter = metricsFilter($w, $overrides);
+        $dashboard = service()->dashboard($filter);
+        expect($dashboard['summary'])->toEqual(service()->summary($filter))
+            ->and($dashboard['series'])->toEqual(service()->series($filter))
+            ->and($dashboard['engines'])->toEqual(service()->breakdown($filter, 'engine'))
+            ->and($dashboard['voice'])->toBe(service()->voiceParts($filter));
+    }
+});
+
+test('the combined dashboard keeps zero competitors and empty periods without inventing series points', function () {
+    ['w' => $w] = metricsData();
+    $empty = service()->dashboard(metricsFilter($w, ['from' => '2027-01-01', 'to' => '2027-01-02']));
+    expect($empty['summary']->responses)->toBe(0)->and($empty['summary']->visibility->value)->toBeNull()
+        ->and($empty['series'])->toBe([])->and($empty['engines'])->toBe([])
+        ->and(array_column($empty['voice'], 'mentions'))->toBe([0, 0, 0])
+        ->and(array_column($empty['voice'], 'share'))->toBe([null, null, null]);
+
+    AggDaily::query()->update(['competitor_mentions' => '[]']);
+    $dashboard = service()->dashboard(metricsFilter($w));
+    expect($dashboard['summary']->shareOfVoice->value)->toBe(1.0)
+        ->and(array_column($dashboard['voice'], 'mentions'))->toBe([28, 0, 0]);
+
+    Competitor::query()->update(['is_active' => false]);
+    $dashboard = service()->dashboard(metricsFilter($w));
+    expect($dashboard['voice'])->toHaveCount(1)->and($dashboard['voice'][0]['mentions'])->toBe(28)
+        ->and($dashboard['summary']->responses)->toBe(40);
+});
+
+test('the combined dashboard reads the aggregates once even as competitors grow', function () {
+    ['w' => $w] = metricsData();
+    Competitor::factory()->count(20)->for($w->brand)->create(['is_active' => true]);
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    try {
+        $dashboard = service()->dashboard(metricsFilter($w));
+        $queries = DB::getQueryLog();
+    } finally {
+        DB::disableQueryLog();
+        DB::flushQueryLog();
+    }
+    expect($queries)->toHaveCount(2)
+        ->and($dashboard['summary']->responses)->toBe(40)
+        ->and($dashboard['voice'])->toHaveCount(23);
+});
+
+test('a reused metrics service never carries a dashboard across tenant contexts', function () {
+    ['w' => $a] = metricsData();
+    $metrics = service();
+    expect($metrics->dashboard(metricsFilter($a))['summary']->responses)->toBe(40);
+    $b = MetricsWorld::create();
+    AggDaily::factory()->create(['market_id' => $b->market->id, 'engine_key' => $b->engine->key,
+        'prompt_id' => $b->p1->id, 'date' => '2026-11-02', 'responses' => 100, 'brand_mentioned' => 90]);
+    $foreign = $metrics->dashboard(metricsFilter($a));
+    expect($foreign['summary']->responses)->toBe(0)->and($foreign['series'])->toBe([])
+        ->and($foreign['engines'])->toBe([])->and($foreign['voice'])->toBe([
+            ['id' => 'brand', 'name' => null, 'mentions' => 0, 'share' => null, 'n' => 0],
+        ])->and($metrics->dashboard(metricsFilter($b))['summary']->visibility->value)->toBe(0.9);
+});
+
 test('zero answers give null values and n = 0, not an error', function () {
     ['w' => $w] = metricsData();
 

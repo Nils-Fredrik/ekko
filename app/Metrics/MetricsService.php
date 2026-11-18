@@ -34,6 +34,12 @@ final class MetricsService
     /** Grain names for {@see series()}. */
     public const GRAINS = ['day', 'week', 'month'];
 
+    /** Additive counters used by every summary, before Formulas calculates ratios. */
+    private const COUNTERS = [
+        'responses', 'brand_mentioned', 'brand_recommended', 'sum_position', 'count_position',
+        'list_responses', 'first_place', 'sum_sentiment', 'count_sentiment', 'own_cited',
+    ];
+
     /** Dimensions for {@see breakdown()}: name => column in agg_daily or prompts. */
     private const DIMENSIONS = [
         'market' => 'agg_daily.market_id',
@@ -53,6 +59,46 @@ final class MetricsService
         $row = $this->totalsQuery($filter)->first();
 
         return Formulas::summary($row === null ? [] : (array) $row);
+    }
+
+    /**
+     * The brand dashboard's current period in one aggregate scan. GROUPING SETS sums the same
+     * filtered counters for the entire period, each day and each engine; ratios are never averaged.
+     * No result is cached, so changing tenant context, filters or active competitors takes effect immediately.
+     *
+     * @return array{summary: MetricsSummary, series: list<array{period: string, summary: MetricsSummary}>, engines: array<string, MetricsSummary>, voice: list<array{id: string, name: string|null, mentions: int, share: float|null, n: int}>}
+     */
+    public function dashboard(MetricsFilter $filter): array
+    {
+        $competitors = Competitor::query()
+            ->where('brand_id', $filter->brandId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+        $query = $this->dailyQuery($filter)->toBase()->selectRaw(
+            'agg_daily.date as period, agg_daily.engine_key, grouping(agg_daily.date, agg_daily.engine_key) as grouping_key, '.$this->counterColumns(),
+        );
+        $this->selectCompetitorCounters($query, $competitors);
+        $rows = $query->groupByRaw('GROUPING SETS ((), (agg_daily.date), (agg_daily.engine_key))')
+            ->orderBy('period')->orderBy('engine_key')->get();
+
+        $result = ['summary' => Formulas::summary([]), 'series' => [], 'engines' => [], 'voice' => []];
+        foreach ($rows as $row) {
+            $totals = (array) $row;
+            $totals['competitor_mentions'] = 0;
+            foreach ($competitors as $index => $competitor) {
+                $totals['competitor_mentions'] += (int) $totals["competitor_{$index}"];
+            }
+            $summary = Formulas::summary($totals);
+            if ((int) $row->grouping_key === 3) {
+                // The empty grouping set returns a zero total even when no daily rows match.
+                $result['summary'] = $summary;
+                $result['voice'] = $this->voiceFromTotals($totals, $competitors);
+            } elseif ((int) $row->grouping_key === 1) {
+                $result['series'][] = ['period' => substr((string) $row->period, 0, 10), 'summary' => $summary];
+            } else {
+                $result['engines'][(string) $row->engine_key] = $summary;
+            }
+        }
+
+        return $result;
     }
 
     public function visibility(MetricsFilter $filter): Metric
@@ -352,20 +398,37 @@ final class MetricsService
 
         // Scan the filtered daily rows once, rather than once per competitor and counter.
         $query = $this->dailyQuery($filter)->toBase()->selectRaw(
-            'coalesce(sum(agg_daily.responses), 0) as responses, coalesce(sum(agg_daily.brand_mentioned), 0) as brand_mentions',
+            'coalesce(sum(agg_daily.responses), 0) as responses, coalesce(sum(agg_daily.brand_mentioned), 0) as brand_mentioned',
         );
+        $this->selectCompetitorCounters($query, $competitors);
+
+        return $this->voiceFromTotals((array) $query->first(), $competitors);
+    }
+
+    /** @param Collection<int, Competitor> $competitors */
+    private function selectCompetitorCounters(\Illuminate\Database\Query\Builder $query, Collection $competitors): void
+    {
         foreach ($competitors as $index => $competitor) {
             $query->selectRaw(
                 "coalesce(sum((case when jsonb_typeof(agg_daily.competitor_mentions) = 'object' then agg_daily.competitor_mentions->>? else null end)::bigint), 0) as competitor_{$index}",
                 [(string) $competitor->id],
             );
         }
-        $totals = (array) $query->first();
+
+    }
+
+    /**
+     * @param  array<string, mixed>  $totals
+     * @param  Collection<int, Competitor>  $competitors
+     * @return list<array{id: string, name: string|null, mentions: int, share: float|null, n: int}>
+     */
+    private function voiceFromTotals(array $totals, Collection $competitors): array
+    {
         $responses = (int) $totals['responses'];
         $parts = [[
             'id' => 'brand',
             'name' => null,
-            'mentions' => (int) $totals['brand_mentions'],
+            'mentions' => (int) $totals['brand_mentioned'],
         ]];
 
         foreach ($competitors as $index => $competitor) {
@@ -640,19 +703,7 @@ final class MetricsService
             ? '0'
             : "coalesce(sum((select coalesce(sum(e.value::bigint), 0) from jsonb_each_text(case when jsonb_typeof(agg_daily.competitor_mentions) = 'object' then agg_daily.competitor_mentions else '{}'::jsonb end) e where e.key = any (string_to_array(?, ',')))), 0)";
 
-        $columns = implode(', ', [
-            'coalesce(sum(agg_daily.responses), 0) as responses',
-            'coalesce(sum(agg_daily.brand_mentioned), 0) as brand_mentioned',
-            'coalesce(sum(agg_daily.brand_recommended), 0) as brand_recommended',
-            'coalesce(sum(agg_daily.sum_position), 0) as sum_position',
-            'coalesce(sum(agg_daily.count_position), 0) as count_position',
-            'coalesce(sum(agg_daily.list_responses), 0) as list_responses',
-            'coalesce(sum(agg_daily.first_place), 0) as first_place',
-            'coalesce(sum(agg_daily.sum_sentiment), 0) as sum_sentiment',
-            'coalesce(sum(agg_daily.count_sentiment), 0) as count_sentiment',
-            'coalesce(sum(agg_daily.own_cited), 0) as own_cited',
-            "{$competitors} as competitor_mentions",
-        ]);
+        $columns = $this->counterColumns().", {$competitors} as competitor_mentions";
         $bindings = $competitorIds === [] ? [] : [implode(',', $competitorIds)];
 
         $query = $this->dailyQuery($filter, $joinPrompts)->toBase();
@@ -664,6 +715,11 @@ final class MetricsService
         }
 
         return $query;
+    }
+
+    private function counterColumns(): string
+    {
+        return implode(', ', array_map(fn (string $counter): string => "coalesce(sum(agg_daily.{$counter}), 0) as {$counter}", self::COUNTERS));
     }
 
     /**
