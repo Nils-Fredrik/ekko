@@ -142,7 +142,7 @@ class GenerateTenantReports extends TenantJob
                     ->whereDate('cycle_start', $cycle)
                     ->first();
                 if ($allocation instanceof AnthropicInsightAllocation) {
-                    $insights->bookStored($saved['operation'], $saved['cost'], $allocation->id);
+                    $insights->bookStored($saved['operation'], $saved['cost'], $allocation->id, $saved['input_tokens'], $saved['output_tokens']);
                     $booked = true;
                 }
             });
@@ -244,12 +244,6 @@ class GenerateTenantReports extends TenantJob
             $schedule->recipients,
             fn (string $recipient): bool => $recipient !== '',
         ));
-        if ($recipients === []) {
-            report(new RuntimeException('The report has no recipients.'));
-
-            return;
-        }
-
         $sent = is_array($report->sent_to) ? $report->sent_to : [];
         foreach ($recipients as $recipient) {
             if (in_array($recipient, $sent, true)) {
@@ -262,13 +256,21 @@ class GenerateTenantReports extends TenantJob
                 $pdf,
             ));
             $sent[] = $recipient;
-            $finished = array_diff($recipients, $sent) === [];
-            $rls->run([$this->tenantId], function () use ($report, $sent, $finished): void {
-                $report->forceFill([
-                    'sent_to' => $sent,
-                    'sent_at' => $finished ? CarbonImmutable::now('UTC') : null,
-                ])->save();
-            });
+            $this->markSent($rls, $report, $sent, array_diff($recipients, $sent) === []);
         }
+        if ($report->sent_at === null && array_diff($recipients, $sent) === []) {
+            $this->markSent($rls, $report, $sent, true);
+        }
+    }
+
+    /** @param  list<string>  $sent */
+    private function markSent(TenantRls $rls, Report $report, array $sent, bool $finished): void
+    {
+        $rls->run([$this->tenantId], function () use ($report, $sent, $finished): void {
+            $report->forceFill([
+                'sent_to' => $sent,
+                'sent_at' => $finished ? CarbonImmutable::now('UTC') : null,
+            ])->save();
+        });
     }
 }

@@ -92,7 +92,7 @@ test('a monthly report pdf is stored and mailed once, with the insight allocatio
         ->and($report->sent_at)->not->toBeNull()
         ->and(AnthropicInsightAllocation::query()->whereDate('cycle_start', '2026-11-01')->sole()->consumed_at)->not->toBeNull()
         ->and(AnthropicInsightAllocation::query()->whereDate('cycle_start', '2026-10-01')->sole()->consumed_at)->toBeNull()
-        ->and(UsageEvent::query()->where('kind', 'pdf')->count())->toBe(1)
+        ->and(UsageEvent::query()->where('kind', 'pdf')->sole()->only(['input_tokens', 'output_tokens']))->toBe(['input_tokens' => 100, 'output_tokens' => 40])
         ->and(DB::table('anthropic_credit_spend')->where('entry', 'insight:'.$world->brand->id.':2026-11-01')->count())->toBe(1)
         ->and(DB::table('anthropic_budget_holds')->where('operation', 'like', 'insight:'.$world->brand->id.':2026-11-01:overage:%')->whereNotNull('settled_at')->count())->toBe(1)
         ->and(DB::table('anthropic_budget_holds')->whereNull('settled_at')->count())->toBe(0);
@@ -858,6 +858,45 @@ test('a missing logo does not stop the report', function () {
 
     $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertSuccessful();
     expect(Report::query()->count())->toBe(1);
+});
+
+test('a report is marked sent when every remaining recipient already has it', function () {
+    Storage::fake(config()->string('ekko.reports.disk'));
+    config(['services.anthropic.key' => '']);
+    Pdf::swap(new class extends FakePdfBuilder
+    {
+        public function save(string $path): self
+        {
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, '%PDF-fake');
+
+            return $this;
+        }
+    });
+    $this->travelTo('2026-11-17 12:00:00');
+    $world = MetricsWorld::create('UTC');
+    app(TenantContext::class)->set($world->tenant->id);
+    $schedule = ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'weekly',
+        'locale' => 'nb',
+        'recipients' => ['one@example.test', 'two@example.test'],
+    ]);
+    $seen = 0;
+    Event::listen(MessageSending::class, function () use (&$seen): void {
+        $seen++;
+        if ($seen === 2) {
+            throw new RuntimeException('second recipient failed');
+        }
+    });
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertFailed();
+    $schedule->forceFill(['recipients' => ['one@example.test']])->save();
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertSuccessful();
+    expect(Report::query()->sole()->sent_at)->not->toBeNull()->and($seen)->toBe(2);
+    $transport = Mail::mailer()->getSymfonyTransport();
+    expect($transport)->toBeInstanceOf(ArrayTransport::class)
+        ->and($transport->messages())->toHaveCount(1);
 });
 
 test('a monthly report is compared with the previous calendar month', function () {

@@ -181,25 +181,27 @@ final class InsightWriter
         return new InsightDraft($admission, $text, $this->prices->quote(
             $admission->price,
             new EngineResult($text, $model, [], $input, $output, 0, []),
-        ));
+        ), $input, $output);
     }
 
     /** Records the paid call on the tenant. The caller settles the platform account afterwards. */
     public function book(InsightDraft $draft): void
     {
-        $this->bookStored($draft->admission->operation, $draft->cost, $draft->admission->allocationId);
+        $this->bookStored($draft->admission->operation, $draft->cost, $draft->admission->allocationId, $draft->inputTokens, $draft->outputTokens);
     }
 
     /** Books a draft that was stored before the usage row, without a second row for the same call. */
-    public function bookStored(string $operation, string $cost, int $allocationId): void
+    public function bookStored(string $operation, string $cost, int $allocationId, int $inputTokens, int $outputTokens): void
     {
-        DB::transaction(function () use ($operation, $cost, $allocationId): void {
+        DB::transaction(function () use ($operation, $cost, $allocationId, $inputTokens, $outputTokens): void {
             if (! UsageEvent::query()->where('anthropic_operation', $operation)->exists()) {
                 UsageEvent::query()->create([
                     'occurred_at' => CarbonImmutable::now('UTC'),
                     'kind' => 'pdf',
                     'engine_key' => 'claude_sonnet',
                     'calls' => 1,
+                    'input_tokens' => $inputTokens,
+                    'output_tokens' => $outputTokens,
                     'cost_usd' => $cost,
                     'billed_to' => 'platform',
                     'anthropic_operation' => $operation,
@@ -221,11 +223,13 @@ final class InsightWriter
             'cost' => $draft->cost,
             'operation' => $draft->admission->operation,
             'overage' => $draft->admission->overageOperation,
+            'input_tokens' => $draft->inputTokens,
+            'output_tokens' => $draft->outputTokens,
         ], JSON_THROW_ON_ERROR));
     }
 
     /**
-     * @return array{text: string, cost: string, operation: string, overage: string|null}|null
+     * @return array{text: string, cost: string, operation: string, overage: string|null, input_tokens: int, output_tokens: int}|null
      */
     public function remembered(string $disk, string $path): ?array
     {
@@ -243,11 +247,19 @@ final class InsightWriter
         }
         $overage = $decoded['overage'] ?? null;
 
+        $input = $decoded['input_tokens'] ?? 0;
+        $output = $decoded['output_tokens'] ?? 0;
+        if (! is_numeric($input) || ! is_numeric($output)) {
+            return null;
+        }
+
         return [
             'text' => $decoded['text'],
             'cost' => $decoded['cost'],
             'operation' => $decoded['operation'],
             'overage' => is_string($overage) ? $overage : null,
+            'input_tokens' => (int) $input,
+            'output_tokens' => (int) $output,
         ];
     }
 

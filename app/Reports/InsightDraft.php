@@ -9,5 +9,7 @@ final class InsightDraft
         public readonly InsightAdmission $admission,
         public readonly string $text,
         public readonly string $cost,
+        public readonly int $inputTokens,
+        public readonly int $outputTokens,
     ) {}
 }
