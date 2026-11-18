@@ -1380,13 +1380,13 @@ Workflowene `agent-review.yml` og `agent-review-execute.yml`, `.github/review-pa
 
 Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Codex] T42 – Automatisk mergekø» følges i task:61 (Board #565 og #580). Den endrer eierstyrt merge til en eksplisitt aktivert, betrodd kø etter ADR 0026. Eieren har også autorisert native auto-merge av PR #68; det aktiverer ikke den generelle køen.
 
-- Køen er av som standard og kjører bare betrodd main med en separat App og et main-avgrenset miljø; ingen bypass av grenbeskyttelsen.
+- Køen er av som standard og kjører bare betrodd main med en separat App og et main-avgrenset miljø; ingen bypass av grenbeskyttelsen. Push til main og vellykket fullføring av CI eller review fra eget repo vekker køen. Planlagt kjøring er reserve, siden GitHub kan forsinke cron.
 - Bare betrodde, ferdigmeldte PR-er fra samme repo med agenttittel vurderes. Høyst én baseoppdatering eller merge per kjøring, eldste først, med forrang til native auto-merge.
 - Ingen baseoppdatering ved feilende eller ventende kontroller på head. Siste test/container build og agent-review må være grønne; kontrollene gjentas før oppdatering. Ingen nye reviewrunder på urettet feilende kode.
 - Før merge kreves oppdatert base, autentisk reviewkvittering for head og base, kildebundne påkrevde test/container build/agent-review og ny kontroll av SHA-er og tittel. Konflikt, manglende data og samtidige endringer blokkerer.
 - Gjeldende main må ha vellykket CI og deploy før neste endring. Native auto-merge går uavhengig av køen; stoppknappen påvirker ikke allerede aktiverte native auto-merges.
 - Før generell aktivering: verifiser App-/miljøsperre, to parallelle PR-er, ny head/base, konflikt, rød CI/review, native auto-merge og at merge utløser CI og syntetisk deploy i et isolert testrepo. Dokumenter bevis på task:61; kode-merge alene lukker ikke aktiveringsaksepten.
-- Isolert live aksept er dokumentert i [akseptbeviset](t42-merge-queue-evidence.md), inkludert grønn ny head med kvittering for forrige head. Første produksjonskjøring 17.11.2026 stoppet ved PR-feil uten merge; køen er midlertidig av under kryssreview av beviset. Første App-merge og påfølgende vellykkede produksjonsdeploy gjenstår. Task:61 holdes åpen til dette er verifisert og dokumentert etter ADR 0026 punkt 5.
+- Isolert live aksept er dokumentert i [akseptbeviset](t42-merge-queue-evidence.md), inkludert grønn ny head med kvittering for forrige head. Første produksjonskjøring 17.11.2026 stoppet ved PR-feil uten merge; køen ble reaktivert 18.11.2026 etter godkjent kryssreview, merge og deploy av beviset. Første App-merge og påfølgende vellykkede produksjonsdeploy gjenstår. Task:61 holdes åpen til dette er verifisert og dokumentert etter ADR 0026 punkt 5.
 
 ---
 

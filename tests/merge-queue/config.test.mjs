@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { runInNewContext } from 'node:vm';
 import { auditEnvironment, reviewBots, verifyQueueBot } from '../../scripts/merge-queue/config.mjs';
 
 test('only one exact queue App slug extends the existing bot allowlist', () => {
@@ -55,4 +56,62 @@ test('workflows share bot configuration and verify the minted App before mutatio
     assert.match(queue, /MERGE_QUEUE_TOKEN_APP_SLUG: \$\{\{ steps.app-token.outputs.app-slug \}\}/);
     const validation = queue.indexOf('run: node scripts/merge-queue/config.mjs verify-token');
     assert.ok(validation > 0 && validation < queue.indexOf('run: node scripts/merge-queue/queue.mjs'));
+});
+
+test('completed CI and review wake the enabled queue without trusting source code or artifacts', () => {
+    const workflow = readFileSync('.github/workflows/merge-queue.yml', 'utf8');
+    assert.match(workflow, /workflow_run:\s+workflows: \[CI, Agent review execution\]\s+types: \[completed\]/);
+    assert.match(workflow, /schedule:\s+- cron:/);
+    assert.match(workflow, /cancel-in-progress: false/);
+    assert.match(workflow, /ref: refs\/heads\/main\s+persist-credentials: false/);
+    assert.doesNotMatch(workflow, /download-artifact|workflow_run\.head_sha|workflow_run\.head_branch/);
+
+    const expression = /if: >-\n([\s\S]*?)\n        environment:/.exec(workflow)?.[1];
+    assert.ok(expression);
+    const repository = 'Nils-Fredrik/ekko';
+    const run = { conclusion: 'success', head_repository: { full_name: repository } };
+    const enabled = (eventName, source = run, ref = 'refs/heads/main', flag = 'true') =>
+        runInNewContext(expression.replace('.head_repository.full_name', '.head_repository?.full_name'), {
+            github: { ref, repository, event_name: eventName, event: { workflow_run: source } },
+            vars: { EKKO_MERGE_QUEUE_ENABLED: flag },
+        });
+
+    for (const head_branch of ['main', 't37-dashboard-performance']) {
+        assert.equal(enabled('workflow_run', { ...run, head_branch }), true);
+    }
+    for (const conclusion of ['failure', 'cancelled', 'skipped', 'timed_out', undefined]) {
+        assert.equal(enabled('workflow_run', { ...run, conclusion }), false);
+    }
+    for (const head_repository of [{ full_name: 'untrusted/fork' }, {}, null]) {
+        assert.equal(enabled('workflow_run', { ...run, head_repository }), false);
+    }
+    for (const event of ['workflow_run', 'push', 'schedule', 'workflow_dispatch']) {
+        assert.equal(enabled(event), true);
+        assert.equal(enabled(event, run, 'refs/heads/untrusted'), false);
+        assert.equal(enabled(event, run, 'refs/heads/main', 'false'), false);
+    }
+});
+
+test('ignored workflow completions cannot replace a pending queue reconciliation', () => {
+    const workflow = readFileSync('.github/workflows/merge-queue.yml', 'utf8');
+    const expression = /group: \$\{\{ (.*?) \}\}/.exec(workflow)?.[1];
+    assert.ok(expression);
+    const repository = 'Nils-Fredrik/ekko';
+    const run = { conclusion: 'success', head_repository: { full_name: repository } };
+    const group = (eventName, source = run, runId = 123) =>
+        runInNewContext(expression.replace('.head_repository.full_name', '.head_repository?.full_name'), {
+            github: { repository, event_name: eventName, run_id: runId, event: { workflow_run: source } },
+            format: (_, id) => `ekko-merge-queue-ignored-${id}`,
+        });
+
+    for (const event of ['workflow_run', 'push', 'schedule', 'workflow_dispatch']) {
+        assert.equal(group(event), 'ekko-merge-queue');
+    }
+    for (const conclusion of ['failure', 'cancelled', 'skipped', 'timed_out', undefined]) {
+        assert.equal(group('workflow_run', { ...run, conclusion }), 'ekko-merge-queue-ignored-123');
+    }
+    for (const head_repository of [{ full_name: 'untrusted/fork' }, {}, null]) {
+        assert.notEqual(group('workflow_run', { ...run, head_repository }), group('workflow_run'));
+    }
+    assert.notEqual(group('workflow_run', {}, 123), group('workflow_run', {}, 124));
 });
