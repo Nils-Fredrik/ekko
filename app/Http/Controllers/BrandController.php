@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
-use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Metrics\MetricsSummary;
 use App\Models\Brand;
@@ -63,7 +62,7 @@ class BrandController extends Controller
         $selection = $this->selection($brand, $validated);
         $filter = $period->filter($brand->id, ...$selection);
         $previous = $period->filter($brand->id, ...$selection, previous: true);
-        $summary = $metrics->summary($filter);
+        $dashboard = $metrics->dashboard($filter);
 
         return Inertia::render('Brands/Show', [
             'canCreateMarket' => Gate::allows('createMarketAnalysis', Analysis::class),
@@ -86,14 +85,14 @@ class BrandController extends Controller
                 'intent' => $selection['intents'][0] ?? null,
             ],
             'options' => $this->options($brand),
-            'summary' => $summary->toArray(),
+            'summary' => $dashboard['summary']->toArray(),
             'previous' => $metrics->summary($previous)->toArray(),
             'series' => array_map(fn (array $point) => [
                 'period' => $point['period'],
                 'visibility' => $point['summary']->visibility->toArray(),
-            ], $metrics->series($filter)),
-            'voice' => $this->voice($metrics, $filter, $brand),
-            'engines' => $this->engines($metrics, $filter),
+            ], $dashboard['series']),
+            'voice' => $this->voice($dashboard['voice'], $brand),
+            'engines' => $this->engines($dashboard['engines']),
             'modelChanges' => $this->modelChanges($metrics, $period, $selection['engineKeys']),
         ]);
     }
@@ -176,24 +175,25 @@ class BrandController extends Controller
     }
 
     /**
+     * @param  list<array{id: string, name: string|null, mentions: int, share: float|null, n: int}>  $parts
      * @return list<array{id: string, name: string, mentions: int, share: float|null, n: int, low_sample: bool}>
      */
-    private function voice(MetricsService $metrics, MetricsFilter $filter, Brand $brand): array
+    private function voice(array $parts, Brand $brand): array
     {
         return array_map(function (array $part) use ($brand) {
             $part['name'] = $part['name'] ?? $brand->name;
             $part['low_sample'] = $part['n'] < 10;
 
             return $part;
-        }, $metrics->voiceParts($filter));
+        }, $parts);
     }
 
     /**
+     * @param  array<string, MetricsSummary>  $rows
      * @return list<array{key: string, name: string, visibility: array{value: float|null, n: int, low_sample: bool}, share_of_voice: array{value: float|null, n: int, low_sample: bool}}>
      */
-    private function engines(MetricsService $metrics, MetricsFilter $filter): array
+    private function engines(array $rows): array
     {
-        $rows = $metrics->breakdown($filter, 'engine');
         $labels = DashboardLabels::engines(array_keys($rows));
 
         return array_map(fn (string $key, MetricsSummary $summary) => [
