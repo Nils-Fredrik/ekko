@@ -104,8 +104,13 @@ test('a monthly report pdf is stored and mailed once, with the insight allocatio
     $norwegian = view('reports.pdf', app(ReportPublisher::class)->viewData($world->tenant, $schedule, '2026-10-01', '2026-10-31', 'Synligheten holder seg.'))->render();
     app()->setLocale('sv');
     $swedish = view('reports.pdf', app(ReportPublisher::class)->viewData($world->tenant, $schedule, '2026-10-01', '2026-10-31', 'Synligheten holder seg.'))->render();
-    expect($norwegian)->toContain('Nøkkeltall')->toContain('data:image/png')
-        ->and($swedish)->toContain('Nyckeltal')->not->toContain('Nøkkeltall');
+    expect($norwegian)->toContain('Nøkkeltall')->toContain('Anbefaling')->toContain('Snittposisjon')
+        ->toContain('Prompts med størst endring')->toContain('Mest siterte domener')->toContain('Kildegap')
+        ->toContain('AI-robottreff')->toContain('Modellbytter')->toContain('Innsikt')->toContain('data:image/png')
+        ->and($swedish)->toContain('Nyckeltal')->toContain('Rekommendation')->toContain('Snittposition')
+        ->toContain('Prompter med störst förändring')->toContain('Mest citerade domäner')->toContain('Källgap')
+        ->toContain('AI-robotträffar')->toContain('Modellbyten')->toContain('Insikt')
+        ->not->toContain('Nøkkeltall')->not->toContain('Anbefaling')->not->toContain('Kildegap');
 
     $partner = Team::factory()->tenant()->create([
         'name' => 'Byrapartner',
@@ -266,6 +271,61 @@ test('an unknown insight outage keeps the claim and the reservation', function (
 
     $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertSuccessful();
     expect(count(Http::recorded()))->toBe($sent);
+    clearReportBudget();
+});
+
+test('a second monthly schedule is sent when this run already owns the unknown insight', function () {
+    Storage::fake(config()->string('ekko.reports.disk'));
+    Mail::fake();
+    config(['services.anthropic.key' => 'test-key', 'ekko.anthropic.monthly_pool_usd' => '100']);
+    $attempts = 0;
+    Http::fake(function () use (&$attempts): void {
+        $attempts++;
+        throw new ConnectionException('timed out');
+    });
+    Pdf::swap(new class extends FakePdfBuilder
+    {
+        public function save(string $path): self
+        {
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, '%PDF-fake');
+
+            return $this;
+        }
+    });
+    $this->travelTo('2026-11-17 12:00:00');
+    $world = MetricsWorld::create('UTC');
+    $engine = Engine::factory()->create(['key' => 'claude_sonnet', 'provider' => 'anthropic', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create([
+        'valid_from' => '2026-01-01 00:00:00',
+        'price_per_call_usd' => '0.01000000',
+        'price_per_1k_input_tokens_usd' => '1.00000000',
+        'price_per_1k_output_tokens_usd' => '1.00000000',
+        'price_per_search_usd' => '0.00000000',
+    ]);
+    app(TenantContext::class)->set($world->tenant->id);
+    ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'monthly',
+        'locale' => 'nb',
+        'recipients' => ['nb@example.test'],
+    ]);
+    ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'monthly',
+        'locale' => 'sv',
+        'recipients' => ['sv@example.test'],
+    ]);
+    AnthropicInsightAllocation::query()->create([
+        'brand_id' => $world->brand->id,
+        'cycle_start' => '2026-11-01',
+        'cost_usd' => '0.05000000',
+    ]);
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id]])->assertSuccessful();
+    expect(Report::query()->whereNotNull('pdf_uri')->count())->toBe(2)
+        ->and($attempts)->toBe(1);
+    Mail::assertSent(ReportMail::class, fn (ReportMail $mail): bool => $mail->hasTo('nb@example.test'));
+    Mail::assertSent(ReportMail::class, fn (ReportMail $mail): bool => $mail->hasTo('sv@example.test'));
     clearReportBudget();
 });
 

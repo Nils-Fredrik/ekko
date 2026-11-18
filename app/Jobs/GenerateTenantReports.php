@@ -70,11 +70,13 @@ class GenerateTenantReports extends TenantJob
         $due = $rls->run([$this->tenantId], fn (): array => $publisher->due($tenant, $now));
 
         $failed = false;
+        /** @var array<int, true> $claimedBrands */
+        $claimedBrands = [];
         foreach ($due as $item) {
             try {
                 $this->hold($lock);
                 $rls->run([$this->tenantId], fn () => $publisher->claim($item));
-                $text = $this->insight($rls, $insights, $item);
+                $text = $this->insight($rls, $insights, $item, $claimedBrands);
             } catch (Throwable $e) {
                 report($e);
                 $failed = true;
@@ -119,7 +121,10 @@ class GenerateTenantReports extends TenantJob
         }
     }
 
-    private function insight(TenantRls $rls, InsightWriter $insights, DueReport $item): ?string
+    /**
+     * @param  array<int, true>  $claimedBrands
+     */
+    private function insight(TenantRls $rls, InsightWriter $insights, DueReport $item, array &$claimedBrands): ?string
     {
         if ($item->cadence !== 'monthly') {
             return null;
@@ -163,6 +168,9 @@ class GenerateTenantReports extends TenantJob
             return $admission === null ? null : ['name' => $brand->name, 'admission' => $admission];
         });
         if ($loaded === null) {
+            if (isset($claimedBrands[$item->brandId])) {
+                return null;
+            }
             $pending = $rls->run([$this->tenantId], function () use ($insights, $item): bool {
                 $brand = Brand::query()->find($item->brandId);
 
@@ -181,6 +189,8 @@ class GenerateTenantReports extends TenantJob
             $draft = $insights->draft($loaded['admission'], $loaded['name'], $item->summary, $item->locale);
         } catch (InsightPending $e) {
             // Unknown HTTP outcome, including a timeout: keep the claim and any overage reservation.
+            // Later schedules in this run are not waiting on another process.
+            $claimedBrands[$item->brandId] = true;
             report($e);
 
             return null;

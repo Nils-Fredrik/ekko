@@ -157,7 +157,7 @@ locals {
     web      = ["app-key", "db-password", "google-oauth-client-secret"]
     dispatch = ["app-key", "db-password"]
     worker   = ["app-key", "db-password", "anthropic-api-key", "openai-api-key", "gemini-api-key"]
-    task     = ["app-key", "db-password"]
+    task     = ["app-key", "db-password", "anthropic-api-key"]
     migrate  = ["app-key", "db-admin-password"]
   }
   secret_grants = merge([for identity, secrets in local.secret_readers : {

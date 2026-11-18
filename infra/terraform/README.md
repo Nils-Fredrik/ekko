@@ -82,7 +82,8 @@ ever contain a secret value.
 
 Web and `ekko-task` both have object access on the reports bucket. Web stores the
 logo there, and the task job reads that logo when it writes the PDF. Web then
-downloads the same object. The worker
+downloads the same object. The task job also reads `ekko-anthropic-api-key` as
+`ANTHROPIC_API_KEY`, because the monthly insight runs in that job. The worker
 allows 420 seconds per queue job to cover up to three 120-second engine calls
 and retry delays. All workloads use a 450-second database queue reservation.
 Keep individual job timeout overrides below the reservation time. Cloud Run

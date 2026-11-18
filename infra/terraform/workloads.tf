@@ -48,6 +48,9 @@ locals {
     OPENAI_API_KEY    = "openai-api-key"
     GEMINI_API_KEY    = "gemini-api-key"
   }
+  task_secrets = {
+    ANTHROPIC_API_KEY = "anthropic-api-key"
+  }
 }
 
 resource "google_cloud_run_v2_service" "web" {
@@ -174,7 +177,7 @@ resource "google_cloud_run_v2_job" "job" {
           }
         }
         dynamic "env" {
-          for_each = merge({ APP_KEY = "app-key", DB_PASSWORD = each.key == "migrate" ? "db-admin-password" : "db-password" }, each.key == "worker" ? local.worker_secrets : {})
+          for_each = merge({ APP_KEY = "app-key", DB_PASSWORD = each.key == "migrate" ? "db-admin-password" : "db-password" }, lookup({ worker = local.worker_secrets, task = local.task_secrets }, each.key, {}))
           content {
             name = env.key
             value_source {
