@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Jobs\Middleware\SetTenantContext;
 use App\Mail\ReportMail;
+use App\Models\AnthropicInsightAllocation;
 use App\Models\Brand;
 use App\Models\Report;
 use App\Models\ReportSchedule;
@@ -38,7 +39,7 @@ class GenerateTenantReports extends TenantJob
 
     public function handle(TenantRls $rls, ReportPublisher $publisher, InsightWriter $insights): void
     {
-        $lock = Cache::lock('reports:tenant:'.$this->tenantId, 900);
+        $lock = Cache::lock('reports:tenant:'.$this->tenantId, InsightWriter::CLAIM_SECONDS);
         if (! $lock->get()) {
             throw new RuntimeException('Another report run is already handling this tenant.');
         }
@@ -61,8 +62,8 @@ class GenerateTenantReports extends TenantJob
         foreach ($due as $item) {
             try {
                 $text = $this->insight($rls, $insights, $item);
-            } catch (InsightPending $pending) {
-                report($pending);
+            } catch (Throwable $e) {
+                report($e);
                 $failed = true;
 
                 continue;
@@ -92,7 +93,7 @@ class GenerateTenantReports extends TenantJob
         // The paid insight stays on disk. A failed render must fail the command so the
         // same period is retried, instead of waiting until the next week selects another one.
         if ($failed) {
-            throw new RuntimeException('A report PDF could not be rendered.');
+            throw new RuntimeException('A report could not be finished.');
         }
     }
 
@@ -106,6 +107,16 @@ class GenerateTenantReports extends TenantJob
         $path = 'reports/'.$this->tenantId.'/'.$item->scheduleId.'-'.$item->from.'.insight.json';
         $saved = $insights->remembered($disk, $path);
         if ($saved !== null) {
+            $rls->run([$this->tenantId], function () use ($insights, $item, $saved): void {
+                $cycle = explode(':', $saved['operation'])[2] ?? '';
+                $allocation = AnthropicInsightAllocation::query()
+                    ->where('brand_id', $item->brandId)
+                    ->whereDate('cycle_start', $cycle)
+                    ->first();
+                if ($allocation instanceof AnthropicInsightAllocation) {
+                    $insights->bookStored($saved['operation'], $saved['cost'], $allocation->id);
+                }
+            });
             $insights->settleBooked($saved['operation'], $saved['cost'], $saved['overage']);
 
             return $saved['text'] !== '' ? $saved['text'] : null;
@@ -125,7 +136,7 @@ class GenerateTenantReports extends TenantJob
             $pending = $rls->run([$this->tenantId], function () use ($insights, $item): bool {
                 $brand = Brand::query()->find($item->brandId);
 
-                return $brand instanceof Brand && $insights->claimed($brand);
+                return $brand instanceof Brand && $insights->pending($brand);
             });
             if ($pending) {
                 throw new InsightPending('The insight claim is still open.');
@@ -152,8 +163,8 @@ class GenerateTenantReports extends TenantJob
             return null;
         }
 
-        $rls->run([$this->tenantId], fn () => $insights->book($draft));
         $insights->remember($disk, $path, $draft);
+        $rls->run([$this->tenantId], fn () => $insights->book($draft));
         $insights->settleBooked($draft->admission->operation, $draft->cost, $draft->admission->overageOperation);
 
         return $draft->text !== '' ? $draft->text : null;
@@ -181,27 +192,25 @@ class GenerateTenantReports extends TenantJob
             return;
         }
 
-        $claimed = $rls->run([$this->tenantId], fn (): int => Report::query()
-            ->whereKey($report->id)
-            ->whereNull('sent_at')
-            ->update(['sent_at' => CarbonImmutable::now('UTC')]));
-        if ($claimed !== 1) {
-            return;
-        }
-
-        try {
-            foreach ($recipients as $recipient) {
-                Mail::to($recipient)->locale($schedule->locale)->send(new ReportMail(
-                    $brand instanceof Brand ? $brand->name : '',
-                    $report->period_start->toDateString(),
-                    $report->period_end->toDateString(),
-                    $pdf,
-                ));
+        $sent = is_array($report->sent_to) ? $report->sent_to : [];
+        foreach ($recipients as $recipient) {
+            if (in_array($recipient, $sent, true)) {
+                continue;
             }
-        } catch (Throwable $e) {
-            $rls->run([$this->tenantId], fn () => $report->forceFill(['sent_at' => null])->save());
-
-            throw $e;
+            Mail::to($recipient)->locale($schedule->locale)->send(new ReportMail(
+                $brand instanceof Brand ? $brand->name : '',
+                $report->period_start->toDateString(),
+                $report->period_end->toDateString(),
+                $pdf,
+            ));
+            $sent[] = $recipient;
+            $finished = array_diff($recipients, $sent) === [];
+            $rls->run([$this->tenantId], function () use ($report, $sent, $finished): void {
+                $report->forceFill([
+                    'sent_to' => $sent,
+                    'sent_at' => $finished ? CarbonImmutable::now('UTC') : null,
+                ])->save();
+            });
         }
     }
 }

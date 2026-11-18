@@ -26,6 +26,9 @@ use Throwable;
  */
 final class InsightWriter
 {
+    /** How long another run may still be writing the insight. Matches the tenant report lock. */
+    public const CLAIM_SECONDS = 900;
+
     public function __construct(
         private readonly Account $account,
         private readonly EnginePricing $pricing,
@@ -80,16 +83,26 @@ final class InsightWriter
         return new InsightAdmission($allocation->id, $brand->id, $cycle, $operation, $overage, $price);
     }
 
-    /** True when this cycle's allocation is already taken and the text may still be in another run. */
-    public function claimed(Brand $brand): bool
+    /**
+     * True only while another run may still store the text. A booked insight, or a claim older
+     * than the tenant lock, is not pending: later schedules render without a second model call.
+     */
+    public function pending(Brand $brand): bool
     {
         $cycle = $this->account->cycle()->start->toDateString();
-
-        return AnthropicInsightAllocation::query()
+        $allocation = AnthropicInsightAllocation::query()
             ->where('brand_id', $brand->id)
             ->whereDate('cycle_start', $cycle)
             ->whereNotNull('consumed_at')
-            ->exists();
+            ->first();
+        if (! $allocation instanceof AnthropicInsightAllocation || $allocation->consumed_at === null) {
+            return false;
+        }
+        if (UsageEvent::query()->where('anthropic_operation', 'insight:'.$brand->id.':'.$cycle)->exists()) {
+            return false;
+        }
+
+        return $allocation->consumed_at->greaterThan(CarbonImmutable::now('UTC')->subSeconds(self::CLAIM_SECONDS));
     }
 
     public function release(InsightAdmission $admission): void
@@ -171,17 +184,25 @@ final class InsightWriter
     /** Records the paid call on the tenant. The caller settles the platform account afterwards. */
     public function book(InsightDraft $draft): void
     {
-        DB::transaction(function () use ($draft): void {
-            UsageEvent::query()->create([
-                'occurred_at' => CarbonImmutable::now('UTC'),
-                'kind' => 'pdf',
-                'engine_key' => 'claude_sonnet',
-                'calls' => 1,
-                'cost_usd' => $draft->cost,
-                'billed_to' => 'platform',
-                'anthropic_operation' => $draft->admission->operation,
-            ]);
-            AnthropicInsightAllocation::query()->whereKey($draft->admission->allocationId)->update([
+        $this->bookStored($draft->admission->operation, $draft->cost, $draft->admission->allocationId);
+    }
+
+    /** Books a draft that was stored before the usage row, without a second row for the same call. */
+    public function bookStored(string $operation, string $cost, int $allocationId): void
+    {
+        DB::transaction(function () use ($operation, $cost, $allocationId): void {
+            if (! UsageEvent::query()->where('anthropic_operation', $operation)->exists()) {
+                UsageEvent::query()->create([
+                    'occurred_at' => CarbonImmutable::now('UTC'),
+                    'kind' => 'pdf',
+                    'engine_key' => 'claude_sonnet',
+                    'calls' => 1,
+                    'cost_usd' => $cost,
+                    'billed_to' => 'platform',
+                    'anthropic_operation' => $operation,
+                ]);
+            }
+            AnthropicInsightAllocation::query()->whereKey($allocationId)->update([
                 'consumed_at' => CarbonImmutable::now('UTC'),
             ]);
         });
@@ -205,7 +226,11 @@ final class InsightWriter
      */
     public function remembered(string $disk, string $path): ?array
     {
-        $stored = Storage::disk($disk)->get($path);
+        $storage = Storage::disk($disk);
+        if (! $storage->exists($path)) {
+            return null;
+        }
+        $stored = $storage->get($path);
         if (! is_string($stored) || $stored === '') {
             return null;
         }

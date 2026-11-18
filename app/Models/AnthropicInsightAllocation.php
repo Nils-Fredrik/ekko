@@ -3,9 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 
-/** A reserved monthly Sonnet allowance for the report producer (T32), never a generated insight. */
+/**
+ * A reserved monthly Sonnet allowance for the report producer (T32), never a generated insight.
+ *
+ * @property CarbonImmutable|null $consumed_at
+ */
 class AnthropicInsightAllocation extends Model
 {
     use BelongsToTenant;

@@ -15,7 +15,10 @@ use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Mail\Transport\ArrayTransport;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -287,6 +290,12 @@ test('a report waits when another run already owns the insight claim', function 
         'locale' => 'nb',
         'recipients' => ['reports@example.test'],
     ]);
+    $weekly = ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'weekly',
+        'locale' => 'nb',
+        'recipients' => ['week@example.test'],
+    ]);
     AnthropicInsightAllocation::query()->create([
         'brand_id' => $world->brand->id,
         'cycle_start' => '2026-11-01',
@@ -297,7 +306,7 @@ test('a report waits when another run already owns the insight claim', function 
     expect($admission)->not->toBeNull();
 
     $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertFailed();
-    expect(Report::query()->count())->toBe(0);
+    expect(Report::query()->pluck('report_schedule_id')->all())->toBe([$weekly->id]);
     Http::assertNothingSent();
 
     Storage::disk(config()->string('ekko.reports.disk'))->put(
@@ -311,9 +320,171 @@ test('a report waits when another run already owns the insight claim', function 
     );
 
     $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertSuccessful();
-    expect(Report::query()->count())->toBe(1);
+    expect(Report::query()->count())->toBe(2);
     Http::assertNothingSent();
     clearReportBudget();
+});
+
+test('an expired insight claim still produces the report and does not call sonnet again', function () {
+    Storage::fake(config()->string('ekko.reports.disk'));
+    Mail::fake();
+    config(['services.anthropic.key' => 'test-key', 'ekko.anthropic.monthly_pool_usd' => '100']);
+    Http::fake();
+    Pdf::swap(new class extends FakePdfBuilder
+    {
+        public function save(string $path): self
+        {
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, '%PDF-fake');
+
+            return $this;
+        }
+    });
+    $this->travelTo('2026-11-17 12:00:00');
+    $world = MetricsWorld::create('UTC');
+    $engine = Engine::factory()->create(['key' => 'claude_sonnet', 'provider' => 'anthropic', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create([
+        'valid_from' => '2026-01-01 00:00:00',
+        'price_per_call_usd' => '0.01000000',
+        'price_per_1k_input_tokens_usd' => '1.00000000',
+        'price_per_1k_output_tokens_usd' => '1.00000000',
+        'price_per_search_usd' => '0.00000000',
+    ]);
+    app(TenantContext::class)->set($world->tenant->id);
+    ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'monthly',
+        'locale' => 'nb',
+        'recipients' => ['reports@example.test'],
+    ]);
+    AnthropicInsightAllocation::query()->create([
+        'brand_id' => $world->brand->id,
+        'cycle_start' => '2026-11-01',
+        'cost_usd' => '0.05000000',
+    ]);
+    $admission = app(TenantRls::class)->run([$world->tenant->id], fn () => app(InsightWriter::class)->admit($world->brand));
+    expect($admission)->not->toBeNull();
+    $this->travelTo('2026-11-17 12:20:00');
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertSuccessful();
+    expect(Report::query()->count())->toBe(1)
+        ->and(AnthropicInsightAllocation::query()->sole()->consumed_at)->not->toBeNull()
+        ->and(DB::table('anthropic_budget_holds')->where('operation', 'like', 'insight:'.$world->brand->id.':2026-11-01:overage:%')->whereNull('settled_at')->count())->toBe(1);
+    Http::assertNothingSent();
+    clearReportBudget();
+});
+
+test('a second monthly schedule is sent after the insight allocation is already used', function () {
+    Storage::fake(config()->string('ekko.reports.disk'));
+    Mail::fake();
+    config(['services.anthropic.key' => 'test-key', 'ekko.anthropic.monthly_pool_usd' => '100']);
+    Http::fake([
+        'api.anthropic.com/*' => Http::response([
+            'content' => [['type' => 'text', 'text' => 'En tekst.']],
+            'usage' => ['input_tokens' => 100, 'output_tokens' => 40],
+        ]),
+    ]);
+    Pdf::swap(new class extends FakePdfBuilder
+    {
+        public function save(string $path): self
+        {
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, '%PDF-fake');
+
+            return $this;
+        }
+    });
+    $this->travelTo('2026-11-17 12:00:00');
+    $world = MetricsWorld::create('UTC');
+    $engine = Engine::factory()->create(['key' => 'claude_sonnet', 'provider' => 'anthropic', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create([
+        'valid_from' => '2026-01-01 00:00:00',
+        'price_per_call_usd' => '0.01000000',
+        'price_per_1k_input_tokens_usd' => '1.00000000',
+        'price_per_1k_output_tokens_usd' => '1.00000000',
+        'price_per_search_usd' => '0.00000000',
+    ]);
+    app(TenantContext::class)->set($world->tenant->id);
+    ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'monthly',
+        'locale' => 'nb',
+        'recipients' => ['nb@example.test'],
+    ]);
+    ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'monthly',
+        'locale' => 'sv',
+        'recipients' => ['sv@example.test'],
+    ]);
+    AnthropicInsightAllocation::query()->create([
+        'brand_id' => $world->brand->id,
+        'cycle_start' => '2026-11-01',
+        'cost_usd' => '0.05000000',
+    ]);
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertSuccessful();
+    expect(Report::query()->count())->toBe(2);
+    Http::assertSentCount(1);
+    Mail::assertSent(ReportMail::class, fn (ReportMail $mail): bool => $mail->hasTo('nb@example.test'));
+    Mail::assertSent(ReportMail::class, fn (ReportMail $mail): bool => $mail->hasTo('sv@example.test'));
+    clearReportBudget();
+});
+
+test('a failed recipient is skipped on the next delivery', function () {
+    Storage::fake(config()->string('ekko.reports.disk'));
+    config(['services.anthropic.key' => '']);
+    Pdf::swap(new class extends FakePdfBuilder
+    {
+        public function save(string $path): self
+        {
+            Storage::disk(config()->string('ekko.reports.disk'))->put($path, '%PDF-fake');
+
+            return $this;
+        }
+    });
+    $this->travelTo('2026-11-17 12:00:00');
+    $world = MetricsWorld::create('UTC');
+    app(TenantContext::class)->set($world->tenant->id);
+    ReportSchedule::factory()->create([
+        'brand_id' => $world->brand->id,
+        'cadence' => 'weekly',
+        'locale' => 'nb',
+        'recipients' => ['one@example.test', 'two@example.test'],
+    ]);
+    $failSecond = true;
+    $seen = 0;
+    Event::listen(MessageSending::class, function () use (&$seen, &$failSecond): void {
+        $seen++;
+        if ($failSecond && $seen === 2) {
+            throw new RuntimeException('second recipient failed');
+        }
+    });
+
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertFailed();
+    $report = Report::query()->sole();
+    expect($report->sent_to)->toBe(['one@example.test'])->and($report->sent_at)->toBeNull();
+
+    $failSecond = false;
+    $this->artisan('ekko:send-reports', ['--tenant' => [$world->tenant->id], '--sync' => true])->assertSuccessful();
+    expect($report->fresh()->sent_to)->toBe(['one@example.test', 'two@example.test'])
+        ->and($report->fresh()->sent_at)->not->toBeNull();
+    $transport = Mail::mailer()->getSymfonyTransport();
+    expect($transport)->toBeInstanceOf(ArrayTransport::class);
+    $addresses = $transport->messages()->map(function ($message): string {
+        $recipient = $message->getEnvelope()->getRecipients()[0] ?? null;
+
+        return $recipient === null ? '' : $recipient->getAddress();
+    })->all();
+    expect($addresses)->toBe(['one@example.test', 'two@example.test']);
+});
+
+test('a missing insight draft is absent instead of a storage error', function () {
+    config(['filesystems.disks.reports_missing' => [
+        'driver' => 'local',
+        'root' => storage_path('app/private'),
+        'throw' => true,
+    ]]);
+
+    expect(app(InsightWriter::class)->remembered('reports_missing', 'reports/missing.insight.json'))->toBeNull();
 });
 
 function clearReportBudget(): void
