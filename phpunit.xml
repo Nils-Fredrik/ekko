@@ -14,6 +14,10 @@
         <testsuite name="Integration">
             <directory>tests/Integration</directory>
         </testsuite>
+        <!-- After the transactional suites. This suite truncates, so it must not run beside them. -->
+        <testsuite name="Settlement">
+            <directory>tests/Settlement</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>
