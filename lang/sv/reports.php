@@ -1,6 +1,8 @@
 <?php
 
 return [
+    'reconstructed' => 'Den här webbversionen är återskapad från tillgängliga data. Originalets PDF kan skilja sig.',
+    'share' => ['title' => 'Dela rapport', 'once' => 'Kopiera länken nu. Den kan inte visas igen senare.', 'days' => 'Giltig i antal dagar', 'create' => 'Skapa länk', 'url' => 'Delbar länk', 'expiry' => 'Går ut :date · :views visningar', 'revoke' => 'Återkalla', 'revoked' => 'Återkallad', 'failed' => 'Länken kunde inte uppdateras. Försök igen.', 'loading' => 'Laddar rapport …', 'not_found' => 'Rapporten finns inte eller länken har gått ut.'],
     'title' => 'Rapport för :brand',
     'period' => ':from – :to',
     'summary' => 'Nyckeltal (:responses svar)',

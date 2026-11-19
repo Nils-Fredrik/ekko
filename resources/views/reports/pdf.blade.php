@@ -2,6 +2,10 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
+    @if ($shared ?? false)
+        <meta name="robots" content="noindex, nofollow, noarchive">
+        <meta name="referrer" content="no-referrer">
+    @endif
     <title>{{ __('reports.title', ['brand' => $brand]) }}</title>
     <style>
         html, body { margin: 0; background: #fff; color: #1c1917; font-family: sans-serif; font-size: 12px; }
@@ -31,6 +35,9 @@
         <p>{{ __('reports.period', ['from' => $from, 'to' => $to]) }}</p>
     </header>
     <main>
+        @if ($reconstructed ?? false)
+            <p>{{ __('reports.reconstructed') }}</p>
+        @endif
         @if ($insight)
             <h2>{{ __('reports.insight') }}</h2>
             <p>{{ $insight }}</p>
