@@ -152,3 +152,6 @@ Route::middleware([
     Route::delete('/admin/acting-as', [ActingAsController::class, 'destroy'])
         ->name('admin.acting-as.stop');
 });
+
+// Development-only pages (chart examples). The file registers nothing outside local and testing.
+require __DIR__.'/dev.php';
