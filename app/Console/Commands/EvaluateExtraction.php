@@ -20,7 +20,7 @@ use InvalidArgumentException;
 class EvaluateExtraction extends Command
 {
     protected $signature = 'ekko:extraction:eval
-        {--gold= : Gold set file (default tests/Fixtures/extraction/gold.json)}
+        {--gold= : Gold set file (default database/evals/extraction-gold.json)}
         {--recorded= : Replay recorded model output from this file instead of calling the API}
         {--record= : Save the model output of this run to this file, for later offline replay}';
 
@@ -28,7 +28,7 @@ class EvaluateExtraction extends Command
 
     public function handle(): int
     {
-        $gold = (string) ($this->option('gold') ?: base_path('tests/Fixtures/extraction/gold.json'));
+        $gold = (string) ($this->option('gold') ?: base_path('database/evals/extraction-gold.json'));
 
         try {
             if ($this->option('recorded')) {

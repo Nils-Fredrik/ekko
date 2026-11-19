@@ -41,16 +41,7 @@ storage/logs/*
 !storage/logs/.gitignore
 infra
 docs
-# Tests stay out of the image, except the gold sets that ekko:extraction:eval and ekko:factcheck:eval read in production.
-tests/*
-!tests/Fixtures
-tests/Fixtures/*
-!tests/Fixtures/extraction
-tests/Fixtures/extraction/*
-!tests/Fixtures/extraction/gold.json
-!tests/Fixtures/factcheck
-tests/Fixtures/factcheck/*
-!tests/Fixtures/factcheck/gold.json
+tests
 phpunit.xml
 phpstan.neon
 pint.json
