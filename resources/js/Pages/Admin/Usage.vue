@@ -29,8 +29,8 @@ function usd(value) {
                 <EmptyState
                     v-if="!tenants.length"
                     class="mt-3"
-                    :title="$t('app.empty.admin_title')"
-                    :body="$t('app.empty.admin_body')"
+                    :title="$t('app.empty.usage_tenants_title')"
+                    :body="$t('app.empty.usage_tenants_body')"
                 />
                 <table v-else class="mt-3 w-full text-left text-sm">
                     <thead class="text-xs text-shell-muted">
@@ -54,8 +54,8 @@ function usd(value) {
                 <EmptyState
                     v-if="!engines.length"
                     class="mt-3"
-                    :title="$t('app.empty.engines_title')"
-                    :body="$t('app.empty.engines_body')"
+                    :title="$t('app.empty.usage_engines_title')"
+                    :body="$t('app.empty.usage_engines_body')"
                 />
                 <table v-else class="mt-3 w-full text-left text-sm">
                     <thead class="text-xs text-shell-muted">

@@ -108,8 +108,8 @@ function act() {
             </form>
             <EmptyState
                 v-if="!tenants.length"
-                :title="$t('app.empty.admin_title')"
-                :body="$t('app.empty.admin_body')"
+                :title="$t('app.empty.tenants_title')"
+                :body="$t('app.empty.tenants_body')"
             />
             <form
                 v-for="tenant in tenants"

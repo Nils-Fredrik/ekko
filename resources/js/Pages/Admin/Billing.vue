@@ -59,8 +59,8 @@ const ready = computed(() => props.rows.length > 0 && props.rows.every((row) => 
             <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel p-6 text-shell-text">
                 <EmptyState
                     v-if="!rows.length"
-                    :title="$t('app.empty.admin_title')"
-                    :body="$t('app.empty.admin_body')"
+                    :title="$t('app.empty.billing_title')"
+                    :body="$t('app.empty.billing_body')"
                 />
                 <table v-else class="w-full text-left text-sm">
                     <thead class="text-xs text-shell-muted">
