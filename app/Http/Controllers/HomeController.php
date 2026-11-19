@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
+use App\Dashboard\GraphCache;
 use App\Metrics\MetricsService;
+use App\Models\Action;
 use App\Models\Alert;
 use App\Models\BotLogUpload;
 use App\Models\Brand;
@@ -62,6 +64,19 @@ class HomeController extends Controller
             'alerts' => $this->alerts(),
             'runs' => $this->runs(),
             'usage' => $this->usage($period->timezone),
+            'chartData' => Inertia::defer(fn (): array => array_map(function (array $brand) use ($period, $metrics): array {
+                $filter = $period->filter($brand['id']);
+
+                return app(GraphCache::class)->remember('overview.brand', $filter, $period->timezone, fn (): array => [
+                    'brand_id' => $brand['id'],
+                    'series' => array_map(fn (array $row): array => [
+                        'period' => $row['period'], 'visibility' => $row['summary']->visibility->toArray(),
+                    ], $metrics->series($filter)),
+                    'open_alerts' => Alert::query()->whereNull('acknowledged_at')
+                        ->whereHas('alertRule', fn ($query) => $query->where('brand_id', $brand['id']))->count(),
+                    'open_actions' => Action::query()->where('brand_id', $brand['id'])->open()->count(),
+                ]);
+            }, $brands)),
             'botLogUploadsUrl' => Gate::allows('create', BotLogUpload::class)
                 ? route('bot-log-uploads.index', ['team' => current_tenant_id()])
                 : null,

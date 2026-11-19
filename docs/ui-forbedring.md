@@ -103,6 +103,17 @@ Den første versjonen sendte `{ row }` (`DivergingBarChart`), `{ row, column }` 
 
 `kind` er `rate` (andel 0–1, endring i prosentpoeng), `count` eller `number`. Eksempelsiden `/dev/charts` (`routes/dev.php`) viser alle graftypene med testdata i begge temaer. Ruten registreres bare i `local` og `testing`.
 
+## 9. Ytelse
+
+Dashboardets første HTTP-svar har et mål om p95 under 800 ms, også med ett års data. Tunge grafdata sendes som utsatte Inertia-props og caches per tenant, filterkombinasjon og lokal dag. Isolasjon og tilgangskontroll gjelder også de utsatte forespørslene. Tidsbegrenset cache må samtidig ivareta oppdateringsmålet i `docs/spec.md` kapittel 9.
+
+## U03 – Dataendepunkter for nye grafer
+
+Serier og aggregater for minigrafer, konkurrentserier, serier per motor, heatmap prompt × motor, rangering over tid, sentimentfordeling, kildetyper, kildegap, robot- og trafikkserier og porteføljetall hentes fra `agg_daily` og de andre aggregattabellene. Formlene i `docs/spec.md` kapittel 9 gjelder uendret. Alle målinger har n og lav-n-markering der det er relevant.
+
+- Dashboardets første svar har p95 under 800 ms med ett års data.
+- Isolasjonstestene dekker alle nye endepunkter og utsatte props.
+
 ## U02 – `<EkkoChart>` og grafbibliotek
 
 ECharts fra `echarts/core` med SVG-tegning, ett tema bygget fra tokens som byttes ved temabytte, felles tooltip, lav-n-stil, markør-API, tabellvisning, tekstbeskrivelse og asynkron lasting. Én komponent per graftype i kapittel 6, med eksempelside i utviklingsmodus.
