@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'trend' => 'Visibility over time',
+    'reconstructed' => 'This web version was reconstructed from available data. The original PDF may differ.',
+    'share' => ['title' => 'Share report', 'once' => 'Copy the link now. It cannot be shown again later.', 'days' => 'Valid for days', 'create' => 'Create link', 'url' => 'Shareable link', 'expiry' => 'Expires :date · :views views', 'revoke' => 'Revoke', 'revoked' => 'Revoked', 'failed' => 'Could not update the link. Try again.', 'loading' => 'Loading report …', 'not_found' => 'The report does not exist or the link has expired.', 'page' => 'Report', 'points' => 'Show data points'],
     'title' => 'Report for :brand',
     'period' => ':from – :to',
     'summary' => 'Key figures (:responses answers)',
@@ -45,6 +48,8 @@ return [
     'actions_empty_open' => 'No open actions.',
     'actions_empty_done' => 'No actions were completed in the period.',
     'empty_value' => '–',
+    'sample_size' => 'Responses',
+    'low_sample' => 'Small sample',
     'sample' => 'n :n',
     'logo' => 'Logo',
     'logo_saved' => 'A logo is saved.',
