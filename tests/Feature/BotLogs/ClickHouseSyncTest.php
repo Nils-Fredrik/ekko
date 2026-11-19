@@ -66,7 +66,9 @@ it('replaces one UTC day with fixture counts for each bot and domain', function 
             && $query['param_end'] === '2026-11-15 00:00:00'
             && $query['param_domains'] === "['site.example.test']"
             && $query['param_suffixes'] === "['site.example.test']"
-            && str_contains($query['param_agents'], "'GPTBot'");
+            && str_contains($query['param_agents'], "'GPTBot'")
+            // Read-only ClickHouse users (readonly = 1) reject any setting, so only query parameters may be sent.
+            && collect(array_keys($query))->every(fn (string $key) => str_starts_with($key, 'param_'));
     });
 
     $context->run($team->id, function () use ($integration) {

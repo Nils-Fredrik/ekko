@@ -558,6 +558,8 @@ Integrasjonen `clickhouse_logs` per merkevare lagrer tilkobling (vert, database,
 
 Listen over user-agents vedlikeholdes i konfigurasjon, ikke i kode. Spørringene skal følge skjemaet som er dokumentert i skillen `clickhouse-logs-query` for Maksimer-loggene.
 
+Tabellen må ha kolonnene `ts` (UTC), `site`, `path` og `user_agent`. For Maksimer brukes en egen visning, `logs.ekko_requests` på `https://ch.maksimer.dev`, med en lesebruker som bare ser konsernets nettsteder. Brukeren er skrivebeskyttet (`readonly = 1`) og godtar ingen ClickHouse-innstillinger, så klienten sender bare spørreparametere (`param_*`), aldri innstillinger, i URL-en. Innloggingen går som Basic auth. Synken er én spørring per integrasjon per døgn for forrige UTC-døgn og prøver ikke på nytt ved feil, slik at gjentatte feilede innlogginger ikke sperrer Cloud Run.
+
 ClickHouse-synken registrerer feildager i tenantens tidssone og oppretter `integration_error` etter to påfølgende feildager (11.1). Vellykket synk setter `status = synced` og nullstiller feilrekken; feil bevarer tidligere aggregater og `last_sync_at`. Se [ADR 0014](decisions/0014-botloggimport.md).
 
 Tenants uten ClickHouse kan i stedet laste opp loggfiler (nginx/Apache combined-format, gz) via grensesnittet. Filene parses av en jobb.
