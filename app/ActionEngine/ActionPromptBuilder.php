@@ -21,6 +21,10 @@ final class ActionPromptBuilder
 
     public const MAX_STEP = 240;
 
+    public const MIN_STEPS = 2;
+
+    public const MAX_STEPS = 5;
+
     public function build(Action $action, Brand $brand): ActionTextRequest
     {
         // The brand's language is the market's (or the tenant's for a brand-level action), never the template locale.
@@ -49,7 +53,7 @@ final class ActionPromptBuilder
             'Return JSON with:',
             '- title: an imperative headline of at most '.self::MAX_TITLE.' characters;',
             '- description: one to three sentences of at most '.self::MAX_DESCRIPTION.' characters in all, on why this matters and what to do;',
-            '- steps: two to five concrete steps of at most '.self::MAX_STEP.' characters each, without numbering.',
+            '- steps: '.self::MIN_STEPS.' to '.self::MAX_STEPS.' concrete steps of at most '.self::MAX_STEP.' characters each, without numbering.',
         ]);
 
         $payload = [

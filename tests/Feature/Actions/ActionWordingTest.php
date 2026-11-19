@@ -5,6 +5,7 @@
 // the template text stays. Each known call is booked as usage and settled on the Anthropic account.
 
 use App\ActionEngine\ActionGenerator;
+use App\ActionEngine\ActionPromptBuilder;
 use App\ActionEngine\ActionTextGuard;
 use App\ActionEngine\Writing\ActionTextRequest;
 use App\ActionEngine\Writing\ActionWriter;
@@ -117,18 +118,36 @@ test('the guard accepts digits only inside a name written in full and refuses in
     $guard = new ActionTextGuard;
     $names = ['24sevenoffice.no', 'Shopify 2.0', 'Top 20 coffee brands'];
 
-    expect($guard->parse(FakeActionWriter::json('Bli sett på 24sevenoffice.no', 'Om Shopify 2.0.', ['Svar på «Top 20 coffee brands».']), $names))->not->toBeNull()
-        ->and($guard->parse(FakeActionWriter::json('Øk med 30 %', 'x', ['y']), $names))->toBeNull()
-        ->and($guard->parse(FakeActionWriter::json('Øk med 20 %', 'x', ['y']), $names))->toBeNull()
-        ->and($guard->parse(FakeActionWriter::json('Tittel', 'Nå 20 kunder.', ['y']), $names))->toBeNull()
-        ->and($guard->parse(FakeActionWriter::json('Tittel', 'Shopify 2', ['y']), $names))->toBeNull()
-        ->and($guard->parse(FakeActionWriter::json('Få 5x flere svar', 'x', ['y']), $names))->toBeNull()
-        ->and($guard->parse(FakeActionWriter::json('Tittel', 'Før Q4.', ['Innen 14d.']), $names))->toBeNull()
-        ->and($guard->parse(FakeActionWriter::json('Tittel', 'Siden 2019.', ['y']), $names))->toBeNull()
-        ->and($guard->parse(FakeActionWriter::json('Tittel', 'x', ['Vent 2 uker.']), $names))->toBeNull()
-        ->and($guard->parse(FakeActionWriter::json(str_repeat('x', 121), 'x', ['y']), $names))->toBeNull()
+    expect($guard->parse(FakeActionWriter::json('Bli sett på 24sevenoffice.no', 'Om Shopify 2.0.', ['Svar på «Top 20 coffee brands».', 'Følg opp.']), $names))->not->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Øk med 30 %', 'x', ['y', 'z']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Øk med 20 %', 'x', ['y', 'z']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Tittel', 'Nå 20 kunder.', ['y', 'z']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Tittel', 'Shopify 2', ['y', 'z']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Få 5x flere svar', 'x', ['y', 'z']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Tittel', 'Før Q4.', ['Innen 14d.', 'z']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Tittel', 'Siden 2019.', ['y', 'z']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Tittel', 'x', ['Vent 2 uker.', 'z']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json(str_repeat('x', 121), 'x', ['y', 'z']), $names))->toBeNull()
         ->and($guard->parse('{"title": "x"}', $names))->toBeNull()
         ->and($guard->parse('not json', $names))->toBeNull();
+});
+
+test('the guard asks for two to five steps like the prompt, and every template has that many (T43-F2)', function () {
+    $guard = new ActionTextGuard;
+
+    expect($guard->parse(FakeActionWriter::json('Tittel', 'x', ['y']), []))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Tittel', 'x', ['a', 'b']), []))->not->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Tittel', 'x', ['a', 'b', 'c', 'd', 'e']), []))->not->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Tittel', 'x', ['a', 'b', 'c', 'd', 'e', 'f']), []))->toBeNull();
+
+    foreach (['nb', 'sv', 'en'] as $locale) {
+        $templates = trans('action_items.templates', [], $locale);
+        expect($templates)->toBeArray()->not->toBeEmpty();
+        foreach ($templates as $type => $template) {
+            expect(count($template['steps']))->toBeGreaterThanOrEqual(ActionPromptBuilder::MIN_STEPS, "{$locale}.{$type}")
+                ->toBeLessThanOrEqual(ActionPromptBuilder::MAX_STEPS, "{$locale}.{$type}");
+        }
+    }
 });
 
 test('a market in a language without templates gets the template in English and the model writes in the market language', function () {

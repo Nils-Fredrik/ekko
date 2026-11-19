@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\DB;
  *   expired one opens again as new; done and declined actions are left as the user left them. A candidate without
  *   an action becomes a new action with the template text, to be worded by the model afterwards.
  * - A new or planned system action that a source could judge but did not find counts one unsupported generation;
- *   after ekko.actions.expire_after_generations in a row it expires. Actions in progress do not expire: the work
+ *   after ekko.actions.expire_after_generations in a row it expires. Started actions (started_at set) do not expire: the work
  *   may be why the data changed. A scope a source could not judge is left alone.
  * - One generation per brand and local ISO week counts: a second run the same week refreshes but does not count.
  */
@@ -205,6 +205,8 @@ final class ActionGenerator
             ->where('type', $source->type()->value)
             ->where('created_by', Action::CREATED_BY_SYSTEM)
             ->whereIn('status', [ActionStatus::New->value, ActionStatus::Planned->value])
+            // Started work does not expire, also when the user has moved it back to planned.
+            ->whereNull('started_at')
             ->whereNotIn('fingerprint', $seen)
             ->where(fn ($q) => $q
                 ->when($markets !== [], fn ($q) => $q->orWhereIn('market_id', $markets))

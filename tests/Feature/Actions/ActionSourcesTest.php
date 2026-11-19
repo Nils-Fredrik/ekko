@@ -101,6 +101,27 @@ test('a source gap becomes an action with the counts, competitors and prompts fr
         ->toBe('bransjeside.no ble sitert i 5 svar der konkurrenter ble nevnt og dere ikke, de siste 30 dagene. Nordlys ble nevnt i 5 av dem.');
 });
 
+test('the source gap competitor evidence leaves out inactive competitors, like owned_content (T43-F2)', function () {
+    $w = $this->w;
+    brandAnswers($w, $w->p2, '2026-11-10', 25);
+    for ($i = 0; $i < 5; $i++) {
+        $w->answer($w->p1, '2026-11-11 10:00:00', [
+            'competitors' => $i < 2 ? [$w->c1->id => 1, $w->c2->id => 2] : [$w->c1->id => 1],
+            'citations' => [['bransjeside.no', 'third_party']],
+        ]);
+    }
+    aggregateDays('2026-11-10', '2026-11-11');
+    $w->c2->update(['is_active' => false]);
+
+    generateActions($w);
+
+    $action = actionsOf(ActionType::SourceGap)[0];
+    expect($action->evidence['gap_responses'])->toBe(5)
+        ->and($action->competitor_evidence)->toEqual([
+            ['competitor_id' => $w->c1->id, 'name' => 'Nordlys', 'answers' => 5, 'of' => 5],
+        ]);
+});
+
 test('a gap that falls outside the largest per market still supports its action', function () {
     $w = $this->w;
     config(['ekko.actions.source_gap.max_per_market' => 1, 'ekko.actions.source_gap.min_gap_responses' => 2]);
