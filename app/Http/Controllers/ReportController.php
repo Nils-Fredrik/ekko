@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Brand;
 use App\Models\Report;
 use App\Models\ReportSchedule;
+use App\Reports\ReportActions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as DownloadResponse;
@@ -82,6 +83,34 @@ class ReportController extends Controller
         ])->save();
 
         return back();
+    }
+
+    public function show(Report $report, ReportActions $actions): Response
+    {
+        Gate::authorize('view', $report);
+        $report->load('reportSchedule.brand');
+        $schedule = $report->reportSchedule;
+        $previous = app()->getLocale();
+        app()->setLocale($schedule->locale);
+        try {
+            $section = $actions->section(
+                $schedule->brand_id,
+                $report->period_start->toDateString(),
+                $report->period_end->toDateString(),
+            );
+        } finally {
+            app()->setLocale($previous);
+        }
+
+        return Inertia::render('Reports/Show', [
+            'brand' => $schedule->brand->name,
+            'from' => $report->period_start->toDateString(),
+            'to' => $report->period_end->toDateString(),
+            'actions' => $section,
+            'downloadable' => ($path = $this->storedPath($report)) !== null
+                && Storage::disk(config()->string('ekko.reports.disk'))->exists($path),
+            'reportId' => $report->id,
+        ]);
     }
 
     public function download(Report $report): DownloadResponse

@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Action;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
@@ -40,6 +41,17 @@ use Tests\Support\Onboarding\OnboardingFakes;
 function isolationBrandId(int $tenantId): int
 {
     return app(TenantContext::class)->run($tenantId, fn () => Brand::factory()->create()->id);
+}
+
+/** @return array{brand: int, action: int, step: int} */
+function isolationAction(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $brand = Brand::factory()->create();
+        $action = Action::factory()->create(['brand_id' => $brand->id]);
+
+        return ['brand' => $brand->id, 'action' => $action->id, 'step' => 0];
+    });
 }
 
 /** @return array{brand: int} */
@@ -308,6 +320,18 @@ return [
         },
         deniedRoles: ['editor', 'reader'],
     ),
+    'reports.show' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => Report::factory()->create()->id);
+
+            return ['params' => ['report' => $id]];
+        },
+        own: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantA->id, fn () => Report::factory()->create()->id);
+
+            return ['params' => ['report' => $id]];
+        },
+    ),
     'reports.download' => RouteAccess::tenant(
         foreign: function (Scenario $s) {
             $id = app(TenantContext::class)->run($s->tenantB->id, fn () => Report::factory()->create()->id);
@@ -388,6 +412,47 @@ return [
     'brands.crawlers' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
         own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.actions.index' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.actions.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => [
+            'params' => ['brand' => isolationBrandId($s->tenantB->id)],
+            'data' => ['title' => 'Eget tiltak'],
+        ],
+        own: fn (Scenario $s) => [
+            'params' => ['brand' => isolationBrandId($s->tenantA->id)],
+            'data' => ['title' => 'Eget tiltak'],
+        ],
+        deniedRoles: ['reader'],
+    ),
+    'brands.actions.show' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => array_diff_key(isolationAction($s->tenantB->id), ['step' => 0])],
+        own: fn (Scenario $s) => ['params' => array_diff_key(isolationAction($s->tenantA->id), ['step' => 0])],
+    ),
+    'brands.actions.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => [
+            'params' => array_diff_key(isolationAction($s->tenantB->id), ['step' => 0]),
+            'data' => ['status' => 'planned'],
+        ],
+        own: fn (Scenario $s) => [
+            'params' => array_diff_key(isolationAction($s->tenantA->id), ['step' => 0]),
+            'data' => ['status' => 'planned'],
+        ],
+        deniedRoles: ['reader'],
+    ),
+    'brands.actions.steps' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => [
+            'params' => isolationAction($s->tenantB->id),
+            'data' => ['done' => true],
+        ],
+        own: fn (Scenario $s) => [
+            'params' => isolationAction($s->tenantA->id),
+            'data' => ['done' => true],
+        ],
+        deniedRoles: ['reader'],
     ),
     // The onboarding wizard (ADR 0018). Proposals are JSON and nothing is saved. Starting a brand analysis has no
     // resource id: it creates a proposal in the signed-in tenant only (OnboardingTest covers the roles without

@@ -835,10 +835,11 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | `Pages/Brands/Competitors.vue` | Konkurrenter, alias og domener, samt foreslåtte ukjente merkevarer |
 | `Pages/Brands/Sources.vue` | Siterte domener, kildeandel, kildegap mot konkurrenter |
 | `Pages/Brands/Crawlers.vue` | AI-robottreff og AI-trafikk |
+| `Pages/Brands/Actions.vue`, `Pages/Brands/ActionShow.vue` | Tiltaksliste med filtre, detalj, egne tiltak og status (11.3, T44) |
 | `Pages/Brands/Settings.vue` | Navn, alias, domener, markeder, motorer, frekvens, gjentakelser, integrasjoner |
 | `Pages/Onboarding/Wizard.vue` | Veiviseren fra kapittel 13 |
 | `Pages/Alerts/Index.vue` | Varsler med kvittering, og regler per merkevare |
-| `Pages/Reports/Index.vue` | Rapportplaner, mottakere, historikk og nedlasting |
+| `Pages/Reports/Index.vue`, `Pages/Reports/Show.vue` | Rapportplaner, mottakere, historikk, nedlasting og nettversjon av rapportseksjonen for tiltak (T44) |
 | `Pages/Usage/Index.vue` | Tenantens forbruk per måned og motor, mot kvote og budsjett |
 | `Pages/Teams/Show.vue` | Jetstream team-administrasjon: medlemmer, roller, invitasjoner, Slack-webhook, profil for rapporter, egne API-nøkler. Jetstream bruker flertall i mappen. |
 | `Pages/Admin/Tenants.vue` | Plattformadmin: opprette, endre, stenge tenants, sette partner og pakke |
@@ -1474,6 +1475,11 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 - Tallene i evidensen kommer fra databasen og er dekket av tester.
 - Samme tiltak gjenkjennes ved neste generering (`fingerprint`) og dupliseres ikke.
 - Eieren har besluttet at agenten som utfører T43, kjører med Opus 5.5 (Board #947). Formuleringsmodellen i produktet er fortsatt Claude Sonnet 5.5. T22 er på plass, så `crawler_access` er aktiv. `fact_correction` kobles på av T48.
+
+### T44 – Tiltak: grensesnitt og rapportseksjon
+Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning med evidens, konkurrentevidens, berørte prompts og steg som kan hukes av, samt egne tiltak. Status endres fra listen og detaljen. Rapportseksjonen i 11.3 (3–5 åpne, pluss fullførte i perioden med utvikling i synlighet) ligger i PDF-en og på nettversjonen av rapporten, som komponenten `ReportSection` så U13 kan gjenbruke den.
+- Status kan endres fra listen og detaljvisningen.
+- Rapporten viser 3–5 åpne tiltak og fullførte tiltak med utvikling.
 
 ---
 
