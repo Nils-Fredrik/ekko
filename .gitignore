@@ -47,3 +47,7 @@ __pycache__/
 # Synthetic performance identities and local measurement reports.
 /fixture-*.json
 /performance-result.json
+
+# Authoritative production tfvars bookkeeping (scripts/terraform-vars.sh)
+*.tfvars.generation
+*.tfvars.local-backup
