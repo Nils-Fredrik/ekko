@@ -25,6 +25,10 @@ use App\Tenancy\ActingAs;
 use App\Tenancy\Rls\DatabaseRoleCheck;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
+use App\Work\NullWorkPublisher;
+use App\Work\QueueWorkPublisher;
+use App\Work\WorkPublisher;
+use App\Work\WorkSignals;
 use Google\Cloud\Storage\StorageClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
@@ -60,6 +64,13 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(OnboardingModelClient::class, fn (): OnboardingModelClient => AnthropicOnboardingClient::fromConfig());
         $this->app->bind(HostResolver::class, DnsHostResolver::class);
         $this->app->bind(PageTransport::class, HttpPageTransport::class);
+        // Durable work (ADR 0032): scoped, so the per-instance wake-up deduplication ends with each job or request.
+        $this->app->scoped(WorkSignals::class);
+        $this->app->bind(WorkPublisher::class, fn (): WorkPublisher => match (config('ekko.work.publisher')) {
+            'queue' => new QueueWorkPublisher,
+            'none' => new NullWorkPublisher,
+            default => throw new \InvalidArgumentException('Unknown ekko.work.publisher.'),
+        });
     }
 
     /**

@@ -16,6 +16,30 @@ return [
     ],
 
     /*
+    | Durable event-driven processing work (docs/spec.md 7.1, ADR 0032, T40-F2). publisher: how a wake-up is
+    | delivered after commit, "queue" (ProcessWorkSignal on the default queue) or "none" (only the recovery sweep).
+    | T40-F4 adds Cloud Tasks. lease_seconds must exceed ProcessWorkSignal's timeout (300 s). A failed attempt waits
+    | retry_base_seconds * 2^(attempt-1), at most retry_max_seconds, plus up to retry_jitter_seconds; failures
+    | are retried without a limit, and logged as errors from alert_after_attempts on. recover_after_seconds: how long
+    | a due signal may wait before the sweep publishes it again. handlers: work kind => WorkHandler class; the
+    | kinds get their handlers in T40-F3, and a kind without one stays pending.
+    */
+    'work' => [
+        'publisher' => env('EKKO_WORK_PUBLISHER', 'queue'),
+        'lease_seconds' => 360,
+        'retry_base_seconds' => 30,
+        'retry_max_seconds' => 3600,
+        'retry_jitter_seconds' => 15,
+        'alert_after_attempts' => 5,
+        'recover_after_seconds' => 300,
+        'handlers' => [
+            'extraction' => null,
+            'aggregation' => null,
+            'usage_rollup' => null,
+        ],
+    ],
+
+    /*
     | Alerts (docs/spec.md 11.1, ADR 0019). The evaluation runs once per tenant and local day, in the first
     | scheduler run after evaluate_after (local time), when yesterday's figures are aggregated, but not before
     | yesterday's runs are extracted unless evaluate_wait_until has passed. All alerts of that run go out as one
