@@ -208,9 +208,15 @@ final class MetricsService
                 $counts[] = ['id' => (string) $competitor->id, 'name' => $competitor->name, 'count' => (int) $row->{"competitor_{$index}"}];
             }
             $totalMentions = array_sum(array_column($counts, 'count'));
+            $rankedCounts = array_column($counts, 'count');
+            rsort($rankedCounts, SORT_NUMERIC);
+            $ranks = [];
+            foreach ($rankedCounts as $index => $count) {
+                $ranks[$count] ??= $index + 1;
+            }
             $entities = [];
             foreach ($counts as $entity) {
-                $rank = $n === 0 ? null : 1 + count(array_filter($counts, fn (array $other): bool => $other['count'] > $entity['count']));
+                $rank = $n === 0 ? null : $ranks[$entity['count']];
                 $entities[] = [
                     'id' => $entity['id'], 'name' => $entity['name'],
                     'visibility' => (new Metric(Formulas::ratio($entity['count'], $n), $n))->toArray(),
