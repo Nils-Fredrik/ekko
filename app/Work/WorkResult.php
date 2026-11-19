@@ -16,6 +16,8 @@ final readonly class WorkResult
 
     public const FAILED = 'failed';
 
+    public const STOPPED = 'stopped';
+
     public const LEASE_LOST = 'lease_lost';
 
     public const BUSY = 'busy';

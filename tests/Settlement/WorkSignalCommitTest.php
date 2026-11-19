@@ -14,6 +14,7 @@ use App\Work\WorkWakeUp;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Tests\Support\Work\CallbackWorkHandler;
 use Tests\Support\Work\RecordingWorkPublisher;
 
 // Durable work signals with real commits and a second database connection (ADR 0032): the transactional test
@@ -172,4 +173,33 @@ test('the processor refuses to run inside a transaction, where its lease would s
     // Under the test runner one level is allowed for the transactional test case, so nest two here.
     expect(fn () => DB::transaction(fn () => DB::transaction(fn () => app(WorkProcessor::class)->process(1))))
         ->toThrow(LogicException::class, 'work_processor_must_not_run_in_a_transaction');
+
+    // Outside the testing environment the limit is no open transaction at all.
+    $environment = app()['env'];
+    app()['env'] = 'production';
+    try {
+        expect(app()->runningUnitTests())->toBeFalse()
+            ->and(app(WorkProcessor::class)->process(1)->status)->toBe(WorkResult::IDLE);
+        expect(fn () => DB::transaction(fn () => app(WorkProcessor::class)->process(1)))
+            ->toThrow(LogicException::class, 'work_processor_must_not_run_in_a_transaction');
+    } finally {
+        app()['env'] = $environment;
+    }
+});
+
+test('a failure recorded after the lease was taken over reports a lost lease', function () {
+    $this->rls->run([$this->tenant->id], fn () => $this->signals->signal(WorkKind::Aggregation, '2026-11-19'));
+    $id = ($this->row)()->id;
+    app()->instance(CallbackWorkHandler::class, new CallbackWorkHandler(function () use ($id) {
+        // The lease runs out and another session takes the signal over before this attempt fails.
+        $this->travel(361)->seconds();
+        ($this->otherSession)(fn (WorkSignals $signals) => app(TenantRls::class)->run([$this->tenant->id], fn () => $signals->claim($id)));
+
+        throw new RuntimeException('late failure');
+    }));
+    config(['ekko.work.handlers.aggregation' => CallbackWorkHandler::class]);
+
+    expect(app(WorkProcessor::class)->process($id)->status)->toBe(WorkResult::LEASE_LOST)
+        ->and(($this->row)()->last_error)->toBeNull()
+        ->and(($this->row)()->lease_token)->not->toBeNull();
 });

@@ -37,7 +37,8 @@ final class WorkProcessor
         $tenantId = $this->context->require();
 
         // Inside another transaction the lease would stay invisible until that one ends. Under the test runner one
-        // level is the transactional test case itself (RefreshDatabase); the Settlement suite checks level 0.
+        // level is the transactional test case itself (RefreshDatabase); a Settlement test checks the production limit
+        // of 0 by running outside the testing environment.
         if (DB::transactionLevel() > (app()->runningUnitTests() ? 1 : 0)) {
             throw new LogicException('work_processor_must_not_run_in_a_transaction');
         }
@@ -70,9 +71,7 @@ final class WorkProcessor
 
             return new WorkResult(WorkResult::LEASE_LOST);
         } catch (Throwable $failure) {
-            $this->rls->run([$tenantId], fn () => $this->signals->fail($claim, $failure));
-
-            return new WorkResult(WorkResult::FAILED);
+            return new WorkResult($this->rls->run([$tenantId], fn () => $this->signals->fail($claim, $failure)));
         }
 
         return new WorkResult($outcome->isDone() ? WorkResult::PROCESSED : WorkResult::DEFERRED);

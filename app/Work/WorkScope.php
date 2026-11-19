@@ -31,6 +31,17 @@ final class WorkScope
         return DateTimeImmutable::createFromInterface($instant)->setTimezone(new DateTimeZone('UTC'))->format('Y-m');
     }
 
+    /** The shape of a scope without its identifier, for logs and alerts: tenant, run_batch, date or month. */
+    public static function type(string $scope): string
+    {
+        return match (true) {
+            $scope === self::TENANT => 'tenant',
+            str_contains($scope, ':') => strstr($scope, ':', true),
+            self::isDate($scope, 'Y-m-d') => 'date',
+            default => 'month',
+        };
+    }
+
     public static function isDate(string $scope, string $format): bool
     {
         $parsed = DateTimeImmutable::createFromFormat('!'.$format, $scope, new DateTimeZone('UTC'));
