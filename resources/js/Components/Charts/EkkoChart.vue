@@ -47,7 +47,19 @@ let visibilityObserver = null;
 
 const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-const built = computed(() => (palette.value ? props.option({ palette: palette.value, width: width.value }) : null));
+// `width` is a getter, so only options that read it are rebuilt when the chart is resized.
+const built = computed(() => {
+    if (!palette.value) {
+        return null;
+    }
+
+    return props.option({
+        palette: palette.value,
+        get width() {
+            return width.value;
+        },
+    });
+});
 
 function draw(option) {
     if (!chart || !option) {

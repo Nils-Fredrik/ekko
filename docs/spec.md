@@ -122,7 +122,7 @@ Stakken følger Varde. Agentene har lesetilgang til Varde-repoet (https://github
 | Ruting i frontend | Ziggy |
 | Ikoner | Heroicons for Vue |
 | Oversettelser | `laravel-vue-i18n` med PHP-språkfiler (`nb`, `sv`, `en`) |
-| Grafer | Apache ECharts fra `echarts/core` med SVG-tegning, lastet asynkront og fargesatt fra designtokens, gjennom `<EkkoChart>` ([ADR 0034](decisions/0034-echarts-grafbibliotek.md), `docs/ui-forbedring.md` kapittel 5–6). Chart.js står igjen til U05–U10 har erstattet de gamle grafene |
+| Grafer | Apache ECharts fra `echarts/core` med SVG-tegning, lastet asynkront og fargesatt fra designtokens, gjennom `<EkkoChart>` ([ADR 0035](decisions/0035-echarts-grafbibliotek.md), `docs/ui-forbedring.md` kapittel 5–6). Chart.js står igjen til U05–U10 har erstattet de gamle grafene |
 | Database | PostgreSQL 16 |
 | Kø og cache | Laravel `database`-driver |
 | MCP | `laravel/mcp` med egen OAuth 2.1-server og Sanctum-nøkler, samme mønster som Varde (`Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`). Passport kan ikke brukes sammen med Sanctum på samme `User` ([ADR 0016](decisions/0016-mcp-server-og-oauth.md)) |

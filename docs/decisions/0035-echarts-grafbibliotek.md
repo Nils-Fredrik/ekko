@@ -1,4 +1,4 @@
-# 0034 – ECharts som grafbibliotek
+# 0035 – ECharts som grafbibliotek
 
 - **Status:** Foreslått
 - **Dato:** 2026-11-19
