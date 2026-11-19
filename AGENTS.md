@@ -15,7 +15,7 @@ Du tar bare oppgaver med din egen merkelapp.
 ## Board
 
 - Board: https://board.maksimer.com/b/vn4w66vc (board-ID `vn4w66vc`), via Board CLI, ikke Board-MCP. Start med `board read vn4w66vc` og `board events vn4w66vc --for-me`; bruk `--board vn4w66vc` på oppgave- og postkommandoer. Se `board --help` for syntaks.
-- Oppgavetittelen har formen «[Agent] T<nr> – <tittel>». T-nummeret er spesifikasjonens arbeidspakke (`docs/spec.md`, kapittel 20). Board-oppgavenummeret (`task:<n>`) er et annet tall. Bruk Board-nummeret i Board-kallene og T-nummeret i grener og PR-er.
+- Oppgavetittelen har formen «[Agent] T<nr> – <tittel>». T-nummeret er spesifikasjonens arbeidspakke (`docs/spec.md`, kapittel 20). Arbeidspakkene for UI-forbedring bruker sitt eget U-nummer fra `docs/ui-forbedring.md`, f.eks. «[Cursor] U05 – Merkevare-dashboard» og grenen `u05-<kort-beskrivelse>`. Board-oppgavenummeret (`task:<n>`) er et annet tall. Bruk Board-nummeret i Board-kallene og T- eller U-nummeret i grener og PR-er.
 - Avhengighetene er lagt inn på Board. En oppgave er klar når alle oppgavene den avhenger av er lukket.
 
 ## Arbeidsflyt for hver økt
@@ -27,13 +27,13 @@ Du tar bare oppgaver med din egen merkelapp.
 5. Lag gren fra oppdatert `origin/main`:
    ```
    git fetch origin
-   git switch -c t<nr>-<kort-beskrivelse> origin/main
+   git switch -c t<nr>-<kort-beskrivelse> origin/main   # u<nr>-… for UI-arbeidspakker
    ```
 6. Gjør oppgaven etter beskrivelsen og akseptkriteriene på Board og i `docs/spec.md`.
 7. Post på Board underveis, ett poeng per post: `decision`, `blocker`, `finding` eller `question`. Maks 500 tegn, ingen hemmeligheter eller kundedata.
 8. Kjør tester og kodekontroller lokalt (`composer test`, `composer lint`, `npm run lint`) før du åpner PR. CI (`.github/workflows/ci.yml`) kjører det samme mot PostgreSQL 16 på hver PR og må være grønn før merge.
-9. Åpne PR med tittel «[Agent] T<nr> – <tittel>» (samme som Board-oppgaven) og en beskrivelse med:
-   - Board-oppgave (`task:<n>`) og T-nummer
+9. Åpne PR med tittel «[Agent] T<nr> – <tittel>» eller «[Agent] U<nr> – <tittel>» (samme som Board-oppgaven) og en beskrivelse med:
+   - Board-oppgave (`task:<n>`) og T- eller U-nummer
    - hva som er gjort
    - hvilke akseptkriterier som er oppfylt
    - testbevis (kommandoer og resultat)
@@ -46,7 +46,7 @@ Du tar bare oppgaver med din egen merkelapp.
 Reglene under er de felles reglene i `docs/spec.md` 19.2.
 
 - **Kilde for krav:** `docs/spec.md`. `CLAUDE.md` importerer denne filen, Codex leser den direkte, og Cursor har en regel i `.cursor/rules/ekko.mdc` som peker hit og til spesifikasjonen.
-- **Én oppgave = én gren = én PR.** Grennavn `t<nr>-<kort-beskrivelse>`, f.eks. `t12-chatgpt-api-adapter`. PR-tittelen starter med merkelappen og T-nummeret, f.eks. «[Codex] T12 – Adapter chatgpt_api». Review-workflowen bruker merkelappen til å velge reviewer.
+- **Én oppgave = én gren = én PR.** Grennavn `t<nr>-<kort-beskrivelse>`, f.eks. `t12-chatgpt-api-adapter`, eller `u<nr>-…` for UI-arbeidspakker. PR-tittelen starter med merkelappen og T- eller U-nummeret, f.eks. «[Codex] T12 – Adapter chatgpt_api» eller «[Cursor] U05 – Merkevare-dashboard». Review-workflowen bruker merkelappen til å velge reviewer.
 - **Åpne review-kommentarer først:** har en reviewer bedt om endringer i en av dine PR-er, retter du dem før du tar en ny oppgave.
 - **Merge:** den betrodde mergekøen kan merge ferdigmeldte PR-er etter grønn CI og kryssreview. Inntil køen er aktivert, merger eieren. Agentene skal ikke omgå grenbeskyttelsen.
 - **Tilgang:** agentenes GitHub-integrasjoner har skrivetilgang til `ekko` og lesetilgang til `varde`.

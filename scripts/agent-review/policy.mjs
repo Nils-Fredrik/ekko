@@ -4,7 +4,7 @@ const CODEX_ID = 199175422;
 const marker = /^<!-- codex-pull-request-review-summary -->\s*\n<!-- codex-review-state:v1 (\{[^\n]*\}) -->/;
 
 export function agentFromTitle(title) {
-    return /^\[(Codex|Cursor|Claude Code)\] T\d+\s*[–-]\s*\S/.exec(title)?.[1] ?? null;
+    return /^\[(Codex|Cursor|Claude Code)\] [TU]\d+\s*[–-]\s*\S/.exec(title)?.[1] ?? null;
 }
 
 // A malformed title or an incomplete file list must never waive a reviewer.

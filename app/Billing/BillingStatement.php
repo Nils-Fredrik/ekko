@@ -7,6 +7,7 @@ use App\Models\UsageEvent;
 use App\Models\User;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
+use App\Usage\PlatformPaidUsage;
 use Brick\Math\BigDecimal;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
@@ -28,7 +29,8 @@ final class BillingStatement
         $rows = [];
         // Closed tenants can still have billable usage in the requested month.
         foreach (Team::query()->where('personal_team', false)->with(['plan', 'partner'])->orderByRaw('coalesce(partner_team_id, id)')->orderBy('id')->get() as $tenant) {
-            $events = $this->context->run($tenant->id, fn () => $this->rls->run([$tenant->id], fn () => UsageEvent::query()
+            // Usage the platform pays for (ADR 0034) is not invoiced to the tenant.
+            $events = $this->context->run($tenant->id, fn () => $this->rls->run([$tenant->id], fn () => PlatformPaidUsage::exclude(UsageEvent::query())
                 ->where('occurred_at', '>=', $from)->where('occurred_at', '<', $to)
                 ->selectRaw('engine_key, billed_to, sum(calls) AS calls, sum(cost_usd) AS cost_usd')
                 ->groupBy('engine_key', 'billed_to')->get()

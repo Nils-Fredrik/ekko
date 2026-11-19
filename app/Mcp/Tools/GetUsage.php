@@ -11,6 +11,7 @@ use App\Models\Team;
 use App\Models\UsageEvent;
 use App\Models\UsageMonthly;
 use App\Usage\MonthlyUsage;
+use App\Usage\PlatformPaidUsage;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
@@ -20,7 +21,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Throwable;
 
 #[Name('get_usage')]
-#[Description('Forbruket i en måned (UTC-kalendermåned, som kvoten) mot kvoten og budsjettene: kall, plattformkostnad mot pakkens budsjett og kostnad på egne nøkler (BYOK) mot eget budsjett, fordelt på type (motorkall, uttrekk, onboarding, PDF), motor og betaler, og status (ok, advarsel, stoppet). Krever rettigheten til å se forbruk (tenant-admin).')]
+#[Description('Forbruket i en måned (UTC-kalendermåned, som kvoten) mot kvoten og budsjettene: kall, plattformkostnad mot pakkens budsjett og kostnad på egne nøkler (BYOK) mot eget budsjett, fordelt på type (motorkall, uttrekk, onboarding, PDF, tiltak), motor og betaler, og status (ok, advarsel, stoppet). Typer plattformen betaler (platform_paid, f.eks. formulering av tiltak) telles ikke mot kvoten og budsjettet. Krever rettigheten til å se forbruk (tenant-admin).')]
 #[IsReadOnly]
 class GetUsage extends EkkoTool
 {
@@ -55,6 +56,8 @@ class GetUsage extends EkkoTool
                 'billed_to' => (string) $row->billed_to,
                 'calls' => (int) $row->calls,
                 'cost_usd' => round((float) $row->cost_usd, 4),
+                // Paid by the platform and left out of the calls and costs above (ADR 0034).
+                'platform_paid' => PlatformPaidUsage::isPlatformPaid((string) $row->kind),
             ])->values()->all();
 
         $plan = $tenant->plan;

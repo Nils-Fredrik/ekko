@@ -197,6 +197,17 @@ return [
     ],
 
     /*
+    | Usage the platform pays for (docs/spec.md 12.2, ADR 0034, owner decision on Board #996). Usage events of
+    | these kinds are booked in usage_events and on the Anthropic account (ADR 0023) like any other call, shown
+    | in the admin usage overview and included in the Anthropic forecast, but they are left out of the tenant's
+    | call quota, plan budget, quota alerts and invoice basis (App\Usage\PlatformPaidUsage). A helper call that
+    | the platform pays for (T48's fact-check, for example) adds its kind here.
+    */
+    'usage' => [
+        'platform_paid_kinds' => ['actions'],
+    ],
+
+    /*
     | Model-based extraction, the second stage of answer analysis (docs/spec.md 8.2, ADR 0011). Prices are
     | USD per million tokens for the prompt sizes an answer gives (up to 100K tokens); the batch price factor
     | (0.5 = half price) applies to Message Batches only, not to the single retry through the Messages API.

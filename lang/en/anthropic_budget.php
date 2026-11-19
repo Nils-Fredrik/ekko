@@ -12,6 +12,7 @@ return [
     'forecast' => 'Forecast including buffer: :amount USD',
     'buffer' => 'Buffer: :amount USD',
     'held' => 'Reserved for pending calls: :amount USD',
+    'platform_paid' => 'Of which helper calls paid by the platform: :amount USD',
     'additions' => 'Additions planned today',
     'none' => 'No additions',
     'no_forecast' => 'No forecast has been calculated yet.',
