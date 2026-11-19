@@ -188,6 +188,13 @@ return [
     'admin.billing.export' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['data' => ['month' => '2026-10']]),
     'admin.billing.markup' => RouteAccess::platformAdmin(own: fn (Scenario $s) => ['params' => ['team' => $s->tenantB->id], 'data' => ['markup_percent' => '10.0000']]),
     'internal.extraction-poll' => RouteAccess::service(),
+    // Hourly recovery check (T40-F4): Scheduler identity only, no parameters; covered by Work/WorkWakeEndpointTest.
+    'internal.work-recover' => RouteAccess::service(),
+    // Cloud Tasks wake-ups (T40-F4): the wake-up identity and audience only. The body's tenant_id/signal_id are the only
+    // parameters; Work/WorkWakeEndpointTest attacks them with another tenant's signal, mismatched pairs, closed and
+    // personal teams, extra fields and wrong types, and checks that nothing of the other tenant is queued or changed.
+    'internal.work.wake' => RouteAccess::service(),
+    'internal.work.queue-wake' => RouteAccess::service(),
     ...$apiEntries,
     // Public and system routes.
     'home' => RouteAccess::public(),

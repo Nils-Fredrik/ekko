@@ -122,6 +122,10 @@ En betalt batch skal aldri sendes på nytt i blinde. Med bryteren på sendes bat
 
 Når en levering stopper et signal fordi leasen har utløpt gjennom hele stoppvinduet, svarer `WorkProcessor` nå `STOPPED` (før `IDLE`), og `attempts` teller bare de faktiske forsøkene, ikke overtakelsen som stoppet signalet (`WorkSignals::lease`).
 
+## Del 3 (T40-F4)
+
+Cloud Tasks-publiseren, de faste mottaksrutene, reservekontrollen, IAM og det varige utrullingstrinnet står i [ADR 0033](0033-malrettet-vekking-med-cloud-tasks.md). Kontrakten over er uendret: `key()` blir oppgave-ID bak et hash-prefiks, `payload()` blir innholdet og `notBefore` blir `scheduleTime`. Mottakeren behandler ikke selv, men legger `ProcessWorkSignal` i køen og holder leveringen åpen (425) til en worker har tatt arbeidet. Ved tilbakerulling tømmes ventende signaler av vekkinger som allerede er ute, og av reservekontrollen. Det gjelder også statuskontroller av batcher sendt inn med kjedingen; de gamle planene sender ikke svar i en innsendt batch på nytt.
+
 ## Leveringsgarantier
 
 - **Minst én gang:** et committet signal blir behandlet, også etter krasj før publisering, feilet publisering, krasj under behandling eller tapt lease, så lenge sveipet kjører. Unntaket er et signal som har feilet i hele stoppvinduet: det stoppes med varsel og venter på nytt signal eller `ekko:work:retry`, men slettes ikke.

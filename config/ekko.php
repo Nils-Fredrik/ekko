@@ -21,8 +21,8 @@ return [
 
     /*
     | Durable event-driven processing work (docs/spec.md 7.1, ADR 0032, T40-F2). publisher: how a wake-up is
-    | delivered after commit, "queue" (ProcessWorkSignal on the default queue) or "none" (only the recovery sweep).
-    | T40-F4 adds Cloud Tasks. lease_seconds must exceed ProcessWorkSignal's timeout (300 s). A failed attempt waits
+    | delivered after commit, "queue" (ProcessWorkSignal on the default queue), "cloud_tasks" (T40-F4, below) or "none"
+    | (only the recovery sweep). lease_seconds must exceed ProcessWorkSignal's timeout (300 s). A failed attempt waits
     | retry_base_seconds * 2^(attempt-1), at most retry_max_seconds, plus up to retry_jitter_seconds; failures
     | are retried with backoff and logged as errors from alert_after_attempts on; a failing streak longer than
     | stop_after_seconds (24 h) stops the signal and alerts (work_stopped, ADR 0029) until a new signal or ekko:work:retry. recover_after_seconds: how long
@@ -38,6 +38,14 @@ return [
     | the status checks of a submitted batch, first after status_first_seconds, then after the batch's age so far
     | (doubling), at most status_max_seconds apart, plus up to status_jitter_seconds; a batch still not ended after
     | status_give_up_hours is given up like PollExtractionBatch does (deterministic results, llm_failed).
+    |
+    | cloud_tasks (T40-F4, ADR 0033, EKKO_WORK_PUBLISHER=cloud_tasks): targeted wake-ups through Cloud Tasks. Each
+    | wake-up is an HTTP task with a deterministic id to the fixed routes /internal/work/wake (one signal) and
+    | /internal/work/queue-wake (waiting queue jobs) on app.url, with a Google OIDC token of service_account for
+    | audience. The routes accept only that identity and audience. publish_attempts: tries per publish on a transient
+    | API error (ALREADY_EXISTS counts as published). wake.launch_cooldown_seconds: after web has woken the fixed
+    | dispatcher (ADR 0030), further deliveries wait this long before they wake it again; until the work is picked
+    | up, a delivery answers 425 so Cloud Tasks comes back (wake.confirm_after_seconds as Retry-After).
     */
     'work' => [
         'chaining' => (bool) env('EKKO_WORK_CHAINING', false),
@@ -49,6 +57,19 @@ return [
             'status_give_up_hours' => 25,
         ],
         'publisher' => env('EKKO_WORK_PUBLISHER', 'queue'),
+        'cloud_tasks' => [
+            'project' => env('GOOGLE_CLOUD_PROJECT'),
+            'location' => env('GOOGLE_CLOUD_REGION', 'europe-west1'),
+            'queue' => env('EKKO_WORK_TASKS_QUEUE'),
+            'service_account' => env('EKKO_WORK_TASKS_SERVICE_ACCOUNT'),
+            'audience' => env('EKKO_WORK_TASKS_AUDIENCE'),
+            'dispatch_deadline_seconds' => 60,
+            'publish_attempts' => 3,
+        ],
+        'wake' => [
+            'launch_cooldown_seconds' => 120,
+            'confirm_after_seconds' => 15,
+        ],
         'lease_seconds' => 360,
         'retry_base_seconds' => 30,
         'retry_max_seconds' => 3600,

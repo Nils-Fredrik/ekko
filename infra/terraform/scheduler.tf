@@ -16,9 +16,11 @@ locals {
     # Tenants closed 30 days ago are deleted with their raw answers (T39-F6).
     tenant_purge = { schedule = "30 3 * * *", job = "task", args = ["php artisan ekko:purge-closed-tenants"] }
   } : {}
-  ticks = var.enable_workloads ? {
-    extraction-poll = "*/15 * * * *"
-  } : {}
+  # extraction-poll is part of the old processing path; work-recover is the hourly recovery check (T40-F4, work.tf).
+  ticks = var.enable_workloads ? merge(
+    { extraction-poll = { schedule = "*/15 * * * *", paused = local.legacy_processing_paused } },
+    local.work_tasks_enabled ? { work-recover = { schedule = "7 * * * *", paused = false } } : {},
+  ) : {}
 }
 
 moved {
@@ -32,7 +34,7 @@ resource "google_cloud_scheduler_job" "job" {
   region    = var.region
   schedule  = each.value.schedule
   time_zone = "Europe/Oslo"
-  paused    = !(var.enable_schedules || (var.enable_dashboard_schedules && contains(["aggregate", "usage_rollup"], each.key)))
+  paused    = contains(["aggregate", "usage_rollup"], each.key) ? local.legacy_processing_paused : !var.enable_schedules
   http_target {
     http_method = "POST"
     uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/${google_cloud_run_v2_job.job[each.value.job].name}:run"
@@ -49,9 +51,9 @@ resource "google_cloud_scheduler_job" "tick" {
   for_each  = local.ticks
   name      = "ekko-${each.key}"
   region    = var.region
-  schedule  = each.value
+  schedule  = each.value.schedule
   time_zone = "Europe/Oslo"
-  paused    = !(var.enable_schedules || (var.enable_dashboard_schedules && each.key == "extraction-poll"))
+  paused    = each.value.paused
   http_target {
     http_method = "POST"
     uri         = "${google_cloud_run_v2_service.web[0].uri}/internal/tick/${each.key}"
