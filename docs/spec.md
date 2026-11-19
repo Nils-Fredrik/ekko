@@ -672,6 +672,12 @@ Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen
 - Tilleggskolonner: `engine_keys` (motorer), `impact_score` (effekten bak nivået), `text_source` (template, model, user), `locale` (språktaggen teksten står på, inntil 35 tegn), `unsupported_generations`, `last_generated_at`. `action_prompts` har også `tenant_id` (6). Egne tiltak kan mangle type.
 - Statusflyt for brukere i `ActionWorkflow`: `started_at` settes første gang tiltaket går til `in_progress`, `completed_at` når det går til `done`, og nullstilles hvis det åpnes igjen. Tenant-admin, partner-rådgiver og redaktør endrer tiltak; alle roller ser dem.
 
+### 11.4 Delbar rapportlenke
+
+Rapporter kan deles som en skrivebeskyttet nettversjon uten innlogging. En tenant-admin eller partnerrådgiver oppretter og trekker tilbake lenker fra rapportsiden; levetiden velges i dager (standard 90). Hver lenke har minst 32 tilfeldige tegn, gjelder én rapport, og utløp eller tilbakekall gir 404 ved oppslag. Sidene har `noindex`, `Referrer-Policy: no-referrer` og hver visning logges med tidspunkt. Lenkehemmeligheten lagres bare som SHA-256-hash og vises én gang ved oppretting. Den ligger i URL-fragmentet og sendes i `Authorization` for å unngå hemmeligheter i URL-logger. Oppslag bruker angitt tenant med RLS og validerer token før rapporten leses. En separat tilfeldig identifikator i URL-stien kontrollerer utløp og tilbakekall allerede ved første sidelast; selve rapporten krever fortsatt tokenet. Før tokenet er kontrollert bruker lasteside og 404 mottakerens nettleserspråk, uten å hente rapportinnhold; etter kontroll brukes rapportens publiseringsspråk.
+
+Nye PDF-er lagrer et øyeblikksbilde av innholdet og publiseringsspråket i `reports.web_snapshot`, inkludert daglige metrikker med utvalgstall fra `MetricsService::series`. Nettversjonen bruker rapportmalen og viser den lagrede synlighetsserien med `TrendLineChart`, hover, klikk og tilgjengelig tabellvisning. Dager uten data holdes åpne. Øyeblikksbilder uten lagret språk bruker gjeldende rapportspråk. Eldre rapporter har ikke lagret dette innholdet: nettversjonen rekonstrueres fra tilgjengelige periodedata og publiserte tiltak, uten å dikte opp tidligere innsikt, og merkes synlig som rekonstruert. `report_links` har tenant, rapport, tokenhash, utløp, tilbakekall, oppretter, visningsantall og siste visning. `report_link_views` lagrer tidspunkt for hver vellykkede visning, uten IP-adresse. PDF-en viser samme lagrede synlighetsserie som en statisk graf.
+
 ### 11.6 Faktasjekk
 
 Tenant-admin legger inn fakta om merkevaren (f.eks. grunnleggelsesår, kontorer, tjenester, priser). Ekko sjekker påstander i AI-svarene mot faktaene.
@@ -1301,6 +1307,7 @@ Rekkefølgen styres kun av avhengighetene. Alle pakker uten uoppfylte avhengighe
 | T40 | Ende-til-ende i produksjon | Claude Code / Opus 5.5 og eier | alle |
 | T41 | Kredittstyrt planlegging for Anthropic | Codex / GPT-6.1 Sol | T17, T19, T20 |
 | T42 | Kryssreview i GitHub og automatisk mergekø | Codex / GPT-6.1 Terra | T01 |
+| T46 | Delbar rapportlenke | Codex / GPT-6.1 Sol | T32 |
 
 ### T01 – Repo og fundament
 Laravel med Jetstream (Inertia/Vue, team og API på), Tailwind v4, Pest, Pint, Larastan, ESLint, Ziggy og `laravel-vue-i18n` med samme versjoner og struktur som Varde. Opprett `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/ekko.mdc`, `docs/spec.md`, `docs/decisions/`, PR-mal og `scripts/agent-setup.sh` (19.6).
@@ -1520,6 +1527,12 @@ Fra 11.3 (tiltakstypen dette mater): `fact_correction` utløses av påstander so
 Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning med evidens, konkurrentevidens, berørte prompts og steg som kan hukes av, samt egne tiltak. Status endres fra listen og detaljen. Rapportseksjonen i 11.3 (3–5 åpne, pluss fullførte i perioden med utvikling i synlighet) ligger i PDF-en og på nettversjonen av rapporten, som komponenten `ReportSection` så U13 kan gjenbruke den. Nettversjonen viser seksjonen som ble lagret da PDF-en ble skrevet (`reports.action_section`), så en senere endring av tiltakene ikke skriver om en gammel rapport.
 - Status kan endres fra listen og detaljvisningen.
 - Rapporten viser 3–5 åpne tiltak og fullførte tiltak med utvikling.
+
+---
+
+### T46 – Delbar rapportlenke
+
+En rapport kan deles fra rapportsiden som en tidsbegrenset skrivebeskyttet nettversjon etter 11.4. Token er tilfeldig, lagres hashet og kan trekkes tilbake. Tokenoppslag for utløpt, ugyldig eller tilbaketrukket lenke gir 404. Visninger registreres og svaret har `noindex` og `Referrer-Policy: no-referrer`. Isolasjonstestene skal vise at et token aldri gir tilgang til andre rapporter eller tenants.
 
 ---
 

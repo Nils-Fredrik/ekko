@@ -22,9 +22,13 @@ use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PartnerOverviewController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\ReportLinkController;
+use App\Http\Controllers\SharedReportController;
 use App\Http\Controllers\TeamSettingsController;
 use App\Http\Controllers\UsageController;
 use App\Http\Middleware\AuthenticateSessionAcrossGuards;
+use App\Http\Middleware\EnsureTwoFactorEnabled;
+use App\Http\Middleware\SharedReportThrottle;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\ConfirmablePasswordController;
 use Laravel\Fortify\Http\Controllers\PasswordController;
@@ -38,6 +42,8 @@ Route::redirect('/', '/dashboard')->name('home');
 
 // Language, including on the login page before anyone is signed in (docs/spec.md 14.1).
 Route::put('/locale', [LocaleController::class, 'update'])->name('locale.update');
+
+Route::get('/shared-report/{tenant}/{selector}', SharedReportController::class)->middleware(SharedReportThrottle::class.':60,1')->withoutMiddleware(EnsureTwoFactorEnabled::class)->name('reports.shared');
 
 // Login with Google (docs/spec.md 5.4), rate limited per IP. The callback is the one URL registered with the
 // provider, so it also finishes a confirmation for a signed-in user (T07-F2); a guest logs in there. A signed-in
@@ -112,6 +118,8 @@ Route::middleware([
     Route::post('/reports/schedules', [ReportController::class, 'store'])->name('reports.schedules.store');
     Route::put('/reports/schedules/{schedule}', [ReportController::class, 'update'])->name('reports.schedules.update');
     Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
+    Route::post('/reports/{report}/links', [ReportLinkController::class, 'store'])->name('reports.links.store');
+    Route::delete('/reports/{report}/links/{link}', [ReportLinkController::class, 'destroy'])->name('reports.links.destroy');
     Route::get('/reports/{report}/download', [ReportController::class, 'download'])->name('reports.download');
 
     Route::get('/usage', UsageController::class)->name('usage.index');

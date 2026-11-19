@@ -45,6 +45,8 @@ function tenantModelRights(): array
 
         // Alerts and reports (6.5): set by the admin, seen by everyone.
         Models\AlertRule::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
+        Models\ReportLink::class => $edit(POLICY_ADMINS, POLICY_ADMINS),
+        Models\ReportLinkView::class => $system(POLICY_ADMINS),
         // Alerts and reports are made by the system; the admin acknowledges or removes them.
         Models\Alert::class => ['read' => POLICY_EVERY_ROLE, 'create' => POLICY_NO_ROLE, 'change' => POLICY_ADMINS],
         Models\AlertEvaluation::class => $system(POLICY_ADMINS),

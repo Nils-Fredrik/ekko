@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Brand;
 use App\Models\Report;
+use App\Models\ReportLink;
 use App\Models\ReportSchedule;
 use App\Reports\ReportActions;
 use Illuminate\Http\RedirectResponse;
@@ -106,6 +107,13 @@ class ReportController extends Controller
             'downloadable' => ($path = $this->storedPath($report)) !== null
                 && Storage::disk(config()->string('ekko.reports.disk'))->exists($path),
             'reportId' => $report->id,
+            'canShare' => Gate::allows('update', $report),
+            'links' => Gate::allows('update', $report) ? ReportLink::query()->where('report_id', $report->id)->latest()->get()->map(fn (ReportLink $link): array => [
+                'id' => $link->id,
+                'expires_at' => $link->expires_at->toIso8601String(),
+                'revoked_at' => $link->revoked_at?->toIso8601String(),
+                'views' => $link->views,
+            ])->values() : [],
         ]);
     }
 
