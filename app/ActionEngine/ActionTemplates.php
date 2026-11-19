@@ -37,20 +37,24 @@ final class ActionTemplates
 
     /**
      * The evidence in one sentence, e.g. «bransjeside.no ble sitert i 14 svar …» (docs/spec.md 11.3), in the given
-     * locale. Null for a user's own action.
+     * locale. Null when there is nothing generated to fill the template: a user's own action stores a type without
+     * text params, and rendering it would leave placeholders such as :domain.
      */
     public static function evidenceSentence(Action $action, string $locale): ?string
     {
         if ($action->type === null) {
             return null;
         }
-        $params = $action->evidence['text_params'] ?? [];
+        $params = $action->evidence['text_params'] ?? null;
+        if (! is_array($params) || $params === []) {
+            return null;
+        }
         $key = "action_items.evidence.{$action->type->value}";
         if ($action->type === ActionType::SourceGap && (string) ($params['competitor'] ?? '') === '') {
             $key .= '_without_competitor';
         }
 
-        return (string) trans($key, self::localized(is_array($params) ? $params : [], $locale), $locale);
+        return (string) trans($key, self::localized($params, $locale), $locale);
     }
 
     /**

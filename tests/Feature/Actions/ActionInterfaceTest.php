@@ -1,13 +1,17 @@
 <?php
 
+use App\ActionEngine\ActionTemplates;
 use App\Enums\ActionStatus;
+use App\Enums\ActionType;
 use App\Models\Action;
 use App\Models\Report;
 use App\Models\ReportSchedule;
 use App\Models\Team;
 use App\Models\User;
+use App\Reports\ReportActions;
 use App\Reports\ReportPublisher;
 use App\Tenancy\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Metrics\MetricsWorld;
 
 beforeEach(function () {
@@ -87,6 +91,23 @@ test('a user can add their own action', function () {
         ->and($own->prompts)->toHaveCount(1);
 });
 
+test('a typed action created by the user does not show unresolved evidence placeholders', function () {
+    $this->actingAs($this->owner)
+        ->post(route('brands.actions.store', $this->world->brand), [
+            'title' => 'Eget med type',
+            'type' => ActionType::SourceGap->value,
+        ])
+        ->assertRedirect();
+
+    $own = Action::query()->where('title', 'Eget med type')->first();
+    expect($own)->not->toBeNull()
+        ->and(ActionTemplates::evidenceSentence($own, 'nb'))->toBeNull();
+
+    $this->get(route('brands.actions.show', [$this->world->brand, $own]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('action.evidence', ''));
+});
+
 test('the report section keeps the top open actions and the visibility change of those completed in the period', function () {
     foreach (range(1, 5) as $level) {
         Action::factory()->create([
@@ -139,6 +160,24 @@ test('the report section keeps the top open actions and the visibility change of
             ->component('Reports/Show')
             ->has('actions.open', 5)
             ->where('actions.completed.0.title', 'Fullført i perioden'));
+});
+
+test('a completion just after local midnight belongs to that local day', function () {
+    DB::table('teams')->where('id', $this->world->tenant->id)->update(['timezone' => 'Europe/Oslo']);
+
+    Action::factory()->create([
+        'brand_id' => $this->world->brand->id,
+        'title' => 'Fullført etter midnatt',
+        'status' => ActionStatus::Done,
+        // 00:30 in Europe/Oslo on 1 November is 23:30 UTC on 31 October.
+        'completed_at' => '2026-10-31 23:30:00',
+    ]);
+
+    $october = app(ReportActions::class)->section($this->world->brand->id, '2026-10-01', '2026-10-31');
+    $november = app(ReportActions::class)->section($this->world->brand->id, '2026-11-01', '2026-11-30');
+
+    expect(collect($october['completed'])->pluck('title'))->not->toContain('Fullført etter midnatt')
+        ->and(collect($november['completed'])->pluck('title'))->toContain('Fullført etter midnatt');
 });
 
 test('an action from another brand is not shown', function () {

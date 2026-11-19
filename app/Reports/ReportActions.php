@@ -7,7 +7,10 @@ use App\Enums\ActionStatus;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\Action;
+use App\Models\Team;
 use Carbon\CarbonImmutable;
+use DateTimeZone;
+use Throwable;
 
 /**
  * The action section of a report (docs/spec.md 11.3): the 3–5 highest ranked open actions, and actions
@@ -33,11 +36,12 @@ final class ReportActions
     public function section(int $brandId, string $from, string $to): array
     {
         $open = Action::query()->where('brand_id', $brandId)->open()->ranked()->limit(5)->get();
+        [$start, $end] = $this->bounds($from, $to);
         $completed = Action::query()
             ->where('brand_id', $brandId)
             ->where('status', ActionStatus::Done)
-            ->whereDate('completed_at', '>=', $from)
-            ->whereDate('completed_at', '<=', $to)
+            ->where('completed_at', '>=', $start)
+            ->where('completed_at', '<', $end)
             ->orderBy('completed_at')
             ->orderBy('id')
             ->get();
@@ -75,8 +79,9 @@ final class ReportActions
         if ($action->completed_at === null) {
             return __('reports.empty_value');
         }
-        $done = CarbonImmutable::parse($action->completed_at)->startOfDay();
-        $end = CarbonImmutable::parse($to)->startOfDay();
+        $timezone = $this->timezone();
+        $done = CarbonImmutable::parse($action->completed_at)->setTimezone($timezone)->startOfDay();
+        $end = CarbonImmutable::createFromFormat('!Y-m-d', $to, $timezone)->startOfDay();
         if ($done->greaterThan($end)) {
             return __('reports.empty_value');
         }
@@ -104,5 +109,31 @@ final class ReportActions
         $decimal = app()->getLocale() === 'en' ? '.' : ',';
 
         return $sign.number_format($diff, 1, $decimal, ' ').' pp';
+    }
+
+    /**
+     * The UTC instants [start, end) covering the tenant-local days from $from through $to.
+     *
+     * @return array{0: CarbonImmutable, 1: CarbonImmutable}
+     */
+    private function bounds(string $from, string $to): array
+    {
+        $timezone = $this->timezone();
+
+        return [
+            CarbonImmutable::createFromFormat('!Y-m-d', $from, $timezone)->startOfDay()->utc(),
+            CarbonImmutable::createFromFormat('!Y-m-d', $to, $timezone)->addDay()->startOfDay()->utc(),
+        ];
+    }
+
+    private function timezone(): DateTimeZone
+    {
+        $name = Team::query()->whereKey(current_tenant_id())->value('timezone');
+
+        try {
+            return new DateTimeZone(is_string($name) && $name !== '' ? $name : 'UTC');
+        } catch (Throwable) {
+            return new DateTimeZone('UTC');
+        }
     }
 }
