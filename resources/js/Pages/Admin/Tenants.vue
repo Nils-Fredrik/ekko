@@ -2,6 +2,7 @@
 import { reactive, watch } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AdminNav from '@/Components/AdminNav.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmsPassword from '@/Components/ConfirmsPassword.vue';
 import InputError from '@/Components/InputError.vue';
@@ -105,7 +106,11 @@ function act() {
                 <InputError v-for="(message, key) in creating.errors" :key="key" :message="message" />
                 <PrimaryButton :disabled="creating.processing">{{ $t('admin.tenants.create') }}</PrimaryButton>
             </form>
-            <p v-if="!tenants.length" class="text-sm text-shell-muted">{{ $t('admin.tenants.empty') }}</p>
+            <EmptyState
+                v-if="!tenants.length"
+                :title="$t('app.empty.admin_title')"
+                :body="$t('app.empty.admin_body')"
+            />
             <form
                 v-for="tenant in tenants"
                 :key="tenant.id"

@@ -2,6 +2,7 @@
 import { Chart } from 'chart.js/auto';
 import { trans } from 'laravel-vue-i18n';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { chartAnimation } from '@/chartMotion';
 import { onThemeChange } from '@/theme';
 
 const props = defineProps({
@@ -11,6 +12,7 @@ const props = defineProps({
 const canvas = ref(null);
 let chart;
 let stopTheme;
+let firstView = true;
 
 function token(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -49,7 +51,7 @@ function render() {
             ],
         },
         options: {
-            animation: false,
+            animation: chartAnimation(firstView),
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { display: false },
@@ -93,6 +95,7 @@ function render() {
             },
         },
     });
+    firstView = false;
 }
 
 onMounted(() => {

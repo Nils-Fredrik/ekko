@@ -15,6 +15,7 @@ use App\Http\Controllers\BrandCrawlerController;
 use App\Http\Controllers\BrandPromptController;
 use App\Http\Controllers\BrandSettingsController;
 use App\Http\Controllers\BrandSourceController;
+use App\Http\Controllers\CommandPaletteController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OnboardingController;
@@ -79,6 +80,7 @@ Route::middleware([
     Route::put('/admin/billing/{team}/markup', [BillingController::class, 'update'])->name('admin.billing.markup');
 
     Route::get('/dashboard', HomeController::class)->name('dashboard');
+    Route::get('/palette', CommandPaletteController::class)->name('palette.search');
     Route::get('/partner', PartnerOverviewController::class)->name('partner.index');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}/settings', [BrandSettingsController::class, 'show'])->name('brands.settings');

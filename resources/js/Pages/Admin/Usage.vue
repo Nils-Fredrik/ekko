@@ -1,5 +1,6 @@
 <script setup>
 import AdminNav from '@/Components/AdminNav.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 defineProps({
     anthropic: { type: Object, required: true },
@@ -25,7 +26,12 @@ function usd(value) {
             <section class="rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('admin.usage.tenants') }}</h3>
                 <p class="mt-1 text-sm text-shell-muted">{{ $t('admin.usage.month', { month }) }}</p>
-                <p v-if="!tenants.length" class="mt-3 text-sm text-shell-muted">{{ $t('admin.usage.empty') }}</p>
+                <EmptyState
+                    v-if="!tenants.length"
+                    class="mt-3"
+                    :title="$t('app.empty.admin_title')"
+                    :body="$t('app.empty.admin_body')"
+                />
                 <table v-else class="mt-3 w-full text-left text-sm">
                     <thead class="text-xs text-shell-muted">
                         <tr>
@@ -45,7 +51,12 @@ function usd(value) {
                     </tbody>
                 </table>
                 <h3 class="mt-6 font-medium">{{ $t('admin.usage.engines') }}</h3>
-                <p v-if="!engines.length" class="mt-3 text-sm text-shell-muted">{{ $t('admin.usage.no_engines') }}</p>
+                <EmptyState
+                    v-if="!engines.length"
+                    class="mt-3"
+                    :title="$t('app.empty.engines_title')"
+                    :body="$t('app.empty.engines_body')"
+                />
                 <table v-else class="mt-3 w-full text-left text-sm">
                     <thead class="text-xs text-shell-muted">
                         <tr>

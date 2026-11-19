@@ -3,6 +3,7 @@ import AnswerText from '@/Components/Brand/AnswerText.vue';
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import TrendChart from '@/Components/Dashboard/TrendChart.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 defineProps({
@@ -52,16 +53,25 @@ function when(value) {
 
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="text-sm font-medium">{{ $t('app.dashboard.trend') }}</h3>
-                    <p v-if="series.length === 0" class="mt-4 text-sm text-shell-muted">
-                        {{ $t('app.dashboard.no_trend') }}
-                    </p>
+                    <EmptyState
+                        v-if="series.length === 0"
+                        class="mt-4"
+                        :title="$t('app.empty.trend_title')"
+                        :body="$t('app.empty.trend_body')"
+                        :href="route('brands.settings', brand.id)"
+                        :link="$t('app.empty.settings_link')"
+                    />
                     <TrendChart v-else class="mt-4" :points="series" />
                 </section>
 
                 <p v-if="truncated" class="text-sm text-shell-muted">
                     {{ $t('app.library.truncated', { count: shown }) }}
                 </p>
-                <p v-if="engines.length === 0" class="text-sm text-shell-muted">{{ $t('app.library.no_answers') }}</p>
+                <EmptyState
+                    v-if="engines.length === 0"
+                    :title="$t('app.empty.answers_title')"
+                    :body="$t('app.empty.answers_body')"
+                />
 
                 <section v-for="group in engines" :key="group.engine" class="flex flex-col gap-4">
                     <h3 class="text-sm font-medium text-shell-fg">{{ group.engine }}</h3>

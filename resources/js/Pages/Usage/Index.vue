@@ -1,4 +1,5 @@
 <script setup>
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 defineProps({
@@ -45,7 +46,11 @@ function amount(value) {
 
             <section class="space-y-2 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.by_engine') }}</h3>
-                <p v-if="engines.length === 0">{{ $t('app.workspace.no_usage') }}</p>
+                <EmptyState
+                    v-if="engines.length === 0"
+                    :title="$t('app.empty.usage_title')"
+                    :body="$t('app.empty.usage_body')"
+                />
                 <p v-for="engine in engines" :key="engine.name">
                     {{ engine.name }}: {{ engine.calls }} · {{ amount(engine.cost) }}
                 </p>

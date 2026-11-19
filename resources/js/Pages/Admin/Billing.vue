@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { useForm } from '@inertiajs/vue3';
 import AdminNav from '@/Components/AdminNav.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import BillingMarkupForm from '@/Components/BillingMarkupForm.vue';
 import InputError from '@/Components/InputError.vue';
@@ -56,7 +57,11 @@ const ready = computed(() => props.rows.length > 0 && props.rows.every((row) => 
                 </div>
             </section>
             <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel p-6 text-shell-text">
-                <p v-if="!rows.length" class="text-sm text-shell-muted">{{ $t('billing.empty') }}</p>
+                <EmptyState
+                    v-if="!rows.length"
+                    :title="$t('app.empty.admin_title')"
+                    :body="$t('app.empty.admin_body')"
+                />
                 <table v-else class="w-full text-left text-sm">
                     <thead class="text-xs text-shell-muted">
                         <tr>

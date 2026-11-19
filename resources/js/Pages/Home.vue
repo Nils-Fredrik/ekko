@@ -1,7 +1,10 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
-import { Link } from '@inertiajs/vue3';
+import EmptyState from '@/Components/UI/EmptyState.vue';
+import { Link, usePage } from '@inertiajs/vue3';
+
+const page = usePage();
 
 defineProps({
     period: { type: Object, required: true },
@@ -37,9 +40,14 @@ function when(value) {
                 </Link>
 
                 <section class="grid gap-4 md:grid-cols-2">
-                    <p v-if="brands.length === 0" class="text-sm text-shell-muted">
-                        {{ $t('app.dashboard.no_brands') }}
-                    </p>
+                    <EmptyState
+                        v-if="brands.length === 0"
+                        class="md:col-span-2"
+                        :title="$t('app.empty.brands_title')"
+                        :body="$t('app.empty.brands_body')"
+                        :href="page.props.canOnboard ? route('onboarding.wizard') : ''"
+                        :link="page.props.canOnboard ? $t('app.empty.wizard_link') : ''"
+                    />
                     <Link
                         v-for="brand in brands"
                         :key="brand.id"
@@ -61,9 +69,12 @@ function when(value) {
                 <section class="grid gap-4 lg:grid-cols-3">
                     <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                         <h3 class="text-sm font-medium">{{ $t('app.dashboard.alerts') }}</h3>
-                        <p v-if="alerts.length === 0" class="mt-3 text-sm text-shell-muted">
-                            {{ $t('app.dashboard.no_alerts') }}
-                        </p>
+                        <EmptyState
+                            v-if="alerts.length === 0"
+                            class="mt-3"
+                            :title="$t('app.empty.alerts_title')"
+                            :body="$t('app.empty.alerts_body')"
+                        />
                         <ul v-else class="mt-3 flex flex-col gap-2 text-sm">
                             <li v-for="alert in alerts" :key="alert.id" class="border-s-4 border-warning ps-3">
                                 {{ $t('app.dashboard.alert', { brand: alert.brand, type: alert.type }) }}
@@ -73,9 +84,12 @@ function when(value) {
                     </div>
                     <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                         <h3 class="text-sm font-medium">{{ $t('app.dashboard.runs') }}</h3>
-                        <p v-if="runs.length === 0" class="mt-3 text-sm text-shell-muted">
-                            {{ $t('app.dashboard.no_runs') }}
-                        </p>
+                        <EmptyState
+                            v-if="runs.length === 0"
+                            class="mt-3"
+                            :title="$t('app.empty.runs_title')"
+                            :body="$t('app.empty.runs_body')"
+                        />
                         <ul v-else class="mt-3 flex flex-col gap-2 text-sm">
                             <li v-for="run in runs" :key="run.id">
                                 {{ $t('app.dashboard.run', { brand: run.brand, market: run.market }) }}

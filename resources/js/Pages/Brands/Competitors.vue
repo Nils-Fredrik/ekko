@@ -1,6 +1,7 @@
 <script setup>
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -55,9 +56,12 @@ function add(suggestion) {
 
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="text-sm font-medium">{{ $t('app.library.suggestions') }}</h3>
-                    <p v-if="suggestions.length === 0" class="mt-3 text-sm text-shell-muted">
-                        {{ $t('app.library.no_suggestions') }}
-                    </p>
+                    <EmptyState
+                        v-if="suggestions.length === 0"
+                        class="mt-3"
+                        :title="$t('app.empty.suggestions_title')"
+                        :body="$t('app.empty.suggestions_body')"
+                    />
                     <ul v-else class="mt-3 flex flex-col gap-3">
                         <li
                             v-for="suggestion in suggestions"
@@ -83,9 +87,11 @@ function add(suggestion) {
                     </ul>
                 </section>
 
-                <p v-if="competitors.length === 0" class="text-sm text-shell-muted">
-                    {{ $t('app.library.no_competitors') }}
-                </p>
+                <EmptyState
+                    v-if="competitors.length === 0"
+                    :title="$t('app.empty.competitors_title')"
+                    :body="$t('app.empty.competitors_body')"
+                />
                 <div v-else class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <table class="w-full text-left text-sm">
                         <thead class="border-b border-line text-xs text-shell-muted">
