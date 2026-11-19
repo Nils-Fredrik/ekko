@@ -105,7 +105,7 @@ final class InsightFigureBuilder
 
         $this->completedActions($findings, $period, $brand->id);
 
-        return new InsightFigures($figures, $findings, array_values(array_unique($names)), $anchored);
+        return new InsightFigures($figures, $findings, $this->usableNames($names), $anchored);
     }
 
     /**
@@ -141,7 +141,20 @@ final class InsightFigureBuilder
         }
         $this->completedActions($findings, $period, null);
 
-        return new InsightFigures($figures, $findings, array_values(array_unique($names)), $reliable !== [] && $movers !== []);
+        return new InsightFigures($figures, $findings, $this->usableNames($names), $reliable !== [] && $movers !== []);
+    }
+
+    /**
+     * The guard only takes out names of three characters or more, so a shorter name (a model called "o3") would make
+     * the text refused. Those are left out of the list and the findings the model sees can still name them in the
+     * data, but a digit in them is not accepted in the text.
+     *
+     * @param  list<string>  $names
+     * @return list<string>
+     */
+    private function usableNames(array $names): array
+    {
+        return array_values(array_unique(array_filter($names, fn (string $name): bool => mb_strlen(trim($name)) >= 3)));
     }
 
     private function reliable(Metric $metric): bool
