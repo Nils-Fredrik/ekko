@@ -33,6 +33,10 @@ return new class extends Migration
             $table->unsignedInteger('attempts')->default(0);
             // Set by a handler's deferral (an external batch still running): new signals keep its time, like a backoff.
             $table->boolean('deferred')->default(false);
+            // Start of the current failing streak; a streak longer than ekko.work.stop_after_seconds stops the signal.
+            $table->timestampTz('failing_since')->nullable();
+            // Stopped after failing too long: not retried and not recovered until a new signal or ekko:work:retry.
+            $table->timestampTz('stopped_at')->nullable();
             // The exception class of the last failure, never its message.
             $table->string('last_error', 120)->nullable();
             $table->timestampTz('processed_at')->nullable();
@@ -49,6 +53,7 @@ return new class extends Migration
                     OR (lease_token IS NOT NULL AND lease_version IS NOT NULL AND lease_expires_at IS NOT NULL AND leased_at IS NOT NULL
                         AND lease_version > processed_version AND lease_version <= version)
                 ),
+                ADD CONSTRAINT work_signals_stopped CHECK (stopped_at IS NULL OR (lease_token IS NULL AND version > processed_version)),
                 ADD CONSTRAINT work_signals_kind CHECK (kind ~ '^[a-z][a-z_]{0,31}$'),
                 ADD CONSTRAINT work_signals_scope CHECK (
                     scope = 'tenant'

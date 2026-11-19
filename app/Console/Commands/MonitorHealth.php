@@ -27,7 +27,7 @@ class MonitorHealth extends Command
                     Log::warning('monitoring.issue', ['signal' => 'engine_error_rate', 'engine_key' => $key, 'total' => $engine['total'], 'failed' => $engine['failed']]);
                 }
             }
-            foreach (['collection_overdue', 'extraction_overdue'] as $signal) {
+            foreach (['collection_overdue', 'extraction_overdue', 'work_stopped'] as $signal) {
                 if ($snapshot[$signal] > 0) {
                     Log::warning('monitoring.issue', ['signal' => $signal, 'count' => $snapshot[$signal]]);
                 }

@@ -25,6 +25,7 @@ Tabellen `work_signals` er tenant-eid (`BelongsToTenant`, `FORCE ROW LEVEL SECUR
 | `lease_token`, `lease_version`, `leased_at`, `lease_expires_at` | Leasen til en aktiv behandler |
 | `attempts`, `last_error` | Mislykkede forsøk siden siste kvittering; bare unntaksklassen lagres |
 | `deferred` | Handleren har utsatt raden (`retryAt`); nye signaler beholder tidspunktet |
+| `failing_since`, `stopped_at` | Start på sammenhengende feil, og når signalet ble stoppet etter for lang feilperiode |
 | `pending_since`, `last_signaled_at`, `processed_at` | Ventetid og måling (del 2 og 3) |
 
 Det finnes ikke noe metadata-felt. Signalet sier bare «noe i dette omfanget er endret»; behandleren leser gjeldende tilstand selv. Dermed havner verken råsvar, hemmeligheter eller kundedata i tabellen, vekkingen eller loggene.
@@ -45,13 +46,21 @@ Det finnes ikke noe metadata-felt. Signalet sier bare «noe i dette omfanget er 
 
 1. **Leasing:** leasen committes for seg, så andre behandlere ser den. Kravet er at raden venter, er forfalt og ikke har en levende lease. Leasingen venter på radlåsen til en produsent som ikke har committet, i stedet for å hoppe over raden. `attempts` økes.
 2. **Behandling:** handlerens skrivinger og kvitteringen eller utsettelsen committes sammen. Ved krasj eller unntak rulles begge tilbake. Hvis leasen er overtatt, kvitterer tokenet ingenting (`LeaseLost`), og handlerens skrivinger rulles tilbake.
-3. **Feil:** leasen gis tilbake i egen transaksjon med `available_at = nå + min(maks, grunn · 2^(forsøk−1)) + jitter`, og en `retry`-vekking publiseres. Forsøk logges som advarsel, og fra `alert_after_attempts` som feil. Det er ingen øvre grense, så arbeid gis aldri opp stille.
+3. **Feil:** leasen gis tilbake i egen transaksjon med `available_at = nå + min(maks, grunn · 2^(forsøk−1)) + jitter`, og en `retry`-vekking publiseres. Forsøk logges som advarsel, og fra `alert_after_attempts` som feil. Det er ingen grense på antall forsøk, men en tidsgrense (eierens beslutning, task:73): `failing_since` settes ved første feil i en sammenhengende feilperiode og nullstilles av kvittering eller utsettelse. Når perioden er lengre enn `ekko.work.stop_after_seconds` (standard 24 timer), settes `stopped_at` i stedet for ny backoff. Et stoppet signal leases ikke, vekkes ikke og gjenopprettes ikke av sveipet, men raden slettes ikke og blir stående som ventende.
 
 En handler kan returnere `WorkOutcome::retryAt(t)`, for eksempel når en ekstern modellbatch fortsatt kjører. Da utsettes signalet uten at det teller som feil, og en `defer`-vekking planlegges til `t`.
 
 Leasen varer `ekko.work.lease_seconds` (360 s), lenger enn jobbens `timeout` (300 s). Når leasen utløper, kan en annen behandler overta signalet. Overtakelsen logges, og et forsøk som aldri ble ferdig (krasj eller timeout) teller mot `alert_after_attempts` som en feil, så en handler som alltid bruker for lang tid, gir feillogg. Jobben `ProcessWorkSignal` arver `TenantJob` og bruker `SetTenantContext`, men ikke den ytre `ApplyTenantRls`-transaksjonen. Ellers ville leasen ikke vært synlig før jobben var ferdig. Som `CollectEngineRun` (ADR 0020) og noen andre jobber med egne transaksjonsfaser kjører hvert databaseavsnitt med `TenantRls::run` for jobbens tenant. `WorkProcessor::process()` avviser kall inne i en åpen transaksjon (under testkjøring tillates ett nivå for den transaksjonelle testen).
 
 En stengt tenant behandles ikke (T39-F6). En type uten konfigurert handler (`ekko.work.handlers`) behandles som feil, så signalet blir stående og synlig i loggen i stedet for å bli kvittert ubehandlet.
+
+### Stopp og varsel
+
+- Overgangen til stoppet logges én gang som `work.stopped` med bare tenant-ID, signal-ID, type, omfangstype (`tenant`, `run_batch`, `date`, `month`), antall forsøk og unntaksklasse.
+- Varselet går gjennom den eksisterende operasjonelle overvåkingen (ADR 0029): `ekko:monitor-health` teller stoppede signaler per tenant under RLS og logger `monitoring.issue` med `signal=work_stopped` og antall. Terraform-policyen for applikasjonssignaler får `work_stopped` i settet sitt. Varselet står til signalet er startet igjen, med samme takt og automatisk lukking som de andre signalene. Terraform-endringen tas i bruk ved neste gjennomgåtte apply; ingen produksjonsendring er gjort i denne PR-en.
+- En lease som utløper og overtas, regnes som et feilet forsøk. Varer det i hele stoppvinduet (en handler som alltid bruker for lang tid), stoppes signalet med `last_error = LeaseExpired`.
+- Et nytt `signal()` for samme tenant, type og omfang starter et stoppet signal igjen. Nye data kan lykkes der de gamle feilet, så feilperioden og forsøkene nullstilles og vekking publiseres. Dette betyr at et signal som feiler på grunn av en varig feil, kan stoppes og startes igjen flere ganger når nye data fortsetter å komme; hver gang går det likevel et nytt døgn før det stoppes og varsles igjen.
+- `php artisan ekko:work:retry <tenant-id> <signal-id>` starter et stoppet signal igjen manuelt etter at årsaken er rettet. Kommandoen kjører i den oppgitte tenantens kontekst og RLS, så en signal-ID fra en annen tenant blir ikke funnet.
 
 ### Gjenoppretting
 
@@ -78,12 +87,12 @@ Del 2 kaller `signal()` i samme transaksjon som lagringen. Det gjelder etter inn
 
 - Ingen arbeid, ingen start: tomme perioder gir verken rader, vekkinger eller behandlingsjobber. Sveipet er én indeksert lesing per tenant.
 - Samling: én rad og én ventende vekking per omfang, uansett antall signaler. Et signal mot en leaset rad eller en rad i backoff publiserer ingenting.
-- Arbeid som ikke kan fullføres, ventes ut med eksponentiell backoff opp til én time. Det blir ingen tett løkke og ingen ny betalt innsending bare for å sjekke status.
+- Arbeid som ikke kan fullføres, ventes ut med eksponentiell backoff opp til én time og stoppes etter 24 timer. Det blir ingen tett løkke, ingen evig prøving og ingen ny betalt innsending bare for å sjekke status.
 - Del 3 måler Cloud Tasks-forespørsler og Cloud Run-starter mot dagens planer før gamle planer slås av.
 
 ## Leveringsgarantier
 
-- **Minst én gang:** et committet signal blir behandlet, også etter krasj før publisering, feilet publisering, krasj under behandling eller tapt lease, så lenge sveipet kjører.
+- **Minst én gang:** et committet signal blir behandlet, også etter krasj før publisering, feilet publisering, krasj under behandling eller tapt lease, så lenge sveipet kjører. Unntaket er et signal som har feilet i hele stoppvinduet: det stoppes med varsel og venter på nytt signal eller `ekko:work:retry`, men slettes ikke.
 - **Ingen spøkelsesarbeid:** rollback gir verken signal eller vekking.
 - **Ingen tapte oppdateringer:** en kvittering dekker bare versjoner som var registrert da leasen ble tatt. Senere signaler blir stående.
 - **Ingen feil kvittering:** et utløpt og overtatt token kvitterer ingenting, og de databaseendringene det ville gjort, rulles tilbake.

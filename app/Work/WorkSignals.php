@@ -60,18 +60,23 @@ final class WorkSignals
 
         // An idle row starts a new pending epoch at the requested time. A pending row keeps the earliest time,
         // except while it waits out a retry backoff or a deferral the handler asked for: those keep their time, and
-        // the deferred or retried run picks up the new version. A leased row only gets a higher version.
+        // the deferred or retried run picks up the new version. A leased row only gets a higher version. A stopped row
+        // is re-armed: new data may succeed where the old failed, so the failing streak starts over (ADR 0032).
         $row = $db->selectOne(<<<'SQL'
             INSERT INTO work_signals AS w
                 (tenant_id, kind, scope, version, processed_version, available_at, pending_since, last_signaled_at, attempts, created_at, updated_at)
             VALUES (?, ?, ?, 1, 0, ?, ?, ?, 0, ?, ?)
             ON CONFLICT (tenant_id, kind, scope) DO UPDATE SET
                 version = w.version + 1,
+                stopped_at = NULL,
+                failing_since = CASE WHEN w.stopped_at IS NOT NULL THEN NULL ELSE w.failing_since END,
+                attempts = CASE WHEN w.stopped_at IS NOT NULL THEN 0 ELSE w.attempts END,
+                deferred = CASE WHEN w.stopped_at IS NOT NULL THEN false ELSE w.deferred END,
                 last_signaled_at = EXCLUDED.last_signaled_at,
                 updated_at = EXCLUDED.updated_at,
                 pending_since = CASE WHEN w.version = w.processed_version THEN EXCLUDED.pending_since ELSE w.pending_since END,
                 available_at = CASE
-                    WHEN w.version = w.processed_version THEN EXCLUDED.available_at
+                    WHEN w.version = w.processed_version OR w.stopped_at IS NOT NULL THEN EXCLUDED.available_at
                     WHEN w.lease_token IS NULL AND (w.attempts > 0 OR w.deferred) THEN w.available_at
                     ELSE LEAST(w.available_at, EXCLUDED.available_at)
                 END
@@ -100,13 +105,15 @@ final class WorkSignals
         $row = $this->connection()->selectOne(<<<'SQL'
             UPDATE work_signals AS w SET
                 lease_token = ?, lease_version = w.version, leased_at = ?, lease_expires_at = ?,
-                attempts = w.attempts + 1, deferred = false, updated_at = ?
+                attempts = w.attempts + 1, deferred = false, updated_at = ?,
+                failing_since = CASE WHEN w.lease_token IS NOT NULL THEN COALESCE(w.failing_since, w.leased_at) ELSE w.failing_since END
             FROM (SELECT id, lease_token AS previous FROM work_signals WHERE id = ? AND tenant_id = ? FOR UPDATE) AS old
             WHERE w.id = old.id
+                AND w.stopped_at IS NULL
                 AND w.version > w.processed_version
                 AND w.available_at <= ?
                 AND (w.lease_token IS NULL OR w.lease_expires_at <= ?)
-            RETURNING w.id, w.kind, w.scope, w.version, w.attempts, old.previous IS NOT NULL AS taken_over
+            RETURNING w.id, w.kind, w.scope, w.version, w.attempts, w.failing_since, old.previous IS NOT NULL AS taken_over
             SQL, [$token = (string) Str::uuid(), $this->ts($now), $this->ts($expires), $this->ts($now), $signalId, $tenantId, $this->ts($now), $this->ts($now)]);
 
         if ($row === null) {
@@ -117,6 +124,17 @@ final class WorkSignals
             // The previous attempt never finished (a crash or a timeout): it counts towards the alert threshold too,
             // so a handler that always outlives its lease is not retried silently.
             $context = ['tenant_id' => $tenantId, 'work_signal_id' => $signalId, 'attempts' => (int) $row->attempts - 1];
+            if ($row->failing_since !== null && CarbonImmutable::parse($row->failing_since)->lessThanOrEqualTo($this->stopCutoff($now))) {
+                // Every attempt for longer than the stop window outlived its lease: stop instead of trying again.
+                $this->connection()->update(<<<'SQL'
+                    UPDATE work_signals SET lease_token = NULL, lease_version = NULL, leased_at = NULL, lease_expires_at = NULL,
+                        stopped_at = ?, last_error = 'LeaseExpired', updated_at = ?
+                    WHERE id = ? AND tenant_id = ? AND lease_token = ?
+                    SQL, [$this->ts($now), $this->ts($now), $signalId, $tenantId, $token]);
+                $this->logStopped($tenantId, $signalId, WorkKind::from($row->kind), $row->scope, (int) $row->attempts - 1, 'LeaseExpired');
+
+                return null;
+            }
             if ((int) $row->attempts - 1 >= (int) config('ekko.work.alert_after_attempts')) {
                 Log::error('Work signal keeps failing: its lease expired again and was taken over.', $context);
             } else {
@@ -134,7 +152,7 @@ final class WorkSignals
     public function busyUntil(int $signalId): ?CarbonImmutable
     {
         $row = $this->connection()->selectOne(
-            'SELECT version, processed_version, available_at, lease_token, lease_expires_at FROM work_signals WHERE id = ? AND tenant_id = ?',
+            'SELECT version, processed_version, available_at, lease_token, lease_expires_at FROM work_signals WHERE id = ? AND tenant_id = ? AND stopped_at IS NULL',
             [$signalId, $this->context->require()],
         );
         if ($row === null || (int) $row->version <= (int) $row->processed_version) {
@@ -161,7 +179,7 @@ final class WorkSignals
                 processed_version = GREATEST(processed_version, lease_version),
                 pending_since = CASE WHEN version > lease_version THEN leased_at END,
                 lease_token = NULL, lease_version = NULL, leased_at = NULL, lease_expires_at = NULL,
-                attempts = 0, last_error = NULL, processed_at = ?, updated_at = ?
+                attempts = 0, failing_since = NULL, last_error = NULL, processed_at = ?, updated_at = ?
             WHERE id = ? AND tenant_id = ? AND lease_token = ?
             RETURNING version, processed_version, available_at
             SQL, [$this->ts($now), $this->ts($now), $claim->signalId, $claim->tenantId, $claim->token]);
@@ -185,7 +203,7 @@ final class WorkSignals
         $row = $this->connection()->selectOne(<<<'SQL'
             UPDATE work_signals SET
                 lease_token = NULL, lease_version = NULL, leased_at = NULL, lease_expires_at = NULL,
-                attempts = GREATEST(attempts - 1, 0), deferred = true, available_at = ?, updated_at = ?
+                attempts = GREATEST(attempts - 1, 0), failing_since = NULL, deferred = true, available_at = ?, updated_at = ?
             WHERE id = ? AND tenant_id = ? AND lease_token = ?
             RETURNING processed_version, available_at
             SQL, [$this->ts($at->greaterThan($now) ? $at->utc() : $now), $this->ts($now), $claim->signalId, $claim->tenantId, $claim->token]);
@@ -200,22 +218,33 @@ final class WorkSignals
     /**
      * Records a failed attempt in its own transaction, after the handler's transaction rolled back: the lease is
      * given back and the signal waits with exponential backoff. Only the exception class is stored and logged.
-     * Returns false when the lease was already taken over.
+     * A failing streak longer than ekko.work.stop_after_seconds stops the signal instead (ADR 0032).
+     *
+     * @return WorkResult::FAILED|WorkResult::STOPPED|WorkResult::LEASE_LOST
      */
-    public function fail(WorkClaim $claim, Throwable $failure): bool
+    public function fail(WorkClaim $claim, Throwable $failure): string
     {
         $now = $this->now();
         $retryAt = $now->addSeconds($this->backoffSeconds($claim->attempt));
+        $error = Str::limit(class_basename($failure), 120, '');
         $row = $this->connection()->selectOne(<<<'SQL'
             UPDATE work_signals SET
                 lease_token = NULL, lease_version = NULL, leased_at = NULL, lease_expires_at = NULL,
+                failing_since = COALESCE(failing_since, ?::timestamptz),
+                stopped_at = CASE WHEN COALESCE(failing_since, ?::timestamptz) <= ?::timestamptz THEN ?::timestamptz END,
                 last_error = ?, available_at = ?, updated_at = ?
             WHERE id = ? AND tenant_id = ? AND lease_token = ?
-            RETURNING processed_version, available_at, attempts
-            SQL, [Str::limit(class_basename($failure), 120, ''), $this->ts($retryAt), $this->ts($now), $claim->signalId, $claim->tenantId, $claim->token]);
+            RETURNING processed_version, available_at, attempts, stopped_at
+            SQL, [$this->ts($now), $this->ts($now), $this->ts($this->stopCutoff($now)), $this->ts($now), $error, $this->ts($retryAt), $this->ts($now), $claim->signalId, $claim->tenantId, $claim->token]);
 
         if ($row === null) {
-            return false;
+            return WorkResult::LEASE_LOST;
+        }
+
+        if ($row->stopped_at !== null) {
+            $this->logStopped($claim->tenantId, $claim->signalId, $claim->kind, $claim->scope, (int) $row->attempts, $failure::class);
+
+            return WorkResult::STOPPED;
         }
 
         $context = ['tenant_id' => $claim->tenantId, 'work_signal_id' => $claim->signalId, 'work_kind' => $claim->kind->value, 'attempts' => (int) $row->attempts, 'error_type' => $failure::class];
@@ -227,7 +256,41 @@ final class WorkSignals
 
         $this->wakeAfterCommit($claim, (int) $row->processed_version, $row->available_at, WorkWakeUp::REASON_RETRY);
 
+        return WorkResult::FAILED;
+    }
+
+    /**
+     * Re-arms a stopped signal of the tenant in the context (ekko:work:retry): the failing streak starts over and
+     * the signal is woken after commit. False when the signal is not stopped or belongs to another tenant.
+     */
+    public function rearm(int $signalId): bool
+    {
+        $tenantId = $this->context->require();
+        $now = $this->now();
+        $row = $this->connection()->selectOne(<<<'SQL'
+            UPDATE work_signals SET stopped_at = NULL, failing_since = NULL, attempts = 0, deferred = false,
+                available_at = ?, updated_at = ?
+            WHERE id = ? AND tenant_id = ? AND stopped_at IS NOT NULL
+            RETURNING processed_version, available_at
+            SQL, [$this->ts($now), $this->ts($now), $signalId, $tenantId]);
+
+        if ($row === null) {
+            return false;
+        }
+
+        $wakeUp = new WorkWakeUp($tenantId, $signalId, (int) $row->processed_version, CarbonImmutable::parse($row->available_at)->utc(), WorkWakeUp::REASON_REARM);
+        $this->connection()->afterCommit(fn () => $this->publish($wakeUp));
+
         return true;
+    }
+
+    /** Stopped signals of the tenant in the context, for the health check (ADR 0029). */
+    public function stoppedCount(): int
+    {
+        return (int) $this->connection()->selectOne(
+            'SELECT count(*) AS n FROM work_signals WHERE tenant_id = ? AND stopped_at IS NOT NULL',
+            [$this->context->require()],
+        )->n;
     }
 
     /**
@@ -244,7 +307,7 @@ final class WorkSignals
 
         $rows = $this->connection()->select(<<<'SQL'
             SELECT id, processed_version FROM work_signals
-            WHERE tenant_id = ? AND version > processed_version
+            WHERE tenant_id = ? AND version > processed_version AND stopped_at IS NULL
                 AND ((lease_token IS NULL AND available_at <= ?) OR (lease_token IS NOT NULL AND lease_expires_at <= ?))
             ORDER BY available_at, id
             SQL, [$tenantId, $this->ts($cutoff), $this->ts($now)]);
@@ -286,6 +349,24 @@ final class WorkSignals
     {
         $wakeUp = new WorkWakeUp($claim->tenantId, $claim->signalId, $epoch, CarbonImmutable::parse($availableAt)->utc(), $reason);
         $this->connection()->afterCommit(fn () => $this->publish($wakeUp));
+    }
+
+    /** Logged once, when the signal stops: internal ids, kind, scope type and exception class only. */
+    private function logStopped(int $tenantId, int $signalId, WorkKind $kind, string $scope, int $attempts, string $errorType): void
+    {
+        Log::error('work.stopped', [
+            'tenant_id' => $tenantId,
+            'work_signal_id' => $signalId,
+            'work_kind' => $kind->value,
+            'scope_type' => WorkScope::type($scope),
+            'attempts' => $attempts,
+            'error_type' => $errorType,
+        ]);
+    }
+
+    private function stopCutoff(CarbonImmutable $now): CarbonImmutable
+    {
+        return $now->subSeconds(max(1, (int) config('ekko.work.stop_after_seconds')));
     }
 
     private function backoffSeconds(int $attempt): int

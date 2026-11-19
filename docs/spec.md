@@ -296,7 +296,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 | `integrations` | `tenant_id`, `brand_id`, `type` (clickhouse_logs, ga4), `config` (kryptert jsonb), `last_sync_at`, `last_failed_on`, `status` |
 | `activity_log` | fra spatie/laravel-activitylog, med `tenant_id` |
 | `model_changes` | `tenant_id`, `engine_key`, `changed_on`, `from_model`, `to_model`, `changed_at` (modellbytte-markører, 7.5) |
-| `work_signals` | `tenant_id`, `kind` (extraction, aggregation, usage_rollup), `scope` (bare interne ID-er: `tenant`, `run_batch:<id>`, lokal dato eller UTC-måned), `version`, `processed_version`, `available_at`, `lease_token`, `lease_version`, `lease_expires_at`, `attempts`, `deferred`, `last_error` (unntaksklasse), `pending_since`; unik per tenant, type og omfang (varige behandlingsbehov, 7.1, ADR 0032) |
+| `work_signals` | `tenant_id`, `kind` (extraction, aggregation, usage_rollup), `scope` (bare interne ID-er: `tenant`, `run_batch:<id>`, lokal dato eller UTC-måned), `version`, `processed_version`, `available_at`, `lease_token`, `lease_version`, `lease_expires_at`, `attempts`, `deferred`, `failing_since`, `stopped_at`, `last_error` (unntaksklasse), `pending_since`; unik per tenant, type og omfang (varige behandlingsbehov, 7.1, ADR 0032) |
 
 ---
 
@@ -325,7 +325,7 @@ Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-a
 **Hendelsesstyrt behandlingsarbeid (T40-F2, [ADR 0032](decisions/0032-varig-hendelsesstyrt-arbeid.md)):** Varige behandlingsbehov registreres i `work_signals` med `App\Work\WorkSignals::signal()`, i samme databasetransaksjon som dataendringen. Det finnes tre typer: uttrekk per tenant eller innhentingsgruppe, aggregering per lokal dato og forbruksoppdatering per UTC-måned.
 - Gjentatte signaler for samme omfang samles i én rad og øker `version`. En behandler leaser gjeldende versjon og kvitterer bare for den. Signaler som kommer under kjøringen, blir stående.
 - Vekking (`WorkWakeUp`, bare tenant- og signal-ID) publiseres etter commit gjennom `WorkPublisher`. Rollback gir verken behov eller vekking.
-- Leases utløper og kan overtas, og et overtatt token kvitterer ingenting. Feil gis eksponentiell backoff uten øvre antall forsøk. Backoff og utsettelser fra handleren (`deferred`, for eksempel en modellbatch som fortsatt kjører) beholder tidspunktet sitt når nye signaler kommer. `ekko:work:recover` publiserer vekking på nytt for forfalte signaler som ikke er vekket, og for signaler med utløpt lease.
+- Leases utløper og kan overtas, og et overtatt token kvitterer ingenting. Feil gis eksponentiell backoff. Etter 24 timer med sammenhengende feil (`ekko.work.stop_after_seconds`) stoppes signalet (`stopped_at`) og varsles som `work_stopped` gjennom helsekontrollen; et nytt signal for samme omfang eller `ekko:work:retry <tenant-id> <signal-id>` starter det igjen. Backoff og utsettelser fra handleren (`deferred`, for eksempel en modellbatch som fortsatt kjører) beholder tidspunktet sitt når nye signaler kommer. `ekko:work:recover` publiserer vekking på nytt for forfalte signaler som ikke er vekket, og for signaler med utløpt lease.
 - Del 1 kobler ingen produsenter og endrer ingen planer. Planene over gjelder uendret til T40-F3 kobler innhenting, uttrekk, aggregering og forbruk til signalene, og T40-F4 innfører målrettet vekking med Cloud Tasks og kjører `ekko:work:recover` som reservekontroll.
 
 ### 7.2 Kvotekontroll før kjøring
