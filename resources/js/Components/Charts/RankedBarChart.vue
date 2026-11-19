@@ -1,9 +1,10 @@
 <script setup>
 // Ranked horizontal bars colored by group, e.g. sources by ownership: own domain, competitor,
-// third party (docs/ui-forbedring.md 6, U08). Clicking a bar emits `select` with the bar key.
+// third party (docs/ui-forbedring.md 6, U08). Clicking a bar emits `select` with `{ key }`, the bar key.
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
+import { selection } from './support/data.js';
 import { axisFormatter, formatValue, isLowSample, tooltipHtml } from './support/format.js';
 import { paletteColor } from './support/palette.js';
 
@@ -108,7 +109,7 @@ function option({ palette }) {
 function select(params) {
     const bar = ordered.value[params.dataIndex];
     if (bar) {
-        emit('select', { key: bar.key });
+        emit('select', selection(bar.key));
     }
 }
 

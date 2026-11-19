@@ -6,7 +6,7 @@ import { trans } from 'laravel-vue-i18n';
 import { computed, ref, useId } from 'vue';
 import ChartTable from './ChartTable.vue';
 import EkkoChart from './EkkoChart.vue';
-import { bucketMarkers } from './support/data.js';
+import { bucketMarkers, selection } from './support/data.js';
 import {
     axisFormatter,
     changeAt,
@@ -49,6 +49,20 @@ const max = computed(() => {
 
     return top > 0 ? top : 1;
 });
+
+// `{ key, category }`: the panel key and the bucket date of the clicked point. `panel` and
+// `dataIndex` are the aliases from the first version; new pages read `key` and `category`.
+function select(panel, params) {
+    const index = Number.isInteger(params?.dataIndex) ? params.dataIndex : undefined;
+    emit(
+        'select',
+        selection(panel.key, {
+            category: index === undefined ? undefined : props.categories[index],
+            panel: panel.key,
+            dataIndex: index,
+        }),
+    );
+}
 
 function lastValue(panel) {
     const range = firstAndLast(panel.points);
@@ -177,7 +191,7 @@ const summary = computed(() => {
                     :description="panelSummary(panel)"
                     :option="options[panel.key]"
                     @marker="emit('marker', $event)"
-                    @select="emit('select', { panel: panel.key, dataIndex: $event.dataIndex })"
+                    @select="select(panel, $event)"
                 />
             </div>
         </div>
