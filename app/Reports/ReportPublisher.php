@@ -80,7 +80,8 @@ final class ReportPublisher
     {
         $schedule = ReportSchedule::query()->with('brand')->findOrFail($due->scheduleId);
         $previous = app()->getLocale();
-        app()->setLocale($schedule->locale);
+        // Freeze the language selected when the due report was queued, even if its schedule changes mid-run.
+        app()->setLocale($due->locale);
         try {
             return [
                 'path' => 'reports/'.$tenant->id.'/'.$schedule->id.'-'.$due->from.'.pdf',
@@ -194,6 +195,8 @@ final class ReportPublisher
         $then = $this->metrics->summary($previous);
 
         return [
+            // Labels and formatted values below are generated in the current locale.
+            'locale' => app()->getLocale(),
             'brand' => $schedule->brand->name,
             'from' => $from,
             'to' => $to,

@@ -136,3 +136,57 @@ test('the PDF renders the published trend and preserves gaps', function () {
     $data['trend'][] = ['period' => '2026-10-02', 'visibility' => ['value' => 0.5, 'n' => 30, 'low_sample' => false]];
     expect(view('reports.pdf', $data)->render())->toContain('stroke="#b62b1b" stroke-width="2"');
 });
+
+test('a shared report keeps its publication language after the schedule language changes', function () {
+    $world = MetricsWorld::create();
+    $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id, 'locale' => 'en']);
+    $due = new DueReport($schedule->id, $world->brand->id, 'weekly', 'en', ['report@example.test'], '2026-10-01', '2026-10-07', []);
+    $publisher = app(ReportPublisher::class);
+    $document = $publisher->document($world->tenant, $due, 'Published insight');
+    $document['data']['trend'] = [['period' => '2026-10-03', 'visibility' => ['value' => 0.4, 'n' => 10, 'low_sample' => false]]];
+    $report = $publisher->record($due, $document['path'], $document['data']['actions'], $document['data']);
+    expect($report->fresh()->web_snapshot['locale'])->toBe('en')
+        ->and($report->fresh()->web_snapshot['headlines'][0]['label'])->toBe('Visibility');
+
+    $token = bin2hex(random_bytes(32));
+    $link = ReportLink::query()->create(['report_id' => $report->id, 'public_id' => bin2hex(random_bytes(16)), 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addDay()]);
+    $endpoint = route('reports.shared', ['tenant' => $world->tenant->id, 'selector' => $link->public_id]);
+    $schedule->update(['locale' => 'nb']);
+    app()->setLocale('nb');
+    $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()
+        ->assertSee('<html lang="en"', false)
+        ->assertSee('Key figures')
+        ->assertSee('Visibility over time')
+        ->assertSee('Published insight')
+        ->assertDontSee('Nøkkeltall');
+
+    // Existing snapshots without a publication locale remain readable in the current schedule language.
+    app(TenantContext::class)->set($world->tenant->id);
+    $legacy = $report->fresh()->web_snapshot;
+    unset($legacy['locale']);
+    $report->forceFill(['web_snapshot' => $legacy])->save();
+    $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()
+        ->assertSee('<html lang="nb"', false)
+        ->assertSee('Nøkkeltall')
+        ->assertSee('Synlighet over tid');
+
+    // Reports without a snapshot are reconstructed in the schedule's current language.
+    app(TenantContext::class)->set($world->tenant->id);
+    $report->forceFill(['web_snapshot' => null])->save();
+    $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()
+        ->assertSee('<html lang="nb"', false)
+        ->assertSee('Denne nettversjonen er rekonstruert');
+});
+
+test('the report uses the queued publication language if its schedule changes during generation', function () {
+    $world = MetricsWorld::create();
+    $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id, 'locale' => 'en']);
+    $due = new DueReport($schedule->id, $world->brand->id, 'weekly', 'en', ['report@example.test'], '2026-10-01', '2026-10-07', []);
+    $schedule->update(['locale' => 'nb']);
+    app()->setLocale('nb');
+
+    $document = app(ReportPublisher::class)->document($world->tenant, $due, null);
+    expect($document['data']['locale'])->toBe('en')
+        ->and($document['data']['headlines'][0]['label'])->toBe('Visibility')
+        ->and(app()->getLocale())->toBe('nb');
+});

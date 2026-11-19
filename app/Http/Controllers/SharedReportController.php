@@ -53,10 +53,13 @@ final class SharedReportController extends Controller
                 return response('Not Found', 404, $headers);
             }
             $schedule = $report->reportSchedule;
+            $data = $report->web_snapshot;
+            $savedLocale = is_array($data) ? ($data['locale'] ?? null) : null;
+            // Snapshots made before the locale was recorded, and reconstructed reports, use the schedule locale.
+            $locale = is_string($savedLocale) && $savedLocale !== '' ? $savedLocale : $schedule->locale;
             $previous = app()->getLocale();
-            app()->setLocale($schedule->locale);
+            app()->setLocale($locale);
             try {
-                $data = $report->web_snapshot;
                 if (! is_array($data)) {
                     // Earlier PDFs have no stored insight or immutable data. Preserve the published action
                     // section and mark the reconstructed view as such instead of inventing an insight.
