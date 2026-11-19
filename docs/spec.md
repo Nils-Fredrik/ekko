@@ -255,6 +255,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `competitor_domains` | `competitor_id`, `domain` |
 | `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active` |
 | `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency` (daily, weekly, monthly, off), `prompt_scope` (all, core), `repetitions` (1–3, standard 1) |
+| `brand_facts` | `tenant_id`, `brand_id`, `text` (høyst 300 tegn), `is_active` (11.6) |
 | `topics` | `tenant_id`, `brand_id`, `name`, `cross_market_key` (kobler samme tema på tvers av markeder) |
 | `prompts` | `tenant_id`, `market_id`, `topic_id`, `text`, `intent` (category, comparison, brand, problem, local), `funnel_stage` (awareness, consideration, decision), `priority` (core, standard), `is_active`, `text_hash` |
 | `engines` | `key`, `family` (chatgpt, gemini, google_aio, perplexity, claude), `method` (api, ui_scrape, serp), `provider`, `model_id`, `config` (jsonb), `is_enabled` |
@@ -266,9 +267,10 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 |---|---|
 | `run_batches` | `tenant_id`, `market_id`, `scheduled_for`, `status`, `planned_runs`, `completed_runs`, `failed_runs` |
 | `runs` | `tenant_id`, `run_batch_id`, `prompt_id`, `engine_key`, `repetition`, `status` (queued, running, submitted, collected, extracted, failed, skipped_quota), `attempts`, `error_code`, `started_at`, `finished_at`, midlertidig kvotereservasjon |
-| `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at`, `answer_type` (list, single_recommendation, comparison, informational, refusal), `llm_failed` |
+| `responses` | `tenant_id`, `run_id`, `engine_key`, `model_id_reported`, `answer_text`, `answer_language`, `raw_uri` (GCS), `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `collected_at`, `answer_type` (list, single_recommendation, comparison, informational, refusal), `llm_failed`, `facts_checked_at` (11.6) |
 | `mentions` | `tenant_id`, `response_id`, `entity_type` (brand, competitor, unknown), `entity_id` (null for unknown), `surface_name`, `first_char_offset`, `list_position` (null hvis ikke liste), `is_recommended`, `sentiment` (-1.0–1.0), `detection` (deterministic, llm) |
 | `citations` | `tenant_id`, `response_id`, `url`, `url_normalized`, `domain`, `ownership` (own, competitor, third_party), `competitor_id`, `source_type` (news, review, forum, wiki, marketplace, social, gov, other), `rank_in_answer`, `from_annotation` (bool) |
+| `claims` | `tenant_id`, `response_id`, `brand_id`, `fact_id`, `text`, `quote`, `verdict` (supported, contradicted, unrelated), `source_citation_ids` (jsonb); påstander om merkevaren i et svar, vurdert mot et aktivt faktum (11.6) |
 | `extraction_jobs` | `tenant_id`, `provider_batch_id`, `status` (submitted, completed, failed), `response_ids` (jsonb), `submitted_at`, `completed_at` |
 
 ### 6.4 Aggregater
@@ -282,13 +284,13 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). De lagres ikke separat. `list_responses`, `first_place`, `count_sentiment`, `competitor_only_responses` og `gap_responses` er lagt til for formlene i kapittel 9 (ADR 0012). Dagen er tenantens lokale dag (`teams.timezone`), og bare svar fra kjøringer med status `extracted` teller.
 
-Sentimentfordeling og kildetype/eierskap lagres separat i dagsaggregatene for grafene (ADR 0036). `NULL` betyr at en historisk rad ikke er omberegnet, ikke at antallet er null. En periode med manglende fordelinger markeres som ufullstendig inntil historikken er kontrollert og kan beregnes fra bevart datagrunnlag.
+Sentimentfordeling og kildetype/eierskap lagres separat i dagsaggregatene for grafene (ADR 0037). `NULL` betyr at en historisk rad ikke er omberegnet, ikke at antallet er null. En periode med manglende fordelinger markeres som ufullstendig inntil historikken er kontrollert og kan beregnes fra bevart datagrunnlag.
 
 ### 6.5 Drift og økonomi
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf, actions), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
+| `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf, actions, factcheck), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
 | `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `byok_cost_usd`, `byok_budget_usd`, `quota_alerted_threshold`, `status` (ok, warning, capped) |
 | `alert_rules` | `tenant_id`, `brand_id`, `type`, `threshold`, `channels` (jsonb), `is_active` |
 | `alerts` | `tenant_id`, `alert_rule_id`, `subject`, `triggered_at`, `payload` (jsonb), `digest_date`, `deliveries` (jsonb, kvittering per kanal), `delivered_at`, `acknowledged_by`, `acknowledged_at` |
@@ -662,13 +664,36 @@ Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen
 
 **Implementasjon (T43, [ADR 0034](decisions/0034-tiltaksmotor.md)):**
 - Generering mandag 05:00 (Europe/Oslo), før ukesrapporten. Én generering per merkevare og lokal ISO-uke teller mot utløp (`action_generations`); `--force` oppdaterer samme uke uten å telle. Vinduet er de siste 30 hele lokale dagene, `new_competitor` 7 dager som varselet og `crawler_access` 14 dager. Tersklene står i `config/ekko.php` (`ekko.actions`).
-- Kildene leser tallene via `MetricsService` (`reach`, `sourceGap`, `sourceGapDetail`, `breakdown`, `unknownBrands`, `unknownBrandDetail`, `botHits`). Et marked med færre enn 30 svar i vinduet vurderes ikke, og da teller heller ikke utløpet der (`new_competitor` bruker varselets minimum, `ekko.alerts.min_responses.new_competitor`). `source_gap` lager tiltak for de 5 største gapene per marked; mindre gap over terskelen holder et eksisterende tiltak i live. `crawler_access` vurderes bare når andre AI-roboter har treff i det samme 14-dagersvinduet, og er på merkevarenivå (`market_id` tom). `owned_content` gjelder prompts med tema. `fact_correction` er en egen kilde som T48 registrerer i `ekko.actions.sources`.
+- Kildene leser tallene via `MetricsService` (`reach`, `sourceGap`, `sourceGapDetail`, `breakdown`, `unknownBrands`, `unknownBrandDetail`, `botHits`). Et marked med færre enn 30 svar i vinduet vurderes ikke, og da teller heller ikke utløpet der (`new_competitor` bruker varselets minimum, `ekko.alerts.min_responses.new_competitor`). `source_gap` lager tiltak for de 5 største gapene per marked; mindre gap over terskelen holder et eksisterende tiltak i live. `crawler_access` vurderes bare når andre AI-roboter har treff i det samme 14-dagersvinduet, og er på merkevarenivå (`market_id` tom). `owned_content` gjelder prompts med tema. `fact_correction` er en egen kilde som T48 har registrert i `ekko.actions.sources` (11.6).
 - `fingerprint` er sha256 av type, merkevare, marked og funnets nøkkel (domene, tema, navn, robot). Et åpent tiltak får ny evidens, effekt og prompts. Et utløpt tiltak åpnes igjen som `new`. `done` og `declined` står som brukeren satte dem.
 - Utløp gjelder bare `new` og `planned` der arbeidet ikke er startet (`started_at` tom). Tiltak som pågår eller er startet og flyttet tilbake til `planned`, utløper ikke, fordi arbeidet kan være grunnen til at funnet forsvant.
 - Modellen skriver 2–5 steg; vernet avviser annet antall, og da står malteksten (2–3 steg). Konkurrentevidensen viser bare aktive konkurrenter for alle typer.
 - Modellen skriver tekst uten tall; tallene vises fra `evidence` (evidenssetningen i `lang/*/action_items.php`). En tekst med tall utenfor et navn modellen fikk, skrevet fullt ut, avvises, og maltekst beholdes. Modellen skriver på markedets språk (tenantens for merkevarenivå); malene finnes på nb, sv og en. Et nytt tiltak har maltekst til modellen har formulert det. Kallet reserverer på Anthropic-kontoen før HTTP (ADR 0023), stoppes i redusert modus og bokføres i `usage_events` med `kind = actions` og `billed_to = platform`. Plattformen betaler kallene (eierbeslutning, Board #996): de trekkes ikke fra tenantens kallkvote eller budsjett, gir ikke kvotevarsler og kommer ikke på fakturagrunnlaget, men vises per tenant i `Admin/Usage.vue` og er med i prognosen for Anthropic-potten (12.2, 12.5). Hvert kall gir én strukturert logglinje med interne ID-er (tenant, tiltak, operasjon, forbrukshendelse), utfall, tokens og kostnad, aldri tekst. Høyst `ekko.actions.max_formulations` kall per tenant og generering, og ingen nye kall etter `ekko.actions.word_seconds` per tenant eller kommandoens samlede frist.
 - Tilleggskolonner: `engine_keys` (motorer), `impact_score` (effekten bak nivået), `text_source` (template, model, user), `locale` (språktaggen teksten står på, inntil 35 tegn), `unsupported_generations`, `last_generated_at`. `action_prompts` har også `tenant_id` (6). Egne tiltak kan mangle type.
 - Statusflyt for brukere i `ActionWorkflow`: `started_at` settes første gang tiltaket går til `in_progress`, `completed_at` når det går til `done`, og nullstilles hvis det åpnes igjen. Tenant-admin, partner-rådgiver og redaktør endrer tiltak; alle roller ser dem.
+
+### 11.6 Faktasjekk
+
+Tenant-admin legger inn fakta om merkevaren (f.eks. grunnleggelsesår, kontorer, tjenester, priser). Ekko sjekker påstander i AI-svarene mot faktaene.
+
+- **Fakta:** `brand_facts` med `tenant_id`, `brand_id`, `text`, `is_active`. Veiviseren foreslår fakta fra nettsiden, som brukeren må godkjenne.
+- **Påstander:** under uttrekket (kapittel 8) trekker Claude Haiku 5.5 ut påstander om merkevaren i hvert svar. Påstander som berører et aktivt faktum, vurderes som `supported`, `contradicted` eller `unrelated`.
+- **Kilder:** for motsagte påstander kobles påstanden til sitatene i samme svar. Kildesider som gjentar den feilaktige påstanden, markeres.
+- **Tiltak:** hver motsagt påstand som går igjen i minst 2 svar, blir et tiltak av typen `fact_correction`: «rett egen side» hvis kilden er på eget domene, ellers «be utgiveren rette».
+- **Datamodell:** `brand_facts`, `claims` (`tenant_id`, `response_id`, `brand_id`, `text`, `fact_id`, `verdict`, `source_citation_ids` jsonb).
+
+**Implementasjon (T48, [ADR 0036](decisions/0036-faktasjekk.md)):**
+- **Modell:** vurderingen gjøres av Claude Sonnet (`claude-sonnet-5-5`) i et eget kall per svar, ikke av Haiku i uttrekket. Modell-ID-en er konfigurasjon (`ekko.anthropic.factcheck.model`, `EKKO_FACTCHECK_MODEL`, sammen med priser og estimat), så den kan byttes til Opus hvis treffsikkerheten er for lav. Uttrekket (8.2) er uendret.
+- **Flyt:** etter at et svar er trukket ut for en merkevare med aktive fakta, legges `CheckTenantFacts` i køen (unik per tenant). Jobben vurderer høyst `ekko.facts.max_checks_per_run` (60) ferdig uttrukne svar fra de siste `ekko.facts.max_age_days` (35) dagene som ikke er vurdert (`responses.facts_checked_at`), utenfor transaksjon, og legger seg selv i køen igjen når flere venter; bare én kjøring per tenant om gangen. Jobben legges også i køen når et aktivt faktum legges til, slås på eller endres. En feil som gjelder kontoen (401, 403, 429, kreditt) og et ukjent utfall (tidsavbrudd, 5xx, 529; svaret markeres vurdert) stopper kjøringen, en feil som gjelder bare det svaret (400, 413, 422) markerer det som vurdert. Hvert svar vurderes én gang, mot faktaene slik de er da; en dom på et faktum som er endret eller slått av under kallet, lagres ikke. Svar fra en merkevare uten fakta vurderes når faktaene kommer, så lenge de er nyere enn 35 dager.
+- **Budsjett og forbruk:** kallet reserverer estimert kost på Anthropic-kontoen før det går (ADR 0023), stoppes i redusert modus, og gjøres opp og bokføres i `usage_events` med egen `kind = factcheck`, `billed_to = platform`. Plattformen betaler; eierens beslutning (Board #996) er at slike hjelpekall ikke skal telle i tenantens kallkvote, men vises i bruk og budsjettprognose. Kvoteutelukkelsen gjøres av listen over plattformbetalte bruksarter (`ekko.usage.platform_paid_kinds`, T43-F1), der `factcheck` står sammen med `actions`.
+- Forespørselen har faktaene til svarets merkevare, merkevarenavnet, svarets kilder og svaret (som data, 16). Modellen melder bare påstander om merkevaren selv som berører et faktum: `fact_id`, påstanden kort (`text`), et ordrett sitat fra svaret (`quote`), dommen og kildeadresser. En påstand lagres bare når faktumet er et aktivt faktum for svarets merkevare og sitatet står i svarteksten; ellers forkastes den. Høyst 20 påstander per svar.
+- `source_citation_ids` er de av svarets egne sitater (`citations`) som modellen sier at påstanden bygger på, og settes bare for motsagte påstander. Står det ingen kilde i svaret, er listen tom, og tiltaket sier at kilden ikke er oppgitt i svarene. Sidene hentes ikke på nytt: «markert» betyr at svarets eget sitat er knyttet til den motsagte påstanden.
+- Endres teksten til et faktum, eller slås det av, slettes påstandene som er vurdert mot det. Sletter man et faktum eller merkevaren, slettes påstandene.
+- `FactCorrectionSource` lager ett tiltak per merkevare og faktum (merkevarenivå, `market_id` tom) når minst `ekko.actions.fact_correction.min_responses` (2) ulike svar i vinduet (30 hele lokale dager, bare ferdig uttrukne svar) motsier faktumet. Kilden vurderer ikke en merkevare med færre enn 30 svar i vinduet (11.3). Forventet effekt er antall motsigende svar per måned, med andel 1 (hvert slikt svar sier noe galt om merkevaren).
+- Evidensen har faktumet, antall motsigende og bekreftende svar, eksempler på påstander, kildesidene (adresse, domene, eierskap og antall svar) og `source_kind`. Mest siterte side er kilden i teksten. `own` (sitatets domene er merkevarens) gir «rett egen side», `other` «be utgiveren av siden rette», `unknown` en tekst som ikke gjetter.
+- Fakta endres bare gjennom `BrandFactManager` (høyst 50 per merkevare, 300 tegn, ingen like). Tenant-admin og partner-rådgiver endrer; alle roller leser. Teksten står aldri i revisjonsloggen. Påstandene skrives bare av faktasjekken.
+- Veiviseren foreslår høyst 8 fakta (`facts` i forslaget) fra sidene, uten e-postadresser og telefonnumre. De lagres som aktive fakta først når brukeren bekrefter, og bare for en ny merkevare. **Avvik:** T48 leverer backend (forslag i API-svaret og `facts` i bekreftelsen). Veiviser-UI-et (`Wizard.vue`) hører til T49 og viser ikke fakta ennå; til T49 er gjort, kommer forslagene ikke fram til brukeren.
+- `php artisan ekko:factcheck:eval` kjører vurderingen mot gullsettet (`tests/Fixtures/factcheck/gold.json`) med modellen i konfigurasjonen og viser treffsikkerhet, presisjon og treffrate per dom (ADR 0036).
 
 ---
 
@@ -753,6 +778,7 @@ Veiviseren gjør at en ny merkevare er klar til første kjøring på få minutte
    - 5–10 konkurrenter med domener
    - 5–8 temaer
    - 50 prompts på markedets språk, merket med tema, intensjon og trakttrinn, der 10 er foreslått som kjerneprompts
+   - høyst 8 forslag til fakta om merkevaren som sidene sier rett ut (grunnleggelsesår, kontorer, tjenester, priser), som brukeren må godkjenne (11.6)
 3. **Redigering:** brukeren redigerer, sletter og legger til i forslagene. Ingenting lagres før brukeren bekrefter.
 4. **Motorer og frekvens:** forhåndsvalgt fra pakken, med kostnadsestimat per måned vist før bekreftelse.
 5. **Integrasjoner (valgfritt):** ClickHouse eller loggopplasting, GA4.
@@ -1480,6 +1506,13 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 - Tallene i evidensen kommer fra databasen og er dekket av tester.
 - Samme tiltak gjenkjennes ved neste generering (`fingerprint`) og dupliseres ikke.
 - Eieren har besluttet at agenten som utfører T43, kjører med Opus 5.5 (Board #947). Formuleringsmodellen i produktet er fortsatt Claude Sonnet 5.5. T22 er på plass, så `crawler_access` er aktiv. `fact_correction` kobles på av T48.
+
+### T48 – Faktasjekk: fakta, påstander og vurdering
+`brand_facts` og `claims`, forslag til fakta fra nettsiden i veiviseren, påstandsuttrekk og vurdering i uttrekket (Claude Haiku 5.5) og kobling til kilder etter 11.6. Oppretter `fact_correction`-tiltak via T43.
+- Gullsett med minst 30 påstander (nb og sv) med fasit for `supported` og `contradicted`.
+- Evalueringskommando viser treffsikkerhet.
+
+Fra 11.3 (tiltakstypen dette mater): `fact_correction` utløses av påstander som motsies av merkevarens fakta, f.eks. «Svar på 4 prompts oppgir feil grunnleggelsesår. Kilden er side Y.» Slike tiltak rangeres alltid øverst innenfor sin merkevare.
 
 ### T44 – Tiltak: grensesnitt og rapportseksjon
 Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning med evidens, konkurrentevidens, berørte prompts og steg som kan hukes av, samt egne tiltak. Status endres fra listen og detaljen. Rapportseksjonen i 11.3 (3–5 åpne, pluss fullførte i perioden med utvikling i synlighet) ligger i PDF-en og på nettversjonen av rapporten, som komponenten `ReportSection` så U13 kan gjenbruke den. Nettversjonen viser seksjonen som ble lagret da PDF-en ble skrevet (`reports.action_section`), så en senere endring av tiltakene ikke skriver om en gammel rapport.

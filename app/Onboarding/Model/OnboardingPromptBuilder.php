@@ -48,6 +48,7 @@ Rules for the output:
 - competitors: between 5 and {$max['max_competitors']} real competitors in this market, each with its own primary domain written as a bare host name such as example.no. Only companies you are confident exist. Never the brand itself.
 - topics: between 5 and {$max['max_topics']} topics that cover what customers ask about. name is written in the market language. cross_market_key is a stable identifier in English lowercase letters, digits and underscores, so the same topic in another market gets the same key.
 - prompts: {$max['max_prompts']} prompts. Each belongs to one topic through cross_market_key, which must be one of the keys in topics. Exactly {$max['max_core_prompts']} of them have is_core true.
+- facts: up to {$max['max_facts']} short, checkable facts about the brand that the pages state plainly, such as the year it was founded, where its offices or shops are, which services or products it offers, or what they cost. One fact per entry, written as a complete sentence in the market language. Only what the pages say: never guess, never add facts from memory, no email addresses or phone numbers. An empty list when the pages state nothing checkable.
 
 {$this->promptRules()}
 PROMPT;

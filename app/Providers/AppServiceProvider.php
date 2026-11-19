@@ -12,6 +12,8 @@ use App\Engines\GcsRawResponseStore;
 use App\Engines\RawResponseStore;
 use App\Extraction\AnthropicExtractionClient;
 use App\Extraction\ExtractionClient;
+use App\FactCheck\Judge\AnthropicFactJudge;
+use App\FactCheck\Judge\FactJudge;
 use App\Logging\LogContext;
 use App\Mcp\McpTokens;
 use App\Onboarding\Analysis;
@@ -68,6 +70,7 @@ class AppServiceProvider extends ServiceProvider
         // The wizard (ADR 0018): the model client is resolved lazily for the same reason.
         $this->app->bind(OnboardingModelClient::class, fn (): OnboardingModelClient => AnthropicOnboardingClient::fromConfig());
         $this->app->bind(ActionWriter::class, fn (): ActionWriter => AnthropicActionWriter::fromConfig());
+        $this->app->bind(FactJudge::class, fn (): FactJudge => AnthropicFactJudge::fromConfig());
         $this->app->bind(HostResolver::class, DnsHostResolver::class);
         $this->app->bind(PageTransport::class, HttpPageTransport::class);
         // Durable work (ADR 0032): scoped, so the per-instance wake-up deduplication ends with each job or request.

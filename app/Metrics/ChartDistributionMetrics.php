@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Additional distribution metrics used by the charts in U03 (ADR 0036).
+ * Additional distribution metrics used by the charts in U03 (ADR 0037).
  * Each query checks completeness in the same database snapshot as its values.
  */
 trait ChartDistributionMetrics

@@ -67,10 +67,19 @@ return [
             'title' => 'Rett feil opplysning: :fact',
             'description' => 'AI-svar oppgir en opplysning som strider mot det dere har registrert som fakta. Kilden bør rettes, slik at svarene blir riktige.',
             'steps' => [
-                'Finn siden svaret bygger på: :source.',
-                'Rett siden hvis den er deres egen, eller be utgiveren rette den.',
+                ':find',
+                ':fix',
             ],
         ],
+    ],
+    // Parts of the fact_correction texts that depend on where the wrong claim comes from (FactCorrectionSource).
+    'fact' => [
+        'find_known' => 'Finn siden svaret bygger på: :source.',
+        'find_unknown' => 'Finn hvilken side svarene bygger på, for eksempel ved å søke etter påstanden i svarene.',
+        'fix_own' => 'Rett deres egen side, slik at opplysningen stemmer.',
+        'fix_other' => 'Be utgiveren av siden rette opplysningen.',
+        'fix_unknown' => 'Rett siden hvis den er deres egen, ellers be utgiveren rette den.',
+        'source_unknown' => 'ikke oppgitt i svarene',
     ],
     'evidence' => [
         'source_gap' => ':domain ble sitert i :gap_responses svar der konkurrenter ble nevnt og dere ikke, de siste :days dagene. :competitor ble nevnt i :competitor_answers av dem.',

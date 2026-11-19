@@ -1,4 +1,4 @@
-# 0036 – Fordelinger i dagsaggregatene for grafdata
+# 0037 – Fordelinger i dagsaggregatene for grafdata
 
 - **Status:** Foreslått
 - **Dato:** 2026-11-19
