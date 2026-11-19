@@ -72,3 +72,25 @@ export function splitLowSample(points) {
 
     return { solid, dashed, lows, hasLow: lows.some(Boolean) };
 }
+
+/**
+ * The payload of the `select` event, the same shape in every chart type (docs/ui-forbedring.md 5):
+ * `{ key }` is the key of what was clicked (row, bar, tile or panel), as the page passed it in.
+ * A chart with a second dimension adds it: `column` (heatmap) or `category` (small multiples,
+ * the bucket date of the clicked point). Context fields without a value are left out.
+ * Aliases kept for pages written against the first version are passed in `context` as well.
+ *
+ * @param {string} key
+ * @param {Record<string, unknown>} [context]
+ * @returns {{ key: string } & Record<string, unknown>}
+ */
+export function selection(key, context = {}) {
+    const payload = { key };
+    for (const [name, value] of Object.entries(context)) {
+        if (value !== undefined && value !== null) {
+            payload[name] = value;
+        }
+    }
+
+    return payload;
+}

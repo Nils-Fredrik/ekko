@@ -6,7 +6,7 @@ import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
 import { bucketMarkers } from './support/data.js';
-import { axisFormatter, formatChange, formatDate, formatValue, tooltipHtml } from './support/format.js';
+import { axisFormatter, formatChange, formatDate, formatValue, isLowSample, tooltipHtml } from './support/format.js';
 import { firstAndLast, lineSeries, pointRows, timeTable } from './support/lines.js';
 import { markerNotes, markerSeries } from './support/markers.js';
 import { seriesColor } from './support/palette.js';
@@ -117,7 +117,7 @@ function tooltip(palette, params) {
             color: palette.own,
             value: point?.value ?? null,
             n: point?.n,
-            lowSample: point?.low_sample === true,
+            lowSample: isLowSample(point),
             kind: props.kind,
         });
     }

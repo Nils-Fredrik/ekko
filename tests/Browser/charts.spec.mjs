@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { test, expect } from '@playwright/test';
 
 // U02: the chart library loads only on pages with charts, and a theme switch repaints
-// the charts without a reload (docs/ui-forbedring.md 5 and 9).
+// the charts without a reload (docs/ui-forbedring.md 5).
 
 const manifest = JSON.parse(readFileSync('public/build/manifest.json', 'utf8'));
 const chartChunk = manifest['resources/js/Components/Charts/support/echarts.js']?.file;
@@ -122,5 +122,60 @@ test('charts have a description, a table view and click events', async () => {
     });
     expect(cell, `heatmap cells inside ${JSON.stringify(box)}`).not.toBeNull();
     await page.mouse.click(cell.x, cell.y);
-    await expect(page.getByTestId('chart-selected')).toContainText('p1 · chatgpt_ui');
+    await expect(page.getByTestId('chart-selected')).toContainText('{"key":"p1","column":"chatgpt_ui","row":"p1"}');
+});
+
+test('select gives { key } in every chart type', async () => {
+    await page.goto('/dev/charts');
+    const sources = page.getByTestId('example-sources');
+    await sources.scrollIntoViewIfNeeded();
+    await expect(sources.locator('figure[data-chart-ready="true"]')).toBeVisible();
+    // The first bar: the highest of the bar-sized shapes, sorted from the top.
+    const bar = await sources.locator('[role="img"] svg path').evaluateAll((paths) => {
+        const bars = paths
+            .map((path) => path.getBoundingClientRect())
+            .filter((rect) => rect.width > 20 && rect.height > 6 && rect.height <= 20);
+        bars.sort((a, b) => a.top - b.top);
+
+        return bars[0] ? { x: bars[0].left + bars[0].width / 2, y: bars[0].top + bars[0].height / 2 } : null;
+    });
+    expect(bar).not.toBeNull();
+    await page.mouse.click(bar.x, bar.y);
+    await expect(page.getByTestId('chart-selected')).toContainText('{"key":"d1"}');
+});
+
+test('names with braces are drawn as written, not as label templates or rich text', async () => {
+    const special = 'Brand {a} {b|c} }';
+    await page.goto('/dev/charts');
+    for (const testId of ['example-rank', 'example-heatmap']) {
+        const example = page.getByTestId(testId);
+        await example.scrollIntoViewIfNeeded();
+        await expect(example.locator('figure[data-chart-ready="true"]')).toBeVisible();
+        await expect
+            .poll(() =>
+                example.locator('[role="img"] svg text').evaluateAll((texts) => texts.map((t) => t.textContent)),
+            )
+            .toContain(special);
+    }
+});
+
+test('the previous period says low n in the tooltip when only n is sent', async () => {
+    await page.goto('/dev/charts');
+    const trend = page.getByTestId('example-trend');
+    await expect(trend.locator('figure[data-chart-ready="true"]')).toBeVisible();
+    const box = await trend.locator('[role="img"]').boundingBox();
+    // The previous period has n = 6 every 12th day and no low_sample flag; sweep the plot until
+    // the tooltip shows one of those days.
+    let previousRow = null;
+    for (let x = box.x + 40; x < box.x + box.width - 10 && !previousRow?.includes('low n'); x += 6) {
+        await page.mouse.move(x, box.y + box.height / 2);
+        previousRow = await trend.evaluate((element) => {
+            const rows = [...element.querySelectorAll('div[style*="justify-content"]')];
+            const row = rows.find((candidate) => candidate.firstElementChild?.textContent === 'Previous period');
+
+            return row?.textContent ?? null;
+        });
+    }
+    expect(previousRow).toContain('n 6');
+    expect(previousRow).toContain('low n');
 });
