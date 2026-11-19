@@ -57,16 +57,28 @@ class PollExtractionBatch extends TenantJob
         Log::error('Extraction batch given up.', ['tenant_id' => $this->tenantId, 'user_id' => null, 'run_id' => null, 'extraction_job_id' => $this->extractionJobId, 'error' => $exception::class]);
 
         app(TenantContext::class)->run($this->tenantId, fn () => app(TenantRls::class)->run([$this->tenantId], function (): void {
-            $job = ExtractionJob::query()->find($this->extractionJobId);
-            if ($job === null || $job->status !== 'submitted') {
-                return;
+            $job = ExtractionJob::query()->lockForUpdate()->find($this->extractionJobId);
+            if ($job !== null) {
+                self::giveUp($job);
             }
-
-            $writer = app(ExtractionWriter::class);
-            Response::query()->whereIn('id', $job->response_ids)->whereHas('run', fn ($query) => $query->where('status', 'collected'))
-                ->each(fn (Response $response) => $writer->abandon($response));
-            $job->update(['status' => 'failed', 'completed_at' => CarbonImmutable::now('UTC')]);
         }));
+    }
+
+    /**
+     * Gives a submitted batch up (docs/spec.md 8.2): its answers keep their deterministic results and are flagged
+     * llm_failed, and the job is failed. Runs in the job tenant's context and row-level security transaction; also
+     * used by the extraction work handler when a batch never ends (T40-F3). Does nothing for a finished job.
+     */
+    public static function giveUp(ExtractionJob $job): void
+    {
+        if ($job->status !== 'submitted') {
+            return;
+        }
+
+        $writer = app(ExtractionWriter::class);
+        Response::query()->whereIn('id', $job->response_ids)->whereHas('run', fn ($query) => $query->where('status', 'collected'))
+            ->each(fn (Response $response) => $writer->abandon($response));
+        $job->update(['status' => 'failed', 'completed_at' => CarbonImmutable::now('UTC')]);
     }
 
     public function handle(

@@ -2,6 +2,7 @@
 
 // The real client class against canned HTTP responses: no network, no key (the SDK takes a PSR-18 transporter).
 
+use Anthropic\Core\Exceptions\APIStatusException;
 use App\Extraction\AnthropicExtractionClient;
 use App\Extraction\ExtractionNotConfiguredException;
 use App\Extraction\ExtractionRequest;
@@ -113,4 +114,22 @@ it('sends the single retry through the Messages API with the same parameters, no
         ->and($body['model'])->toBe('claude-haiku-5-5')
         ->and($body['output_config']['format']['type'])->toBe('json_schema')
         ->and($body)->not->toHaveKeys(['tool_choice', 'tools']);
+});
+
+it('sends a batch exactly once on a server error or timeout while chaining is on (T40-F3)', function (int $status) {
+    config(['ekko.work.chaining' => true]);
+    $http = new FakeHttpClient(['POST /v1/messages/batches' => [$status, '{"type":"error","error":{"type":"api_error","message":"failure"}}']]);
+
+    expect(fn () => sdkClient($http)->createBatch([new ExtractionRequest('r1', 'system text', 'user one')]))
+        ->toThrow(APIStatusException::class);
+    expect($http->requests)->toHaveCount(1);
+})->with([500, 408, 529]);
+
+it('keeps the SDK retries for a batch while chaining is off', function () {
+    config(['ekko.work.chaining' => false]);
+    $http = new FakeHttpClient(['POST /v1/messages/batches' => [500, '{"type":"error","error":{"type":"api_error","message":"failure"}}']]);
+
+    expect(fn () => sdkClient($http)->createBatch([new ExtractionRequest('r1', 'system text', 'user one')]))
+        ->toThrow(APIStatusException::class);
+    expect(count($http->requests))->toBeGreaterThan(1);
 });

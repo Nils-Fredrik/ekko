@@ -48,7 +48,11 @@ final class WorkProcessor
             return new WorkResult(WorkResult::IDLE);
         }
 
-        $claim = $this->rls->run([$tenantId], fn () => $this->signals->claim($signalId));
+        $claim = $this->rls->run([$tenantId], fn () => $this->signals->lease($signalId));
+        if ($claim === WorkResult::STOPPED) {
+            // This delivery found the lease expired after the stop window and stopped the signal.
+            return new WorkResult(WorkResult::STOPPED);
+        }
         if ($claim === null) {
             $until = $this->rls->run([$tenantId], fn () => $this->signals->busyUntil($signalId));
 

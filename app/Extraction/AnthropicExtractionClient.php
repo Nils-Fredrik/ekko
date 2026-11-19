@@ -7,6 +7,7 @@ use Anthropic\Messages\Batches\MessageBatchErroredResult;
 use Anthropic\Messages\Batches\MessageBatchSucceededResult;
 use Anthropic\Messages\Message;
 use App\AnthropicBudget\Account;
+use App\Work\WorkChain;
 use Psr\Http\Client\ClientInterface;
 
 /**
@@ -39,7 +40,9 @@ final class AnthropicExtractionClient implements ExtractionClient
         $batch = $this->client->messages->batches->create(requests: array_map(
             fn (ExtractionRequest $request): array => ['customID' => $request->customId, 'params' => $this->params($request)],
             $requests,
-        ));
+            // With chaining on, a paid batch is never sent twice: the SDK's own retry after a timeout or server error could
+            // create a second batch, so the failure goes to ExtractionSubmitter, which never submits blindly (T40-F3).
+        ), requestOptions: WorkChain::enabled() ? ['maxRetries' => 0] : null);
 
         return $batch->id;
     }

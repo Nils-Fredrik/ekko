@@ -14,6 +14,7 @@ use App\Usage\MonthlyUsage;
 use App\Usage\PlannedRun;
 use App\Usage\QuotaGuard;
 use App\Usage\RunReservations;
+use App\Work\WorkChain;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use LogicException;
@@ -73,6 +74,7 @@ final class QueuedEngineCollector
                         ]);
                         $this->annotations->store($response, $result);
                         $run->forceFill(['status' => 'collected', 'finished_at' => $at, 'error_code' => null, 'enqueued_at' => null, 'next_poll_at' => null, 'provider_api_key' => null])->save();
+                        app(WorkChain::class)->collected($run);
                     });
 
                     return;
@@ -104,6 +106,7 @@ final class QueuedEngineCollector
                 $planned = new PlannedRun($runId, $run->prompt->priority === 'core', $billing, $price->price_per_call_usd);
                 if (! $this->quota->allows($this->usage->forAdmission($tenant, $at), $planned)) {
                     $run->forceFill(['status' => 'skipped_quota', 'finished_at' => $at, 'enqueued_at' => null, 'provider_api_key' => null])->save();
+                    app(WorkChain::class)->ended($run);
 
                     return null;
                 }

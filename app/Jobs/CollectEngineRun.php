@@ -14,6 +14,7 @@ use App\Models\Team;
 use App\Scheduling\EngineThrottle;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
+use App\Work\WorkChain;
 use RuntimeException;
 use Throwable;
 
@@ -94,12 +95,19 @@ final class CollectEngineRun extends TenantJob
     private function stop(string $errorCode): void
     {
         app(TenantContext::class)->run($this->tenantId, fn () => app(TenantRls::class)->run([$this->tenantId], function () use ($errorCode): void {
-            Run::query()->whereKey($this->runId)->whereIn('status', ['queued', 'running', 'submitted'])->update([
+            $stopped = Run::query()->whereKey($this->runId)->whereIn('status', ['queued', 'running', 'submitted'])->update([
                 'status' => 'failed', 'error_code' => $errorCode, 'finished_at' => now(),
                 'enqueued_at' => null, 'provider_api_key' => null,
                 'quota_reservation_token' => null, 'quota_reserved_at' => null,
                 'quota_reserved_cost_usd' => null, 'quota_reserved_billed_to' => null,
             ]);
+            // A failed run must not hold back the answers of its group (T40-F3).
+            if ($stopped > 0) {
+                $run = Run::query()->find($this->runId);
+                if ($run !== null) {
+                    app(WorkChain::class)->ended($run);
+                }
+            }
         }));
     }
 }

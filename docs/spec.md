@@ -326,7 +326,14 @@ Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-a
 - Gjentatte signaler for samme omfang samles i én rad og øker `version`. En behandler leaser gjeldende versjon og kvitterer bare for den. Signaler som kommer under kjøringen, blir stående.
 - Vekking (`WorkWakeUp`, bare tenant- og signal-ID) publiseres etter commit gjennom `WorkPublisher`. Rollback gir verken behov eller vekking.
 - Leases utløper og kan overtas, og et overtatt token kvitterer ingenting. Feil gis eksponentiell backoff. Etter 24 timer med sammenhengende feil (`ekko.work.stop_after_seconds`) stoppes signalet (`stopped_at`) og varsles som `work_stopped` gjennom helsekontrollen; et nytt signal for samme omfang eller `ekko:work:retry <tenant-id> <signal-id>` starter det igjen. Backoff og utsettelser fra handleren (`deferred`, for eksempel en modellbatch som fortsatt kjører) beholder tidspunktet sitt når nye signaler kommer. `ekko:work:recover` publiserer vekking på nytt for forfalte signaler som ikke er vekket, og for signaler med utløpt lease.
-- Del 1 kobler ingen produsenter og endrer ingen planer. Planene over gjelder uendret til T40-F3 kobler innhenting, uttrekk, aggregering og forbruk til signalene, og T40-F4 innfører målrettet vekking med Cloud Tasks og kjører `ekko:work:recover` som reservekontroll.
+- Del 1 kobler ingen produsenter og endrer ingen planer.
+
+**Kjeding (T40-F3, ADR 0032):** Funksjonsbryteren `ekko.work.chaining` (`EKKO_WORK_CHAINING`, av som standard) kobler produsentene til signalene. Når den er på, registrerer ferdig applikasjonsarbeid neste steg i samme transaksjon som lagringen:
+- **Innhenting → uttrekk:** `EngineCollector` og `QueuedEngineCollector` signalerer `extraction` for svarets innhentingsgruppe (`run_batch:<id>`) når kjøringen blir `collected`. Gruppen er klar med en gang når ingen kjøring i den lenger er `queued`, `running` eller `submitted`, eller når den har en full batch (`ekko.anthropic.extraction.batch_size`) med svar som ikke allerede ligger i en innsendt batch. Ellers venter den høyst `ekko.work.extraction.group_wait_seconds` (standard 600 s) fra første svar, så én treg motor ikke holder resten tilbake. En kjøring som ender uten svar under innsamling (`failed`, eller `skipped_quota` i innsamlerne), signalerer gruppen hvis den da er ferdig og har svar som venter. Kvotestopp ved planlegging (dispatcher og første kjøring i veiviseren) skjer før gruppen har svar og signalerer ikke. Kjøringenes egne statuser er grunnlaget, ikke tellerne på `run_batches`.
+- **Uttrekk:** handleren sender neste batch med samme kode som `SubmitExtractionBatch` (`ExtractionSubmitter`) og signalerer omfanget på nytt når flere svar venter. Statuskontrollen av en innsendt batch er et eget signal (`extraction_job:<id>`). En batch som fortsatt kjører, utsettes med `retryAt` etter batchens alder (dobling) mellom `status_first_seconds` (60 s) og `status_max_seconds` (900 s), pluss jitter. Ingen worker venter, og ingen ny batch sendes for å sjekke status. En ferdig batch legger `PollExtractionBatch` i køen etter commit, og kontrollene stopper. En batch som ikke er ferdig etter 25 timer, gis opp som i `PollExtractionBatch` (8.2).
+- **Uttrekk → aggregering:** `ExtractionWriter::markExtracted` (normal batch, tomt svar og terminal fallback) signalerer `aggregation` for den lokale datoen til `responses.collected_at` i tenantens tidssone, også for sene resultater utenfor `ekko:aggregate` sitt tilbakeblikk. Handleren kjører `DailyAggregator` for datoen, så resultatet er det samme som en full omberegning.
+- **Forbruk:** hver `UsageEvent` (innhenting, uttrekk, veiviser og rapporter) signalerer `usage_rollup` for sin UTC-måned. Handleren kjører `UsageRollup::refreshMonth` for inneværende eller forrige måned, med samme regler og under samme tenantlås som `ekko:usage-rollup`, så forbruk og terskelvarsler ikke telles to ganger.
+- Når bryteren er av, registreres ingenting og flyten er som før (`PollExtractionBatch` poller selv). Planene over (`extraction-poll`, `aggregate`, `usage-rollup`) kjører uendret som reserve også når bryteren er på; alt de gjør, er idempotent mot kjedingen. T40-F4 innfører målrettet vekking med Cloud Tasks, kjører `ekko:work:recover` som reservekontroll og slår av de ordinære planene etter verifisert overgang.
 
 ### 7.2 Kvotekontroll før kjøring
 
@@ -499,6 +506,8 @@ Modellen skal returnere JSON etter dette skjemaet. Skjemaet tvinges med struktur
 - **Ugyldig JSON** gir ett nytt forsøk enkeltvis via vanlig Messages API. Feiler det igjen, beholdes de deterministiske resultatene og responsen markeres `extracted` med flagg `llm_failed`.
 - **Batcher følger tenant-grensen:** en batch inneholder bare svar fra én tenant (ADR 0011). Modellens `list_position` lagres bare for ukjente nevnelser. For kjente er listeposisjonen alltid den deterministiske (ADR 0010).
 - **Tomme svar** sendes ikke til modellen.
+- **Tvetydig innsending (T40-F3):** med `ekko.work.chaining` på sendes en betalt batch aldri på nytt i blinde. SDK-en prøver ikke selv igjen ved batchinnsending, og en innsending som kan ha blitt mottatt (brutt forbindelse, tidsavbrudd, 408 eller 5xx unntatt 529), gir terminal fallback for svarene i batchen: deterministiske resultater beholdes, `llm_failed` settes og `extraction.submit_ambiguous` logges. En avvisning (4xx, eller 529 som betyr at API-et ikke tok imot forespørselen) eller feil før kallet prøves igjen med backoff.
+- **Statuskontroll:** uten kjeding venter `PollExtractionBatch` på batchen ved å legge seg i køen igjen. Med kjeding (7.1) planlegges hver kontroll som et utsatt arbeidssignal, bare for batcher som fortsatt kjører.
 
 Kostnad for uttrekk logges i `usage_events` med `kind = extraction`, regnet ut fra prisene i `config/ekko.php` (`anthropic.extraction`), siden uttrekksmodellen ikke er en motor i `engines`. Batchkall får batchrabatt, enkeltforsøket ikke.
 
@@ -525,7 +534,7 @@ Alle metrikker beregnes for valgfri kombinasjon av merkevare, marked, motor, tem
 | AI-robottreff | Daglige forespørsler fra AI-roboter mot egne domener (fra 10.1) |
 | AI-trafikk | Økter fra AI-tjenester (fra 10.2) |
 
-`ekko:aggregate` bygger `agg_daily` og `agg_source_daily` på nytt for gitt dato. Jobben er idempotent og kan kjøres om igjen for historiske datoer.
+`ekko:aggregate` bygger `agg_daily` og `agg_source_daily` på nytt for gitt dato. Jobben er idempotent og kan kjøres om igjen for historiske datoer. Med `ekko.work.chaining` på (7.1) bygges en dato også på nytt hver gang et svar med `collected_at` på den lokale datoen blir `extracted`, med samme `DailyAggregator`. Normalmålet er oppdatert dashboard innen to minutter etter at uttrekksresultatet er lagret; ventetiden hos modellleverandøren måles separat.
 
 Alle formlene ligger i `App\Metrics\MetricsService`. Varsler, dashboard, PDF, API og MCP kaller den og summerer aldri `agg_daily` selv. Detaljer om hver formel, hva n er for hver metrikk og hvordan stabilitet og kildegap regnes ut står i [ADR 0012](decisions/0012-aggregering-og-metrikker.md).
 
@@ -622,7 +631,7 @@ Tallene er utgangspunkt og kan endres uten kodeendring. Plattformadmin kan overs
 
 ### 12.2 Forbruk
 
-Hvert eksterne kall gir én rad i `usage_events` med kostnad beregnet fra `engine_prices` som var gyldig på tidspunktet. `usage_monthly` oppdateres hver time per UTC-måned. `calls` inkluderer alle kall. `cost_usd` summerer plattformens kostnader, og `byok_cost_usd` summerer kostnad beregnet for kall med egne nøkler.
+Hvert eksterne kall gir én rad i `usage_events` med kostnad beregnet fra `engine_prices` som var gyldig på tidspunktet. `usage_monthly` oppdateres hver time per UTC-måned. Med `ekko.work.chaining` på (7.1) oppdateres måneden også etter hver ny rad i `usage_events`, med samme beregning og varsling. `calls` inkluderer alle kall. `cost_usd` summerer plattformens kostnader, og `byok_cost_usd` summerer kostnad beregnet for kall med egne nøkler.
 
 ### 12.3 Fakturagrunnlag
 
@@ -1373,6 +1382,7 @@ Konsernets tenants (Maksimer AS, Maksimer AB, Mediebruket, Funbit) og én partne
 - Rapporter sendes.
 - Kostnad avviker mindre enn 15 % fra estimatet i veiviseren.
 - Hendelsesstyrt behandling i tre deler: varig registrering av behandlingsbehov (T40-F2, ADR 0032), kjeding av innhenting, uttrekk og dashboardoppdatering (T40-F3) og målrettet vekking med reservekontroll (T40-F4).
+- T40-F3: kjedingen ligger bak `ekko.work.chaining` (av som standard). Produksjonsbevis og overgang leveres i T40-F4.
 
 ### T41 – Kredittstyrt planlegging for Anthropic
 `ekko:anthropic-budget` med prognose, buffer, fordeling av tillegg og redusert modus etter 12.5. Håndtering av svar fra API-et om at kredittene er brukt opp. Visning i `Admin/Usage.vue`.

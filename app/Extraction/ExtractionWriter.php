@@ -12,6 +12,7 @@ use App\Models\Response;
 use App\Models\UsageEvent;
 use App\Tenancy\TenantContext;
 use App\Tenancy\TenantMismatchException;
+use App\Work\WorkChain;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -104,6 +105,9 @@ final class ExtractionWriter
         $this->guardTenant($response);
 
         $response->run()->where('status', 'collected')->update(['status' => 'extracted']);
+        // In the same transaction as the result: the answer's local day is aggregated again (T40-F3). Also when the
+        // run was extracted before, since write() has replaced its mentions and citations.
+        app(WorkChain::class)->extracted($response);
     }
 
     /** One usage event per provider call that was billed (docs/spec.md 12.2). */

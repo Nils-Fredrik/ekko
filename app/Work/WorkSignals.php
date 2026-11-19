@@ -97,6 +97,19 @@ final class WorkSignals
      */
     public function claim(int $signalId): ?WorkClaim
     {
+        $lease = $this->lease($signalId);
+
+        return $lease instanceof WorkClaim ? $lease : null;
+    }
+
+    /**
+     * Like claim(), but tells why there is no claim when this call stopped the signal: a takeover after the stop
+     * window gives WorkResult::STOPPED. Null when there is nothing to lease.
+     *
+     * @return WorkClaim|WorkResult::STOPPED|null
+     */
+    public function lease(int $signalId): WorkClaim|string|null
+    {
         $tenantId = $this->context->require();
         $now = $this->now();
         $expires = $now->addSeconds($this->leaseSeconds());
@@ -125,15 +138,16 @@ final class WorkSignals
             // so a handler that always outlives its lease is not retried silently.
             $context = ['tenant_id' => $tenantId, 'work_signal_id' => $signalId, 'attempts' => (int) $row->attempts - 1];
             if ($row->failing_since !== null && CarbonImmutable::parse($row->failing_since)->lessThanOrEqualTo($this->stopCutoff($now))) {
-                // Every attempt for longer than the stop window outlived its lease: stop instead of trying again.
+                // Every attempt for longer than the stop window outlived its lease: stop instead of trying again. This
+                // takeover is no attempt, so its increment is taken back.
                 $this->connection()->update(<<<'SQL'
                     UPDATE work_signals SET lease_token = NULL, lease_version = NULL, leased_at = NULL, lease_expires_at = NULL,
-                        stopped_at = ?, last_error = 'LeaseExpired', updated_at = ?
+                        attempts = attempts - 1, stopped_at = ?, last_error = 'LeaseExpired', updated_at = ?
                     WHERE id = ? AND tenant_id = ? AND lease_token = ?
                     SQL, [$this->ts($now), $this->ts($now), $signalId, $tenantId, $token]);
                 $this->logStopped($tenantId, $signalId, WorkKind::from($row->kind), $row->scope, (int) $row->attempts - 1, 'LeaseExpired');
 
-                return null;
+                return WorkResult::STOPPED;
             }
             if ((int) $row->attempts - 1 >= (int) config('ekko.work.alert_after_attempts')) {
                 Log::error('Work signal keeps failing: its lease expired again and was taken over.', $context);
