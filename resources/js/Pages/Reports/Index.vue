@@ -4,7 +4,7 @@ import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { useForm } from '@inertiajs/vue3';
+import { Link, useForm } from '@inertiajs/vue3';
 
 const { dateTime } = useDateTime();
 
@@ -180,12 +180,17 @@ function add() {
                         {{ report.brand }} ·
                         {{ $t('app.workspace.period_range', { start: report.period_start, end: report.period_end }) }}
                     </p>
-                    <a v-if="report.downloadable" :href="route('reports.download', report.id)" class="text-sm">
-                        {{ $t('app.workspace.download') }}
-                    </a>
-                    <p v-else class="text-shell-muted">
-                        {{ report.sent_at ? dateTime(report.sent_at) : $t('app.workspace.not_sent') }}
-                    </p>
+                    <span class="flex items-center gap-3">
+                        <Link :href="route('reports.show', report.id)" class="text-sm text-primary no-underline">
+                            {{ $t('app.workspace.view') }}
+                        </Link>
+                        <a v-if="report.downloadable" :href="route('reports.download', report.id)" class="text-sm">
+                            {{ $t('app.workspace.download') }}
+                        </a>
+                        <span v-else class="text-shell-muted">
+                            {{ report.sent_at ? dateTime(report.sent_at) : $t('app.workspace.not_sent') }}
+                        </span>
+                    </span>
                 </article>
             </section>
         </div>
