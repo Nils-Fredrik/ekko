@@ -273,6 +273,39 @@ return [
             // One call may take this long; with ekko.actions.word_seconds the job stays within the worker timeout.
             'timeout_seconds' => 60,
         ],
+
+        /*
+        | Insight text on the dashboards (docs/spec.md 14.2, ADR 0038): Claude Sonnet 5.5 writes one or two sentences
+        | with placeholders for the figures, which code fills in from the database. The model id is configuration
+        | (EKKO_INSIGHT_MODEL). Prices are USD per million tokens; estimated_cost_usd is reserved on the Anthropic
+        | account before each call (ADR 0023).
+        */
+        'insight' => [
+            'model' => env('EKKO_INSIGHT_MODEL', 'claude-sonnet-5-5'),
+            'max_tokens' => 1000,
+            'effort' => 'low',
+            'input_usd_per_mtok' => env('EKKO_INSIGHT_INPUT_USD_PER_MTOK', '2.00'),
+            'output_usd_per_mtok' => env('EKKO_INSIGHT_OUTPUT_USD_PER_MTOK', '10.00'),
+            'estimated_cost_usd' => env('EKKO_INSIGHT_ESTIMATED_COST_USD', '0.02'),
+            'timeout_seconds' => 45,
+        ],
+    ],
+
+    /*
+    | Insight text (docs/spec.md 14.2, ADR 0038). One text per tenant, brand (or the overview), filter combination,
+    | language and tenant-local day; it is never regenerated on a page view. The calls count against the tenant's
+    | quota (kind insight is not in usage.platform_paid_kinds). A failed or refused attempt is tried again after
+    | retry_after_minutes; no more than max_per_tenant_per_day calls are made per tenant and day.
+    */
+    'insights' => [
+        // Off until the pages show the text (U05 and U10 place <InsightLine>): the deferred prop is fetched by
+        // every page view, so enabling it earlier would book calls for a text nobody sees. Set EKKO_INSIGHTS_ENABLED.
+        'enabled' => (bool) env('EKKO_INSIGHTS_ENABLED', false),
+        'max_per_tenant_per_day' => 40,
+        'retry_after_minutes' => 60,
+        // Below this many answers in both periods a change is not described as a finding.
+        'min_n' => 10,
+        'max_movements' => 3,
     ],
 
     /*

@@ -46,3 +46,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0035: ECharts som grafbibliotek](0035-echarts-grafbibliotek.md)
 - [0036: Faktasjekk: påstander i uttrekket, kilder og tiltak](0036-faktasjekk.md)
 - [0037: Fordelinger i dagsaggregatene for grafdata](0037-grafdata-fordelinger.md)
+- [0038: Innsiktstekst på dashboardene](0038-innsiktstekst.md)
