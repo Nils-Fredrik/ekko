@@ -63,7 +63,7 @@ Publiser disse postene hos dagens DNS-leverandør, TTL 300. I Cloudflare skal **
 | `ekko.maksimer.com.` | A | `35.190.63.68` |
 | `_acme-challenge_ekbcfyjihdz4tixc.ekko.maksimer.com.` | CNAME | `f6002ce0-9805-451e-8b30-eece34a2f205.15.authorize.certificatemanager.goog.` |
 
-Sertifikatet venter på DNS. Lastbalansererens backend og forwarding rules kommer ved workload-bootstrap. Lokal, ignorert `production.auto.tfvars` bevarer `enable_https=true`; nye arbeidskopier må bruke eksempelfilen. Google OAuth callback er `https://ekko.maksimer.com/auth/google/callback`. Eierens Web OAuth-klient og hemmelighetsversjon gjenstår før workloads kan opprettes. Se Terraform-README for detaljene, uten å dele hemmeligheter i chatten.
+Sertifikatet venter på DNS. Lastbalansererens backend og forwarding rules kommer ved workload-bootstrap. Lokal, ignorert `production.auto.tfvars` bevarer `enable_https=true`; nye arbeidskopier henter den autoritative kopien med `scripts/terraform-vars.sh pull` (se runbook). Google OAuth callback er `https://ekko.maksimer.com/auth/google/callback`. Eierens Web OAuth-klient og hemmelighetsversjon gjenstår før workloads kan opprettes. Se Terraform-README for detaljene, uten å dele hemmeligheter i chatten.
 
 Før schedules aktiveres må produksjonsmotorer/pakker seedes, eksisterende oppsett gjennomgås og godkjente motorpriser registreres. Gemini må avklares særskilt. Før offentlig trafikk må klient-IP-kjeden verifiseres via både ny lastbalanserer og direkte Cloud Run. Dette må samordnes med T39-F3 / PR #55; dagens lokale tester beviser ikke den virkelige proxykjeden.
 

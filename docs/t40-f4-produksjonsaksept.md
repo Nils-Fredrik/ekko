@@ -12,7 +12,7 @@ Dette er planen for fase B. **Ingenting her er gjennomført.** Hvert trinn kreve
   1. Spørsmål #910 (tvetydig batchinnsending: terminal fallback eller avstemming) gjelder bare når kjedingen er på.
   2. IAM-omfanget i ADR 0033: enqueuer og actAs for `web`, `worker` og `task`, og Cloud Tasks-agenten som serviceAccountUser på `ekko-tasks`.
   3. Tidspunkt for overgangene og for avvikling av de gamle planene.
-- Planlegg alltid fra oppdatert `origin/main`, med gjeldende produksjons-tfvars som `-var-file` (ignorert fil; ingen hemmeligheter):
+- Planlegg alltid fra oppdatert `origin/main`, med gjeldende produksjons-tfvars som `-var-file` (ignorert fil; ingen hemmeligheter). Hent den først med `scripts/terraform-vars.sh pull` (runbook):
 
   ```sh
   cd infra/terraform
