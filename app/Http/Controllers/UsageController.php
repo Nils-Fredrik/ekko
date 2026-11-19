@@ -6,6 +6,7 @@ use App\Dashboard\DashboardLabels;
 use App\Models\Team;
 use App\Models\UsageEvent;
 use App\Usage\MonthlyUsage;
+use App\Usage\PlatformPaidUsage;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -24,7 +25,8 @@ class UsageController extends Controller
         $now = CarbonImmutable::now('UTC');
         $month = $now->startOfMonth();
         $snapshot = $usage->snapshot($tenant, $now);
-        $rows = UsageEvent::query()
+        // The same usage as the totals above: what the platform pays for is not the tenant's (ADR 0034).
+        $rows = PlatformPaidUsage::exclude(UsageEvent::query())
             ->where('occurred_at', '>=', $month)
             ->where('occurred_at', '<', $month->addMonth())
             ->groupBy('engine_key')

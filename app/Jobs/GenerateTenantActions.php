@@ -89,7 +89,7 @@ class GenerateTenantActions extends TenantJob
                 continue;
             }
 
-            $text = $formulator->formulate($this->tenantId, $request);
+            $text = $formulator->formulate($this->tenantId, $actionId, $request);
             if ($text === null) {
                 continue;
             }

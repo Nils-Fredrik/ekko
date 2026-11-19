@@ -28,7 +28,8 @@ final class MonthlyUsage
         }
 
         $month = $at->utc()->startOfMonth();
-        $events = UsageEvent::query()
+        // Usage the platform pays for (actions wording, ADR 0034) does not count against the tenant's limits.
+        $events = PlatformPaidUsage::exclude(UsageEvent::query())
             ->where('occurred_at', '>=', $month)
             ->where('occurred_at', '<', $month->addMonth())
             ->select('calls', 'cost_usd', 'billed_to')
