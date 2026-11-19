@@ -6,7 +6,8 @@
 #   scripts/terraform-vars.sh push   # upload local changes; refused if someone pushed since your pull
 #   scripts/terraform-vars.sh diff   # compare local copy with the authoritative copy
 #
-# The file holds no secrets (runbook: secrets live in Secret Manager only).
+# The file holds no secrets (runbook: secrets live in Secret Manager only). The check in
+# 'push' is a heuristic on variable names only; it cannot see a secret hidden in a value.
 set -euo pipefail
 
 OBJECT="${EKKO_TFVARS_OBJECT:-gs://ekko-514612-tfstate/ekko/production/production.auto.tfvars}"
@@ -25,8 +26,9 @@ case "${1:-}" in
         generation="$(remote_generation)"
         gcloud storage cp --quiet "$OBJECT#$generation" "$tmp"
         if [[ -f "$LOCAL" ]] && ! cmp -s "$tmp" "$LOCAL"; then
-            echo "Local copy differs from the authoritative copy; replacing it. Previous local copy: $LOCAL.local-backup" >&2
-            cp "$LOCAL" "$LOCAL.local-backup"
+            backup="$LOCAL.$(date -u +%Y%m%dT%H%M%SZ).local-backup"
+            cp "$LOCAL" "$backup"
+            echo "Local copy differed from the authoritative copy and was replaced. Previous local copy: $backup" >&2
         fi
         mv "$tmp" "$LOCAL"
         trap - EXIT
@@ -39,12 +41,25 @@ case "${1:-}" in
             echo "Refusing to upload: the lines above look like secrets. Secrets belong in Secret Manager." >&2
             exit 1
         fi
-        # Compare-and-swap: fails if another push happened after this worktree's pull.
-        gcloud storage cp --quiet --if-generation-match="$(cat "$GENERATION")" "$LOCAL" "$OBJECT"
-        remote_generation > "$GENERATION"
-        echo "Pushed generation $(cat "$GENERATION")"
+        # Compare-and-swap: fails if another push happened after this worktree's pull. The new
+        # generation is taken from the upload's own result, never from a later lookup, so a push
+        # from another worktree in between can't be recorded as ours.
+        created="$(gcloud storage cp --quiet --print-created-message --if-generation-match="$(cat "$GENERATION")" "$LOCAL" "$OBJECT" 2>&1)" || {
+            echo "$created" >&2
+            echo "Upload refused. If the precondition failed, someone pushed after your pull: run '$0 pull' and redo your change." >&2
+            exit 1
+        }
+        generation="$(sed -n "s|^Created: ${OBJECT}#\([0-9][0-9]*\)\$|\1|p" <<<"$created" | tail -n 1)"
+        if [[ -z "$generation" ]]; then
+            rm -f "$GENERATION"
+            echo "Uploaded, but the new generation could not be read. Run '$0 pull' before the next push." >&2
+            exit 1
+        fi
+        echo "$generation" > "$GENERATION"
+        echo "Pushed generation $generation"
         ;;
     diff)
+        [[ -f "$LOCAL" ]] || { echo "No local copy. Run '$0 pull' first." >&2; exit 1; }
         tmp="$(mktemp)"
         trap 'rm -f "$tmp"' EXIT
         gcloud storage cp --quiet "$OBJECT" "$tmp"

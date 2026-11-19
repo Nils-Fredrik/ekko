@@ -50,4 +50,4 @@ __pycache__/
 
 # Authoritative production tfvars bookkeeping (scripts/terraform-vars.sh)
 *.tfvars.generation
-*.tfvars.local-backup
+*.local-backup

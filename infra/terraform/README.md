@@ -50,7 +50,8 @@ ever contain a secret value.
    private and versioned): run `scripts/terraform-vars.sh pull` before every
    plan and `scripts/terraform-vars.sh push` after an approved apply that
    changed a value. Push is refused if someone else pushed since your pull, and
-   if a line looks like a secret. Never plan from an old local copy. Keep
+   if a variable name looks like a secret (a heuristic: it cannot see
+   secrets in values, so keep secrets in Secret Manager only). Never plan from an old local copy. Keep
    `enable_https = true` in every production plan after bootstrap. Run plan/apply
    with workloads disabled first to reserve the IP and request DNS authorization.
    `terraform output -json production_dns_records` gives the exact A and CNAME
