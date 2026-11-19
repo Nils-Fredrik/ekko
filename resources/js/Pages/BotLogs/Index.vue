@@ -39,9 +39,9 @@ function submitUpload() {
         </template>
 
         <div class="mx-auto max-w-3xl space-y-8 px-4 py-12 sm:px-6 lg:px-8">
-            <div class="rounded-2xl border border-line bg-white p-6 text-ink">
+            <div class="rounded-2xl border border-line bg-shell-panel p-6 text-shell-text">
                 <form v-if="enabled && brands.length" class="space-y-4" @submit.prevent="submitUpload">
-                    <p class="text-sm text-ink-soft">{{ $t('bot_logs.instructions') }}</p>
+                    <p class="text-sm text-shell-muted">{{ $t('bot_logs.instructions') }}</p>
                     <div>
                         <InputLabel for="log-brand" :value="$t('bot_logs.brand')" />
                         <select id="log-brand" v-model="brandId" class="mt-1 w-full rounded-md border-line">
@@ -70,10 +70,10 @@ function submitUpload() {
                     </div>
                     <PrimaryButton :disabled="form.processing || !form.log">{{ $t('bot_logs.upload') }}</PrimaryButton>
                 </form>
-                <p v-else class="text-sm text-ink-soft">{{ $t('bot_logs.unavailable') }}</p>
+                <p v-else class="text-sm text-shell-muted">{{ $t('bot_logs.unavailable') }}</p>
             </div>
 
-            <section v-if="uploads.length" class="rounded-2xl border border-line bg-white p-6 text-ink">
+            <section v-if="uploads.length" class="rounded-2xl border border-line bg-shell-panel p-6 text-shell-text">
                 <h2 class="font-medium">{{ $t('bot_logs.recent_uploads') }}</h2>
                 <ul class="mt-4 divide-y divide-line">
                     <li

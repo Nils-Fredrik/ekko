@@ -73,14 +73,14 @@ function render() {
             scales: {
                 x: {
                     grid: { color: token('--color-line-soft') },
-                    ticks: { color: token('--color-ink-soft'), maxTicksLimit: 6 },
+                    ticks: { color: token('--color-shell-muted'), maxTicksLimit: 6 },
                 },
                 y: {
                     min: 0,
                     max: 1,
                     grid: { color: token('--color-line') },
                     ticks: {
-                        color: token('--color-ink-soft'),
+                        color: token('--color-shell-muted'),
                         callback: (value) =>
                             new Intl.NumberFormat(document.documentElement.lang || 'nb', {
                                 style: 'percent',

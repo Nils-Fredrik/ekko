@@ -45,7 +45,7 @@ const change = computed(() => {
 
 const changeClass = computed(() => {
     if (points.value === null || points.value === 0) {
-        return 'text-ink-soft';
+        return 'text-shell-muted';
     }
 
     return points.value > 0 ? 'text-success' : 'text-error';
@@ -54,11 +54,11 @@ const changeClass = computed(() => {
 
 <template>
     <span
-        :class="metric.low_sample ? 'text-ink-soft/50' : 'text-ink'"
+        :class="metric.low_sample ? 'text-shell-muted/50' : 'text-shell-text'"
         :title="metric.low_sample ? $t('app.dashboard.low_sample') : undefined"
     >
         <span class="text-2xl font-medium tracking-tight">{{ text ?? $t('app.dashboard.empty') }}</span>
-        <span class="ms-2 text-xs text-ink-soft">{{ $t('app.dashboard.n', { n: metric.n }) }}</span>
+        <span class="ms-2 text-xs text-shell-muted">{{ $t('app.dashboard.n', { n: metric.n }) }}</span>
         <span v-if="change" class="ms-2 text-xs" :class="changeClass">
             {{ $t('app.dashboard.change_points', { change }) }}
         </span>

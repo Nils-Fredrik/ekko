@@ -26,19 +26,19 @@ const chosen = computed(() => (props.tenants ?? []).find((t) => t.id === tenant.
     <Head :title="$t('mcp.authorize.title')" />
 
     <div class="flex min-h-screen flex-col items-center justify-center bg-shell px-4 py-10">
-        <div class="w-full max-w-md rounded-2xl border border-line bg-white p-6 text-ink">
+        <div class="w-full max-w-md rounded-2xl border border-line bg-shell-panel p-6 text-shell-text">
             <template v-if="error">
                 <h1 class="text-xl font-medium tracking-tight">{{ $t('mcp.authorize.error_title') }}</h1>
-                <p class="mt-3 text-sm text-ink-soft">{{ error }}</p>
+                <p class="mt-3 text-sm text-shell-muted">{{ error }}</p>
             </template>
 
             <template v-else>
                 <h1 class="text-xl font-medium tracking-tight">{{ $t('mcp.authorize.heading', { client }) }}</h1>
-                <p class="mt-3 text-sm text-ink-soft">{{ $t('mcp.authorize.intro') }}</p>
-                <p class="mt-2 text-xs text-ink-soft">
+                <p class="mt-3 text-sm text-shell-muted">{{ $t('mcp.authorize.intro') }}</p>
+                <p class="mt-2 text-xs text-shell-muted">
                     {{ loopback ? $t('mcp.authorize.loopback') : $t('mcp.authorize.host', { host }) }}
                 </p>
-                <p class="mt-2 text-xs text-ink-soft">
+                <p class="mt-2 text-xs text-shell-muted">
                     {{ $t('mcp.authorize.signed_in_as', { name: user.name, email: user.email }) }}
                 </p>
 
@@ -54,7 +54,7 @@ const chosen = computed(() => (props.tenants ?? []).find((t) => t.id === tenant.
                             </option>
                         </select>
                     </label>
-                    <p v-if="chosen && chosen.clients > 0" class="text-xs text-ink-soft">
+                    <p v-if="chosen && chosen.clients > 0" class="text-xs text-shell-muted">
                         {{ $t('mcp.authorize.tenant_clients', { count: chosen.clients }) }}
                     </p>
 
@@ -64,14 +64,14 @@ const chosen = computed(() => (props.tenants ?? []).find((t) => t.id === tenant.
                             <input v-model="allowWrite" type="radio" :value="false" class="mt-1" />
                             <span>
                                 {{ $t('mcp.authorize.read') }}
-                                <span class="block text-xs text-ink-soft">{{ $t('mcp.authorize.read_help') }}</span>
+                                <span class="block text-xs text-shell-muted">{{ $t('mcp.authorize.read_help') }}</span>
                             </span>
                         </label>
                         <label class="mt-2 flex items-start gap-2 text-sm">
                             <input v-model="allowWrite" type="radio" :value="true" class="mt-1" />
                             <span>
                                 {{ $t('mcp.authorize.write') }}
-                                <span class="block text-xs text-ink-soft">{{ $t('mcp.authorize.write_help') }}</span>
+                                <span class="block text-xs text-shell-muted">{{ $t('mcp.authorize.write_help') }}</span>
                             </span>
                         </label>
                         <input type="hidden" name="allow_write" :value="allowWrite ? '1' : '0'" />

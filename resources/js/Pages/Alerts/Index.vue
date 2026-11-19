@@ -21,7 +21,7 @@ const form = useForm({
 const receipt = useForm({});
 
 const tenantWide = computed(() => form.type === 'quota' || form.type === 'model_change');
-const field = 'rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
+const field = 'rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 
 function addRule() {
     form.transform((data) => (tenantWide.value ? { ...data, brand_id: null } : data)).post(
@@ -61,7 +61,7 @@ const editable = props.rules.map((rule) => ({
         </template>
 
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
-            <section class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.nav.alerts') }}</h3>
                 <p v-if="alerts.length === 0">{{ $t('app.workspace.no_alerts') }}</p>
                 <article
@@ -71,7 +71,7 @@ const editable = props.rules.map((rule) => ({
                 >
                     <div>
                         <p>{{ $t(`app.alert_types.${alert.type}`) }}</p>
-                        <p class="text-ink-soft">
+                        <p class="text-shell-muted">
                             {{ alert.brand }}
                             <span v-if="alert.subject">· {{ alert.subject }}</span>
                         </p>
@@ -83,7 +83,7 @@ const editable = props.rules.map((rule) => ({
                 </article>
             </section>
 
-            <section class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.rules') }}</h3>
                 <p v-if="editable.length === 0">{{ $t('app.workspace.no_rules') }}</p>
                 <form
@@ -115,7 +115,7 @@ const editable = props.rules.map((rule) => ({
                     <select v-if="!tenantWide" v-model="form.brand_id" :class="field">
                         <option v-for="brand in brands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
                     </select>
-                    <p v-else class="text-sm text-ink-soft">{{ $t('app.workspace.tenant_wide') }}</p>
+                    <p v-else class="text-sm text-shell-muted">{{ $t('app.workspace.tenant_wide') }}</p>
                     <InputError :message="form.errors.brand_id" />
                     <select v-model="form.type" :class="field">
                         <option value="visibility_drop">{{ $t('app.alert_types.visibility_drop') }}</option>

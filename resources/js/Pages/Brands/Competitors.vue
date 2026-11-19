@@ -53,9 +53,9 @@ function add(suggestion) {
                     :market="filters.market"
                 />
 
-                <section class="rounded-2xl border border-line bg-white p-5 text-ink">
+                <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="text-sm font-medium">{{ $t('app.library.suggestions') }}</h3>
-                    <p v-if="suggestions.length === 0" class="mt-3 text-sm text-ink-soft">
+                    <p v-if="suggestions.length === 0" class="mt-3 text-sm text-shell-muted">
                         {{ $t('app.library.no_suggestions') }}
                     </p>
                     <ul v-else class="mt-3 flex flex-col gap-3">
@@ -66,7 +66,7 @@ function add(suggestion) {
                         >
                             <span>
                                 {{ suggestion.name }}
-                                <span class="text-xs text-ink-soft">
+                                <span class="text-xs text-shell-muted">
                                     {{ $t('app.library.suggestion_count', { count: suggestion.responses }) }}
                                 </span>
                             </span>
@@ -83,12 +83,12 @@ function add(suggestion) {
                     </ul>
                 </section>
 
-                <p v-if="competitors.length === 0" class="text-sm text-ink-soft">
+                <p v-if="competitors.length === 0" class="text-sm text-shell-muted">
                     {{ $t('app.library.no_competitors') }}
                 </p>
-                <div v-else class="overflow-x-auto rounded-2xl border border-line bg-white text-ink">
+                <div v-else class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <table class="w-full text-left text-sm">
-                        <thead class="border-b border-line text-xs text-ink-soft">
+                        <thead class="border-b border-line text-xs text-shell-muted">
                             <tr>
                                 <th class="px-4 py-3 font-medium">{{ $t('app.library.competitors') }}</th>
                                 <th class="px-4 py-3 font-medium">{{ $t('app.library.aliases') }}</th>
@@ -103,9 +103,12 @@ function add(suggestion) {
                                 class="border-b border-line-soft last:border-0 hover:bg-row-hover"
                             >
                                 <td class="px-4 py-3 font-medium">{{ competitor.name }}</td>
-                                <td class="px-4 py-3 text-ink-soft">{{ competitor.aliases.join(', ') }}</td>
-                                <td class="px-4 py-3 text-ink-soft">{{ competitor.domains.join(', ') }}</td>
-                                <td class="px-4 py-3" :class="competitor.is_active ? 'text-success' : 'text-ink-soft'">
+                                <td class="px-4 py-3 text-shell-muted">{{ competitor.aliases.join(', ') }}</td>
+                                <td class="px-4 py-3 text-shell-muted">{{ competitor.domains.join(', ') }}</td>
+                                <td
+                                    class="px-4 py-3"
+                                    :class="competitor.is_active ? 'text-success' : 'text-shell-muted'"
+                                >
                                     {{ competitor.is_active ? $t('app.library.active') : $t('app.library.inactive') }}
                                 </td>
                             </tr>

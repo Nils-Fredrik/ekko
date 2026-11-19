@@ -13,7 +13,7 @@ const props = defineProps({
     clickhouseEndpoints: { type: Array, default: () => [] },
 });
 
-const field = 'rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
+const field = 'rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 const intents = ['category', 'comparison', 'brand', 'problem', 'local'];
 const stages = ['awareness', 'consideration', 'decision'];
 const frequencies = ['daily', 'weekly', 'monthly', 'off'];
@@ -258,7 +258,7 @@ function confirm() {
             </ul>
             <form
                 v-if="step === 'basis'"
-                class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink"
+                class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text"
                 @submit.prevent="start"
             >
                 <p v-if="brand" class="font-medium">{{ brand.name }}</p>
@@ -288,11 +288,17 @@ function confirm() {
                 <PrimaryButton>{{ $t('onboarding.ui.start') }}</PrimaryButton>
             </form>
 
-            <section v-else-if="step === 'wait'" class="rounded-xl border border-line bg-white p-5 text-sm text-ink">
+            <section
+                v-else-if="step === 'wait'"
+                class="rounded-xl border border-line bg-shell-panel p-5 text-sm text-shell-text"
+            >
                 {{ $t('onboarding.ui.waiting') }}
             </section>
 
-            <section v-else-if="step === 'edit'" class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
+            <section
+                v-else-if="step === 'edit'"
+                class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text"
+            >
                 <label v-for="key in basisFields" :key="key" class="block text-sm">
                     {{ $t(`onboarding.ui.${key === 'primary_domain' ? 'domain' : key}`) }}
                     <input
@@ -421,7 +427,7 @@ function confirm() {
 
             <section
                 v-else-if="step === 'engines'"
-                class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink"
+                class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text"
             >
                 <h3 class="font-medium">{{ $t('onboarding.ui.engines') }}</h3>
                 <div
@@ -475,7 +481,7 @@ function confirm() {
                 </div>
             </section>
 
-            <section v-else class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
+            <section v-else class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('onboarding.ui.integrations') }}</h3>
                 <p class="text-sm">{{ $t('onboarding.ui.integrations_later') }}</p>
                 <template v-if="clickhouseEndpoints.length > 0">
@@ -483,7 +489,7 @@ function confirm() {
                         {{ $t('app.workspace.clickhouse_host') }}
                         <select
                             v-model="form.clickhouse_host"
-                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                            class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
                         >
                             <option value="">{{ $t('app.workspace.clickhouse_none') }}</option>
                             <option v-for="endpoint in clickhouseEndpoints" :key="endpoint" :value="endpoint">
@@ -496,7 +502,7 @@ function confirm() {
                         {{ $t('app.workspace.clickhouse_database') }}
                         <input
                             v-model="form.clickhouse_database"
-                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                            class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
                             autocomplete="off"
                         />
                         <InputError :message="form.errors.clickhouse_database" />
@@ -505,7 +511,7 @@ function confirm() {
                         {{ $t('app.workspace.clickhouse_table') }}
                         <input
                             v-model="form.clickhouse_table"
-                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                            class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
                             autocomplete="off"
                         />
                         <InputError :message="form.errors.clickhouse_table" />
@@ -514,7 +520,7 @@ function confirm() {
                         {{ $t('app.workspace.clickhouse_user') }}
                         <input
                             v-model="form.clickhouse_user"
-                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                            class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
                             autocomplete="off"
                         />
                         <InputError :message="form.errors.clickhouse_user" />
@@ -524,7 +530,7 @@ function confirm() {
                         <input
                             v-model="form.clickhouse_password"
                             type="password"
-                            class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                            class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
                             autocomplete="new-password"
                         />
                         <InputError :message="form.errors.clickhouse_password" />
@@ -534,7 +540,7 @@ function confirm() {
                     {{ $t('app.workspace.ga4_property') }}
                     <input
                         v-model="form.ga4_property_id"
-                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
                         autocomplete="off"
                     />
                     <InputError :message="form.errors.ga4_property_id" />
@@ -543,7 +549,7 @@ function confirm() {
                     {{ $t('app.workspace.ga4_email') }}
                     <input
                         v-model="form.ga4_client_email"
-                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
                         autocomplete="off"
                     />
                     <InputError :message="form.errors.ga4_client_email" />
@@ -553,7 +559,7 @@ function confirm() {
                     <textarea
                         v-model="form.ga4_private_key"
                         rows="3"
-                        class="mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm"
+                        class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
                         autocomplete="off"
                     />
                     <InputError :message="form.errors.ga4_private_key" />

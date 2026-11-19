@@ -7,7 +7,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({ engines: Array });
-const field = 'mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
+const field = 'mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 const settings = Object.fromEntries(
     props.engines.map((engine) => [
         engine.key,
@@ -35,15 +35,15 @@ const prices = Object.fromEntries(
         </template>
         <div class="mx-auto max-w-7xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
             <AdminNav />
-            <p class="text-sm text-ink-soft">{{ $t('admin.engines.intro') }}</p>
+            <p class="text-sm text-shell-muted">{{ $t('admin.engines.intro') }}</p>
             <section
                 v-for="engine in engines"
                 :key="engine.key"
-                class="space-y-4 rounded-2xl border border-line bg-white p-6 text-ink"
+                class="space-y-4 rounded-2xl border border-line bg-shell-panel p-6 text-shell-text"
             >
                 <div class="flex flex-wrap items-baseline justify-between gap-2">
                     <h3 class="font-medium">{{ engine.key }}</h3>
-                    <p class="text-sm" :class="engine.unhealthy ? 'text-error' : 'text-ink-soft'">
+                    <p class="text-sm" :class="engine.unhealthy ? 'text-error' : 'text-shell-muted'">
                         {{
                             engine.runs === 0
                                 ? $t('admin.engines.no_runs')
@@ -73,11 +73,11 @@ const prices = Object.fromEntries(
                     </PrimaryButton>
                     <InputError v-for="(message, key) in settings[engine.key].errors" :key="key" :message="message" />
                 </form>
-                <p class="text-sm text-ink-soft">
+                <p class="text-sm text-shell-muted">
                     {{ $t('admin.engines.price') }}:
                     {{ engine.price ? engine.price.price_per_call_usd : $t('admin.engines.no_price') }}
                 </p>
-                <p v-if="engine.scheduled_price" class="text-sm text-ink-soft">
+                <p v-if="engine.scheduled_price" class="text-sm text-shell-muted">
                     {{ $t('admin.engines.scheduled_price') }}:
                     {{ engine.scheduled_price.price_per_call_usd }}
                     ({{ engine.scheduled_price.valid_from }})

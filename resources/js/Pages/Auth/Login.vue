@@ -34,8 +34,8 @@ const submit = () => {
     <div class="flex min-h-screen flex-col items-center justify-center bg-shell px-4">
         <div class="w-full max-w-sm">
             <div class="flex flex-col items-center text-center">
-                <span class="flex h-14 w-14 items-center justify-center rounded-xl bg-white">
-                    <img src="/images/maksimer-m-square.svg" alt="" class="h-8 w-8" />
+                <span class="flex h-14 w-14 items-center justify-center rounded-xl bg-shell-panel">
+                    <img src="/images/maksimer-m-square.svg" alt="" class="logo-mark h-8 w-8" />
                 </span>
                 <h1 class="mt-5 text-[32px] font-medium tracking-tight text-shell-fg">{{ $t('app.name') }}</h1>
                 <p class="mt-1 text-[13px] text-shell-text/50">{{ $t('app.tagline') }}</p>

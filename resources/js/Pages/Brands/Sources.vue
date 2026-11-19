@@ -38,13 +38,13 @@ function rate(row, key) {
                     :engine="filters.engine || ''"
                 />
 
-                <section class="overflow-x-auto rounded-2xl border border-line bg-white text-ink">
+                <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <h3 class="px-4 pt-4 text-sm font-medium">{{ $t('app.library.share') }}</h3>
-                    <p v-if="share.length === 0" class="px-4 py-4 text-sm text-ink-soft">
+                    <p v-if="share.length === 0" class="px-4 py-4 text-sm text-shell-muted">
                         {{ $t('app.library.no_sources') }}
                     </p>
                     <table v-else class="w-full text-left text-sm">
-                        <thead class="border-b border-line text-xs text-ink-soft">
+                        <thead class="border-b border-line text-xs text-shell-muted">
                             <tr>
                                 <th class="px-4 py-3 font-medium">{{ $t('app.library.domain') }}</th>
                                 <th class="px-4 py-3 text-right font-medium">{{ $t('app.library.citations') }}</th>
@@ -63,13 +63,13 @@ function rate(row, key) {
                     </table>
                 </section>
 
-                <section class="overflow-x-auto rounded-2xl border border-line bg-white text-ink">
+                <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <h3 class="px-4 pt-4 text-sm font-medium">{{ $t('app.library.gap') }}</h3>
-                    <p v-if="gap.length === 0" class="px-4 py-4 text-sm text-ink-soft">
+                    <p v-if="gap.length === 0" class="px-4 py-4 text-sm text-shell-muted">
                         {{ $t('app.library.no_gap') }}
                     </p>
                     <table v-else class="w-full text-left text-sm">
-                        <thead class="border-b border-line text-xs text-ink-soft">
+                        <thead class="border-b border-line text-xs text-shell-muted">
                             <tr>
                                 <th class="px-4 py-3 font-medium">{{ $t('app.library.domain') }}</th>
                                 <th class="px-4 py-3 text-right font-medium">{{ $t('app.library.gap') }}</th>

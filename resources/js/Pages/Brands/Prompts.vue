@@ -122,10 +122,10 @@ function importCsv(event) {
                     {{ $t('app.library.personal_data') }}
                 </p>
 
-                <p v-if="prompts.length === 0" class="text-sm text-ink-soft">{{ $t('app.library.no_prompts') }}</p>
-                <div v-else class="overflow-x-auto rounded-2xl border border-line bg-white text-ink">
+                <p v-if="prompts.length === 0" class="text-sm text-shell-muted">{{ $t('app.library.no_prompts') }}</p>
+                <div v-else class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <table class="w-full text-left text-sm">
-                        <thead class="border-b border-line text-xs text-ink-soft">
+                        <thead class="border-b border-line text-xs text-shell-muted">
                             <tr>
                                 <th class="px-4 py-3 font-medium">{{ $t('app.library.text') }}</th>
                                 <th class="px-4 py-3 font-medium">{{ $t('app.dashboard.market') }}</th>
@@ -194,11 +194,11 @@ function importCsv(event) {
                                     <div v-else>
                                         <Link
                                             :href="route('brands.prompts.show', [brand.id, prompt.id])"
-                                            class="font-medium text-ink no-underline"
+                                            class="font-medium text-shell-text no-underline"
                                         >
                                             {{ prompt.text }}
                                         </Link>
-                                        <p class="mt-1 text-xs text-ink-soft">
+                                        <p class="mt-1 text-xs text-shell-muted">
                                             {{ prompt.intent_label }} · {{ prompt.funnel }} ·
                                             {{ prompt.priority_label }}
                                         </p>
@@ -212,7 +212,7 @@ function importCsv(event) {
                                         </button>
                                     </div>
                                 </td>
-                                <td class="px-4 py-3 text-ink-soft">{{ prompt.market }}</td>
+                                <td class="px-4 py-3 text-shell-muted">{{ prompt.market }}</td>
                                 <td class="px-4 py-3 text-right tabular-nums">
                                     <MetricValue :metric="prompt.visibility" />
                                 </td>
@@ -234,12 +234,12 @@ function importCsv(event) {
                                         v-if="canManage"
                                         type="button"
                                         class="text-sm"
-                                        :class="prompt.is_active ? 'text-success' : 'text-ink-soft'"
+                                        :class="prompt.is_active ? 'text-success' : 'text-shell-muted'"
                                         @click="toggle(prompt)"
                                     >
                                         {{ prompt.is_active ? $t('app.library.active') : $t('app.library.inactive') }}
                                     </button>
-                                    <span v-else :class="prompt.is_active ? 'text-success' : 'text-ink-soft'">
+                                    <span v-else :class="prompt.is_active ? 'text-success' : 'text-shell-muted'">
                                         {{ prompt.is_active ? $t('app.library.active') : $t('app.library.inactive') }}
                                     </span>
                                     <InputError

@@ -96,7 +96,7 @@ function shareText(share) {
                         {{ $t('app.dashboard.period') }}
                         <select
                             v-model="days"
-                            class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                             @change="apply"
                         >
                             <option v-for="length in lengths" :key="length" :value="length">
@@ -108,7 +108,7 @@ function shareText(share) {
                         {{ $t('app.dashboard.market') }}
                         <select
                             v-model="market"
-                            class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                             @change="apply"
                         >
                             <option value="">{{ $t('app.dashboard.all_markets') }}</option>
@@ -121,7 +121,7 @@ function shareText(share) {
                         {{ $t('app.dashboard.engine') }}
                         <select
                             v-model="engine"
-                            class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                             @change="apply"
                         >
                             <option value="">{{ $t('app.dashboard.all_engines') }}</option>
@@ -134,7 +134,7 @@ function shareText(share) {
                         {{ $t('app.dashboard.topic') }}
                         <select
                             v-model="topic"
-                            class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                             @change="apply"
                         >
                             <option value="">{{ $t('app.dashboard.all_topics') }}</option>
@@ -147,7 +147,7 @@ function shareText(share) {
                         {{ $t('app.dashboard.intent') }}
                         <select
                             v-model="intent"
-                            class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                             @change="apply"
                         >
                             <option value="">{{ $t('app.dashboard.all_intents') }}</option>
@@ -160,7 +160,7 @@ function shareText(share) {
 
                 <button
                     type="button"
-                    class="rounded-lg border border-line bg-white px-4 py-2 text-sm text-ink sm:hidden"
+                    class="rounded-lg border border-line bg-shell-panel px-4 py-2 text-sm text-shell-text sm:hidden"
                     @click="filtersOpen = true"
                 >
                     {{ $t('app.dashboard.open_filters') }}
@@ -170,30 +170,30 @@ function shareText(share) {
                     <div
                         v-for="[key, label, kind] in cards"
                         :key="key"
-                        class="rounded-2xl border border-line bg-white p-4"
+                        class="rounded-2xl border border-line bg-shell-panel p-4"
                     >
-                        <p class="text-xs text-ink-soft">{{ $t(`app.dashboard.${label}`) }}</p>
+                        <p class="text-xs text-shell-muted">{{ $t(`app.dashboard.${label}`) }}</p>
                         <MetricValue class="mt-2 block" :metric="summary[key]" :kind="kind" :previous="previous[key]" />
                     </div>
                 </section>
 
-                <section class="rounded-2xl border border-line bg-white p-5 text-ink">
+                <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="text-sm font-medium">{{ $t('app.dashboard.trend') }}</h3>
-                    <p v-if="series.length === 0" class="mt-4 text-sm text-ink-soft">
+                    <p v-if="series.length === 0" class="mt-4 text-sm text-shell-muted">
                         {{ $t('app.dashboard.no_trend') }}
                     </p>
                     <TrendChart v-else class="mt-4" :points="series" />
                 </section>
 
                 <section class="grid gap-4 lg:grid-cols-2">
-                    <div class="rounded-2xl border border-line bg-white p-5 text-ink">
+                    <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                         <h3 class="text-sm font-medium">{{ $t('app.dashboard.voice') }}</h3>
-                        <p v-if="voice.every((part) => !part.mentions)" class="mt-4 text-sm text-ink-soft">
+                        <p v-if="voice.every((part) => !part.mentions)" class="mt-4 text-sm text-shell-muted">
                             {{ $t('app.dashboard.no_voice') }}
                         </p>
                         <template v-else>
                             <VoiceChart class="mt-4" :parts="voice" />
-                            <ul class="mt-3 flex flex-col gap-1 text-xs text-ink-soft">
+                            <ul class="mt-3 flex flex-col gap-1 text-xs text-shell-muted">
                                 <li v-for="part in voice" :key="part.id" :class="part.low_sample ? 'opacity-40' : ''">
                                     {{ part.name }} · {{ shareText(part.share) ?? $t('app.dashboard.empty') }} ·
                                     {{ $t('app.dashboard.n', { n: part.n }) }}
@@ -201,9 +201,9 @@ function shareText(share) {
                             </ul>
                         </template>
                     </div>
-                    <div class="rounded-2xl border border-line bg-white p-5 text-ink">
+                    <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                         <h3 class="text-sm font-medium">{{ $t('app.dashboard.engines') }}</h3>
-                        <p v-if="engines.length === 0" class="mt-4 text-sm text-ink-soft">
+                        <p v-if="engines.length === 0" class="mt-4 text-sm text-shell-muted">
                             {{ $t('app.dashboard.no_engines') }}
                         </p>
                         <ul v-else class="mt-4 flex flex-col gap-3">
@@ -215,9 +215,9 @@ function shareText(share) {
                     </div>
                 </section>
 
-                <section class="rounded-2xl border border-line bg-white p-5 text-ink">
+                <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="text-sm font-medium">{{ $t('app.dashboard.model_changes') }}</h3>
-                    <p v-if="modelChanges.length === 0" class="mt-3 text-sm text-ink-soft">
+                    <p v-if="modelChanges.length === 0" class="mt-3 text-sm text-shell-muted">
                         {{ $t('app.dashboard.no_model_changes') }}
                     </p>
                     <ul v-else class="mt-3 flex flex-col gap-2 text-sm">
@@ -229,7 +229,7 @@ function shareText(share) {
                                     to_model: change.to_model,
                                 })
                             }}
-                            <span class="block text-xs text-ink-soft">{{ when(change.changed_on) }}</span>
+                            <span class="block text-xs text-shell-muted">{{ when(change.changed_on) }}</span>
                         </li>
                     </ul>
                 </section>
@@ -238,42 +238,57 @@ function shareText(share) {
 
         <BottomSheet :show="filtersOpen" :title="$t('app.dashboard.filters')" @close="filtersOpen = false">
             <div class="flex flex-col gap-3 py-2">
-                <label class="flex flex-col gap-1 text-xs text-ink-soft">
+                <label class="flex flex-col gap-1 text-xs text-shell-muted">
                     {{ $t('app.dashboard.period') }}
-                    <select v-model="days" class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink">
+                    <select
+                        v-model="days"
+                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
+                    >
                         <option v-for="length in lengths" :key="length" :value="length">
                             {{ $t('app.dashboard.period_days', { days: length }) }}
                         </option>
                     </select>
                 </label>
-                <label class="flex flex-col gap-1 text-xs text-ink-soft">
+                <label class="flex flex-col gap-1 text-xs text-shell-muted">
                     {{ $t('app.dashboard.market') }}
-                    <select v-model="market" class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink">
+                    <select
+                        v-model="market"
+                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
+                    >
                         <option value="">{{ $t('app.dashboard.all_markets') }}</option>
                         <option v-for="item in options.markets" :key="item.id" :value="item.id">
                             {{ item.label }}
                         </option>
                     </select>
                 </label>
-                <label class="flex flex-col gap-1 text-xs text-ink-soft">
+                <label class="flex flex-col gap-1 text-xs text-shell-muted">
                     {{ $t('app.dashboard.engine') }}
-                    <select v-model="engine" class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink">
+                    <select
+                        v-model="engine"
+                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
+                    >
                         <option value="">{{ $t('app.dashboard.all_engines') }}</option>
                         <option v-for="item in options.engines" :key="item.key" :value="item.key">
                             {{ item.name }}
                         </option>
                     </select>
                 </label>
-                <label class="flex flex-col gap-1 text-xs text-ink-soft">
+                <label class="flex flex-col gap-1 text-xs text-shell-muted">
                     {{ $t('app.dashboard.topic') }}
-                    <select v-model="topic" class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink">
+                    <select
+                        v-model="topic"
+                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
+                    >
                         <option value="">{{ $t('app.dashboard.all_topics') }}</option>
                         <option v-for="item in options.topics" :key="item.id" :value="item.id">{{ item.name }}</option>
                     </select>
                 </label>
-                <label class="flex flex-col gap-1 text-xs text-ink-soft">
+                <label class="flex flex-col gap-1 text-xs text-shell-muted">
                     {{ $t('app.dashboard.intent') }}
-                    <select v-model="intent" class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink">
+                    <select
+                        v-model="intent"
+                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
+                    >
                         <option value="">{{ $t('app.dashboard.all_intents') }}</option>
                         <option v-for="item in options.intents" :key="item.value" :value="item.value">
                             {{ item.label }}

@@ -22,12 +22,12 @@ function usd(value) {
         </template>
         <main class="mx-auto max-w-4xl space-y-6 p-6">
             <AdminNav />
-            <section class="rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('admin.usage.tenants') }}</h3>
-                <p class="mt-1 text-sm text-ink-soft">{{ $t('admin.usage.month', { month }) }}</p>
-                <p v-if="!tenants.length" class="mt-3 text-sm text-ink-soft">{{ $t('admin.usage.empty') }}</p>
+                <p class="mt-1 text-sm text-shell-muted">{{ $t('admin.usage.month', { month }) }}</p>
+                <p v-if="!tenants.length" class="mt-3 text-sm text-shell-muted">{{ $t('admin.usage.empty') }}</p>
                 <table v-else class="mt-3 w-full text-left text-sm">
-                    <thead class="text-xs text-ink-soft">
+                    <thead class="text-xs text-shell-muted">
                         <tr>
                             <th class="p-2">{{ $t('admin.tenants.name') }}</th>
                             <th class="p-2 text-right">{{ $t('admin.usage.calls') }}</th>
@@ -45,9 +45,9 @@ function usd(value) {
                     </tbody>
                 </table>
                 <h3 class="mt-6 font-medium">{{ $t('admin.usage.engines') }}</h3>
-                <p v-if="!engines.length" class="mt-3 text-sm text-ink-soft">{{ $t('admin.usage.no_engines') }}</p>
+                <p v-if="!engines.length" class="mt-3 text-sm text-shell-muted">{{ $t('admin.usage.no_engines') }}</p>
                 <table v-else class="mt-3 w-full text-left text-sm">
-                    <thead class="text-xs text-ink-soft">
+                    <thead class="text-xs text-shell-muted">
                         <tr>
                             <th class="p-2">{{ $t('admin.usage.engine') }}</th>
                             <th class="p-2 text-right">{{ $t('admin.usage.calls') }}</th>
@@ -93,7 +93,7 @@ function usd(value) {
                 </p>
                 <section
                     v-if="anthropic.forecast"
-                    class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink"
+                    class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text"
                 >
                     <p>{{ $t('anthropic_budget.forecast', { amount: usd(anthropic.forecast.forecast_usd) }) }}</p>
                     <p>{{ $t('anthropic_budget.buffer', { amount: usd(anthropic.forecast.buffer_usd) }) }}</p>

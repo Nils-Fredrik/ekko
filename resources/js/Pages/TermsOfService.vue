@@ -18,7 +18,7 @@ defineProps({
                 </div>
 
                 <div
-                    class="prose mt-6 w-full overflow-hidden rounded-2xl border border-line bg-white p-6 text-ink sm:max-w-2xl"
+                    class="prose mt-6 w-full overflow-hidden rounded-2xl border border-line bg-shell-panel p-6 text-shell-text sm:max-w-2xl"
                     v-html="terms"
                 />
             </div>

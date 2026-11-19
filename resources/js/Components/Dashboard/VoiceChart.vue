@@ -3,12 +3,13 @@ import { Chart } from 'chart.js/auto';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const palette = [
-    '--color-primary',
-    '--color-dark-beige',
-    '--color-medium-beige',
-    '--color-ink-soft',
-    '--color-accent',
-    '--color-secondary',
+    '--data-own',
+    '--data-cat-1',
+    '--data-cat-2',
+    '--data-cat-3',
+    '--data-cat-4',
+    '--data-cat-5',
+    '--data-cat-6',
 ];
 
 const props = defineProps({
@@ -55,7 +56,7 @@ function render() {
                     max: 1,
                     grid: { color: token('--color-line') },
                     ticks: {
-                        color: token('--color-ink-soft'),
+                        color: token('--color-shell-muted'),
                         callback: (value) =>
                             new Intl.NumberFormat(document.documentElement.lang || 'nb', {
                                 style: 'percent',
@@ -63,7 +64,7 @@ function render() {
                             }).format(value),
                     },
                 },
-                y: { grid: { display: false }, ticks: { color: token('--color-ink') } },
+                y: { grid: { display: false }, ticks: { color: token('--color-shell-text') } },
             },
         },
     });

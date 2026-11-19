@@ -77,9 +77,10 @@
 
     --color-ink: #1a1212;
     --color-ink-soft: #4a3a36;
-    --color-line: #e8ded2;
-    --color-line-soft: #f0e6d8;
-    --color-row-hover: #fbf7f1;
+    /* Dark theme is the default. Light theme overrides the line tokens below. */
+    --color-line: #4a3f3a;
+    --color-line-soft: #2e2624;
+    --color-row-hover: #1a1412;
 
     --color-chrome: #0c0a0a;
     --color-panel: #15100f;
@@ -91,7 +92,30 @@
     --color-shell-surface: #0b0909;
     --color-shell-fg: #ffffff;
     --color-shell-text: #f5ede4;
+    --color-shell-muted: #c4b6a8;
     --color-shell-accent: #ffb6c3;
+
+    /* Data colors (docs/ui-forbedring.md 4.2). Same marks in both themes, except the
+       sequential scale, which runs from the shell surface to primary. */
+    --data-own: #e84a38;
+    --data-cat-1: #c45c48;
+    --data-cat-2: #906056;
+    --data-cat-3: #9a6840;
+    --data-cat-4: #a35a68;
+    --data-cat-5: #7d6248;
+    --data-cat-6: #b56a4e;
+    --data-positive: #4a7c59;
+    --data-negative: #a8382f;
+    --data-neutral: #8a7568;
+    --data-marker-model: #a85e2e;
+    --data-marker-action: #c46b7a;
+    --data-seq-0: #0b0909;
+    --data-seq-1: #301411;
+    --data-seq-2: #551f19;
+    --data-seq-3: #7a2a20;
+    --data-seq-4: #9e3428;
+    --data-seq-5: #c33f30;
+    --data-seq-6: #e84a38;
 
     --color-success: #4a7c59;
     --color-warning: #c97b3e;
@@ -125,7 +149,18 @@
     --color-shell-surface: #ffffff;
     --color-shell-fg: #1a1212;
     --color-shell-text: #1a1212;
+    --color-shell-muted: #4a3a36;
     --color-shell-accent: #c73823;
+    --color-line: #e8ded2;
+    --color-line-soft: #f0e6d8;
+    --color-row-hover: #fbf7f1;
+    --data-seq-0: #ffffff;
+    --data-seq-1: #fbe1de;
+    --data-seq-2: #f7c3bd;
+    --data-seq-3: #f4a49c;
+    --data-seq-4: #f0867a;
+    --data-seq-5: #ec6859;
+    --data-seq-6: #e84a38;
     --shell-scheme: light;
 }
 
@@ -159,11 +194,6 @@
         font-variant-numeric: tabular-nums;
     }
 
-    .bg-white,
-    .bg-light-beige {
-        color: var(--color-ink);
-    }
-
     input:where(
             [type='text'],
             [type='email'],
@@ -182,8 +212,8 @@
     textarea {
         border-radius: 0.5rem;
         border-color: var(--color-line);
-        background-color: #fff;
-        color: var(--color-ink);
+        background-color: var(--color-shell-surface);
+        color: var(--color-shell-text);
     }
 
     input:where(
@@ -214,11 +244,16 @@
     }
 
     ::placeholder {
-        color: rgba(74, 58, 54, 0.5);
+        color: color-mix(in srgb, var(--color-shell-muted) 80%, transparent);
     }
 }
 
 @layer components {
+    /* The mark is a black glyph. Invert it on the dark shell so it stays visible. */
+    :root:not([data-theme='light']) img.logo-mark {
+        filter: invert(1);
+    }
+
     .eyebrow {
         font-size: 11.5px;
         letter-spacing: 0.12em;
