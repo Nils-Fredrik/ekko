@@ -22,7 +22,7 @@ use InvalidArgumentException;
  * Message Batch, validation with the single retry, and the assembly of the two stages. The model's own
  * output and the assembled result are then compared with the expected mentions.
  *
- * The gold file is `tests/Fixtures/extraction/gold.json`: a catalog and responses with the expected
+ * The gold file is `database/evals/extraction-gold.json`: a catalog and responses with the expected
  * entities (`entity`, `list_position`, `is_recommended`) and citations (`normalized`, `source_type`).
  */
 final class GoldSetEvaluator

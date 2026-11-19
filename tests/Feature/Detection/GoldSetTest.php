@@ -17,7 +17,7 @@ use App\Tenancy\TenantContext;
 /** @return array{catalog: array<string, mixed>, responses: list<array<string, mixed>>} */
 function goldSet(): array
 {
-    return json_decode((string) file_get_contents(dirname(__DIR__, 2).'/Fixtures/extraction/gold.json'), true, flags: JSON_THROW_ON_ERROR);
+    return json_decode((string) file_get_contents(dirname(__DIR__, 3).'/database/evals/extraction-gold.json'), true, flags: JSON_THROW_ON_ERROR);
 }
 
 /**
