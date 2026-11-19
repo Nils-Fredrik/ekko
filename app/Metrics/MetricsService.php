@@ -640,6 +640,7 @@ final class MetricsService
             ->join('competitors', 'competitors.id', '=', 'mentions.entity_id')
             ->where('mentions.entity_type', 'competitor')
             ->where('competitors.brand_id', $filter->brandId)
+            ->where('competitors.is_active', true)
             ->whereIn('mentions.response_id', $gapIds)
             ->toBase()
             ->selectRaw('competitors.id as competitor_id, competitors.name, count(distinct mentions.response_id) as answers')
