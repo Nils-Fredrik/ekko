@@ -31,6 +31,9 @@ use Throwable;
  */
 final class MetricsService
 {
+    use ChartDistributionMetrics;
+    use ChartTrafficMetrics;
+
     /** Grain names for {@see series()}. */
     public const GRAINS = ['day', 'week', 'month'];
 
@@ -134,6 +137,28 @@ final class MetricsService
     public function sentiment(MetricsFilter $filter): Metric
     {
         return $this->summary($filter)->sentiment;
+    }
+
+    /**
+     * Three independently measured quantities, not a conversion rate: bot requests, answers
+     * citing an owned domain, and AI-referred sessions. Missing traffic observations remain null.
+     *
+     * @return array<string, array{value: int|null, n: int, low_sample: bool}>
+     */
+    public function trafficFunnel(MetricsFilter $filter): array
+    {
+        $bots = $this->botHitsSeries($filter);
+        $traffic = $this->aiTrafficSeries($filter);
+        $row = (array) ($this->totalsQuery($filter)->first() ?? []);
+        $responses = (int) ($row['responses'] ?? 0);
+        $hits = $bots === [] ? null : array_sum(array_column($bots, 'hits'));
+        $sessions = $traffic === [] ? null : array_sum(array_column($traffic, 'sessions'));
+
+        return [
+            'fetched' => ['value' => $hits, 'n' => $hits ?? 0, 'low_sample' => ($hits ?? 0) < Metric::LOW_SAMPLE],
+            'cited' => ['value' => $responses === 0 ? null : (int) ($row['own_cited'] ?? 0), 'n' => $responses, 'low_sample' => $responses < Metric::LOW_SAMPLE],
+            'visits' => ['value' => $sessions, 'n' => $sessions ?? 0, 'low_sample' => ($sessions ?? 0) < Metric::LOW_SAMPLE],
+        ];
     }
 
     /**

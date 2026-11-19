@@ -275,12 +275,14 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Nøkkel | Innhold |
 |---|---|---|
-| `agg_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `prompt_id`, `date` | `responses`, `brand_mentioned`, `brand_recommended`, `sum_position`, `count_position`, `list_responses`, `first_place`, `sum_sentiment`, `count_sentiment`, `own_cited`, `competitor_only_responses`, `competitor_mentions` (jsonb per competitor_id) |
-| `agg_source_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `domain`, `date` | `citations`, `responses_with_domain`, `gap_responses` |
+| `agg_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `prompt_id`, `date` | `responses`, `brand_mentioned`, `brand_recommended`, `sum_position`, `count_position`, `list_responses`, `first_place`, `sum_sentiment`, `count_sentiment`, `own_cited`, `competitor_only_responses`, `competitor_mentions` (jsonb per competitor_id), `sentiment_distribution` (nullable jsonb) |
+| `agg_source_daily` | `tenant_id`, `brand_id`, `market_id`, `engine_key`, `domain`, `date` | `citations`, `responses_with_domain`, `gap_responses`, `citation_distribution` (nullable jsonb) |
 | `bot_hits_daily` | `tenant_id`, `brand_id`, `domain`, `bot`, `date` | `hits`, `unique_paths`, `top_paths` (jsonb) |
 | `ai_referrals_daily` | `tenant_id`, `brand_id`, `source`, `date` | `sessions`, `engaged_sessions`, `conversions` |
 
 Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). De lagres ikke separat. `list_responses`, `first_place`, `count_sentiment`, `competitor_only_responses` og `gap_responses` er lagt til for formlene i kapittel 9 (ADR 0012). Dagen er tenantens lokale dag (`teams.timezone`), og bare svar fra kjøringer med status `extracted` teller.
+
+Sentimentfordeling og kildetype/eierskap lagres separat i dagsaggregatene for grafene (ADR 0036). `NULL` betyr at en historisk rad ikke er omberegnet, ikke at antallet er null. En periode med manglende fordelinger markeres som ufullstendig inntil historikken er kontrollert og kan beregnes fra bevart datagrunnlag.
 
 ### 6.5 Drift og økonomi
 

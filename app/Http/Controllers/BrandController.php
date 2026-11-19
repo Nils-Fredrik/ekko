@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
+use App\Dashboard\GraphCache;
 use App\Metrics\MetricsService;
 use App\Metrics\MetricsSummary;
+use App\Models\Action;
 use App\Models\Brand;
 use App\Models\MarketEngine;
 use App\Models\Prompt;
 use App\Onboarding\Analysis;
 use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -55,13 +58,17 @@ class BrandController extends Controller
             'engine' => ['sometimes', 'nullable', 'string'],
             'topic' => ['sometimes', 'nullable', 'integer'],
             'intent' => ['sometimes', 'nullable', 'string'],
+            'grain' => ['sometimes', Rule::in(MetricsService::GRAINS)],
         ]);
 
         $brand->load(['markets', 'topics', 'competitors']);
         $period = DashboardPeriod::forCurrentTenant((int) ($validated['days'] ?? 28));
         $selection = $this->selection($brand, $validated);
+        $grain = $validated['grain'] ?? 'day';
         $filter = $period->filter($brand->id, ...$selection);
         $previous = $period->filter($brand->id, ...$selection, previous: true);
+        $sparkPeriod = DashboardPeriod::forCurrentTenant(28);
+        $sparkFilter = $sparkPeriod->filter($brand->id, ...$selection);
         $dashboard = $metrics->dashboard($filter);
 
         return Inertia::render('Brands/Show', [
@@ -94,6 +101,24 @@ class BrandController extends Controller
             'voice' => $this->voice($dashboard['voice'], $brand),
             'engines' => $this->engines($dashboard['engines']),
             'modelChanges' => $this->modelChanges($metrics, $period, $selection['engineKeys']),
+            'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
+                'brand.dashboard.'.$grain, $filter, $period->timezone, fn (): array => [
+                    'series' => array_map(fn (array $row): array => [
+                        'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
+                    ], $metrics->series($filter)),
+                    'previous' => array_map(fn (array $row): array => [
+                        'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
+                    ], $metrics->series($previous)),
+                    'sparkline' => array_map(fn (array $row): array => [
+                        'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
+                    ], $metrics->series($sparkFilter)),
+                    'competitors' => $metrics->competitorVisibilitySeries($filter, $grain),
+                    'previous_competitors' => $metrics->competitorVisibilitySeries($previous, $grain),
+                    'engines' => $metrics->visibilityByEngineSeries($filter, $grain),
+                    'sentiment' => $metrics->sentimentDistribution($filter),
+                    'action_markers' => $this->actionMarkers($brand, $period),
+                ],
+            )),
         ]);
     }
 
@@ -220,5 +245,36 @@ class BrandController extends Controller
             'from_model' => $change->from_model,
             'to_model' => $change->to_model,
         ])->all();
+    }
+
+    /**
+     * Actions are brand-level context; their stored timestamps are converted to the tenant's local day.
+     *
+     * @return list<array{key: string, date: string, kind: string, label: string, action_id: int}>
+     */
+    private function actionMarkers(Brand $brand, DashboardPeriod $period): array
+    {
+        $from = CarbonImmutable::parse($period->from, $period->timezone)->startOfDay()->utc();
+        $until = CarbonImmutable::parse($period->to, $period->timezone)->addDay()->startOfDay()->utc();
+        $actions = Action::query()->where('brand_id', $brand->id)
+            ->where(fn ($query) => $query
+                ->where(fn ($q) => $q->where('started_at', '>=', $from)->where('started_at', '<', $until))
+                ->orWhere(fn ($q) => $q->where('completed_at', '>=', $from)->where('completed_at', '<', $until)))
+            ->get(['id', 'title', 'started_at', 'completed_at']);
+        $markers = [];
+        foreach ($actions as $action) {
+            foreach (['started_at', 'completed_at'] as $field) {
+                $when = $action->{$field};
+                if ($when === null || $when->lessThan($from) || ! $when->lessThan($until)) {
+                    continue;
+                }
+                $markers[] = ['key' => 'action:'.$action->id.':'.$field,
+                    'date' => $when->copy()->setTimezone($period->timezone)->toDateString(),
+                    'kind' => 'action', 'label' => $action->title, 'action_id' => $action->id];
+            }
+        }
+        usort($markers, fn (array $a, array $b): int => [$a['date'], $a['key']] <=> [$b['date'], $b['key']]);
+
+        return $markers;
     }
 }

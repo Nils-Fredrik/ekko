@@ -2,6 +2,8 @@
 
 use App\Metrics\ChartTrafficMetrics;
 use App\Metrics\MetricsFilter;
+use App\Metrics\MetricsService;
+use App\Models\AggDaily;
 use App\Models\AiReferralDaily;
 use App\Models\BotHitDaily;
 use App\Models\Brand;
@@ -60,4 +62,26 @@ test('traffic charts respect tenant isolation and reject filters that their tabl
             ->and(fn () => trafficCharts()->aiTrafficSeries($limited))->toThrow(InvalidArgumentException::class);
     }
     expect(fn () => trafficCharts()->botHitsSeries($filter, 'year'))->toThrow(InvalidArgumentException::class);
+});
+
+test('funnel keeps the distinct units and sample sizes without inventing missing traffic', function () {
+    $world = MetricsWorld::create();
+    $filter = new MetricsFilter($world->brand->id, '2026-11-02', '2026-11-02');
+    AggDaily::factory()->create([
+        'market_id' => $world->market->id, 'engine_key' => $world->engine->key,
+        'prompt_id' => $world->p1->id, 'date' => '2026-11-02', 'responses' => 20, 'own_cited' => 4,
+    ]);
+    $metrics = app(MetricsService::class);
+    expect($metrics->trafficFunnel($filter))->toBe([
+        'fetched' => ['value' => null, 'n' => 0, 'low_sample' => true],
+        'cited' => ['value' => 4, 'n' => 20, 'low_sample' => false],
+        'visits' => ['value' => null, 'n' => 0, 'low_sample' => true],
+    ]);
+    BotHitDaily::factory()->create(['brand_id' => $world->brand->id, 'date' => '2026-11-02', 'hits' => 12]);
+    AiReferralDaily::factory()->create(['brand_id' => $world->brand->id, 'date' => '2026-11-02', 'sessions' => 8]);
+    expect($metrics->trafficFunnel($filter))->toBe([
+        'fetched' => ['value' => 12, 'n' => 12, 'low_sample' => false],
+        'cited' => ['value' => 4, 'n' => 20, 'low_sample' => false],
+        'visits' => ['value' => 8, 'n' => 8, 'low_sample' => true],
+    ]);
 });
