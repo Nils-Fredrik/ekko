@@ -32,7 +32,7 @@ resource "google_cloud_scheduler_job" "job" {
   region    = var.region
   schedule  = each.value.schedule
   time_zone = "Europe/Oslo"
-  paused    = !var.enable_schedules
+  paused    = !(var.enable_schedules || (var.enable_dashboard_schedules && contains(["aggregate", "usage_rollup"], each.key)))
   http_target {
     http_method = "POST"
     uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/${google_cloud_run_v2_job.job[each.value.job].name}:run"
@@ -51,7 +51,7 @@ resource "google_cloud_scheduler_job" "tick" {
   region    = var.region
   schedule  = each.value
   time_zone = "Europe/Oslo"
-  paused    = !var.enable_schedules
+  paused    = !(var.enable_schedules || (var.enable_dashboard_schedules && each.key == "extraction-poll"))
   http_target {
     http_method = "POST"
     uri         = "${google_cloud_run_v2_service.web[0].uri}/internal/tick/${each.key}"

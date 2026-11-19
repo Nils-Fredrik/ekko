@@ -29,3 +29,7 @@ Perplexity og DataForSEO fjernes fra runtime-hemmeligheter og IAM-lesetilgang. B
 ## Google OAuth
 
 OAuth-klienten opprettes som Web application utenfor Terraform, med callback `https://ekko.maksimer.com/auth/google/callback`. Terraform tar bare klient-ID og referansen til `ekko-google-oauth-client-secret`; hemmelighetsverdien og versjoner skal aldri inn i state. Microsoft er utsatt og kreves ikke lenger for workload-bootstrap. Invitasjons- og tenantreglene fra T07 gjelder uendret.
+
+## Tillegg 2026-11-18: Gemini aktivert
+
+Eieren meldte at Ekkos bruk av Grounding with Google Search er avklart med Google. `gemini_grounding_approved` er satt til `true` i produksjon, og `gemini_api` er aktivert. Nøkkelen hører til et prosjekt med betalt nivå. Bryteren beholdes, slik at Gemini kan stoppes uten kodeendring.

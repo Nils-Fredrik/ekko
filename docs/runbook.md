@@ -79,6 +79,22 @@ fraværsvarslet regnes som operativt. Kontroller at alle ni innsamlingsplaner
 fortsatt har sin tidligere pause-status. Verifiser også e-postkanalen i Cloud
 Monitoring; mottatt varsel må bekreftes av mottakeren ved en kontrollert test.
 
+### Automatisk behandling av innsamlede svar
+
+`enable_dashboard_schedules=true` i ignorert `production.auto.tfvars` aktiverer tre Scheduler-jobber uavhengig av `enable_schedules`:
+
+- `ekko-extraction-poll`: hvert 15. minutt; vekker den faste poll-dispatcheren, som sender inn uttrekksbatcher, gjenopptar allerede kølagt innsamling og starter worker ved behov.
+- `ekko-aggregate`: hver hele time; oppdaterer dashboardets dagsaggregater fra ferdig analyserte svar.
+- `ekko-usage-rollup`: hver hele time; oppdaterer forbruksoversikten.
+
+Dette krever eierens godkjenning, siden uttrekk bruker leverandørkall. Det aktiverer ikke ny daglig innsamlingsplan, varsler, rapportutsending, integrasjonssynk eller tenantsletting. `enable_schedules=true` aktiverer fortsatt alle de ordinære jobbene. Overvåkingen styres separat.
+
+Kontroller en fersk Terraform-plan før apply. Ved avgrenset aktivering skal bare `paused` endres for de tre jobbene; ingen workloads, IAM, bilder, hemmeligheter eller andre schedules skal endres. Etter apply kontrolleres faktisk Scheduler-status. Kjør `ekko-extraction-poll` manuelt én gang for å behandle eksisterende svar. Når uttrekkene er ferdige, kan `ekko-aggregate` og `ekko-usage-rollup` kjøres manuelt for å kontrollere resultatet uten å vente på neste hele time. Bekreft ferdige uttrekk, aggregert svarvolum og synlige dashboardtall før oppgaven lukkes. En vellykket poll alene er ikke bevis på ferdig uttrekk; leverandørbatchen kan fortsatt arbeide.
+
+For å pause bare disse jobbene må både `enable_dashboard_schedules` og `enable_schedules` være `false`. Pausing stopper fremtidige triggere, ikke jobber som allerede kjører.
+
+**Aktivering 18.11.2026 (task:72):** Eieren godkjente automatisk dashboardbehandling. De tre jobbene ble gjenopptatt med Scheduler-CLI, og Terraform-state ble deretter oppdatert med en kontrollert `refresh-only`-plan uten ressursendringer. Produksjonskonfigurasjonen i aktiveringsarbeidskopien setter `enable_dashboard_schedules=true` og `enable_schedules=false`; samme valg må beholdes ved senere Terraform-kjøringer fra andre arbeidskopier. Planer verifiserte alle tre kombinasjoner: begge av gir ni pausede schedules, bare dashboard-bryteren gir nøyaktig tre aktive, og global bryter gir ni aktive. En separat web-revisjonsdiff ble ikke anvendt. Worker `ekko-worker-dqwl9` fullførte uttrekkene, og `ekko-task-zmxg2` / `ekko-task-prm79` fullførte aggregering og forbruksoppdatering kl. 20:42 UTC. Dashboardets observasjonsvolum ble kontrollert mot ferdig analyserte og aggregerte svar. Kundedata er ikke del av dette driftsbeviset.
+
 ### Backup og gjenoppretting
 
 Øvelsesbevis: [T36 – gjenoppretting](t36-recovery-evidence.md).
