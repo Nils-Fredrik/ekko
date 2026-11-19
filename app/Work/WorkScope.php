@@ -19,6 +19,18 @@ final class WorkScope
         return 'run_batch:'.$runBatchId;
     }
 
+    /** The status check of one submitted model batch (extraction_jobs.id). */
+    public static function extractionJob(int $extractionJobId): string
+    {
+        return 'extraction_job:'.$extractionJobId;
+    }
+
+    /** The id in a scope of the form "<type>:<id>", or null for another shape or type. */
+    public static function id(string $scope, string $type): ?int
+    {
+        return str_starts_with($scope, $type.':') ? (int) substr($scope, strlen($type) + 1) : null;
+    }
+
     /** The tenant-local day of an instant, as aggregation counts it (docs/spec.md 6.4). */
     public static function localDate(DateTimeInterface $instant, string $timezone): string
     {

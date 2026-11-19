@@ -2,7 +2,7 @@
 
 - **Status:** Foreslått
 - **Dato:** 2026-11-19
-- **Board:** `task:73` / T40-F2, med oppfølgingen T40-F2-F1 for stopp etter 24 timer (del 1 av 3 under T40; del 2 er `task:74` / T40-F3, del 3 er `task:75` / T40-F4)
+- **Board:** `task:73` / T40-F2, med oppfølgingen T40-F2-F1 for stopp etter 24 timer (del 1 av 3 under T40), og `task:74` / T40-F3 for kjedingen (del 2, se «Kjeding» under). Del 3 er `task:75` / T40-F4.
 
 ## Kontekst
 
@@ -90,6 +90,38 @@ Del 2 kaller `signal()` i samme transaksjon som lagringen. Det gjelder etter inn
 - Arbeid som ikke kan fullføres, ventes ut med eksponentiell backoff opp til én time og stoppes etter 24 timer. Det blir ingen tett løkke, ingen evig prøving og ingen ny betalt innsending bare for å sjekke status.
 - Del 3 måler Cloud Tasks-forespørsler og Cloud Run-starter mot dagens planer før gamle planer slås av.
 
+## Kjeding (del 2, T40-F3)
+
+### Funksjonsbryter og utrulling
+
+`ekko.work.chaining` (`EKKO_WORK_CHAINING`) er av som standard. Av betyr at ingen produsent registrerer noe og at flyten er som før. På betyr at produsentene under signalerer, og at en innsendt batch kontrolleres gjennom et utsatt signal i stedet for at `PollExtractionBatch` legger seg i køen igjen. Planene `extraction-poll`, `aggregate` og `usage-rollup` kjører uendret som reserve også når bryteren er på. Alt de gjør, er idempotent mot kjedingen: innsending holder en advisory-lås per tenant og hopper over svar som er i en batch, aggregering og forbruk regnes på nytt fra lagrede data, og terskelvarsler opprettes under tenantlåsen bare når terskelen stiger. Utrullingen er: bryteren på i produksjon med planene som reserve, måling i del 3, og deretter avvikling av de ordinære planene i del 3. Tilbakerulling er å slå bryteren av; ventende signaler blir liggende uten skade, og reserveplanene tar arbeidet.
+
+### Produsenter
+
+| Hendelse | Hvor | Signal |
+|---|---|---|
+| Kjøring blir `collected` | `EngineCollector::settle`, `QueuedEngineCollector` | `extraction`, `run_batch:<id>`; med en gang når gruppen er ferdig eller har en full batch, ellers etter `ekko.work.extraction.group_wait_seconds` |
+| Kjøring ender uten svar (`failed`, `skipped_quota`) | `CollectEngineRun::stop`, kvotestopp i begge innsamlerne | `extraction`, `run_batch:<id>` med en gang, hvis gruppen da er ferdig og har svar som venter |
+| Batch sendt inn | `ExtractionSubmitter` | `extraction`, `extraction_job:<id>`, første kontroll etter `status_first_seconds` |
+| Svar blir `extracted` (normal batch, tomt svar, terminal fallback) | `ExtractionWriter::markExtracted` | `aggregation`, lokal dato for `responses.collected_at` i tenantens tidssone |
+| `UsageEvent` opprettet (innhenting, uttrekk, veiviser, rapporter) | `UsageWorkObserver` | `usage_rollup`, UTC-måned for `occurred_at` |
+
+Alle signaler skjer i transaksjonen til lagringen, så rollback gir verken behov eller vekking. Gruppene bruker kjøringenes egne statuser, ikke tellerne på `run_batches`, som bare dispatcheren oppdaterer. Samlingen per gruppe gjør at én vekking dekker mange svar: et ventende signal beholder det tidligste tidspunktet, og et senere signal som gjør gruppen ferdig, flytter tidspunktet fram. `extraction_job:<id>` er et nytt omfang av samme form som `run_batch:<id>`; databasesjekken tillot det fra før.
+
+### Handlere
+
+- `ExtractionWorkHandler`: `run_batch`/`tenant` sender neste batch med `ExtractionSubmitter` (koden fra `SubmitExtractionBatch`, som nå bruker den samme) og signalerer omfanget på nytt når flere svar venter. Signalet treffer den leasede raden, så kvitteringen vekker neste runde. `extraction_job` gjør én statuskontroll: ferdig batch gir `PollExtractionBatch` etter commit, som skriver resultatene som før; batch som kjører gir `retryAt` etter batchens alder, mellom `status_first_seconds` og `status_max_seconds`, pluss `status_jitter_seconds`; ferdig eller oppgitt jobb gir kvittering og ingen flere kontroller; batch eldre enn `status_give_up_hours` (25) gis opp med `PollExtractionBatch::giveUp`, samme terminale fallback som før.
+- `AggregationWorkHandler`: `DailyAggregator::aggregate(dato)`. Samme kode som `ekko:aggregate`, så verdiene er de samme som ved full omberegning.
+- `UsageRollupWorkHandler`: `UsageRollup::refreshMonth(måned)`, som følger reglene til `refresh()`: inneværende måned med pakkens grenser, forrige måned med grensene på raden (eller pakkens hvis raden mangler). Eldre måneder røres ikke.
+
+### Betalte batcher
+
+En betalt batch skal aldri sendes på nytt i blinde. Med bryteren på sendes batchinnsendingen uten SDK-ens egne omforsøk. Feil som betyr at batchen kan ha blitt opprettet (brutt forbindelse, tidsavbrudd, 408, 5xx), gir terminal fallback for svarene i stedet for et nytt forsøk: deterministiske resultater beholdes, `llm_failed` settes, og `extraction.submit_ambiguous` logges med tenant-ID, antall og unntaksklasse. Avvisninger (4xx) og feil før kallet gir vanlig backoff. Statuskontroller bruker bare `retrieve`, aldri en ny innsending. Et krasj etter innsending, men før commit, kan fortsatt gi en ny innsending; det er det samme som i dagens jobb, og leasen (360 s) er lengre enn jobbens tidsgrense (300 s).
+
+### Rettinger fra review av del 1
+
+Når en levering stopper et signal fordi leasen har utløpt gjennom hele stoppvinduet, svarer `WorkProcessor` nå `STOPPED` (før `IDLE`), og `attempts` teller bare de faktiske forsøkene, ikke overtakelsen som stoppet signalet (`WorkSignals::lease`).
+
 ## Leveringsgarantier
 
 - **Minst én gang:** et committet signal blir behandlet, også etter krasj før publisering, feilet publisering, krasj under behandling eller tapt lease, så lenge sveipet kjører. Unntaket er et signal som har feilet i hele stoppvinduet: det stoppes med varsel og venter på nytt signal eller `ekko:work:retry`, men slettes ikke.
@@ -100,7 +132,7 @@ Del 2 kaller `signal()` i samme transaksjon som lagringen. Det gjelder etter inn
 
 ## Konsekvenser
 
-- Ingen produsenter er koblet til i del 1, og ingen planer er endret. Produksjonsløpet er det samme som før.
+- Ingen produsenter er koblet til i del 1, og ingen planer er endret. Del 2 kobler produsentene til bak `ekko.work.chaining`, av som standard, og endrer heller ingen planer.
 - `ProcessWorkSignal` er et nytt, avgrenset unntak fra den ytre RLS-transaksjonen. Det må ikke kopieres til vanlige jobber.
 - Handlerne må bli ferdige innen leasen. Lengre arbeid deles opp eller bruker `retryAt`.
-- Tester: `tests/Feature/Work/WorkSignalsTest.php`, `tests/Feature/TenantIsolation/WorkSignalIsolationTest.php` og `tests/Settlement/WorkSignalCommitTest.php`. Den siste bruker ekte commit og en ekstra databaseforbindelse.
+- Tester: `tests/Feature/Work/WorkSignalsTest.php`, `tests/Feature/TenantIsolation/WorkSignalIsolationTest.php` og `tests/Settlement/WorkSignalCommitTest.php`. Den siste bruker ekte commit og en ekstra databaseforbindelse. Kjedingen testes i `tests/Feature/Work/WorkChainTest.php` med falske motorer og en falsk uttrekksklient, uten betalte kall.

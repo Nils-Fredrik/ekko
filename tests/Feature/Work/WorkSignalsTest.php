@@ -651,6 +651,36 @@ test('a handler that always outlives its lease is stopped after the stop window'
     Log::shouldHaveReceived('error')->withArgs(fn (string $message) => $message === 'work.stopped')->once();
 });
 
+test('the delivery that stops a signal after lease expiries reports STOPPED and counts only the real attempts', function () {
+    Log::spy();
+    config(['ekko.work.stop_after_seconds' => 3600]);
+    ($this->signal)();
+    $id = ($this->row)()->id;
+
+    $taken = 0;
+    while (($this->claim)($id) !== null) {
+        $taken++;
+        $this->travel(361)->seconds();
+        if ($taken === 9) {
+            break;
+        }
+    }
+
+    // The tenth attempt is the last one inside the window; the delivery after it stops the signal.
+    expect(($this->claim)($id))->not->toBeNull();
+    $this->travel(361)->seconds();
+    expect(app(WorkProcessor::class)->process($id)->status)->toBe(WorkResult::STOPPED);
+
+    $row = ($this->row)();
+    expect($row->stopped_at)->not->toBeNull()
+        ->and($row->attempts)->toBe(10)
+        ->and($row->last_error)->toBe('LeaseExpired');
+    Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context = []) => $message === 'work.stopped' && $context['attempts'] === 10)->once();
+
+    // Later deliveries find a stopped signal: nothing to do.
+    expect(app(WorkProcessor::class)->process($id)->status)->toBe(WorkResult::IDLE);
+});
+
 test('a success or a deferral ends the failing streak', function (bool $defer) {
     config(['ekko.work.stop_after_seconds' => 3600]);
     $fail = true;

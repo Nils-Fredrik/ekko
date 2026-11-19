@@ -6,7 +6,8 @@ namespace App\Work;
  * The kinds of event-driven processing work (docs/spec.md 7.1, ADR 0032), each with the scopes it accepts.
  * A scope holds internal identifiers only, never customer data:
  *
- * - extraction: "tenant" (everything collected in the tenant) or "run_batch:<id>" (one collection group)
+ * - extraction: "tenant" (everything collected in the tenant), "run_batch:<id>" (one collection group) or
+ *   "extraction_job:<id>" (the status check of one submitted model batch, T40-F3)
  * - aggregation: a tenant-local day, Y-m-d
  * - usage_rollup: a UTC month, Y-m
  */
@@ -19,7 +20,7 @@ enum WorkKind: string
     public function accepts(string $scope): bool
     {
         return match ($this) {
-            self::Extraction => $scope === WorkScope::TENANT || preg_match('/^run_batch:[1-9][0-9]{0,14}$/', $scope) === 1,
+            self::Extraction => $scope === WorkScope::TENANT || preg_match('/^(run_batch|extraction_job):[1-9][0-9]{0,14}$/', $scope) === 1,
             self::Aggregation => WorkScope::isDate($scope, 'Y-m-d'),
             self::UsageRollup => WorkScope::isDate($scope, 'Y-m'),
         };

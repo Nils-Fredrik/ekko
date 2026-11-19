@@ -14,6 +14,7 @@ use App\Usage\MonthlyUsage;
 use App\Usage\PlannedRun;
 use App\Usage\QuotaGuard;
 use App\Usage\RunReservations;
+use App\Work\WorkChain;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use LogicException;
@@ -148,6 +149,7 @@ final readonly class EngineCollector
                 app(Account::class)->settle('run:'.$run->id.':'.($run->attempts + 1));
             }
             $run->update(['status' => 'skipped_quota', 'finished_at' => $occurredAt]);
+            app(WorkChain::class)->ended($run);
 
             return null;
         }
@@ -225,6 +227,8 @@ final readonly class EngineCollector
             'error_code' => null,
         ]);
         $this->reservations->release($run);
+        // In the same transaction as the answer: its extraction is registered exactly when it commits (T40-F3).
+        app(WorkChain::class)->collected($run);
 
         return new CollectedResponse($response, $result);
     }

@@ -27,6 +27,28 @@ final readonly class UsageRollup
         });
     }
 
+    /**
+     * Rolls up one UTC month, for a usage_rollup work signal (T40-F3). The same rules as refresh(): the current month
+     * with the plan's limits, the previous month with the limits stored on its row. A previous month without a row
+     * is created with the plan's limits, as refresh() would have done during that month. Older months are left
+     * alone, like refresh() leaves them; usage is recorded when it happens, so a late event falls in one of these two.
+     * The tenant row lock serialises this with refresh(), so a threshold alert is created once.
+     */
+    public function refreshMonth(CarbonImmutable $month, CarbonImmutable $now): void
+    {
+        $month = $month->utc()->startOfMonth();
+        $current = $now->utc()->startOfMonth();
+        if (! $month->equalTo($current) && ! $month->equalTo($current->subMonth())) {
+            return;
+        }
+
+        DB::transaction(function () use ($month, $current, $now): void {
+            $tenant = Team::query()->lockForUpdate()->findOrFail(current_tenant_id());
+            $stored = $month->equalTo($current) ? null : $this->find($month);
+            $this->save($tenant, $month, $now, $stored);
+        });
+    }
+
     private function find(CarbonImmutable $month): ?UsageMonthly
     {
         return UsageMonthly::query()->where('month', $month->toDateString())->first();

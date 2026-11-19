@@ -1,5 +1,9 @@
 <?php
 
+use App\Work\Handlers\AggregationWorkHandler;
+use App\Work\Handlers\ExtractionWorkHandler;
+use App\Work\Handlers\UsageRollupWorkHandler;
+
 return [
 
     /*
@@ -22,10 +26,28 @@ return [
     | retry_base_seconds * 2^(attempt-1), at most retry_max_seconds, plus up to retry_jitter_seconds; failures
     | are retried with backoff and logged as errors from alert_after_attempts on; a failing streak longer than
     | stop_after_seconds (24 h) stops the signal and alerts (work_stopped, ADR 0029) until a new signal or ekko:work:retry. recover_after_seconds: how long
-    | a due signal may wait before the sweep publishes it again. handlers: work kind => WorkHandler class; the
-    | kinds get their handlers in T40-F3, and a kind without one stays pending.
+    | a due signal may wait before the sweep publishes it again. handlers: work kind => WorkHandler class; a kind
+    | without one stays pending.
+    |
+    | chaining (T40-F3, EKKO_WORK_CHAINING, off by default): when on, collection, extraction and usage register their
+    | follow-up work as signals (collected answer -> extraction -> daily aggregates, usage event -> monthly usage), and
+    | a submitted model batch is checked through a deferred signal instead of PollExtractionBatch releasing itself.
+    | The scheduled extraction-poll, aggregate and usage-rollup keep running as the fallback until T40-F4.
+    | extraction.group_wait_seconds: how long a collected answer waits for the rest of its collection group (run
+    | batch) before it is submitted anyway; a finished group or a full model batch goes at once. extraction.status_*:
+    | the status checks of a submitted batch, first after status_first_seconds, then after the batch's age so far
+    | (doubling), at most status_max_seconds apart, plus up to status_jitter_seconds; a batch still not ended after
+    | status_give_up_hours is given up like PollExtractionBatch does (deterministic results, llm_failed).
     */
     'work' => [
+        'chaining' => (bool) env('EKKO_WORK_CHAINING', false),
+        'extraction' => [
+            'group_wait_seconds' => (int) env('EKKO_WORK_EXTRACTION_GROUP_WAIT_SECONDS', 600),
+            'status_first_seconds' => (int) env('EKKO_WORK_EXTRACTION_STATUS_FIRST_SECONDS', 60),
+            'status_max_seconds' => (int) env('EKKO_WORK_EXTRACTION_STATUS_MAX_SECONDS', 900),
+            'status_jitter_seconds' => (int) env('EKKO_WORK_EXTRACTION_STATUS_JITTER_SECONDS', 15),
+            'status_give_up_hours' => 25,
+        ],
         'publisher' => env('EKKO_WORK_PUBLISHER', 'queue'),
         'lease_seconds' => 360,
         'retry_base_seconds' => 30,
@@ -35,9 +57,9 @@ return [
         'stop_after_seconds' => (int) env('EKKO_WORK_STOP_AFTER_SECONDS', 86400),
         'recover_after_seconds' => 300,
         'handlers' => [
-            'extraction' => null,
-            'aggregation' => null,
-            'usage_rollup' => null,
+            'extraction' => ExtractionWorkHandler::class,
+            'aggregation' => AggregationWorkHandler::class,
+            'usage_rollup' => UsageRollupWorkHandler::class,
         ],
     ],
 
