@@ -15,8 +15,8 @@ use Illuminate\Validation\ValidationException;
  * may. Runs in the tenant's context.
  *
  * A claim is judged against the text its fact had when the answer was extracted. When a fact's text changes or the
- * fact is switched off its claims are deleted, so an old verdict never counts against a new text; the answers are
- * judged again when they are extracted again. An action built on those claims stops being supported and
+ * fact is switched off its claims are deleted, so an old verdict never counts against a new text; the answers already
+ * judged are not judged again, but an answer extracted again is. An action built on those claims stops being supported and
  * expires by the usual rule (ADR 0034).
  */
 final class BrandFactManager

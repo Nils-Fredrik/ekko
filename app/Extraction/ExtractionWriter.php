@@ -10,6 +10,7 @@ use App\FactCheck\FactCatalog;
 use App\Jobs\CheckTenantFacts;
 use App\Models\BrandFact;
 use App\Models\Citation;
+use App\Models\Claim;
 use App\Models\Mention;
 use App\Models\Response;
 use App\Models\UsageEvent;
@@ -84,6 +85,7 @@ final class ExtractionWriter
 
             if (! $extraction->llmFailed) {
                 $this->storeCitations($response, $extraction->citations, $catalog);
+                $this->resetFactCheck($response);
             }
 
             $response->update(['answer_type' => $extraction->answerType, 'llm_failed' => $extraction->llmFailed]);
@@ -94,6 +96,20 @@ final class ExtractionWriter
         if (BrandFact::query()->where('brand_id', FactCatalog::brandId($response))->where('is_active', true)->exists()) {
             CheckTenantFacts::dispatch((int) $response->getAttribute('tenant_id'))->afterCommit();
         }
+    }
+
+    /**
+     * An answer extracted again has new citations, and the claims point at the old ones (docs/spec.md 11.6, ADR 0036).
+     * Its claims are deleted and it is judged again: the fact check is queued after the commit below. Costs one more
+     * fact check call per answer that is extracted again.
+     */
+    private function resetFactCheck(Response $response): void
+    {
+        if ($response->getAttribute('facts_checked_at') === null) {
+            return;
+        }
+        Claim::query()->where('response_id', $response->id)->delete();
+        Response::query()->whereKey($response->id)->update(['facts_checked_at' => null]);
     }
 
     /** The model stage could not be completed at all: keep the deterministic results and flag the response. */

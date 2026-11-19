@@ -380,6 +380,25 @@ test('an extraction written for a brand with facts queues the fact check, one fo
     Bus::assertNotDispatched(CheckTenantFacts::class);
 });
 
+test('an answer extracted again loses its claims, which pointed at the old citations, and is judged again', function () {
+    Bus::fake([CheckTenantFacts::class, PollExtractionBatch::class]);
+    $response = factAnswer($this->w);
+    runFactCheck($this->w);
+    expect(Claim::query()->count())->toBe(1)->and($response->refresh()->facts_checked_at)->not->toBeNull();
+
+    $response->run()->update(['status' => 'collected']);
+    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => ['batch' => ['text' => ['mentions' => [], 'citations' => [], 'answer_type' => 'informational'], 'input_tokens' => 10, 'output_tokens' => 5]]));
+    dispatch_sync(new SubmitExtractionBatch($this->w->tenant->id));
+    app()->call([new PollExtractionBatch($this->w->tenant->id, ExtractionJob::query()->latest('id')->firstOrFail()->id), 'handle']);
+
+    expect(Claim::query()->count())->toBe(0)->and($response->refresh()->facts_checked_at)->toBeNull();
+    Bus::assertDispatched(CheckTenantFacts::class);
+
+    // Judged again: the claim is back, pointing at the citation the answer has now.
+    runFactCheck($this->w);
+    expect(Claim::query()->count())->toBe(1);
+});
+
 test('claims and facts are invisible to another tenant', function () {
     factAnswer($this->w);
     runFactCheck($this->w);

@@ -150,7 +150,7 @@ final class FactChecker
 
     /**
      * One paid call. A billed reply is returned; 'stop' when nothing can be called now (reduced mode, a known provider
-     * error, credit gone); null for an unknown outcome, whose reservation is kept.
+     * error, credit gone); null for an error about this request only.
      */
     private function call(int $tenantId, FactCheckRequest $request): FactJudgeResult|string|null
     {
