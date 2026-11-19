@@ -29,7 +29,7 @@ final class InsightPromptBuilder
             'Use only the findings you are given, most important first. Do not mention anything that is not in the findings. Do not give advice and do not invent causes.',
             'Each finding has a direction (up, down or unchanged) and placeholders. Show a figure only by writing its placeholder exactly as given in curly braces, for example {visibility_change}. The code fills the placeholders in from the database. A change placeholder is the size of the change, so say whether it went up or down in words.',
             'Never write a digit, number, percentage, count, date or year, and never a number in words. Names (brand, engines, competitors, prompts, models) may be written exactly as given.',
-            'A finding without a change placeholder has too little data to describe a change: state the current level at most, or leave it out.',
+            'A finding with a direction but without a change placeholder is a real movement whose size is not shown: describe it by its direction and name only. A finding with a note that the earlier period has too few answers has too little data to describe a change: state the current level at most, or leave it out.',
             'Return JSON with a single field, text.',
         ]);
 
