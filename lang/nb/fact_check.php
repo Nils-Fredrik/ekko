@@ -11,7 +11,6 @@ return [
         'cases' => ':count svar og :claims forventede påstander (:languages).',
         'bad_file' => 'Gullsettet mangler eller er ugyldig.',
         'no_key' => 'ANTHROPIC_API_KEY mangler. Bruk --recorded for å spille av innspilt utdata.',
-        'waiting' => 'Venter på batch :batch.',
         'verdict' => 'Dom',
         'precision' => 'Presisjon',
         'hit_rate' => 'Treffrate',

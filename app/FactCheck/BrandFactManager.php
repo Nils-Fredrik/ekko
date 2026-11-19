@@ -70,7 +70,10 @@ final class BrandFactManager
         });
     }
 
-    /** Deleting a fact deletes its claims with it (foreign key). */
+    /**
+     * Deleting a fact deletes its claims with it (foreign key). No lock is needed: a verdict still in flight is
+     * dropped when it is stored, since the fact is no longer among the locked, active ones (FactChecker::store).
+     */
     public function delete(BrandFact $fact): void
     {
         $fact->delete();

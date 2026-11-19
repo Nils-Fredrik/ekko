@@ -11,7 +11,6 @@ return [
         'cases' => ':count answers and :claims expected claims (:languages).',
         'bad_file' => 'The gold set is missing or invalid.',
         'no_key' => 'ANTHROPIC_API_KEY is missing. Use --recorded to replay recorded output.',
-        'waiting' => 'Waiting for batch :batch.',
         'verdict' => 'Verdict',
         'precision' => 'Precision',
         'hit_rate' => 'Hit rate',

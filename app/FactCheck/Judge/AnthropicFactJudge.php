@@ -28,7 +28,7 @@ final class AnthropicFactJudge implements FactJudge
     {
         $key = config('services.anthropic.key');
         if (! is_string($key) || trim($key) === '') {
-            throw new FactJudgeFailed('not_configured', known: true);
+            throw new FactJudgeFailed('not_configured', known: true, accountWide: true);
         }
 
         return new self(new Client(

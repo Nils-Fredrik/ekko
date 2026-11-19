@@ -21,7 +21,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Throwable;
 
 #[Name('get_usage')]
-#[Description('Forbruket i en måned (UTC-kalendermåned, som kvoten) mot kvoten og budsjettene: kall, plattformkostnad mot pakkens budsjett og kostnad på egne nøkler (BYOK) mot eget budsjett, fordelt på type (motorkall, uttrekk, onboarding, PDF, tiltak), motor og betaler, og status (ok, advarsel, stoppet). Typer plattformen betaler (platform_paid, f.eks. formulering av tiltak) telles ikke mot kvoten og budsjettet. Krever rettigheten til å se forbruk (tenant-admin).')]
+#[Description('Forbruket i en måned (UTC-kalendermåned, som kvoten) mot kvoten og budsjettene: kall, plattformkostnad mot pakkens budsjett og kostnad på egne nøkler (BYOK) mot eget budsjett, fordelt på type (motorkall, uttrekk, onboarding, PDF, tiltak), motor og betaler, og status (ok, advarsel, stoppet). Typer plattformen betaler (platform_paid, f.eks. formulering av tiltak og faktasjekk) telles ikke mot kvoten og budsjettet. Krever rettigheten til å se forbruk (tenant-admin).')]
 #[IsReadOnly]
 class GetUsage extends EkkoTool
 {

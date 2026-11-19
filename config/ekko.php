@@ -204,7 +204,7 @@ return [
     | the platform pays for (T48's fact-check, for example) adds its kind here.
     */
     'usage' => [
-        'platform_paid_kinds' => ['actions'],
+        'platform_paid_kinds' => ['actions', 'factcheck'],
     ],
 
     /*

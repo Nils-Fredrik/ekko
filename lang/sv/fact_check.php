@@ -11,7 +11,6 @@ return [
         'cases' => ':count svar och :claims förväntade påståenden (:languages).',
         'bad_file' => 'Guldsetet saknas eller är ogiltigt.',
         'no_key' => 'ANTHROPIC_API_KEY saknas. Använd --recorded för att spela upp inspelad utdata.',
-        'waiting' => 'Väntar på batch :batch.',
         'verdict' => 'Bedömning',
         'precision' => 'Precision',
         'hit_rate' => 'Träffgrad',
