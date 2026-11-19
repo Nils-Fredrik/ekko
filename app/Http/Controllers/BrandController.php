@@ -105,10 +105,10 @@ class BrandController extends Controller
                 'brand.dashboard.'.$grain, $filter, $period->timezone, fn (): array => [
                     'series' => array_map(fn (array $row): array => [
                         'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
-                    ], $metrics->series($filter)),
+                    ], $metrics->series($filter, $grain)),
                     'previous' => array_map(fn (array $row): array => [
                         'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
-                    ], $metrics->series($previous)),
+                    ], $metrics->series($previous, $grain)),
                     'sparkline' => array_map(fn (array $row): array => [
                         'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
                     ], $metrics->series($sparkFilter)),

@@ -117,3 +117,37 @@ test('fixed sparkline and stability windows are independent of the seven-day pag
             ->has('chartData.stability', 2)
             ->where('chartData.stability.0.period', '2026-11-08')));
 });
+
+test('dashboard comparison follows weekly and monthly grain while the sparkline stays daily', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-19 12:00:00', 'Europe/Oslo'));
+    $world = MetricsWorld::create();
+    foreach ([['2026-11-17', 4, 2], ['2026-11-18', 6, 3], ['2026-10-15', 2, 0], ['2026-10-16', 3, 3]] as [$date, $responses, $mentioned]) {
+        AggDaily::factory()->create([
+            'market_id' => $world->market->id, 'engine_key' => $world->engine->key,
+            'prompt_id' => $world->p1->id, 'date' => $date,
+            'responses' => $responses, 'brand_mentioned' => $mentioned,
+        ]);
+    }
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    Cache::flush();
+
+    foreach (['week' => ['2026-11-16', '2026-10-12'], 'month' => ['2026-11-01', '2026-10-01']] as $grain => [$current, $previous]) {
+        $this->actingAs($owner)->get('/brands/'.$world->brand->id.'?days=28&grain='.$grain)
+            ->assertOk()->assertInertia(fn ($page) => $page
+            ->loadDeferredProps(fn ($data) => $data
+                ->has('chartData.series', 1)
+                ->where('chartData.series.0.period', $current)
+                ->where('chartData.series.0.metrics.visibility.value', 0.5)
+                ->where('chartData.series.0.metrics.visibility.n', 10)
+                ->has('chartData.previous', 1)
+                ->where('chartData.previous.0.period', $previous)
+                ->where('chartData.previous.0.metrics.visibility.value', 0.6)
+                ->where('chartData.previous.0.metrics.visibility.n', 5)
+                ->has('chartData.sparkline', 2)
+                ->where('chartData.sparkline.0.period', '2026-11-17')
+                ->where('chartData.sparkline.1.period', '2026-11-18')
+                ->where('chartData.engines.0.period', $current)
+                ->where('chartData.competitors.0.period', $current)));
+    }
+});
