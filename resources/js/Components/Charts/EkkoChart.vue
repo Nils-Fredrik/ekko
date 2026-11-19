@@ -8,6 +8,9 @@
 // The chart type components build the ECharts option in `option(context)`. The context has the
 // current `palette` (support/palette.js) and the chart `width`; the option is rebuilt when either
 // changes or when the reactive data the function reads changes.
+//
+// `select` here carries the raw ECharts click params. The chart type components turn it into the
+// shared payload `{ key, ... }` (support/data.js `selection`); pages listen to those, not to this.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue';
 import { onThemeChange } from '@/theme';
 import ChartTable from './ChartTable.vue';

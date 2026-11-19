@@ -1,10 +1,11 @@
 <script setup>
 // Source gap: sources where competitors are cited and the own brand is not, as paired bars
 // (own vs competitors), largest gap first (docs/ui-forbedring.md 6, U08). Clicking a row emits
-// `select` with the row key, so the page can open the matching action (T43).
+// `select` with `{ key }`, the row key, so the page can open the matching action (T43).
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
+import { selection } from './support/data.js';
 import { axisFormatter, formatChange, isLowSample, tooltipHtml } from './support/format.js';
 import { tableValue } from './support/lines.js';
 
@@ -81,7 +82,7 @@ function option({ palette }) {
 function select(params) {
     const row = ordered.value[params.dataIndex];
     if (row) {
-        emit('select', { key: row.key });
+        emit('select', selection(row.key));
     }
 }
 

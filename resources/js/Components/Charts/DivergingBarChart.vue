@@ -1,9 +1,11 @@
 <script setup>
 // Diverging stacked bar: negative to the left, neutral split around zero, positive to the right
-// (docs/ui-forbedring.md 6, sentiment in U05 and U07). Shares are 0–1 per row.
+// (docs/ui-forbedring.md 6, sentiment in U05 and U07). Shares are 0–1 per row. Clicking a row
+// emits `select` with `{ key }`, the row key.
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
+import { selection } from './support/data.js';
 import { formatValue, isLowSample, tooltipHtml } from './support/format.js';
 
 const props = defineProps({
@@ -101,7 +103,8 @@ function option({ palette }) {
 function select(params) {
     const row = props.rows[params.dataIndex];
     if (row) {
-        emit('select', { row: row.key });
+        // `row` is the alias from the first version; new pages read `key`.
+        emit('select', selection(row.key, { row: row.key }));
     }
 }
 
