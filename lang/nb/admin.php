@@ -84,5 +84,8 @@ return [
         'unassigned' => 'Uten motor',
         'export' => 'Eksporter fakturagrunnlag',
         'engines' => 'Kostnad per motor',
+        'platform_paid' => 'Betalt av plattformen',
+        'platform_paid_cell' => ':cost (:calls kall)',
+        'platform_paid_hint' => 'Hjelpekall plattformen betaler, som formulering av tiltak. Telles ikke i tenantens kvote, budsjett eller fakturagrunnlag.',
     ],
 ];

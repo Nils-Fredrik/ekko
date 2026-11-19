@@ -8,6 +8,7 @@ use App\Models\Plan;
 use App\Models\Team;
 use App\Models\UsageMonthly;
 use App\Tenancy\Rls\TenantRls;
+use App\Usage\PlatformPaidUsage;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -22,11 +23,21 @@ final class UsageController extends Controller
         $month = now('UTC')->startOfMonth();
         $tenants = Team::query()->where('personal_team', false)->orderBy('name')->get(['id', 'name']);
         $usage = [];
+        $platformPaid = [];
         $engines = [];
         $ids = $tenants->pluck('id')->map(fn (mixed $id): int => (int) $id)->all();
         if ($ids !== []) {
             foreach ($rls->run($ids, fn () => UsageMonthly::query()->withoutGlobalScopes()->whereDate('month', $month->toDateString())->get()) as $row) {
                 $usage[(int) $row->tenant_id] = $row;
+            }
+            // Usage the platform pays for is not in usage_monthly (ADR 0034); it is followed up here per tenant.
+            foreach ($rls->run($ids, fn () => PlatformPaidUsage::only(DB::table('usage_events'))
+                ->where('occurred_at', '>=', $month)
+                ->where('occurred_at', '<', $month->copy()->addMonth())
+                ->selectRaw('tenant_id, coalesce(sum(calls), 0) as calls, coalesce(sum(cost_usd), 0) as cost_usd')
+                ->groupBy('tenant_id')
+                ->get()) as $row) {
+                $platformPaid[(int) $row->tenant_id] = ['calls' => (int) $row->calls, 'cost_usd' => $this->money($row->cost_usd)];
             }
             foreach ($rls->run($ids, fn () => DB::table('usage_events')
                 ->where('occurred_at', '>=', $month)
@@ -54,6 +65,8 @@ final class UsageController extends Controller
                 'calls' => (int) ($usage[$team->id]->calls ?? 0),
                 'cost_usd' => (string) ($usage[$team->id]->cost_usd ?? '0.00000000'),
                 'byok_cost_usd' => (string) ($usage[$team->id]->byok_cost_usd ?? '0.00000000'),
+                'platform_paid_calls' => $platformPaid[$team->id]['calls'] ?? 0,
+                'platform_paid_cost_usd' => $platformPaid[$team->id]['cost_usd'] ?? '0.00000000',
             ])->all(),
         ]);
     }

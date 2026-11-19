@@ -17,6 +17,7 @@ use App\Models\Action;
 use App\Models\UsageEvent;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Tests\Support\Actions\FakeActionSource;
 use Tests\Support\Actions\FakeActionWriter;
 use Tests\Support\Metrics\MetricsWorld;
@@ -72,6 +73,25 @@ test('a new action is worded by the model in the market language and the call is
     expect($usage->kind)->toBe('actions')->and($usage->billed_to)->toBe('platform')
         ->and($usage->cost_usd)->toBe('0.00540000')->and($usage->anthropic_operation)->toStartWith('actions:')
         ->and(DB::table('anthropic_credit_spend')->where('entry', $usage->anthropic_operation)->value('cost_usd'))->toBe('0.00540000');
+});
+
+test('each call writes one structured log line with internal IDs and no text (T43-F1)', function () {
+    Log::spy();
+
+    generateTenant($this->w);
+
+    $action = Action::query()->sole();
+    $usage = UsageEvent::query()->sole();
+    Log::shouldHaveReceived('info')->with('Action wording call.', Mockery::on(fn (array $context): bool => $context === [
+        'tenant' => $this->w->tenant->id,
+        'action' => $action->id,
+        'operation' => $usage->anthropic_operation,
+        'outcome' => 'worded',
+        'usage_event' => $usage->id,
+        'input_tokens' => 1200,
+        'output_tokens' => 300,
+        'cost_usd' => '0.00540000',
+    ]))->once();
 });
 
 test('a recognised action is not worded again', function () {

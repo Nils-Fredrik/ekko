@@ -663,7 +663,7 @@ Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen
 - Kildene leser tallene via `MetricsService` (`reach`, `sourceGap`, `sourceGapDetail`, `breakdown`, `unknownBrands`, `unknownBrandDetail`, `botHits`). Et marked med færre enn 30 svar i vinduet vurderes ikke, og da teller heller ikke utløpet der (`new_competitor` bruker varselets minimum, `ekko.alerts.min_responses.new_competitor`). `source_gap` lager tiltak for de 5 største gapene per marked; mindre gap over terskelen holder et eksisterende tiltak i live. `crawler_access` vurderes bare når andre AI-roboter har treff i det samme 14-dagersvinduet, og er på merkevarenivå (`market_id` tom). `owned_content` gjelder prompts med tema. `fact_correction` er en egen kilde som T48 registrerer i `ekko.actions.sources`.
 - `fingerprint` er sha256 av type, merkevare, marked og funnets nøkkel (domene, tema, navn, robot). Et åpent tiltak får ny evidens, effekt og prompts. Et utløpt tiltak åpnes igjen som `new`. `done` og `declined` står som brukeren satte dem.
 - Utløp gjelder bare `new` og `planned`. Tiltak som pågår, utløper ikke, fordi arbeidet kan være grunnen til at funnet forsvant.
-- Modellen skriver tekst uten tall; tallene vises fra `evidence` (evidenssetningen i `lang/*/action_items.php`). En tekst med tall utenfor et navn modellen fikk, skrevet fullt ut, avvises, og maltekst beholdes. Modellen skriver på markedets språk (tenantens for merkevarenivå); malene finnes på nb, sv og en. Et nytt tiltak har maltekst til modellen har formulert det. Kallet reserverer på Anthropic-kontoen før HTTP (ADR 0023), stoppes i redusert modus og bokføres i `usage_events` med `kind = actions`. Høyst `ekko.actions.max_formulations` kall per tenant og generering, og ingen nye kall etter `ekko.actions.word_seconds` per tenant eller kommandoens samlede frist.
+- Modellen skriver tekst uten tall; tallene vises fra `evidence` (evidenssetningen i `lang/*/action_items.php`). En tekst med tall utenfor et navn modellen fikk, skrevet fullt ut, avvises, og maltekst beholdes. Modellen skriver på markedets språk (tenantens for merkevarenivå); malene finnes på nb, sv og en. Et nytt tiltak har maltekst til modellen har formulert det. Kallet reserverer på Anthropic-kontoen før HTTP (ADR 0023), stoppes i redusert modus og bokføres i `usage_events` med `kind = actions` og `billed_to = platform`. Plattformen betaler kallene (eierbeslutning, Board #996): de trekkes ikke fra tenantens kallkvote eller budsjett, gir ikke kvotevarsler og kommer ikke på fakturagrunnlaget, men vises per tenant i `Admin/Usage.vue` og er med i prognosen for Anthropic-potten (12.2, 12.5). Hvert kall gir én strukturert logglinje med interne ID-er (tenant, tiltak, operasjon, forbrukshendelse), utfall, tokens og kostnad, aldri tekst. Høyst `ekko.actions.max_formulations` kall per tenant og generering, og ingen nye kall etter `ekko.actions.word_seconds` per tenant eller kommandoens samlede frist.
 - Tilleggskolonner: `engine_keys` (motorer), `impact_score` (effekten bak nivået), `text_source` (template, model, user), `locale` (språktaggen teksten står på, inntil 35 tegn), `unsupported_generations`, `last_generated_at`. `action_prompts` har også `tenant_id` (6). Egne tiltak kan mangle type.
 - Statusflyt for brukere i `ActionWorkflow`: `started_at` settes første gang tiltaket går til `in_progress`, `completed_at` når det går til `done`, og nullstilles hvis det åpnes igjen. Tenant-admin, partner-rådgiver og redaktør endrer tiltak; alle roller ser dem.
 
@@ -687,6 +687,8 @@ Tallene er utgangspunkt og kan endres uten kodeendring. Plattformadmin kan overs
 
 Hvert eksterne kall gir én rad i `usage_events` med kostnad beregnet fra `engine_prices` som var gyldig på tidspunktet. `usage_monthly` oppdateres hver time per UTC-måned. Med `ekko.work.chaining` på (7.1) oppdateres måneden også etter hver ny rad i `usage_events`, med samme beregning og varsling. `calls` inkluderer alle kall. `cost_usd` summerer plattformens kostnader, og `byok_cost_usd` summerer kostnad beregnet for kall med egne nøkler.
 
+Unntaket er hjelpekall plattformen betaler selv, typene i `ekko.usage.platform_paid_kinds` (i dag `actions`, formulering av tiltak, 11.3; T48 legger til sin faktasjekk der). De bokføres i `usage_events` og på Anthropic-kontoen som andre kall, men holdes utenfor `usage_monthly`, kvotesjekken, kvotevarslene, tenantens forbruksside og fakturagrunnlaget (12.3). Regelen ligger ett sted, `App\Usage\PlatformPaidUsage`. `Admin/Usage.vue` viser kall og kostnad for dem per tenant i måneden, og MCP-verktøyet `get_usage` merker radene med `platform_paid`.
+
 ### 12.3 Fakturagrunnlag
 
 Plattformadmin har en månedlig eksport (CSV) per tenant med:
@@ -696,7 +698,7 @@ Plattformadmin har en månedlig eksport (CSV) per tenant med:
 - sum
 - påslag (prosent per tenant)
 
-Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres kunde-tenantene under partneren, med én linje per kunde. UTC-måned, desimalavrunding, BYOK, eksplisitt påslag og CSV-format følger [ADR 0021](decisions/0021-fakturagrunnlag.md). Pakke, partner og påslag er dagens oppsett, ikke historiske fakturaavtaler. Uavklart påslag (NULL) stopper eksport til satsen er valgt av plattformadmin.
+Eksporten er tilpasset import som fakturalinjer. For partner-tenants summeres kunde-tenantene under partneren, med én linje per kunde. UTC-måned, desimalavrunding, BYOK, eksplisitt påslag og CSV-format følger [ADR 0021](decisions/0021-fakturagrunnlag.md). Pakke, partner og påslag er dagens oppsett, ikke historiske fakturaavtaler. Uavklart påslag (NULL) stopper eksport til satsen er valgt av plattformadmin. Hjelpekall plattformen betaler (12.2) er ikke med.
 
 ### 12.4 Egne API-nøkler
 
@@ -727,7 +729,7 @@ Ekko bruker de månedlige API-kredittene som følger med konsernets Claude Team-
 | 3. Redusert modus | `claude_haiku` bare for kjerneprompts. Resten av Claude-kjøringene settes til `skipped_quota` ut perioden. | når forbruket når 95 % av tildelt pott, eller API-et svarer at kredittene er brukt opp |
 
 `ekko:anthropic-budget` kjører daglig før dispatcheren:
-- Prognose: forbruk så langt + planlagt grunnlast ut perioden + 10 % buffer.
+- Prognose: forbruk så langt + planlagt grunnlast ut perioden + 10 % buffer. Grunnlasten inkluderer hjelpekall plattformen betaler (12.2), anslått per tenant som gjennomsnittlig daglig kostnad siste 14 dager ganger dagene som gjenstår, og vises for seg i prognosen.
 - Ledig beløp ut over prognosen fordeles på nivå 2-tiltakene i rekkefølgen over, fordelt jevnt på dagene som gjenstår.
 - De siste 3 dagene i perioden kan bufferen også brukes.
 
