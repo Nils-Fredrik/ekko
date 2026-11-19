@@ -83,7 +83,7 @@ function asTenant(Team $tenant, Closure $callback): mixed
     return app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], $callback));
 }
 
-it('does not submit queued extraction after pitch expiry', function () {
+it('does not extract a run created after the pitch expired', function () {
     $a = extractionTenant();
     $a['tenant']->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()])->save();
     $response = collectedResponse($a, 'Et innsamlet svar.');
@@ -94,6 +94,21 @@ it('does not submit queued extraction after pitch expiry', function () {
 
     expect($client->batches)->toBeEmpty()
         ->and($response->run()->withoutGlobalScopes()->first()->status)->toBe('collected');
+});
+
+it('extracts answers from runs created before the pitch expired', function () {
+    Bus::fake([PollExtractionBatch::class]);
+    $a = extractionTenant();
+    $before = collectedResponse($a, 'Innsamlet før utløp.');
+    app(TenantContext::class)->run($a['tenant']->id, fn () => Run::query()->whereKey($before->run_id)->update(['created_at' => now()->subDay()]));
+    collectedResponse($a, 'Opprettet etter utløp.');
+    $a['tenant']->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->subMinute()])->save();
+    $client = new FakeExtractionClient(fn (string $id): array => entry([]));
+    app()->instance(ExtractionClient::class, $client);
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+
+    expect($client->batches)->toBe([["r{$before->id}"]]);
 });
 
 it('submits one batch per tenant for collected answers and stores the batch as an extraction job', function () {

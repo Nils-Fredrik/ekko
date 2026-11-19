@@ -62,10 +62,16 @@ final class CollectEngineRun extends TenantJob
 
             return;
         }
+        // A run already accepted by the provider is polled to completion. Work that has not been sent is stopped.
         if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt(CarbonImmutable::now('UTC'))) {
-            $this->stop('pitch_expired');
+            $accepted = $run->status === 'submitted'
+                && $tenant->pitch_expires_at !== null
+                && $run->created_at->lt($tenant->pitch_expires_at);
+            if (! $accepted) {
+                $this->stop('pitch_expired');
 
-            return;
+                return;
+            }
         }
         $lease = $throttle->acquire($run->engine);
         if ($lease === null) {

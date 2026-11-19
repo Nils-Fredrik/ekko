@@ -43,16 +43,26 @@ final class ExtractionSubmitter
     public function submitNext(int $tenantId): bool
     {
         $tenant = Team::query()->findOrFail($tenantId);
-        if (! $tenant->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+        // Expiry stops new runs. Answers from runs created before pitch_expires_at are still extracted,
+        // including when they were collected after the pitch stopped (docs/pitch.md).
+        $now = CarbonImmutable::now('UTC');
+        $finishStarted = $tenant->kind === 'pitch' && ! $tenant->mayStartProjectWorkAt($now);
+        if ($finishStarted && $tenant->pitch_expires_at === null) {
             return false;
         }
         DB::select('select pg_advisory_xact_lock(?, ?)', [self::LOCK_NAMESPACE, $tenantId]);
 
         $size = max(1, (int) config('ekko.anthropic.extraction.batch_size'));
+        $collected = function ($query) use ($tenant, $finishStarted): void {
+            $query->where('status', 'collected');
+            if ($finishStarted) {
+                $query->where('created_at', '<', $tenant->pitch_expires_at);
+            }
+        };
 
         // An empty answer has nothing to analyse: no model call, the run is simply extracted.
         Response::query()
-            ->whereHas('run', fn ($query) => $query->where('status', 'collected'))
+            ->whereHas('run', $collected)
             ->whereRaw("answer_text ~ '^\\s*$'")
             ->each(fn (Response $response) => $this->writer->markExtracted($response));
 
@@ -66,7 +76,7 @@ final class ExtractionSubmitter
         // One more than a batch, to know whether another run is needed. The in-flight filter is in the query,
         // before the limit, so answers that are waiting for their results never crowd out new ones.
         $responses = Response::query()
-            ->whereHas('run', fn ($query) => $query->where('status', 'collected'))
+            ->whereHas('run', $collected)
             ->whereRaw("answer_text !~ '^\\s*$'")
             ->whereNotIn('id', $inFlight)
             ->with('run.prompt.market')
@@ -95,9 +105,6 @@ final class ExtractionSubmitter
             $response->annotationUrls(),
         ))->all();
 
-        if (! $tenant->refresh()->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
-            return false;
-        }
         try {
             $batchId = $this->runner->submit($requests);
         } catch (Throwable $failure) {

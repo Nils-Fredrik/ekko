@@ -19,6 +19,7 @@ use App\Scheduling\Dispatcher;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
@@ -84,6 +85,31 @@ test('a queued pitch run cannot start provider work after the pitch expires', fu
     app(TenantContext::class)->run($pitch->id, fn () => app()->call([new CollectEngineRun($pitch->id, $runId), 'handle']));
     app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => expect(Run::query()->sole()->error_code)->toBe('pitch_expired')));
     Http::assertNothingSent();
+});
+
+test('a submitted pitch run created before expiry is still collected', function () {
+    $now = CarbonImmutable::now('UTC');
+    $this->travelTo($now);
+    $engine = dispatchEngine();
+    $pitch = dispatchTenant($engine, 1);
+    $pitch->forceFill(['kind' => 'pitch', 'pitch_expires_at' => $now->addMinute()])->save();
+    expect(app(Dispatcher::class)->dispatch($now))->toBe(1);
+    $runId = app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], function () use ($now): int {
+        $run = Run::query()->sole();
+        $run->update(['status' => 'submitted', 'created_at' => $now->subMinute()]);
+
+        return $run->id;
+    }));
+    $this->travelTo($now->addMinute());
+    // The rate limit is full, so the job returns after the expiry check and never calls the provider.
+    $engine->update(['config' => ['calls_per_minute' => 1, 'concurrency' => 1]]);
+    Cache::store('database')->put('engine:'.$engine->key.':rate', array_fill(0, 5, microtime(true)), 60);
+    app()->instance(RawResponseStore::class, Mockery::mock(RawResponseStore::class));
+    app(TenantContext::class)->run($pitch->id, fn () => app()->call([new CollectEngineRun($pitch->id, $runId), 'handle']));
+    app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], function (): void {
+        $run = Run::query()->sole();
+        expect($run->status)->toBe('submitted')->and($run->error_code)->toBeNull();
+    }));
 });
 
 test('dispatcher durably interleaves three tenants and a replay does not add jobs or runs', function () {

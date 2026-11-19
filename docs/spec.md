@@ -628,6 +628,7 @@ Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like 
 - **Profil:** `report_schedules.branding` velger tenantens eller partnerens profil. T28 lagrer primærfargen i `teams.branding`. Logofilen lastes opp og tegnes inn i PDF-en i T32.
 - **Språk:** rapportens `locale`, uavhengig av mottakers brukerinnstilling.
 - **Lagring og utsending:** PDF-en lagres på disken `ekko.reports.disk` (standard `local`) under `reports/{tenant}/` og sendes som vedlegg. T32 skriver til samme disk og prefiks. Bøtten `ekko-reports` settes som den disken når den finnes. Grensesnittet har nedlastingslenke.
+- **Pitch-PDF (T47):** bruker språket i forespørselen, ikke en rapportplan. Den lagres privat under tenantens rapportprefiks, men inngår ikke i rapportlisten, bruker ikke profilen fra `report_schedules` og sendes ikke på e-post.
 
 ### 11.3 Tiltak
 
@@ -1513,8 +1514,10 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 
 Opprettelse fra partner- og adminsidene, pitch-veiviser med 25 prompts, sju dagers kjøring, egen partnerkvote, kort rapport og konvertering til ordinær tenant. Se [pitch-spesifikasjonen](pitch.md).
 
-- Prosjektet stopper automatisk etter sju dager, inkludert arbeid som lå i kø ved utløpet.
+- Prosjektet stopper nye kjøringer etter sju dager. Kjøringer som allerede er sendt til leverandøren, og uttrekk av svar fra kjøringer opprettet før utløp, fullføres selv om svaret kommer senere. Kølagte kjøringer som ikke er sendt, stoppes.
+- Tiltak for et aktivt pitch-prosjekt genereres daglig, så rapporten kan vise de tre høyest rangerte åpne tiltakene i løpet av de sju dagene.
 - Konvertering beholder all historikk.
+- Pitch-PDF-en bruker språket i forespørselen. Den lagres privat, men inngår ikke i rapportlisten, bruker ikke rapportprofilen og sendes ikke på e-post. Avviket fra 11.2 er bevisst, så pitchhistorikken holdes atskilt fra den ordinære rapporten.
 - Pitch-forbruk vises separat i forbruk og fakturagrunnlag, også etter konvertering.
 
 ### T48 – Faktasjekk: fakta, påstander og vurdering

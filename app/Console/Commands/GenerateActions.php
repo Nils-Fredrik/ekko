@@ -16,6 +16,7 @@ class GenerateActions extends Command
 {
     protected $signature = 'ekko:generate-actions
         {--tenant=* : Only these tenant ids}
+        {--pitches : Only active pitch projects, refreshed from the latest figures}
         {--force : Refresh brands already generated this week (without counting towards expiry)}
         {--sync : Run in this process instead of on the queue}';
 
@@ -23,18 +24,22 @@ class GenerateActions extends Command
 
     public function handle(): int
     {
+        $pitches = (bool) $this->option('pitches');
         $tenants = Team::query()
             ->where('personal_team', false)
             ->where('status', TenantStatus::Active->value)
+            ->when($pitches, fn ($query) => $query->where('kind', 'pitch')->where('pitch_expires_at', '>', now()))
             ->when($this->option('tenant'), fn ($query, $ids) => $query->whereIn('id', array_map('intval', (array) $ids)))
             ->orderBy('id')
             ->pluck('id');
 
         $failed = [];
+        // A pitch lasts seven days, so it is refreshed every day. The weekly customer run still counts once per week.
+        $force = (bool) $this->option('force') || $pitches;
         // All tenants run in one Cloud Run task in sync mode: no model call starts after this deadline.
         $wordUntil = $this->option('sync') ? now()->getTimestamp() + (int) config('ekko.actions.command_word_seconds') : null;
         foreach ($tenants as $tenantId) {
-            $job = new GenerateTenantActions((int) $tenantId, (bool) $this->option('force'), $wordUntil);
+            $job = new GenerateTenantActions((int) $tenantId, $force, $wordUntil);
             if (! $this->option('sync')) {
                 dispatch($job);
 
