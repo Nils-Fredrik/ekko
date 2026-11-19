@@ -12,14 +12,15 @@ use App\Metrics\Formulas;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\AlertRule;
+use App\Models\BrandAlias;
 use App\Models\Competitor;
 use App\Models\CompetitorAlias;
 
 /**
  * new_competitor (docs/spec.md 11.1 and 11.3): an unknown brand in more than the threshold of the answers in a
  * market over the latest seven days, with at least as many answers as the alert needs. The threshold is the
- * brand's new_competitor alert rule, else the alert default. Names that are already competitors or aliases of the
- * brand (added after the answers were extracted) are skipped.
+ * brand's active new_competitor alert rule, else the alert default. The brand's own name and aliases and its
+ * competitors and their aliases (added after the answers were extracted) are skipped.
  */
 final readonly class NewCompetitorSource implements ActionSource
 {
@@ -36,10 +37,14 @@ final readonly class NewCompetitorSource implements ActionSource
         $days = (int) config('ekko.actions.new_competitor.window_days');
         [$from, $to] = $context->window($days);
         $minimum = AlertType::NewCompetitor->minResponses();
-        $rule = AlertRule::query()->where('type', AlertType::NewCompetitor->value)->where('brand_id', $brand->id)->whereNotNull('threshold')->first();
+        $rule = AlertRule::query()->where('type', AlertType::NewCompetitor->value)->where('brand_id', $brand->id)->where('is_active', true)->whereNotNull('threshold')->first();
         $threshold = $rule !== null ? (float) $rule->threshold : (float) config('ekko.actions.new_competitor.default_threshold_percent');
 
-        $known = Competitor::query()->where('brand_id', $brand->id)->pluck('name')
+        // Names added after the answers were extracted stay unknown in old mentions: the brand's own name and
+        // aliases are not a new competitor, nor are its competitors and their aliases.
+        $known = collect([$brand->name])
+            ->merge(BrandAlias::query()->where('brand_id', $brand->id)->pluck('alias'))
+            ->merge(Competitor::query()->where('brand_id', $brand->id)->pluck('name'))
             ->merge(CompetitorAlias::query()->whereIn('competitor_id', Competitor::query()->where('brand_id', $brand->id)->select('id'))->pluck('alias'))
             ->map(fn ($name): string => mb_strtolower(trim((string) $name)))->all();
 

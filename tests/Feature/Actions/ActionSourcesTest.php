@@ -12,6 +12,7 @@ use App\Metrics\DailyAggregator;
 use App\Models\Action;
 use App\Models\AlertRule;
 use App\Models\BotHitDaily;
+use App\Models\BrandAlias;
 use App\Models\Prompt;
 use App\Models\Topic;
 use Carbon\CarbonImmutable;
@@ -230,6 +231,25 @@ test('an unknown brand over the alert threshold becomes a new_competitor action,
         ->and(array_sum($action->prompts->map(fn ($p) => 1)->all()))->toBe(2)
         ->and(ActionTemplates::evidenceSentence($action, 'nb'))
         ->toBe('Kaffebrenneriet nevnes i 23 % av svarene i Norge de siste 7 dagene, men er ikke registrert som konkurrent.');
+});
+
+test('the brand\'s own name and aliases are never a new competitor, and an inactive rule threshold is not used', function () {
+    $w = $this->w;
+    BrandAlias::factory()->create(['brand_id' => $w->brand->id, 'alias' => 'Fjord Kaffe AS']);
+    AlertRule::factory()->create(['brand_id' => $w->brand->id, 'type' => 'new_competitor', 'threshold' => '90', 'is_active' => false]);
+    // 30 answers: the brand's alias, its name in another case and a real newcomer, each in 12 (40 %).
+    for ($i = 0; $i < 30; $i++) {
+        $w->answer($w->p1, '2026-11-13 10:00:00', $i < 12 ? ['unknown' => 'fjord kaffe as'] : []);
+    }
+    for ($i = 0; $i < 12; $i++) {
+        $w->answer($w->p2, '2026-11-13 11:00:00', ['unknown' => 'FJORDKAFFE']);
+        $w->answer($w->p2, '2026-11-13 12:00:00', ['unknown' => 'Brenneriet']);
+    }
+    aggregateDays('2026-11-13');
+
+    generateActions($w);
+
+    expect(array_map(fn (Action $a) => $a->evidence['name'], actionsOf(ActionType::NewCompetitor)))->toBe(['Brenneriet']);
 });
 
 // crawler_access -----------------------------------------------------------------------------------------------

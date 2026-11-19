@@ -124,8 +124,10 @@ final class ActionGenerator
 
     private function create(Brand $brand, ActionCandidate $candidate, string $fingerprint, ?Market $market, ?Team $tenant, CarbonImmutable $now): Action
     {
-        $locale = ActionLocale::appLocale(ActionLocale::tag($market, $tenant));
-        $text = ActionTemplates::text($candidate->type, $candidate->textParams, $locale);
+        // Only the template text is in nb, sv or en. The model is told the market's own BCP 47 tag
+        // (ActionPromptBuilder::languageTag()), and locale becomes that tag once the model text is stored.
+        $templateLocale = ActionLocale::appLocale(ActionLocale::tag($market, $tenant));
+        $text = ActionTemplates::text($candidate->type, $candidate->textParams, $templateLocale);
 
         $action = new Action([
             'brand_id' => $brand->id,
@@ -138,7 +140,7 @@ final class ActionGenerator
             'description' => $text->description,
             'steps' => $text->stepRows(),
             'text_source' => 'template',
-            'locale' => $locale,
+            'locale' => $templateLocale,
         ]);
         $this->fill($action, $candidate, $now);
         $action->save();
