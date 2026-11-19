@@ -89,11 +89,11 @@ class AppServiceProvider extends ServiceProvider
         $this->configurePdf();
         $this->configureReportDisk();
 
+        // A worker that stops while queue jobs wait for later registers its next start (T40-F4, ADR 0033).
+        Event::listen(WorkerStopping::class, PublishQueueWakeOnWorkerStop::class);
         // A login role that could bypass row-level security stops the instance (T39-F2): /up is the web service's
         // startup probe, and the worker and the ekko:* commands check before they start. The migrations run as
         // the owner of the tables on purpose, so migrate and the other commands are not checked.
-        // A worker that stops while queue jobs wait for later registers its next start (T40-F4, ADR 0033).
-        Event::listen(WorkerStopping::class, PublishQueueWakeOnWorkerStop::class);
         Event::listen(DiagnosingHealth::class, function (): void {
             if (DatabaseRoleCheck::enforced()) {
                 app(DatabaseRoleCheck::class)->assertSafe();

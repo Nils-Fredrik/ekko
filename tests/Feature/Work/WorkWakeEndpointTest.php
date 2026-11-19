@@ -405,7 +405,8 @@ test('the dispatcher failing to start gives 503 and the next delivery may try ag
 test('a processor run from a delivery never exceeds one paid call per version: duplicate jobs find the work done', function () {
     $signal = ($this->signal)($this->tenant);
 
-    // Two deliveries of different wake-ups of the same signal (the original and a recovery) arrive together.
+    // One delivery queues the processor job; a second processor run for the same signal (as from a duplicate
+    // delivery) runs directly first, so the queued job then finds the work done.
     ($this->wake)(['tenant_id' => $this->tenant->id, 'signal_id' => $signal->id])->assertStatus(425);
     app(TenantContext::class)->run($this->tenant->id, fn () => app(WorkProcessor::class)->process($signal->id));
     ($this->work)();
