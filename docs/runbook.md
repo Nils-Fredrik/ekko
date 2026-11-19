@@ -366,6 +366,10 @@ Etter #49 virket Claude OIDC på workflow_run, men `Read(~/**)` nektet alle file
 Verified container artifacts expire after one day. If an artifact has expired,
 rerun the entire CI workflow so that the images are rebuilt, checked and
 transferred together; retrying only the deploy job cannot recover the artifact.
+If artifact download fails, the workflow retries the same artifact ID twice
+after 5 and 10 seconds. If all attempts fail, inspect the upload and download
+logs and rerun the appropriate workflow after addressing the cause. The SHA and
+image checks must still pass before deployment.
 The image job has a 30-minute limit and deploy has a 90-minute limit. After a
 timeout, inspect the backup, migration, traffic and job-image state before retrying:
 termination may leave a migration or Cloud Run operation running independently.
