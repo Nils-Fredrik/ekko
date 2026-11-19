@@ -66,6 +66,8 @@ function tenantModelRights(): array
         Models\BotHitDaily::class => $system(POLICY_EVERY_ROLE),
         Models\AiReferralDaily::class => $system(POLICY_EVERY_ROLE),
         Models\ExtractionJob::class => $system(POLICY_NO_ROLE),
+        // Durable processing work (7.1, ADR 0032): system bookkeeping only.
+        Models\WorkSignal::class => $system(POLICY_NO_ROLE),
 
         // Usage (6.5): "se forbruk" is the admin's.
         Models\AnthropicBudgetPlan::class => $system(POLICY_ADMINS),
