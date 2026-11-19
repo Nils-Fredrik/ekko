@@ -78,11 +78,11 @@ test('a fact that two answers contradict becomes a brand-level fact_correction w
         // 3 answers in 30 days is 3 a month and every one counts: 3 × 1.
         ->and($action->impact_score)->toBe('3.00')
         ->and($action->evidence['text_params'])->toMatchArray([
-            'fact' => 'Fjordkaffe ble grunnlagt i 2009.', 'prompts' => 2, 'source' => 'https://kaffeguiden.no/x', 'source_kind' => 'other', 'days' => 30,
+            'fact' => 'Fjordkaffe ble grunnlagt i 2009', 'prompts' => 2, 'source' => 'https://kaffeguiden.no/x', 'source_kind' => 'other', 'days' => 30,
         ]);
 
     // The template text: the evidence sentence names the fact and the page, and the step says to ask the publisher.
-    expect(ActionTemplates::evidenceSentence($action, 'nb'))->toBe('Svar på 2 prompts oppgir feil opplysning om Fjordkaffe ble grunnlagt i 2009.. Kilden er https://kaffeguiden.no/x.')
+    expect(ActionTemplates::evidenceSentence($action, 'nb'))->toBe('Svar på 2 prompts oppgir feil opplysning om Fjordkaffe ble grunnlagt i 2009. Kilden er https://kaffeguiden.no/x.')
         ->and(collect($action->steps)->pluck('text')->all())->toBe(['Finn siden svaret bygger på: https://kaffeguiden.no/x.', 'Be utgiveren av siden rette opplysningen.']);
 });
 

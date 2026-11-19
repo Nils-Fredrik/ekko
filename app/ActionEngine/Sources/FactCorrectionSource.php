@@ -107,7 +107,8 @@ final readonly class FactCorrectionSource implements ActionSource
                 prompts: $prompts,
                 engineKeys: $engines,
                 textParams: [
-                    'fact' => Str::limit($fact->text, 200),
+                    // Facts are written as sentences; the evidence sentence puts its own full stop after the fact.
+                    'fact' => Str::limit(rtrim($fact->text, ' .'), 200),
                     'prompts' => count($prompts),
                     'source' => $top['url'] ?? '',
                     'source_kind' => $kind,

@@ -16,6 +16,7 @@ use App\Models\Response;
 use App\Models\UsageEvent;
 use App\Tenancy\Rls\TenantRls;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -27,11 +28,24 @@ use Illuminate\Support\Str;
  * Before a call the estimated cost is reserved on the Anthropic account (ADR 0023), and it is refused in reduced
  * mode. A known reply is settled and booked as the tenant's usage (kind factcheck, billed to the platform) whether or
  * not the text is usable, together with the claims, in one transaction. A known provider error releases the
- * reservation and stops the run, the answer waits. An unknown outcome (timeout, broken connection) keeps the
- * reservation and marks the answer judged, so it is never billed twice.
+ * reservation; an error about the account or the service stops the run and the answer waits, an error about the
+ * request itself marks that answer judged (it would fail again) and the run goes on. An unknown outcome (timeout,
+ * broken connection) keeps the reservation and marks the answer judged, so it is never billed twice.
+ *
+ * One run per tenant at a time, by a Postgres advisory lock held for the run: two jobs would otherwise pick the same
+ * answers and pay twice.
  */
 final class FactChecker
 {
+    public const DONE = 'done';
+
+    public const MORE = 'more';
+
+    public const BUSY = 'busy';
+
+    /** First key of the session-level advisory lock; the second is the tenant id. */
+    private const LOCK_NAMESPACE = 20261119;
+
     public function __construct(
         private readonly TenantRls $rls,
         private readonly FactCheckPromptBuilder $prompts,
@@ -47,34 +61,49 @@ final class FactChecker
 
     /**
      * Judges the tenant's waiting answers, at most ekko.facts.max_checks_per_run, and starts no call after $deadline
-     * (Unix time). True when more answers wait and another run can go on.
+     * (Unix time). MORE when more answers wait and another run can go on, BUSY when another run holds the tenant.
+     *
+     * @return self::DONE|self::MORE|self::BUSY
      */
-    public function run(int $tenantId, int $deadline): bool
+    public function run(int $tenantId, int $deadline): string
     {
         if (! $this->available()) {
-            return false;
+            return self::DONE;
+        }
+        if (! DB::selectOne('select pg_try_advisory_lock(?, ?) as locked', [self::LOCK_NAMESPACE, $tenantId])->locked) {
+            return self::BUSY;
         }
 
+        try {
+            return $this->judgeWaiting($tenantId, $deadline);
+        } finally {
+            DB::select('select pg_advisory_unlock(?, ?)', [self::LOCK_NAMESPACE, $tenantId]);
+        }
+    }
+
+    /** @return self::DONE|self::MORE */
+    private function judgeWaiting(int $tenantId, int $deadline): string
+    {
         $limit = max(1, (int) config('ekko.facts.max_checks_per_run'));
         $pending = $this->rls->run([$tenantId], fn (): array => $this->pending($limit + 1));
         $more = count($pending) > $limit;
 
         foreach (array_slice($pending, 0, $limit) as $item) {
             if (CarbonImmutable::now()->getTimestamp() >= $deadline) {
-                return true;
+                return self::MORE;
             }
             $outcome = $this->call($tenantId, $item['request']);
             if ($outcome === 'stop') {
-                return false;
+                return self::DONE;
             }
             $this->store($tenantId, $item, $outcome instanceof FactJudgeResult ? $outcome : null);
         }
 
-        return $more;
+        return $more ? self::MORE : self::DONE;
     }
 
     /**
-     * @return list<array{id: int, brand_id: int, text: string, fact_ids: list<int>, request: FactCheckRequest}>
+     * @return list<array{id: int, brand_id: int, text: string, facts: array<int, string>, request: FactCheckRequest}>
      */
     private function pending(int $limit): array
     {
@@ -98,7 +127,8 @@ final class FactChecker
                 'id' => $response->id,
                 'brand_id' => FactCatalog::brandId($response),
                 'text' => (string) $response->answer_text,
-                'fact_ids' => $facts->factIds($response),
+                // The facts as they were when the request was built: a verdict only holds for this text.
+                'facts' => array_column($facts->factsFor($response), 'text', 'id'),
                 'request' => $this->prompts->build(
                     'r'.$response->id,
                     (string) $response->answer_text,
@@ -137,7 +167,9 @@ final class FactChecker
                 Account::independent()->markExhausted();
             }
 
-            return $failure->known ? 'stop' : null;
+            // An error about the account or the service stops the run and the answer waits. An error about this
+            // request only would repeat for it, so that answer is marked judged and the run goes on.
+            return $failure->known && $failure->accountWide ? 'stop' : null;
         }
 
         if ($configured) {
@@ -153,7 +185,7 @@ final class FactChecker
      * Stores the claims and marks the answer judged, with the usage of a billed call, in one transaction. Without a
      * result (unknown outcome) the answer is only marked judged.
      *
-     * @param  array{id: int, brand_id: int, text: string, fact_ids: list<int>, request: FactCheckRequest}  $item
+     * @param  array{id: int, brand_id: int, text: string, facts: array<int, string>, request: FactCheckRequest}  $item
      */
     private function store(int $tenantId, array $item, ?FactJudgeResult $result): void
     {
@@ -163,7 +195,7 @@ final class FactChecker
             if ($parsed === null) {
                 Log::warning('Fact check returned no usable result.', ['tenant_id' => $tenantId, 'failure' => $result->failure]);
             }
-            $claims = $this->assembler->assemble($item['text'], $parsed ?? [], $item['fact_ids']);
+            $claims = $this->assembler->assemble($item['text'], $parsed ?? [], array_keys($item['facts']));
         }
 
         $this->rls->run([$tenantId], function () use ($item, $result, $claims): void {
@@ -181,9 +213,14 @@ final class FactChecker
                     'anthropic_operation' => $result->operation,
                 ]);
             }
-            // A fact removed or switched off meanwhile gets no claim (the foreign key would refuse a deleted one).
-            $active = BrandFact::query()->where('brand_id', $item['brand_id'])->where('is_active', true)->pluck('id')->all();
-            $this->storeClaims($item['id'], $item['brand_id'], array_values(array_filter($claims, fn (ModelClaim $claim): bool => in_array($claim->factId, $active, true))));
+            // A fact removed, switched off or reworded while the call ran gets no claim: the verdict was given on the
+            // text in the request. The rows are locked, so an edit cannot slip in between this check and the insert
+            // (BrandFactManager locks the fact the same way before it deletes the claims).
+            $current = BrandFact::query()->where('brand_id', $item['brand_id'])->where('is_active', true)->lockForUpdate()->pluck('text', 'id')->all();
+            $this->storeClaims($item['id'], $item['brand_id'], array_values(array_filter(
+                $claims,
+                fn (ModelClaim $claim): bool => isset($current[$claim->factId], $item['facts'][$claim->factId]) && $current[$claim->factId] === $item['facts'][$claim->factId],
+            )));
             Response::query()->whereKey($item['id'])->update(['facts_checked_at' => CarbonImmutable::now('UTC')]);
         });
     }

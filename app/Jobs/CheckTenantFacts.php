@@ -40,8 +40,13 @@ class CheckTenantFacts extends TenantJob implements ShouldBeUniqueUntilProcessin
         $callSeconds = (int) config('ekko.anthropic.factcheck.timeout_seconds');
         $deadline = CarbonImmutable::now()->getTimestamp() + max(0, min((int) config('ekko.facts.check_seconds'), $this->timeout - $callSeconds - 30));
 
-        if ($checker->run($this->tenantId, $deadline)) {
+        $result = $checker->run($this->tenantId, $deadline);
+        if ($result === FactChecker::MORE) {
             self::dispatch($this->tenantId)->afterCommit();
+        } elseif ($result === FactChecker::BUSY) {
+            // Another run holds the tenant. It may have read its list before the answers that queued this job, so
+            // try again shortly instead of dropping them.
+            self::dispatch($this->tenantId)->delay(now()->addSeconds(30))->afterCommit();
         }
     }
 }

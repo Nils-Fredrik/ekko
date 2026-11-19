@@ -2,6 +2,7 @@
 
 namespace App\FactCheck;
 
+use App\Jobs\CheckTenantFacts;
 use App\Models\Brand;
 use App\Models\BrandFact;
 use App\Models\Claim;
@@ -32,7 +33,10 @@ final class BrandFactManager
             }
             $this->guardDuplicate($brand->id, $text, null);
 
-            return BrandFact::query()->create(['brand_id' => $brand->id, 'text' => $text, 'is_active' => $active]);
+            $fact = BrandFact::query()->create(['brand_id' => $brand->id, 'text' => $text, 'is_active' => $active]);
+            $this->judgeWaiting($fact);
+
+            return $fact;
         });
     }
 
@@ -59,6 +63,7 @@ final class BrandFactManager
                 $fact->save();
                 // New text or off: what was judged against the old text no longer says anything.
                 Claim::query()->where('fact_id', $fact->id)->delete();
+                $this->judgeWaiting($fact);
             }
 
             return $fact;
@@ -69,6 +74,17 @@ final class BrandFactManager
     public function delete(BrandFact $fact): void
     {
         $fact->delete();
+    }
+
+    /**
+     * An active fact may have answers waiting that were not judged before the brand had it: the fact check goes through
+     * them (the extraction only queues it for new answers).
+     */
+    private function judgeWaiting(BrandFact $fact): void
+    {
+        if ($fact->is_active) {
+            CheckTenantFacts::dispatch((int) $fact->tenant_id)->afterCommit();
+        }
     }
 
     private function clean(string $text): string

@@ -57,7 +57,10 @@ final class AnthropicFactJudge implements FactJudge
             // The provider's message can echo the request; only the class and the credit signal are kept.
             $status = $e->status ?? 0;
             $known = $status >= 400 && $status < 500 && $status !== 408;
-            throw new FactJudgeFailed($e::class, $known, str_contains(strtolower($e->getAPIMessage() ?? ''), 'credit balance is too low'));
+            $credit = str_contains(strtolower($e->getAPIMessage() ?? ''), 'credit balance is too low');
+            // An error about the request (400, 413, 422) is this answer's; the others are the account's or the service's.
+            $accountWide = $credit || ! in_array($status, [400, 413, 422], true);
+            throw new FactJudgeFailed($e::class, $known, $credit, $accountWide);
         } catch (Throwable $e) {
             throw new FactJudgeFailed($e::class);
         }

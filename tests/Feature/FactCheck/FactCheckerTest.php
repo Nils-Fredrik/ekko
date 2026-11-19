@@ -6,6 +6,7 @@
 
 use App\AnthropicBudget\Account;
 use App\Extraction\ExtractionClient;
+use App\FactCheck\BrandFactManager;
 use App\FactCheck\FactChecker;
 use App\FactCheck\FactCheckPromptBuilder;
 use App\FactCheck\Judge\FactJudge;
@@ -25,6 +26,7 @@ use App\Models\UsageEvent;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\Extraction\FakeExtractionClient;
 use Tests\Support\FactCheck\FakeFactJudge;
@@ -61,7 +63,7 @@ function factAnswer(MetricsWorld $w, string $text = 'Fjordkaffe er grunnlagt i 2
     return $response;
 }
 
-function runFactCheck(MetricsWorld $w, ?int $deadline = null): bool
+function runFactCheck(MetricsWorld $w, ?int $deadline = null): string
 {
     return app(FactChecker::class)->run($w->tenant->id, $deadline ?? CarbonImmutable::now()->getTimestamp() + 300);
 }
@@ -76,7 +78,7 @@ test('an extracted answer is judged against the facts of its brand, validated, s
     ], 1000, 100));
     app()->instance(FactJudge::class, $this->judge);
 
-    expect(runFactCheck($this->w))->toBeFalse();
+    expect(runFactCheck($this->w))->toBe('done');
 
     $claim = Claim::query()->sole();
     $citation = Citation::query()->where('response_id', $response->id)->sole();
@@ -182,7 +184,7 @@ test('without an API key no call is made', function () {
     config(['services.anthropic.key' => '']);
     factAnswer($this->w);
 
-    expect(runFactCheck($this->w))->toBeFalse()->and($this->judge->requests)->toBe([])->and(UsageEvent::query()->count())->toBe(0);
+    expect(runFactCheck($this->w))->toBe('done')->and($this->judge->requests)->toBe([])->and(UsageEvent::query()->count())->toBe(0);
 });
 
 test('at most max_checks_per_run calls per run, and the job queues itself again for the rest', function () {
@@ -191,7 +193,7 @@ test('at most max_checks_per_run calls per run, and the job queues itself again 
         factAnswer($this->w);
     }
 
-    expect(runFactCheck($this->w))->toBeTrue()->and($this->judge->requests)->toHaveCount(2);
+    expect(runFactCheck($this->w))->toBe('more')->and($this->judge->requests)->toHaveCount(2);
 
     Bus::fake([CheckTenantFacts::class]);
     config(['ekko.facts.max_checks_per_run' => 1]);
@@ -208,7 +210,7 @@ test('at most max_checks_per_run calls per run, and the job queues itself again 
 test('no call starts after the deadline', function () {
     factAnswer($this->w);
 
-    expect(runFactCheck($this->w, CarbonImmutable::now()->getTimestamp() - 1))->toBeTrue()->and($this->judge->requests)->toBe([]);
+    expect(runFactCheck($this->w, CarbonImmutable::now()->getTimestamp() - 1))->toBe('more')->and($this->judge->requests)->toBe([]);
 });
 
 test('with a configured pool the call reserves first; in reduced mode no call is made', function () {
@@ -216,21 +218,115 @@ test('with a configured pool the call reserves first; in reduced mode no call is
     factAnswer($this->w);
     Account::independent()->markExhausted();
 
-    expect(runFactCheck($this->w))->toBeFalse()->and($this->judge->requests)->toBe([])
+    expect(runFactCheck($this->w))->toBe('done')->and($this->judge->requests)->toBe([])
         ->and(Response::query()->whereNull('facts_checked_at')->count())->toBe(1);
 });
 
-test('a known provider error releases the reservation and the answer waits; an unknown outcome keeps it and the answer is not judged again', function (bool $known) {
+test('a known provider error releases the reservation; an unknown outcome keeps it and the answer is not judged again', function (bool $known, bool $accountWide, bool $waits) {
     config(['ekko.anthropic.monthly_pool_usd' => '10', 'ekko.anthropic.cycle_start_day' => 1]);
     factAnswer($this->w);
-    $this->judge->failure = new FactJudgeFailed('x', known: $known);
+    $this->judge->failure = new FactJudgeFailed('x', known: $known, accountWide: $accountWide);
 
     runFactCheck($this->w);
 
     expect(DB::table('anthropic_budget_holds')->whereNull('settled_at')->count())->toBe($known ? 0 : 1)
         ->and(UsageEvent::query()->count())->toBe(0)->and(Claim::query()->count())->toBe(0)
-        ->and(Response::query()->whereNull('facts_checked_at')->count())->toBe($known ? 1 : 0);
-})->with(['known' => true, 'unknown' => false]);
+        ->and(Response::query()->whereNull('facts_checked_at')->count())->toBe($waits ? 1 : 0);
+})->with([
+    'account error, the answer waits' => [true, true, true],
+    'request error, the answer is marked' => [true, false, false],
+    'unknown outcome' => [false, false, false],
+]);
+
+test('an error about one request does not block the answers after it', function () {
+    $first = factAnswer($this->w);
+    $second = factAnswer($this->w);
+    $this->judge = new FakeFactJudge(function (string $id) use ($first): array {
+        if ($id === 'r'.$first->id) {
+            throw new FactJudgeFailed('invalid_request', known: true, accountWide: false);
+        }
+
+        return FakeFactJudge::entry([['fact_id' => $this->fact->id, 'text' => 'Grunnlagt i 2012', 'quote' => 'grunnlagt i 2012', 'verdict' => 'contradicted', 'source_urls' => []]]);
+    });
+    app()->instance(FactJudge::class, $this->judge);
+
+    runFactCheck($this->w);
+
+    expect($this->judge->requests)->toHaveCount(2)
+        ->and(Claim::query()->sole()->response_id)->toBe($second->id)
+        ->and(Response::query()->whereNull('facts_checked_at')->count())->toBe(0);
+
+    // The marked answer is not tried again.
+    runFactCheck($this->w);
+    expect($this->judge->requests)->toHaveCount(2);
+});
+
+test('an error about the account stops the run, so the next answers are not tried now', function () {
+    factAnswer($this->w);
+    factAnswer($this->w);
+    $this->judge->failure = new FactJudgeFailed('rate_limit', known: true, accountWide: true);
+
+    runFactCheck($this->w);
+
+    expect($this->judge->requests)->toHaveCount(1)->and(Response::query()->whereNull('facts_checked_at')->count())->toBe(2);
+});
+
+test('two runs for the same tenant never overlap: a run that finds the tenant busy calls nothing, and the job tries again shortly', function () {
+    factAnswer($this->w);
+    // Another worker (another database session) holds the tenant.
+    $other = Account::independent()->db();
+    $other->select('select pg_advisory_lock(?, ?)', [20261119, $this->w->tenant->id]);
+
+    try {
+        expect(runFactCheck($this->w))->toBe('busy')->and($this->judge->requests)->toBe([])->and(UsageEvent::query()->count())->toBe(0);
+
+        Bus::fake([CheckTenantFacts::class]);
+        (new CheckTenantFacts($this->w->tenant->id))->handle(app(FactChecker::class));
+        Bus::assertDispatched(CheckTenantFacts::class, fn (CheckTenantFacts $job): bool => $job->delay !== null);
+    } finally {
+        $other->select('select pg_advisory_unlock(?, ?)', [20261119, $this->w->tenant->id]);
+    }
+
+    // Free again: the run goes ahead, and the lock is released after it.
+    expect(runFactCheck($this->w))->toBe('done')->and($this->judge->requests)->toHaveCount(1);
+    $other->select('select pg_advisory_lock(?, ?)', [20261119, $this->w->tenant->id]);
+    $other->select('select pg_advisory_unlock(?, ?)', [20261119, $this->w->tenant->id]);
+});
+
+test('a verdict given on the old text of a fact is not stored when the fact was reworded during the call', function () {
+    factAnswer($this->w);
+    $this->judge = new FakeFactJudge(function (string $id): array {
+        app(BrandFactManager::class)->update($this->fact, 'Fjordkaffe ble grunnlagt i 2012.');
+
+        return FakeFactJudge::entry([['fact_id' => $this->fact->id, 'text' => 'Grunnlagt i 2012', 'quote' => 'grunnlagt i 2012', 'verdict' => 'contradicted', 'source_urls' => []]]);
+    });
+    app()->instance(FactJudge::class, $this->judge);
+    Bus::fake([CheckTenantFacts::class]);
+
+    runFactCheck($this->w);
+
+    expect(Claim::query()->count())->toBe(0)->and(UsageEvent::query()->count())->toBe(1);
+});
+
+test('adding or switching on a fact queues the fact check for the answers already waiting', function () {
+    Bus::fake([CheckTenantFacts::class]);
+    $manager = app(BrandFactManager::class);
+
+    $added = $manager->add($this->w->brand, 'Fjordkaffe har brenneri i Bergen.');
+    Bus::assertDispatchedTimes(CheckTenantFacts::class, 1);
+
+    // The job is unique until it starts; a worker taking it frees the lock, so each case starts from a free one.
+    $queued = fn () => Cache::lock('laravel_unique_job:'.CheckTenantFacts::class.':fact-check:'.$this->w->tenant->id)->forceRelease();
+    $queued();
+    $manager->update($added, active: false);
+    Bus::assertDispatchedTimes(CheckTenantFacts::class, 1);
+    $queued();
+    $manager->update($added, active: true);
+    Bus::assertDispatchedTimes(CheckTenantFacts::class, 2);
+    $queued();
+    $manager->add($this->w->brand, 'Fjordkaffe har tre kaffebarer.', active: false);
+    Bus::assertDispatchedTimes(CheckTenantFacts::class, 2);
+});
 
 test('a credit balance error stops further Anthropic calls for the period', function () {
     config(['ekko.anthropic.monthly_pool_usd' => '10', 'ekko.anthropic.cycle_start_day' => 1]);
