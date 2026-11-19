@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { codexApproved, codexReviewState, requiredReviewers } from '../../scripts/agent-review/policy.mjs';
 
@@ -33,6 +34,19 @@ test('review routing includes both reviewers for sensitive changes', () => {
     assert.deepEqual(requiredReviewers('[Cursor] U05-F1 – Test', ['README.md'], paths), { claude: true, codex: false });
     assert.throws(() => requiredReviewers('[Cursor] X05 – Test', ['README.md'], paths));
     assert.throws(() => requiredReviewers('[Codex] T42 – Test', [], paths));
+});
+
+test('repository review policy routes local action changes to both reviewers', () => {
+    const configuredPaths = JSON.parse(readFileSync(new URL('../../.github/review-paths.yml', import.meta.url), 'utf8')).sensitive;
+    for (const title of ['[Codex] T10 – Test', '[Claude Code] T10 – Test']) {
+        for (const file of ['.github/actions/download-verified-images/action.yml', '.github/actions/.hidden/nested/script.sh']) {
+            assert.deepEqual(requiredReviewers(title, [file], configuredPaths), { claude: true, codex: true });
+        }
+    }
+    assert.deepEqual(requiredReviewers('[Codex] T10 – Test', ['.github/actionss/example/action.yml'], configuredPaths), {
+        claude: true,
+        codex: false,
+    });
 });
 
 test('only a fresh complete clean result from the authenticated bot on the exact head passes', () => {

@@ -31,6 +31,7 @@
         "config/services.php",
         "config/ekko.php",
         ".github/workflows/**",
+        ".github/actions/**",
         ".env*",
         "Dockerfile",
         "scripts/deploy*",

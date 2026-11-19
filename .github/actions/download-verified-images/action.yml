@@ -1,0 +1,51 @@
+name: Download verified images
+description: Download an exact artifact ID with bounded retries for delayed artifact visibility.
+inputs:
+    artifact-id:
+        description: Artifact ID returned by the upload step
+        required: true
+    path:
+        description: Destination for the downloaded files
+        required: true
+runs:
+    using: composite
+    steps:
+        # An empty artifact-ids input downloads every artifact instead of failing.
+        - name: Require one numeric artifact ID
+          shell: bash
+          env:
+              ARTIFACT_ID: ${{ inputs.artifact-id }}
+          run: |
+              [[ "$ARTIFACT_ID" =~ ^[0-9]+$ ]] || { echo 'Missing or invalid artifact ID' >&2; exit 1; }
+        - name: Download verified images
+          id: first
+          continue-on-error: true
+          uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+          with:
+              artifact-ids: ${{ inputs.artifact-id }}
+              path: ${{ inputs.path }}
+              merge-multiple: true
+        - name: Wait before retry
+          if: steps.first.outcome == 'failure'
+          shell: bash
+          run: sleep 5
+        - name: Retry download of verified images
+          id: second
+          if: steps.first.outcome == 'failure'
+          continue-on-error: true
+          uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+          with:
+              artifact-ids: ${{ inputs.artifact-id }}
+              path: ${{ inputs.path }}
+              merge-multiple: true
+        - name: Wait before final retry
+          if: steps.second.outcome == 'failure'
+          shell: bash
+          run: sleep 10
+        - name: Final attempt to download verified images
+          if: steps.second.outcome == 'failure'
+          uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+          with:
+              artifact-ids: ${{ inputs.artifact-id }}
+              path: ${{ inputs.path }}
+              merge-multiple: true
