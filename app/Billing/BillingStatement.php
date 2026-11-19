@@ -32,18 +32,24 @@ final class BillingStatement
             // Usage the platform pays for (ADR 0034) is not invoiced to the tenant.
             $events = $this->context->run($tenant->id, fn () => $this->rls->run([$tenant->id], fn () => PlatformPaidUsage::exclude(UsageEvent::query())
                 ->where('occurred_at', '>=', $from)->where('occurred_at', '<', $to)
-                ->selectRaw('engine_key, billed_to, sum(calls) AS calls, sum(cost_usd) AS cost_usd')
-                ->groupBy('engine_key', 'billed_to')->get()
-                ->map(fn (UsageEvent $event): array => ['engine_key' => $event->engine_key, 'billed_to' => $event->billed_to, 'calls' => (int) $event->calls, 'cost_usd' => $event->cost_usd])->all()));
+                ->selectRaw('project_kind, engine_key, billed_to, sum(calls) AS calls, sum(cost_usd) AS cost_usd')
+                ->groupBy('project_kind', 'engine_key', 'billed_to')->get()
+                ->map(fn (UsageEvent $event): array => ['project_kind' => $event->project_kind, 'engine_key' => $event->engine_key, 'billed_to' => $event->billed_to, 'calls' => (int) $event->calls, 'cost_usd' => $event->cost_usd])->all()));
             if ($events === []) {
                 continue;
             }
             $account = $tenant->partner ?? $tenant;
-            $rows[] = [
-                'month' => $month, 'account_id' => $account->id, 'account_name' => $account->name,
-                'tenant_id' => $tenant->id, 'tenant_name' => $tenant->name,
-                'plan' => $tenant->plan->name ?? '',
-            ] + BillingTotals::summarize($events, $tenant->billing_markup_percent);
+            foreach (['customer', 'pitch'] as $kind) {
+                $kindEvents = array_values(array_filter($events, fn (array $event): bool => $event['project_kind'] === $kind));
+                if ($kindEvents === []) {
+                    continue;
+                }
+                $rows[] = [
+                    'month' => $month, 'account_id' => $account->id, 'account_name' => $account->name,
+                    'tenant_id' => $tenant->id, 'tenant_name' => $tenant->name,
+                    'plan' => $tenant->plan->name ?? '', 'project_kind' => $kind,
+                ] + BillingTotals::summarize($kindEvents, $tenant->billing_markup_percent);
+            }
         }
 
         return $rows;

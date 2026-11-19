@@ -74,10 +74,17 @@ const ready = computed(() => props.rows.length > 0 && props.rows.every((row) => 
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="row in rows" :key="row.tenant_id" class="border-t border-line-soft">
+                        <tr
+                            v-for="row in rows"
+                            :key="`${row.tenant_id}-${row.project_kind}`"
+                            class="border-t border-line-soft"
+                        >
                             <td class="p-3">
                                 <span class="block font-medium">{{ row.tenant_name }}</span>
                                 <span class="block text-xs text-shell-muted">{{ row.plan }}</span>
+                                <span class="block text-xs text-shell-muted">
+                                    {{ $t(`pitch.kind_${row.project_kind}`) }}
+                                </span>
                                 <span class="block text-xs text-shell-muted">
                                     {{ $t('billing.recipient', { name: row.account_name }) }}
                                 </span>

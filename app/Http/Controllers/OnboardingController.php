@@ -66,16 +66,18 @@ class OnboardingController extends Controller
 
     private function wizard(?Brand $brand = null): Response
     {
-        $plan = $this->tenant()->plan()->first();
+        $tenant = $this->tenant();
+        $plan = $tenant->plan()->first();
         $engines = Engine::query()->orderBy('key')->get()
             ->filter(fn (Engine $engine): bool => $engine->isAvailable() && $plan instanceof Plan && $plan->allowsEngine($engine->key))
+            ->filter(fn (Engine $engine): bool => $tenant->kind !== 'pitch' || in_array($engine->key, ['chatgpt_api', 'gemini_api', 'claude_haiku'], true))
             ->map(fn (Engine $engine): array => [
                 'engine_key' => $engine->key,
                 'name' => DashboardLabels::engines([$engine->key])[$engine->key],
-                'max_repetitions' => $plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1,
+                'max_repetitions' => $tenant->kind === 'pitch' ? 1 : ($plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1),
                 'max_frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'off',
-                'frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'weekly',
-                'repetitions' => $plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1,
+                'frequency' => $tenant->kind === 'pitch' ? 'daily' : ($plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'weekly'),
+                'repetitions' => $tenant->kind === 'pitch' ? 1 : ($plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1),
             ])->values();
 
         return Inertia::render('Onboarding/Wizard', [

@@ -1,6 +1,7 @@
 <?php
 
 use App\Engines\RawResponseStore;
+use App\Jobs\CollectEngineRun;
 use App\Models\Engine;
 use App\Models\EnginePrice;
 use App\Models\Market;
@@ -45,6 +46,34 @@ function dispatchEngine(): Engine
 
     return $engine;
 }
+
+test('an expired pitch plans no new runs while an active pitch still runs', function () {
+    $now = CarbonImmutable::now('UTC');
+    $engine = dispatchEngine();
+    $expired = dispatchTenant($engine, 1);
+    $active = dispatchTenant($engine, 1);
+    $expired->forceFill(['kind' => 'pitch', 'pitch_expires_at' => $now])->save();
+    $active->forceFill(['kind' => 'pitch', 'pitch_expires_at' => $now->addSecond()])->save();
+    expect(app(Dispatcher::class)->dispatch($now))->toBe(1);
+    app(TenantContext::class)->run($expired->id, fn () => app(TenantRls::class)->run([$expired->id], fn () => expect(Run::query()->count())->toBe(0)));
+    app(TenantContext::class)->run($active->id, fn () => app(TenantRls::class)->run([$active->id], fn () => expect(Run::query()->count())->toBe(1)));
+});
+
+test('a queued pitch run cannot start provider work after the pitch expires', function () {
+    $now = CarbonImmutable::now('UTC');
+    $this->travelTo($now);
+    $engine = dispatchEngine();
+    $pitch = dispatchTenant($engine, 1);
+    $pitch->forceFill(['kind' => 'pitch', 'pitch_expires_at' => $now->addMinute()])->save();
+    expect(app(Dispatcher::class)->dispatch($now))->toBe(1);
+    $runId = app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => Run::query()->sole()->id));
+    $this->travelTo($now->addMinute());
+    Http::preventStrayRequests();
+    app()->instance(RawResponseStore::class, Mockery::mock(RawResponseStore::class));
+    app(TenantContext::class)->run($pitch->id, fn () => app()->call([new CollectEngineRun($pitch->id, $runId), 'handle']));
+    app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => expect(Run::query()->sole()->error_code)->toBe('pitch_expired')));
+    Http::assertNothingSent();
+});
 
 test('dispatcher durably interleaves three tenants and a replay does not add jobs or runs', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-15T01:00:00Z'));

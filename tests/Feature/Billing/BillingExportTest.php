@@ -3,11 +3,13 @@
 use App\Billing\BillingStatement;
 use App\Models\Engine;
 use App\Models\Plan;
+use App\Models\Run;
 use App\Models\Team;
 use App\Models\UsageEvent;
 use App\Models\User;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -63,6 +65,30 @@ test('monthly CSV reconciles exact usage, groups partner clients and excludes BY
     $statement = app(BillingStatement::class);
     expect($statement->accounts($statement->rows($admin, '2026-10'))[0]['invoice_total_usd'])->toBe('15.25');
     expect(app(TenantContext::class)->id())->toBeNull();
+});
+
+test('pitch and customer costs remain separate after conversion', function () {
+    $admin = User::factory()->platformAdmin()->create();
+    $tenant = Team::factory()->tenant()->create(['kind' => 'pitch', 'billing_markup_percent' => '0', 'pitch_expires_at' => '2026-10-25T00:00:00Z']);
+    billingEvent($tenant, null, '1.25', '2026-10-20T00:00:00Z');
+    $tenant->forceFill(['kind' => 'customer', 'pitch_converted_at' => '2026-10-21T00:00:00Z'])->save();
+    billingEvent($tenant, null, '2.00', '2026-10-22T00:00:00Z');
+    $rows = billingRows($this->actingAs($admin)->get('/admin/billing/export?month=2026-10')->assertOk()->getContent());
+    expect($rows)->toHaveCount(2)->and($rows[0]['project_kind'])->toBe('customer')
+        ->and($rows[0]['platform_cost_usd'])->toBe('2.00000000')
+        ->and($rows[1]['project_kind'])->toBe('pitch')->and($rows[1]['platform_cost_usd'])->toBe('1.25000000');
+});
+
+test('a pitch run booked after conversion keeps its original billing category', function () {
+    $tenant = Team::factory()->tenant()->create(['kind' => 'pitch', 'pitch_expires_at' => '2026-10-25T00:00:00Z']);
+    $this->travelTo(CarbonImmutable::parse('2026-10-20T00:00:00Z'));
+    $runId = app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], fn () => Run::factory()->create()->id));
+    $tenant->forceFill(['kind' => 'customer', 'pitch_converted_at' => '2026-10-21T00:00:00Z'])->save();
+    $this->travelTo(CarbonImmutable::parse('2026-10-22T00:00:00Z'));
+    app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], function () use ($runId): void {
+        $event = UsageEvent::factory()->create(['run_id' => $runId]);
+        expect($event->project_kind)->toBe('pitch');
+    }));
 });
 
 test('missing markup is visible in preview and blocks CSV until an admin explicitly sets it', function () {

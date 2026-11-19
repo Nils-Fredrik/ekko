@@ -669,6 +669,16 @@ Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen
 
 ---
 
+### 11.5 Pitch-rapport
+
+En pitch-rapport viser et prospekts AI-synlighet før et salgsmøte, uten at prospektet er kunde. Plattformadmin og partner-rådgivere kan opprette et pitch-prosjekt for domene, marked og inntil tre konkurrenter. Veiviseren foreslår 25 prompts som kan redigeres før start. Promptene kjøres daglig i sju dager på de aktive API-motorene ChatGPT, Gemini og Claude Haiku. Prosjektet stopper etter sju dager.
+
+En partner kan ha inntil tre aktive pitch-prosjekter samtidig. Forbruket vises separat og er merket i fakturagrunnlaget. Rapporten oppdateres med nyeste tall og viser synlighet mot konkurrenter, viktige kilder og de tre høyest rangerte åpne tiltakene. Konvertering til ordinær tenant beholder historikken.
+
+Datamodellen har `teams.kind` (`customer`, `pitch`), `teams.pitch_expires_at`, `teams.pitch_converted_at` og `usage_events.project_kind`. Konvertering endrer ikke tenant-ID. En forbrukshendelse for en kjøring som startet før konverteringen beholder pitch-klassifiseringen også når bokføringen skjer senere.
+
+---
+
 ## 12. Pakker, kvoter, forbruk og fakturagrunnlag
 
 ### 12.1 Pakker
@@ -1482,6 +1492,16 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning med evidens, konkurrentevidens, berørte prompts og steg som kan hukes av, samt egne tiltak. Status endres fra listen og detaljen. Rapportseksjonen i 11.3 (3–5 åpne, pluss fullførte i perioden med utvikling i synlighet) ligger i PDF-en og på nettversjonen av rapporten, som komponenten `ReportSection` så U13 kan gjenbruke den. Nettversjonen viser seksjonen som ble lagret da PDF-en ble skrevet (`reports.action_section`), så en senere endring av tiltakene ikke skriver om en gammel rapport.
 - Status kan endres fra listen og detaljvisningen.
 - Rapporten viser 3–5 åpne tiltak og fullførte tiltak med utvikling.
+
+---
+
+### T47 – Pitch-prosjekter og pitch-rapport
+
+Opprettelse fra partner- og adminsidene, pitch-veiviser, sju dagers kjøring med egen partnerkvote, kort rapport og konvertering til ordinær tenant.
+
+- Pitch-prosjektet stopper automatisk etter sju dager, også for arbeid som lå i kø ved utløpet.
+- Konvertering beholder all historikk.
+- Pitch-forbruk vises separat i forbruk og fakturagrunnlag, også etter konvertering.
 
 ---
 

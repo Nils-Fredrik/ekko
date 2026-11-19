@@ -31,6 +31,8 @@ final class TenantController extends Controller
             'tenants' => $tenants->map(fn (Team $team): array => [
                 'id' => $team->id,
                 'name' => $team->name,
+                'kind' => $team->kind,
+                'pitch_expires_at' => $team->pitch_expires_at?->toIso8601String(),
                 'status' => $team->status->value,
                 'plan_id' => $team->plan_id,
                 'plan' => $team->plan->name ?? null,

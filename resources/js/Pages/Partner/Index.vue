@@ -1,6 +1,7 @@
 <script setup>
-import { usePage } from '@inertiajs/vue3';
+import { useForm, usePage } from '@inertiajs/vue3';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import PitchCreateForm from '@/Components/PitchCreateForm.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 defineProps({
@@ -9,6 +10,7 @@ defineProps({
 });
 
 const page = usePage();
+const convert = useForm({});
 
 function formatRate(metric) {
     if (metric.value === null || metric.value === undefined) {
@@ -45,6 +47,7 @@ function formatChange(current, previous) {
         </template>
         <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
             <p class="text-sm text-shell-muted">{{ $t('app.partner.intro', { days: period.days }) }}</p>
+            <PitchCreateForm class="mt-6" />
             <EmptyState
                 v-if="clients.length === 0"
                 class="mt-6"
@@ -63,7 +66,21 @@ function formatChange(current, previous) {
                     </thead>
                     <tbody>
                         <tr v-for="client in clients" :key="client.id" class="border-b border-line last:border-0">
-                            <td class="px-4 py-3">{{ client.name }}</td>
+                            <td class="px-4 py-3">
+                                {{ client.name }}
+                                <span v-if="client.kind === 'pitch'" class="block text-xs text-shell-muted">
+                                    {{ $t('pitch.kind_pitch') }}
+                                </span>
+                                <button
+                                    v-if="client.kind === 'pitch'"
+                                    type="button"
+                                    class="text-sm text-primary"
+                                    :disabled="convert.processing"
+                                    @click="convert.post(route('pitches.convert', client.id))"
+                                >
+                                    {{ $t('pitch.convert') }}
+                                </button>
+                            </td>
                             <td class="px-4 py-3 text-right tabular-nums">
                                 {{ formatRate(client.visibility) ?? $t('app.dashboard.empty') }}
                             </td>

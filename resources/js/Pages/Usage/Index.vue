@@ -6,6 +6,7 @@ defineProps({
     month: { type: String, required: true },
     usage: { type: Object, required: true },
     engines: { type: Array, required: true },
+    projectUsage: { type: Array, required: true },
 });
 
 function amount(value) {
@@ -42,6 +43,13 @@ function amount(value) {
                     {{ amount(usage.byok_budget_usd) ?? $t('app.workspace.unlimited') }}
                 </p>
                 <p>{{ $t('app.workspace.usage_status') }}: {{ $t(`app.workspace.status_${usage.status}`) }}</p>
+            </section>
+
+            <section class="space-y-2 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
+                <h3 class="font-medium">{{ $t('pitch.usage_by_kind') }}</h3>
+                <p v-for="row in projectUsage" :key="row.kind">
+                    {{ $t(`pitch.kind_${row.kind}`) }}: {{ row.calls }} · {{ amount(row.cost) }}
+                </p>
             </section>
 
             <section class="space-y-2 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">

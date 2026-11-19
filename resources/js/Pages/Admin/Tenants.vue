@@ -7,6 +7,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import ConfirmsPassword from '@/Components/ConfirmsPassword.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import PitchCreateForm from '@/Components/PitchCreateForm.vue';
 import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({ tenants: Array, plans: Array, partners: Array, statuses: Array });
@@ -19,6 +20,7 @@ const closePassword = {
 };
 const creating = useForm({ name: '', plan_id: props.plans[0]?.id ?? '', partner_team_id: '' });
 const acting = useForm({ team_id: props.tenants[0]?.id ?? '', reason: '' });
+const converting = useForm({});
 function tenantForm(tenant) {
     return useForm({
         name: tenant.name,
@@ -78,6 +80,7 @@ function act() {
         <div class="mx-auto max-w-7xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
             <AdminNav />
             <p class="text-sm text-shell-muted">{{ $t('admin.tenants.intro') }}</p>
+            <PitchCreateForm :admin="true" :partners="partners" :plans="plans" />
             <form
                 class="space-y-3 rounded-2xl border border-line bg-shell-panel p-6 text-shell-text"
                 @submit.prevent="create"
@@ -117,6 +120,15 @@ function act() {
                 class="space-y-3 rounded-2xl border border-line bg-shell-panel p-6 text-shell-text"
                 @submit.prevent="save(tenant)"
             >
+                <button
+                    v-if="tenant.kind === 'pitch'"
+                    type="button"
+                    class="text-sm text-primary"
+                    :disabled="converting.processing"
+                    @click="converting.post(route('pitches.convert', tenant.id), { preserveScroll: true })"
+                >
+                    {{ $t('pitch.convert') }}
+                </button>
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                     <label class="text-sm">
                         {{ $t('admin.tenants.name') }}

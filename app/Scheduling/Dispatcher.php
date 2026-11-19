@@ -128,6 +128,9 @@ final class Dispatcher
 
     private function plan(Team $tenant, CarbonImmutable $now): void
     {
+        if (! $tenant->mayCollectAt($now)) {
+            return;
+        }
         $plan = $tenant->plan;
         if ($plan === null) {
             return;
@@ -143,12 +146,18 @@ final class Dispatcher
             }
             foreach ($market->prompts as $prompt) {
                 foreach ($market->marketEngines->groupBy('engine_key') as $key => $settings) {
+                    if ($tenant->kind === 'pitch' && ! in_array($key, ['chatgpt_api', 'gemini_api', 'claude_haiku'], true)) {
+                        continue;
+                    }
                     $setting = ($prompt->priority === 'core' ? $settings->firstWhere('prompt_scope', 'core') : null) ?? $settings->firstWhere('prompt_scope', 'all');
                     if ($setting === null || ! $setting->engine->isAvailable() || ! $plan->allowsEngine($key)) {
                         continue;
                     }
                     $ranks = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
                     $frequency = $ranks[$setting->frequency] <= $ranks[$plan->maxFrequencyForEngine($key)] ? $setting->frequency : $plan->maxFrequencyForEngine($key);
+                    if ($tenant->kind === 'pitch' && $plan->maxFrequencyForEngine($key) === 'daily') {
+                        $frequency = 'daily';
+                    }
                     $platformClaude = $budget->configured() && in_array($key, ['claude_haiku', 'claude_sonnet'], true) && $this->keys->forEngine($tenant, $setting->engine) === null;
                     if ($platformClaude && $key === 'claude_sonnet' && $frequency === 'daily') {
                         $frequency = 'weekly';

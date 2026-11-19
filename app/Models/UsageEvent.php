@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use App\Observers\AnthropicSpendObserver;
 use App\Observers\UsageWorkObserver;
+use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Database\Factories\UsageEventFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +21,22 @@ class UsageEvent extends Model
 
     /** @use HasFactory<UsageEventFactory> */
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::creating(function (UsageEvent $event): void {
+            $team = Team::query()->findOrFail(app(TenantContext::class)->require());
+            $projectKind = $team->kind;
+            if ($projectKind !== 'pitch' && $team->pitch_converted_at !== null) {
+                // A collected run can be booked after conversion; use its creation time to retain provenance.
+                $started = $event->run_id === null ? $event->occurred_at : Run::query()->whereKey($event->run_id)->value('created_at');
+                if ($started !== null && CarbonImmutable::parse($started)->lessThan($team->pitch_converted_at)) {
+                    $projectKind = 'pitch';
+                }
+            }
+            $event->setAttribute('project_kind', $projectKind);
+        });
+    }
 
     /** @var list<string> */
     protected $fillable = [

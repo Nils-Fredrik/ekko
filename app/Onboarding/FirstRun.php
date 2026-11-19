@@ -39,6 +39,9 @@ final class FirstRun
         return DB::transaction(function () use ($tenant, $market): int {
             $tenant = Team::query()->lock('for no key update')->findOrFail($tenant->id);
             $now = CarbonImmutable::now('UTC');
+            if (! $tenant->mayCollectAt($now)) {
+                return 0;
+            }
             $day = $now->setTimezone($tenant->timezone)->startOfDay();
             $batch = RunBatch::query()->firstOrCreate(
                 ['market_id' => $market->id, 'dispatch_date' => $day->toDateString()],

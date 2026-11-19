@@ -18,6 +18,26 @@ use Tests\Support\Onboarding\OnboardingFakes;
 
 require_once __DIR__.'/../../Support/Onboarding/helpers.php';
 
+it('configures every available pitch engine daily regardless of edited engine choices', function () {
+    $engine = Engine::factory()->create(['key' => 'chatgpt_api', 'provider' => 'openai', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subDay(), 'price_per_call_usd' => '0.01000000']);
+    [$tenant, $owner] = wizardTenant(Plan::factory()->create(['allowed_engines' => [$engine->key], 'max_prompts_per_market' => 25]));
+    $tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    OnboardingFakes::bind();
+    $id = $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->assertStatus(202)->json('id');
+    $proposal = $this->getJson("/onboarding/analyses/{$id}")->json('proposal');
+    $this->post(route('onboarding.analyses.confirm', $id), [
+        'name' => 'Eksempel AS', 'primary_domain' => 'eksempel.no', 'country' => 'NO', 'language' => 'nb',
+        'name_variants' => $proposal['name_variants'], 'competitors' => $proposal['competitors'],
+        'topics' => $proposal['topics'], 'prompts' => $proposal['prompts'],
+        'engines' => [['engine_key' => $engine->key, 'frequency' => 'weekly', 'repetitions' => 1]],
+    ])->assertRedirect()->assertSessionHasNoErrors();
+    inTenant($tenant, function () use ($engine): void {
+        expect(MarketEngine::query()->where('engine_key', $engine->key)->value('frequency'))->toBe('daily')
+            ->and(Run::query()->count())->toBe(Prompt::query()->count());
+    });
+});
+
 it('saves a confirmed proposal and queues core plus due standard prompts', function () {
     $engine = Engine::factory()->create(['is_enabled' => true]);
     EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subDay(), 'price_per_call_usd' => '0.01000000']);

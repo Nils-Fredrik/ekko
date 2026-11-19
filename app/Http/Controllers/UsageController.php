@@ -34,6 +34,10 @@ class UsageController extends Controller
             ->orderBy('engine_key')
             ->get();
         $names = DashboardLabels::engines($rows->pluck('engine_key')->map(fn (mixed $key): string => (string) $key)->all());
+        $projectUsage = PlatformPaidUsage::exclude(UsageEvent::query())
+            ->where('occurred_at', '>=', $month)->where('occurred_at', '<', $month->addMonth())
+            ->selectRaw('project_kind, sum(calls) as calls, sum(cost_usd) as cost_usd')
+            ->groupBy('project_kind')->get();
 
         return Inertia::render('Usage/Index', [
             'month' => $month->toDateString(),
@@ -50,6 +54,9 @@ class UsageController extends Controller
                 'name' => $names[(string) $row->engine_key] ?? (string) $row->engine_key,
                 'calls' => (int) $row->calls,
                 'cost' => (string) $row->cost_usd,
+            ])->values(),
+            'projectUsage' => $projectUsage->map(fn (UsageEvent $row): array => [
+                'kind' => $row->project_kind, 'calls' => (int) $row->calls, 'cost' => (string) $row->cost_usd,
             ])->values(),
         ]);
     }

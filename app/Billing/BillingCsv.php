@@ -19,7 +19,7 @@ final class BillingCsv
         }
         $engines = array_values(array_unique($engines));
         sort($engines);
-        $columns = ['month', 'account_id', 'account_name', 'tenant_id', 'tenant_name', 'plan', 'calls', 'platform_cost_usd', 'byok_cost_usd', 'unassigned_cost_usd', 'markup_percent', 'markup_usd', 'invoice_total_usd'];
+        $columns = ['month', 'account_id', 'account_name', 'tenant_id', 'tenant_name', 'plan', 'project_kind', 'calls', 'platform_cost_usd', 'byok_cost_usd', 'unassigned_cost_usd', 'markup_percent', 'markup_usd', 'invoice_total_usd'];
         $stream = fopen('php://temp', 'w+');
         if ($stream === false) {
             throw new RuntimeException('billing_export_unavailable');

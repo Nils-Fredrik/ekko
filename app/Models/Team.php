@@ -35,6 +35,9 @@ use Laravel\Jetstream\Team as JetstreamTeam;
  * @property int|null $monthly_call_quota_override
  * @property string|null $monthly_byok_budget_usd
  * @property CarbonImmutable|null $closed_at
+ * @property string $kind
+ * @property CarbonImmutable|null $pitch_expires_at
+ * @property CarbonImmutable|null $pitch_converted_at
  */
 class Team extends JetstreamTeam
 {
@@ -72,6 +75,7 @@ class Team extends JetstreamTeam
         'default_locale' => 'nb',
         'timezone' => 'Europe/Oslo',
         'byok_enabled' => false,
+        'kind' => 'customer',
     ];
 
     /**
@@ -128,6 +132,13 @@ class Team extends JetstreamTeam
     public function isActive(): bool
     {
         return $this->status === TenantStatus::Active;
+    }
+
+    /** A pitch is collecting only before its exact expiry; conversion keeps the tenant and its history. */
+    public function mayCollectAt(CarbonImmutable $at): bool
+    {
+        return $this->isActive() && ($this->kind !== 'pitch'
+            || ($this->pitch_expires_at !== null && $at->lessThan($this->pitch_expires_at)));
     }
 
     /**
@@ -198,6 +209,8 @@ class Team extends JetstreamTeam
             'monthly_byok_budget_usd' => 'decimal:2',
             'billing_markup_percent' => 'decimal:4',
             'closed_at' => 'immutable_datetime',
+            'pitch_expires_at' => 'immutable_datetime',
+            'pitch_converted_at' => 'immutable_datetime',
         ];
     }
 

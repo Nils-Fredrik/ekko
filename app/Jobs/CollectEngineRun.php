@@ -15,6 +15,7 @@ use App\Scheduling\EngineThrottle;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use App\Work\WorkChain;
+use Carbon\CarbonImmutable;
 use RuntimeException;
 use Throwable;
 
@@ -55,8 +56,14 @@ final class CollectEngineRun extends TenantJob
         }
         // A tenant closed after the run was queued gets no more provider calls (T39-F6): the dispatcher only
         // stops future runs, and a queued job could otherwise still be billed while the tenant waits to be deleted.
-        if (Team::query()->whereKey($this->tenantId)->value('status') === TenantStatus::Closed) {
+        $tenant = Team::query()->findOrFail($this->tenantId);
+        if ($tenant->status === TenantStatus::Closed) {
             $this->stop('tenant_closed');
+
+            return;
+        }
+        if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt(CarbonImmutable::now('UTC'))) {
+            $this->stop('pitch_expired');
 
             return;
         }

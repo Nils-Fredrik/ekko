@@ -17,6 +17,7 @@ use App\Models\Topic;
 use App\Onboarding\Fetch\SiteUrl;
 use App\Onboarding\Model\OnboardingSchema;
 use App\Onboarding\Model\ProposalParser;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -55,6 +56,21 @@ final class ProposalConfirmer
                 }
             }
             $plan = $tenant->plan()->first();
+            if ($tenant->kind === 'pitch') {
+                if (! $tenant->mayCollectAt(CarbonImmutable::now('UTC'))) {
+                    throw ValidationException::withMessages(['analysis' => __('pitch.expired')]);
+                }
+                if (count($data['competitors'] ?? []) > 3 || count($data['prompts'] ?? []) > 25) {
+                    throw ValidationException::withMessages(['prompts' => __('pitch.limits')]);
+                }
+                $engines = Engine::query()->whereIn('key', ['chatgpt_api', 'gemini_api', 'claude_haiku'])->get()
+                    ->filter(fn (Engine $engine): bool => $engine->isAvailable())->values();
+                if (! $plan instanceof Plan || $engines->isEmpty() || ($plan->max_prompts_per_market !== null && $plan->max_prompts_per_market < 25)
+                    || $engines->contains(fn (Engine $engine): bool => ! $plan->allowsEngine($engine->key) || $plan->maxFrequencyForEngine($engine->key) !== 'daily')) {
+                    throw ValidationException::withMessages(['engines' => __('pitch.plan_unavailable')]);
+                }
+                $data['engines'] = $engines->map(fn (Engine $engine): array => ['engine_key' => $engine->key, 'frequency' => 'daily', 'repetitions' => 1])->all();
+            }
             $brand = $analysis->kind === Analysis::MARKET
                 ? $this->existingBrand($analysis)
                 : $this->createBrand($plan, $data);

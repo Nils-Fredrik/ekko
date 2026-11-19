@@ -57,9 +57,18 @@ final class OnboardingRunner
         $analysis->pages = array_map(fn (SitePage $page): string => $page->url, $pages);
 
         $this->advance($analysis, Analysis::ANALYSING);
-        $request = $this->prompts->brand($input['name'], $input['primary_domain'], $input['country'], $input['language'], $pages);
+        $pitch = Team::query()->whereKey($analysis->tenantId)->value('kind') === 'pitch';
+        $request = $this->prompts->brand($input['name'], $input['primary_domain'], $input['country'], $input['language'], $pages, $pitch);
 
-        $this->finish($analysis, $request, fn (string $json): ?array => $this->parser->parseBrand($json, $input['name'], $input['primary_domain']));
+        $this->finish($analysis, $request, function (string $json) use ($input, $pitch): ?array {
+            $result = $this->parser->parseBrand($json, $input['name'], $input['primary_domain']);
+            if ($pitch && $result !== null) {
+                $result['proposal']['prompts'] = array_slice($result['proposal']['prompts'], 0, 25);
+                $result['proposal']['competitors'] = array_slice($result['proposal']['competitors'], 0, 3);
+            }
+
+            return $result;
+        });
     }
 
     public function market(Analysis $analysis): void
