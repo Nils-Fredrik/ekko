@@ -207,6 +207,20 @@ it('reports what was dropped from the model answer as warnings in the user langu
         ->assertJsonPath('warnings', [['code' => 'prompt_personal_data', 'message' => __('onboarding.warnings.prompt_personal_data')]]);
 });
 
+it('reports dropped facts as warnings in the user language', function () {
+    [$tenant, $owner] = wizardTenant();
+    $data = json_decode(OnboardingFakes::brandJson(), true);
+    $data['facts'] = ['Eksempel AS ble grunnlagt i 1998.', 'Ring oss på 22 33 44 55 for mer informasjon', 'kort'];
+    OnboardingFakes::bind(json_encode($data));
+
+    $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())
+        ->assertJsonPath('proposal.facts', ['Eksempel AS ble grunnlagt i 1998.'])
+        ->assertJsonPath('warnings', [
+            ['code' => 'fact_personal_data', 'message' => __('onboarding.warnings.fact_personal_data')],
+            ['code' => 'fact_dropped', 'message' => __('onboarding.warnings.fact_dropped')],
+        ]);
+});
+
 it('refuses a failing analysis without leaking the exception, and marks it failed', function () {
     [$tenant, $owner] = wizardTenant();
     OnboardingFakes::bind();

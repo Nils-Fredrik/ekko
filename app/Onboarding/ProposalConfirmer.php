@@ -2,6 +2,7 @@
 
 namespace App\Onboarding;
 
+use App\FactCheck\BrandFactManager;
 use App\Integrations\BrandIntegrations;
 use App\Models\Brand;
 use App\Models\BrandAlias;
@@ -26,7 +27,7 @@ use Illuminate\Validation\ValidationException;
 /**
  * Saves a confirmed wizard proposal in one transaction (docs/spec.md 13, ADR 0018). Nothing is written
  * before this step. A brand proposal creates the brand, aliases, domain, competitors, market, topics
- * and prompts. A market proposal adds a market and prompts to the existing brand.
+ * prompts and facts. A market proposal adds a market and prompts to the existing brand.
  */
 final class ProposalConfirmer
 {
@@ -35,6 +36,7 @@ final class ProposalConfirmer
         private FirstRun $firstRun,
         private AnalysisStore $store,
         private BrandIntegrations $integrations,
+        private BrandFactManager $facts,
     ) {}
 
     /**
@@ -87,6 +89,9 @@ final class ProposalConfirmer
                 ? $this->existingTopics($brand)
                 : $this->createTopics($brand, $data['topics'] ?? []);
             $this->createPrompts($market, $topics, $data['prompts'] ?? [], $plan);
+            if ($analysis->kind === Analysis::BRAND) {
+                $this->createFacts($brand, $data['facts'] ?? []);
+            }
             $this->createEngines($market, $data['engines'] ?? [], $plan);
             $this->integrations->apply($brand, $data);
 
@@ -239,6 +244,26 @@ final class ProposalConfirmer
                 'is_active' => true,
                 'text_hash' => $hash,
             ]);
+        }
+    }
+
+    /**
+     * The facts the user approved (docs/spec.md 11.6): saved active, so the fact check starts with the first answers.
+     *
+     * @param  list<mixed>  $rows
+     */
+    private function createFacts(Brand $brand, array $rows): void
+    {
+        foreach ($rows as $index => $text) {
+            try {
+                if (! is_string($text)) {
+                    throw ValidationException::withMessages(['text' => __('fact_check.errors.empty')]);
+                }
+                $this->facts->add($brand, $text);
+            } catch (ValidationException $e) {
+                // A duplicate or empty entry in the list is the user's list to fix, shown on the entry.
+                throw ValidationException::withMessages(["facts.{$index}" => $e->errors()['text'] ?? [__('fact_check.errors.empty')]]);
+            }
         }
     }
 

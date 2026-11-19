@@ -5,6 +5,7 @@
 // does not count against the tenant's call quota or plan budget, raise quota alerts, stop runs or reach the invoice.
 
 use App\AnthropicBudget\Account;
+use App\AnthropicBudget\Estimator;
 use App\AnthropicBudget\Money;
 use App\AnthropicBudget\Planner;
 use App\Billing\BillingStatement;
@@ -138,4 +139,20 @@ test('the Anthropic forecast includes the expected platform-paid calls for the r
     $spent = $account->spent($account->cycle($now));
     expect($forecast['platform_paid_usd'])->toBe(Money::usd($expected))
         ->and($forecast['forecast_usd'])->toBe(Money::usd($spent + $expected + intdiv($expected + 9, 10)));
+});
+
+test('factcheck usage is platform paid like actions: outside the quota, in the Anthropic forecast', function () {
+    expect(config('ekko.usage.platform_paid_kinds'))->toContain('factcheck');
+
+    $forecast = inPlatformPaidTenant($this->tenant, function () {
+        UsageEvent::factory()->create(['calls' => 7, 'cost_usd' => '0.50']);
+        platformPaidEvent('factcheck', '5.00', 40, CarbonImmutable::now('UTC')->subDays(3));
+
+        return [
+            app(MonthlyUsage::class)->forAdmission($this->tenant, CarbonImmutable::now('UTC'))->calls,
+            app(Estimator::class)->platformPaid(CarbonImmutable::now('UTC'), 14),
+        ];
+    });
+
+    expect($forecast[0])->toBe(7)->and($forecast[1])->toBeGreaterThan(0);
 });

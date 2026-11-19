@@ -67,10 +67,19 @@ return [
             'title' => 'Correct a wrong statement: :fact',
             'description' => 'AI answers state something that contradicts the facts you have registered. The source should be corrected so the answers become right.',
             'steps' => [
-                'Find the page the answer relies on: :source.',
-                'Correct the page if it is your own, or ask the publisher to correct it.',
+                ':find',
+                ':fix',
             ],
         ],
+    ],
+    // Parts of the fact_correction texts that depend on where the wrong claim comes from (FactCorrectionSource).
+    'fact' => [
+        'find_known' => 'Find the page the answer relies on: :source.',
+        'find_unknown' => 'Find out which page the answers rely on, for example by searching for the claim in the answers.',
+        'fix_own' => 'Correct your own page so that the statement is right.',
+        'fix_other' => 'Ask the publisher of the page to correct the statement.',
+        'fix_unknown' => 'Correct the page if it is your own, otherwise ask the publisher to correct it.',
+        'source_unknown' => 'not given in the answers',
     ],
     'evidence' => [
         'source_gap' => ':domain was cited in :gap_responses answers that named competitors and not you, in the last :days days. :competitor was named in :competitor_answers of them.',

@@ -40,6 +40,8 @@ return [
         'topic_dropped' => 'Some topics were invalid and were left out.',
         'prompt_dropped' => 'Some prompts were invalid and were left out.',
         'prompt_personal_data' => 'Some prompts contained email addresses or phone numbers and were left out.',
+        'fact_dropped' => 'Some facts were too short or invalid and were left out.',
+        'fact_personal_data' => 'Some facts contained email addresses or phone numbers and were left out.',
     ],
     'issues' => [
         'unknown_engine' => 'The engine :engine does not exist or is switched off.',
