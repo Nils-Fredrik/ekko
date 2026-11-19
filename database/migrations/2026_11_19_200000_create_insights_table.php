@@ -27,6 +27,7 @@ return new class extends Migration
             $table->string('reason', 24)->nullable();
             $table->text('template')->nullable();
             $table->jsonb('directions')->default('{}');
+            $table->jsonb('entities')->default('{}');
             $table->string('model', 64)->nullable();
             $table->unsignedBigInteger('usage_event_id')->nullable();
             $table->timestampTz('attempted_at');

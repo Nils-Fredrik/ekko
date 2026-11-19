@@ -34,4 +34,19 @@ final readonly class InsightFigures
 
         return $directions;
     }
+
+    /**
+     * @return array<string, string> placeholder => the entity (engine, brand, competitor, prompt) it belongs to
+     */
+    public function entities(): array
+    {
+        $entities = [];
+        foreach ($this->figures as $key => $figure) {
+            if ($figure->entity !== null) {
+                $entities[$key] = $figure->entity;
+            }
+        }
+
+        return $entities;
+    }
 }

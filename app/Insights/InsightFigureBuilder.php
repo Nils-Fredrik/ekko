@@ -170,7 +170,7 @@ final class InsightFigureBuilder
      * @param  array<array-key, Metric>  $now
      * @param  array<array-key, Metric>  $before
      * @param  callable(string): string  $label
-     * @return list<array{label: string, now: Metric, change: InsightFigure}>
+     * @return list<array{key: string, label: string, now: Metric, change: InsightFigure}>
      */
     private function movers(array $now, array $before, callable $label): array
     {
@@ -184,7 +184,7 @@ final class InsightFigureBuilder
             if ($change->direction === 0) {
                 continue;
             }
-            $rows[] = ['label' => $label((string) $key), 'now' => $current, 'change' => $change];
+            $rows[] = ['key' => (string) $key, 'label' => $label((string) $key), 'now' => $current, 'change' => $change];
         }
         usort($rows, fn (array $a, array $b): int => [$b['change']->value, $a['label']] <=> [$a['change']->value, $b['label']]);
 
@@ -195,14 +195,15 @@ final class InsightFigureBuilder
      * @param  array<string, InsightFigure>  $figures
      * @param  list<array<string, mixed>>  $findings
      * @param  list<string>  $names
-     * @param  list<array{label: string, now: Metric, change: InsightFigure}>  $movers
+     * @param  list<array{key: string, label: string, now: Metric, change: InsightFigure}>  $movers
      */
     private function movements(array &$figures, array &$findings, array &$names, string $type, array $movers): void
     {
         foreach ($movers as $index => $mover) {
             $prefix = $type.'_'.($index + 1);
-            $figures[$prefix.'_now'] = InsightFigure::percent((float) $mover['now']->value);
-            $figures[$prefix.'_change'] = $mover['change'];
+            $entity = $type.':'.$mover['key'];
+            $figures[$prefix.'_now'] = InsightFigure::percent((float) $mover['now']->value, $entity);
+            $figures[$prefix.'_change'] = new InsightFigure($mover['change']->kind, $mover['change']->value, $mover['change']->direction, $entity);
             $findings[] = [
                 'topic' => $type.'_visibility',
                 'name' => $mover['label'],
@@ -214,7 +215,7 @@ final class InsightFigureBuilder
     }
 
     /**
-     * @return list<array{label: string, now: Metric, change: InsightFigure}>
+     * @return list<array{key: string, label: string, now: Metric, change: InsightFigure}>
      */
     private function promptMovers(MetricsFilter $filter, MetricsFilter $previous): array
     {

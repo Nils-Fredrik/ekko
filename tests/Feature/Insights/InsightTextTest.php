@@ -30,7 +30,7 @@ const BRAND_TEXT = 'Synligheten er {visibility_now} og endret seg med {visibilit
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-16 08:00:00', 'Europe/Oslo'));
     Cache::flush();
-    config(['services.anthropic.key' => 'synthetic-key']);
+    config(['services.anthropic.key' => 'synthetic-key', 'ekko.insights.enabled' => true]);
     $this->w = MetricsWorld::create();
     $this->engine2 = Engine::factory()->create();
     MarketEngine::factory()->create(['market_id' => $this->w->market->id, 'engine_key' => $this->w->engine->key]);
@@ -319,11 +319,14 @@ test('changes with too few answers are not findings and nothing is called withou
     expect(brandInsight($this, $this->w))->toBeNull()->and($this->writer->requests)->toHaveCount(1);
 });
 
-test('without an Anthropic key nothing is shown and nothing is called', function () {
-    config(['services.anthropic.key' => '']);
+test('without an Anthropic key, or while switched off, nothing is shown and nothing is called', function (array $config) {
+    config($config);
 
     expect(brandInsight($this, $this->w))->toBeNull()->and($this->writer->requests)->toBe([])->and(Insight::query()->count())->toBe(0);
-});
+})->with([
+    'no key' => [['services.anthropic.key' => '']],
+    'switched off' => [['ekko.insights.enabled' => false]],
+]);
 
 test('the text is written in the language of the user', function () {
     $this->owner->forceFill(['locale' => 'sv'])->save();
@@ -381,4 +384,15 @@ test('another tenant never sees the stored text or the brand', function () {
     $this->actingAs($otherOwner)->get(brandUrl($this->w))->assertNotFound();
     expect(app(TenantContext::class)->run($other->id, fn () => Insight::query()->count()))->toBe(0)
         ->and(app(TenantContext::class)->run($this->w->tenant->id, fn () => Insight::query()->count()))->toBe(1);
+});
+
+test('a movement placeholder keeps pointing at the engine the text names; if the ranking moves on, the text is hidden', function () {
+    $this->writer->reply = FakeInsightWriter::json('Mest endring i motoren: {engine_1_now}, endring {engine_1_change}.');
+    expect(brandInsight($this, $this->w)['text'])->toContain("20\u{00A0}%")->toContain('30 prosentpoeng');
+
+    // Engine 1 now moves more than engine 2 did: the first mover is another engine, so the stored sentence no longer fits.
+    AggDaily::query()->where('engine_key', $this->w->engine->key)->where('date', '2026-11-10')->update(['responses' => 40, 'brand_mentioned' => 40, 'brand_recommended' => 1, 'sum_position' => 1, 'count_position' => 1, 'own_cited' => 1]);
+    Cache::flush();
+
+    expect(brandInsight($this, $this->w))->toBeNull()->and($this->writer->requests)->toHaveCount(1);
 });

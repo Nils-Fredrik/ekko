@@ -51,7 +51,7 @@ final readonly class InsightService
      */
     public function forBrand(Brand $brand, DashboardPeriod $period, MetricsFilter $filter, MetricsFilter $previous): ?array
     {
-        if (! AnthropicActionWriter::configured()) {
+        if (! $this->enabled()) {
             return null;
         }
 
@@ -66,11 +66,17 @@ final readonly class InsightService
      */
     public function forOverview(iterable $brands, DashboardPeriod $period): ?array
     {
-        if (! AnthropicActionWriter::configured()) {
+        if (! $this->enabled()) {
             return null;
         }
 
         return $this->resolve('overview', null, $period, [], fn (): InsightFigures => $this->builder->overview($brands, $period));
+    }
+
+    /** Switched on in configuration, and with a key to call the model with. */
+    private function enabled(): bool
+    {
+        return (bool) config('ekko.insights.enabled') && AnthropicActionWriter::configured();
     }
 
     /**
@@ -131,7 +137,7 @@ final readonly class InsightService
         $log = ['tenant' => $tenantId, 'brand' => $brandId, 'scope' => $scope];
         $attributes = [
             'brand_id' => $brandId, 'scope' => $scope, 'local_date' => $period->to, 'filter_key' => $key, 'filter' => $filter,
-            'locale' => $locale, 'attempted_at' => CarbonImmutable::now('UTC'), 'template' => null, 'directions' => [],
+            'locale' => $locale, 'attempted_at' => CarbonImmutable::now('UTC'), 'template' => null, 'directions' => [], 'entities' => [],
             'model' => null, 'usage_event_id' => null,
         ];
         $store = function (string $status, ?string $reason, array $extra = []) use (&$row, $attributes): Insight {
@@ -214,7 +220,7 @@ final readonly class InsightService
 
         return $template === null
             ? $store(Insight::UNAVAILABLE, 'refused', $extra)
-            : $store(Insight::WRITTEN, null, $extra + ['template' => $template, 'directions' => $data->directions()]);
+            : $store(Insight::WRITTEN, null, $extra + ['template' => $template, 'directions' => $data->directions(), 'entities' => $data->entities()]);
     }
 
     /**
@@ -229,7 +235,10 @@ final readonly class InsightService
         preg_match_all('/\{([a-z0-9_]+)\}/', $template, $found);
         foreach (array_unique($found[1]) as $placeholder) {
             $figure = $data->figures[$placeholder] ?? null;
-            if ($figure === null || (isset($row->directions[$placeholder]) && $row->directions[$placeholder] !== $figure->direction)) {
+            // The text names the entity behind a movement placeholder; if the ranking has moved on, it no longer fits.
+            if ($figure === null
+                || (isset($row->directions[$placeholder]) && $row->directions[$placeholder] !== $figure->direction)
+                || (isset($row->entities[$placeholder]) && $row->entities[$placeholder] !== $figure->entity)) {
                 return null;
             }
         }
