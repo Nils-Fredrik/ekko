@@ -17,6 +17,7 @@ test('shared report token is only returned once, scoped to one tenant and report
     $owner->switchTeam($world->tenant);
     $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id]);
     $data = app(ReportPublisher::class)->viewData($world->tenant, $schedule, '2026-10-01', '2026-10-07', 'Private insight for this report');
+    $data['trend'] = [['period' => '2026-10-03', 'visibility' => ['value' => 0.4, 'n' => 10, 'low_sample' => false]]];
     $report = Report::factory()->create(['report_schedule_id' => $schedule->id, 'web_snapshot' => $data]);
     $otherData = $data;
     $otherData['insight'] = 'Another report must remain private';
@@ -38,6 +39,7 @@ test('shared report token is only returned once, scoped to one tenant and report
     $this->get($endpoint)->assertOk()->assertHeader('Referrer-Policy', 'no-referrer')->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')->assertDontSee($token);
     $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()->assertSee('Private insight for this report')
         ->assertDontSee('Another report must remain private')
+        ->assertSee('shared-report-chart-data')->assertSee('2026-10-03')
         ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('Referrer-Policy', 'no-referrer');
     $other = MetricsWorld::create();
     $this->withHeader('Authorization', 'Bearer '.$token)->get(route('reports.shared', ['tenant' => $other->tenant->id]))->assertNotFound();

@@ -29,7 +29,7 @@ const props = defineProps({
     legend: { type: Boolean, default: true },
 });
 
-const emit = defineEmits(['marker']);
+const emit = defineEmits(['marker', 'select']);
 
 const buckets = computed(() => bucketMarkers(props.markers, props.categories, props.until));
 const colorFor = (palette) => (item, index) => seriesColor(palette, item, props.series[0]?.own ? index - 1 : index);
@@ -163,5 +163,6 @@ const summary = computed(() => {
         :height="height"
         :option="option"
         @marker="emit('marker', $event)"
+        @select="emit('select', $event)"
     />
 </template>

@@ -27,7 +27,7 @@ final class SharedReportController extends Controller
         // The bootstrap sends it only in an Authorization header and makes no third-party requests.
         if ($request->header('Authorization') === null) {
             return response()->view('reports.shared-bootstrap', [], 200, $headers + [
-                'Content-Security-Policy' => "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+                'Content-Security-Policy' => "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
             ]);
         }
         $token = $request->bearerToken();
@@ -64,7 +64,7 @@ final class SharedReportController extends Controller
                 ReportLinkView::query()->create(['report_link_id' => $link->id, 'viewed_at' => $now]);
 
                 return response($html, 200, $headers + [
-                    'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; frame-ancestors 'none'",
+                    'Content-Security-Policy' => "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
                 ]);
             } finally {
                 app()->setLocale($previous);

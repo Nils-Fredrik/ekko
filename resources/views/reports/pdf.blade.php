@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" @if ($shared ?? false) data-theme="light" @endif>
 <head>
     <meta charset="utf-8">
     @if ($shared ?? false)
@@ -7,6 +7,9 @@
         <meta name="referrer" content="no-referrer">
     @endif
     <title>{{ __('reports.title', ['brand' => $brand]) }}</title>
+    @if (($shared ?? false) && ! empty($trend))
+        @vite('resources/js/shared-report.js')
+    @endif
     <style>
         html, body { margin: 0; background: #fff; color: #1c1917; font-family: sans-serif; font-size: 12px; }
         header { padding: 24px 32px; color: #fff; background: {{ $profile['color'] }}; }
@@ -37,6 +40,13 @@
     <main>
         @if ($reconstructed ?? false)
             <p>{{ __('reports.reconstructed') }}</p>
+        @endif
+        @if (($shared ?? false) && ! empty($trend))
+            @php
+                $chartData = ['trend' => $trend, 'brand' => $brand, 'from' => $from, 'to' => $to, 'label' => __('reports.trend')];
+            @endphp
+            <div id="shared-report-chart"></div>
+            <script type="application/json" id="shared-report-chart-data">@json($chartData)</script>
         @endif
         @if ($insight)
             <h2>{{ __('reports.insight') }}</h2>
