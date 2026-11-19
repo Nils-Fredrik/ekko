@@ -90,9 +90,10 @@ return new class extends Migration
 
     public function down(): void
     {
-        // The old constraint has no 'actions'. The booked spend stays in anthropic_credit_spend (ADR 0023), so the
-        // platform account keeps it; only the tenants' usage rows of this kind are removed.
-        DB::statement("DELETE FROM usage_events WHERE kind = 'actions'");
+        // Booked usage is billing data: refuse to roll back rather than delete it (the old constraint has no 'actions').
+        if (DB::table('usage_events')->where('kind', 'actions')->exists()) {
+            throw new RuntimeException('usage_events has rows of kind actions; they are billing data and are not deleted by a rollback.');
+        }
         $this->usageKinds(self::KINDS);
 
         TenantSchema::disableRowLevelSecurity('action_generations');

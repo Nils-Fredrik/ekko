@@ -19,6 +19,9 @@ final class FakeActionSource implements ActionSource
     /** @var list<ActionCandidate> */
     public array $candidates = [];
 
+    /** Runs inside evaluate(), e.g. to let time pass during generation. */
+    public ?\Closure $onEvaluate = null;
+
     public function __construct(private readonly ActionType $type = ActionType::SourceGap) {}
 
     public function type(): ActionType
@@ -28,6 +31,10 @@ final class FakeActionSource implements ActionSource
 
     public function evaluate(GenerationContext $context): SourceOutcome
     {
+        if ($this->onEvaluate !== null) {
+            ($this->onEvaluate)();
+        }
+
         return new SourceOutcome($this->evaluated, $this->candidates);
     }
 

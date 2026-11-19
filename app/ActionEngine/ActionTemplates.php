@@ -14,10 +14,11 @@ use App\Models\Action;
 final class ActionTemplates
 {
     /**
-     * @param  array<string, string|int|float>  $params
+     * @param  array<string, mixed>  $params
      */
     public static function text(ActionType $type, array $params, string $locale): ActionText
     {
+        $params = self::localized($params, $locale);
         $base = "action_items.templates.{$type->value}";
         $steps = trans("{$base}.steps", [], $locale);
         $stepTexts = [];
@@ -47,6 +48,23 @@ final class ActionTemplates
             $key .= '_without_competitor';
         }
 
-        return (string) trans($key, is_array($params) ? $params : [], $locale);
+        return (string) trans($key, self::localized(is_array($params) ? $params : [], $locale), $locale);
+    }
+
+    /**
+     * Adds :market, the name of the country code in :country in the locale («Sverige», "Sweden").
+     *
+     * @param  array<string, mixed>  $params
+     * @return array<string, mixed>
+     */
+    private static function localized(array $params, string $locale): array
+    {
+        $country = $params['country'] ?? null;
+        if (is_string($country) && $country !== '') {
+            $name = class_exists(\Locale::class) ? \Locale::getDisplayRegion('-'.$country, $locale) : '';
+            $params['market'] = $name !== '' && $name !== $country ? $name : $country;
+        }
+
+        return $params;
     }
 }

@@ -82,7 +82,8 @@ final readonly class NewCompetitorSource implements ActionSource
                     textParams: [
                         'name' => $unknown['name'],
                         'share' => $share,
-                        'market' => strtoupper((string) $market->country),
+                        // The country code; ActionTemplates shows it as the country's name in the text's language.
+                        'country' => strtoupper((string) $market->country),
                         'days' => $days,
                     ],
                 );

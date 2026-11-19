@@ -35,7 +35,7 @@ final class ActionTextGuard
             }
         }
 
-        if ($title === '' || $description === '' || count($steps) < 1 || count($steps) > 6
+        if ($title === '' || $description === '' || count($steps) < 1 || count($steps) > 5
             || mb_strlen($title) > ActionPromptBuilder::MAX_TITLE
             || mb_strlen($description) > ActionPromptBuilder::MAX_DESCRIPTION
             || array_filter($steps, fn (string $s): bool => mb_strlen($s) > ActionPromptBuilder::MAX_STEP) !== []) {

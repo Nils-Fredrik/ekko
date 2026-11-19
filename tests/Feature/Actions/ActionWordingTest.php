@@ -121,7 +121,15 @@ test('a market in a language without templates gets the template in English and 
 });
 
 test('no model call starts after the deadline; the action keeps the template', function () {
-    dispatch_sync(new GenerateTenantActions($this->w->tenant->id, wordUntil: time() - 1));
+    dispatch_sync(new GenerateTenantActions($this->w->tenant->id, wordUntil: CarbonImmutable::now()->getTimestamp() - 1));
+
+    expect($this->writer->requests)->toBe([])->and(Action::query()->sole()->text_source)->toBe('template');
+});
+
+test('the time the generation takes counts towards the wording deadline', function () {
+    $this->source->onEvaluate = fn () => $this->travel(400)->seconds();
+
+    generateTenant($this->w);
 
     expect($this->writer->requests)->toBe([])->and(Action::query()->sole()->text_source)->toBe('template');
 });

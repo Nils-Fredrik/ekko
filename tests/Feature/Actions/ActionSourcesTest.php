@@ -229,7 +229,7 @@ test('an unknown brand over the alert threshold becomes a new_competitor action,
         ->and($action->evidence['period']['days'])->toBe(7)
         ->and(array_sum($action->prompts->map(fn ($p) => 1)->all()))->toBe(2)
         ->and(ActionTemplates::evidenceSentence($action, 'nb'))
-        ->toBe('Kaffebrenneriet nevnes i 23 % av svarene i NO de siste 7 dagene, men er ikke registrert som konkurrent.');
+        ->toBe('Kaffebrenneriet nevnes i 23 % av svarene i Norge de siste 7 dagene, men er ikke registrert som konkurrent.');
 });
 
 // crawler_access -----------------------------------------------------------------------------------------------

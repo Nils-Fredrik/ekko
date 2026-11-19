@@ -315,8 +315,9 @@ return [
         'expire_after_generations' => 2,
         // Model calls per tenant and generation; the rest keep the template text until the next generation.
         'max_formulations' => 40,
-        // Time per tenant and run for model calls, started before this many seconds have passed (worker timeout
-        // 420 s, one call up to anthropic.actions.timeout_seconds). The command also sets a deadline for all.
+        // No model call starts later than this many seconds after the job started, nor later than the job's
+        // timeout (420 s) minus one call (anthropic.actions.timeout_seconds) and a margin. The command also sets
+        // a deadline for all tenants in sync mode.
         'word_seconds' => 300,
         'command_word_seconds' => 2700,
         // The sources that produce candidates, in order. T48 adds the fact_correction source here.

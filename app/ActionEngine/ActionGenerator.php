@@ -91,6 +91,7 @@ final class ActionGenerator
             }
             if ($supported !== []) {
                 // Supported again: expiry needs two unsupported generations in a row. The evidence is left as it was.
+                // A builder update: unsupported_generations is not in the revision log, so nothing is skipped.
                 Action::query()->whereIn('fingerprint', $supported)->where('unsupported_generations', '>', 0)
                     ->whereIn('status', [ActionStatus::New->value, ActionStatus::Planned->value, ActionStatus::InProgress->value])
                     ->update(['unsupported_generations' => 0]);

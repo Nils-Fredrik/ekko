@@ -27,6 +27,9 @@ class GenerateTenantActions extends TenantJob
     /** A paid call is never repeated by a retry; what is not worded waits for the next generation. */
     public int $tries = 1;
 
+    /** As the worker's --timeout (infra/terraform/workloads.tf); the wording deadline is derived from it. */
+    public int $timeout = 420;
+
     /**
      * @param  int|null  $wordUntil  Unix time after which no model call is started (the command's deadline)
      */
@@ -46,6 +49,7 @@ class GenerateTenantActions extends TenantJob
     public function handle(ActionGenerator $generator, ActionFormulator $formulator, ActionPromptBuilder $prompts, TenantRls $rls): void
     {
         $now = CarbonImmutable::now();
+        $started = $now->getTimestamp();
         $brandIds = $rls->run([$this->tenantId], fn (): array => Brand::query()->where('status', 'active')->orderBy('id')->pluck('id')->all());
 
         $toWord = [];
@@ -64,12 +68,15 @@ class GenerateTenantActions extends TenantJob
         if (! $formulator->available()) {
             return;
         }
-        $deadline = time() + max(0, (int) config('ekko.actions.word_seconds'));
+        // From the start of the job, so generation time counts too: the last call must end before the worker stops
+        // the job (a stopped call would be neither settled nor booked).
+        $callSeconds = (int) config('ekko.anthropic.actions.timeout_seconds');
+        $deadline = $started + max(0, min((int) config('ekko.actions.word_seconds'), $this->timeout - $callSeconds - 30));
         if ($this->wordUntil !== null) {
             $deadline = min($deadline, $this->wordUntil);
         }
         foreach (array_slice(array_values(array_unique($toWord)), 0, max(0, (int) config('ekko.actions.max_formulations'))) as $actionId) {
-            if (time() >= $deadline) {
+            if (CarbonImmutable::now()->getTimestamp() >= $deadline) {
                 Log::info('Action wording stopped at the time limit.', ['tenant' => $this->tenantId]);
                 break;
             }
