@@ -12,7 +12,7 @@ use Tests\Support\FactCheck\FakeFactJudge;
 
 function factGoldPath(): string
 {
-    return base_path('tests/Fixtures/factcheck/gold.json');
+    return base_path('database/evals/factcheck-gold.json');
 }
 
 function factRecordingPath(): string
