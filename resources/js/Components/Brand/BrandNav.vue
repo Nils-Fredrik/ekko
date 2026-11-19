@@ -11,6 +11,7 @@ const items = [
     { name: 'brands.competitors.index', label: 'app.library.competitors', match: 'brands.competitors.*' },
     { name: 'brands.sources', label: 'app.library.sources', match: 'brands.sources' },
     { name: 'brands.crawlers', label: 'app.library.crawlers', match: 'brands.crawlers' },
+    { name: 'brands.actions.index', label: 'app.library.actions', match: 'brands.actions.*' },
 ];
 
 function active(match) {

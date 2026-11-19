@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\UsageController as AdminUsageController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\Auth\SocialLoginController;
 use App\Http\Controllers\BotLogUploadController;
+use App\Http\Controllers\BrandActionController;
 use App\Http\Controllers\BrandCompetitorController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\BrandCrawlerController;
@@ -100,11 +101,17 @@ Route::middleware([
     Route::post('/brands/{brand}/competitors', [BrandCompetitorController::class, 'store'])->name('brands.competitors.store');
     Route::get('/brands/{brand}/sources', BrandSourceController::class)->name('brands.sources');
     Route::get('/brands/{brand}/crawlers', BrandCrawlerController::class)->name('brands.crawlers');
+    Route::get('/brands/{brand}/actions', [BrandActionController::class, 'index'])->name('brands.actions.index');
+    Route::post('/brands/{brand}/actions', [BrandActionController::class, 'store'])->name('brands.actions.store');
+    Route::get('/brands/{brand}/actions/{action}', [BrandActionController::class, 'show'])->name('brands.actions.show');
+    Route::patch('/brands/{brand}/actions/{action}', [BrandActionController::class, 'update'])->name('brands.actions.update');
+    Route::patch('/brands/{brand}/actions/{action}/steps/{step}', [BrandActionController::class, 'step'])->whereNumber('step')->name('brands.actions.steps');
     Route::post('/alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::post('/reports/schedules', [ReportController::class, 'store'])->name('reports.schedules.store');
     Route::put('/reports/schedules/{schedule}', [ReportController::class, 'update'])->name('reports.schedules.update');
+    Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::get('/reports/{report}/download', [ReportController::class, 'download'])->name('reports.download');
 
     Route::get('/usage', UsageController::class)->name('usage.index');

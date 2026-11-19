@@ -19,7 +19,10 @@ use Spatie\LaravelPdf\Facades\Pdf;
 /** Builds, stores and describes a report PDF (docs/spec.md 11.2). Mail is sent by the job, after this returns. */
 final class ReportPublisher
 {
-    public function __construct(private readonly MetricsService $metrics) {}
+    public function __construct(
+        private readonly MetricsService $metrics,
+        private readonly ReportActions $actions,
+    ) {}
 
     /** @return list<DueReport> */
     public function due(Team $tenant, CarbonImmutable $now): array
@@ -120,11 +123,14 @@ final class ReportPublisher
         ]);
     }
 
-    public function record(DueReport $due, string $path): Report
+    /**
+     * @param  array<string, mixed>  $actions  the section drawn in this PDF, kept so the web page shows the same report
+     */
+    public function record(DueReport $due, string $path, array $actions): Report
     {
         $existing = $this->find($due);
         if ($existing instanceof Report) {
-            $existing->forceFill(['pdf_uri' => $path])->save();
+            $existing->forceFill(['pdf_uri' => $path, 'action_section' => $actions])->save();
 
             return $existing;
         }
@@ -133,6 +139,7 @@ final class ReportPublisher
             'period_start' => $due->from,
             'period_end' => $due->to,
             'pdf_uri' => $path,
+            'action_section' => $actions,
         ]);
     }
 
@@ -213,6 +220,7 @@ final class ReportPublisher
                 'from' => $change->from_model,
                 'to' => $change->to_model,
             ])->all(),
+            'actions' => $this->actions->section($schedule->brand_id, $from, $to),
         ];
     }
 
