@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Dashboard\BrandPage;
+use App\Dashboard\GraphCache;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\Brand;
@@ -26,6 +27,13 @@ class BrandCrawlerController extends Controller
             'period' => ['days' => $period->days],
             'bots' => $metrics->botHits($filter),
             'traffic' => $metrics->aiTraffic($filter),
+            'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
+                'brand.crawlers', $filter, $period->timezone, fn (): array => [
+                    'bots' => $metrics->botHitsSeries($filter),
+                    'traffic' => $metrics->aiTrafficSeries($filter),
+                    'funnel' => $metrics->trafficFunnel($filter),
+                ],
+            )),
         ]);
     }
 }

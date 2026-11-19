@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Dashboard\DashboardPeriod;
+use App\Dashboard\PartnerGraphs;
 use App\Enums\TenantStatus;
 use App\Metrics\Metric;
 use App\Metrics\MetricsService;
@@ -24,7 +25,7 @@ use Inertia\Response;
  */
 class PartnerOverviewController extends Controller
 {
-    public function __invoke(Request $request, TenantRls $rls, MetricsService $metrics, TenantAccess $access, TenantContext $context): Response
+    public function __invoke(Request $request, TenantRls $rls, MetricsService $metrics, TenantAccess $access, TenantContext $context, PartnerGraphs $graphs): Response
     {
         $user = $request->user();
         $partner = $user?->currentTeam;
@@ -39,38 +40,43 @@ class PartnerOverviewController extends Controller
             ->filter(fn (Team $client): bool => $access->canAccess($user, $client))
             ->values();
 
-        $rows = [];
-        foreach ($clients as $client) {
-            $rows[] = $context->run($client->id, fn (): array => $rls->run([$client->id], function () use ($client, $metrics): array {
-                $period = DashboardPeriod::endingToday(28, $client->timezone);
-                $current = [];
-                $previous = [];
-                foreach (Brand::query()->orderBy('name')->get() as $brand) {
-                    $now = $metrics->visibility($period->filter($brand->id));
-                    $then = $metrics->visibility($period->filter($brand->id, previous: true));
-                    if ($now->value !== null) {
-                        $current[] = ['value' => $now->value, 'n' => $now->n];
+        $rows = function () use ($clients, $context, $rls, $metrics): array {
+            $rows = [];
+            foreach ($clients as $client) {
+                $rows[] = $context->run($client->id, fn (): array => $rls->run([$client->id], function () use ($client, $metrics): array {
+                    $period = DashboardPeriod::endingToday(28, $client->timezone);
+                    $current = [];
+                    $previous = [];
+                    foreach (Brand::query()->orderBy('name')->get() as $brand) {
+                        $now = $metrics->visibility($period->filter($brand->id));
+                        $then = $metrics->visibility($period->filter($brand->id, previous: true));
+                        if ($now->value !== null) {
+                            $current[] = ['value' => $now->value, 'n' => $now->n];
+                        }
+                        if ($then->value !== null) {
+                            $previous[] = ['value' => $then->value, 'n' => $then->n];
+                        }
                     }
-                    if ($then->value !== null) {
-                        $previous[] = ['value' => $then->value, 'n' => $then->n];
-                    }
-                }
 
-                return [
-                    'id' => $client->id,
-                    'name' => $client->name,
-                    'visibility' => $this->average($current),
-                    'previous_visibility' => $this->average($previous),
-                    'alerts' => Alert::query()
-                        ->where('triggered_at', '>=', CarbonImmutable::parse($period->from, $period->timezone)->startOfDay())
-                        ->count(),
-                ];
-            }));
-        }
+                    return [
+                        'id' => $client->id,
+                        'name' => $client->name,
+                        'visibility' => $this->average($current),
+                        'previous_visibility' => $this->average($previous),
+                        'alerts' => Alert::query()
+                            ->where('triggered_at', '>=', CarbonImmutable::parse($period->from, $period->timezone)->startOfDay())
+                            ->count(),
+                    ];
+                }));
+            }
+
+            return $rows;
+        };
 
         return Inertia::render('Partner/Index', [
             'period' => ['days' => 28],
             'clients' => $rows,
+            'portfolioGraphs' => Inertia::defer(fn (): array => $graphs->forClients($user, $clients)),
         ]);
     }
 

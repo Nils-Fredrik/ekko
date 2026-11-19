@@ -27,6 +27,7 @@ class AggSourceDaily extends Model
         'citations',
         'responses_with_domain',
         'gap_responses',
+        'citation_distribution',
     ];
 
     /** @return BelongsTo<Brand, $this> */
@@ -52,6 +53,7 @@ class AggSourceDaily extends Model
     {
         return [
             'date' => 'date',
+            'citation_distribution' => 'array',
         ];
     }
 }
