@@ -9,6 +9,7 @@ use App\Reports\DueReport;
 use App\Reports\ReportPublisher;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Tests\Support\Metrics\MetricsWorld;
 
 test('shared report token is only returned once, scoped to one tenant and report, and views are recorded', function () {
@@ -38,7 +39,7 @@ test('shared report token is only returned once, scoped to one tenant and report
     expect($link->expires_at->diffInDays(now(), absolute: true))->toBeGreaterThan(89);
 
     Auth::forgetGuards();
-    $this->get($endpoint)->assertOk()->assertHeader('Referrer-Policy', 'no-referrer')->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')->assertDontSee($token)
+    $this->withHeader('Accept-Language', 'nb')->get($endpoint)->assertOk()->assertHeader('Referrer-Policy', 'no-referrer')->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')->assertDontSee($token)
         ->assertSee('<title>Rapport</title>', false)
         ->assertHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
     $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()->assertSee('Private insight for this report')
@@ -53,7 +54,7 @@ test('shared report token is only returned once, scoped to one tenant and report
         ->and(ReportLinkView::query()->where('report_link_id', $id)->count())->toBe(1);
 
     $this->actingAs($owner)->deleteJson(route('reports.links.destroy', [$report, $id]))->assertOk();
-    $this->flushHeaders()->get($endpoint)->assertNotFound()->assertSee('Rapporten finnes ikke eller lenken er utløpt.', false);
+    $this->flushHeaders()->withHeader('Accept-Language', 'nb')->get($endpoint)->assertNotFound()->assertSee('Rapporten finnes ikke eller lenken er utløpt.', false);
     $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertNotFound();
     app(TenantContext::class)->set($world->tenant->id);
     expect(ReportLinkView::query()->where('report_link_id', $id)->count())->toBe(1);
@@ -154,7 +155,7 @@ test('a shared report keeps its publication language after the schedule language
     $endpoint = route('reports.shared', ['tenant' => $world->tenant->id, 'selector' => $link->public_id]);
     $schedule->update(['locale' => 'nb']);
     app()->setLocale('nb');
-    $this->get($endpoint)->assertOk()->assertSee('<title>Report</title>', false);
+    $this->withHeader('Accept-Language', 'nb')->get($endpoint)->assertOk()->assertSee('<title>Rapport</title>', false);
     $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()
         ->assertSee('<html lang="en"', false)
         ->assertSee('Key figures')
@@ -191,4 +192,103 @@ test('the report uses the queued publication language if its schedule changes du
     expect($document['data']['locale'])->toBe('en')
         ->and($document['data']['headlines'][0]['label'])->toBe('Visibility')
         ->and(app()->getLocale())->toBe('nb');
+});
+test('the initial shared page and 404 use the recipient browser language without exposing report details', function (string $acceptLanguage, string $locale, string $title, string $loading, string $notFound) {
+    $world = MetricsWorld::create();
+    $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id, 'locale' => 'en']);
+    $due = new DueReport($schedule->id, $world->brand->id, 'weekly', 'en', ['report@example.test'], '2026-10-01', '2026-10-07', []);
+    $publisher = app(ReportPublisher::class);
+    $document = $publisher->document($world->tenant, $due, 'Private insight');
+    $report = $publisher->record($due, $document['path'], $document['data']['actions'], $document['data']);
+    $token = bin2hex(random_bytes(32));
+    $link = ReportLink::query()->create(['report_id' => $report->id, 'public_id' => bin2hex(random_bytes(16)), 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addDay()]);
+    $endpoint = route('reports.shared', ['tenant' => $world->tenant->id, 'selector' => $link->public_id]);
+    $csp = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'";
+
+    app()->setLocale('nb');
+    $this->withHeader('Accept-Language', $acceptLanguage)->get($endpoint)->assertOk()
+        ->assertHeader('Content-Language', $locale)->assertHeader('Content-Security-Policy', $csp)
+        ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('Referrer-Policy', 'no-referrer')
+        ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertSee('<html lang="'.$locale.'"', false)->assertSee('<title>'.$title.'</title>', false)
+        ->assertSee($loading)->assertDontSee('Private insight')->assertDontSee($token);
+    expect(app()->getLocale())->toBe('nb');
+
+    // Once the bearer token is supplied the report retains its publication language.
+    $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()
+        ->assertHeader('Content-Language', 'en')->assertSee('<html lang="en"', false)->assertSee('Private insight');
+    $this->flushHeaders()->withHeader('Accept-Language', $acceptLanguage);
+    $badTenant = route('reports.shared', ['tenant' => 'invalid', 'selector' => $link->public_id]);
+    $badSelector = route('reports.shared', ['tenant' => $world->tenant->id, 'selector' => 'invalid']);
+    foreach ([$badTenant, $badSelector] as $url) {
+        $this->get($url)->assertNotFound()->assertHeader('Content-Language', $locale)
+            ->assertHeader('Content-Security-Policy', $csp)->assertHeader('Cache-Control', 'no-store, private')
+            ->assertHeader('Referrer-Policy', 'no-referrer')->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
+            ->assertHeader('X-Content-Type-Options', 'nosniff')->assertSee($notFound)->assertDontSee('Private insight');
+    }
+    $this->withHeader('Authorization', 'Bearer '.str_repeat('0', 64))->get($endpoint)->assertNotFound()
+        ->assertHeader('Content-Language', $locale)->assertHeader('Content-Security-Policy', $csp)->assertSee($notFound);
+
+    app(TenantContext::class)->set($world->tenant->id);
+    $link->forceFill(['revoked_at' => now()])->save();
+    $this->flushHeaders()->withHeader('Accept-Language', $acceptLanguage)->get($endpoint)->assertNotFound()
+        ->assertHeader('Content-Language', $locale)->assertHeader('Content-Security-Policy', $csp)
+        ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('Referrer-Policy', 'no-referrer')
+        ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertSee('<html lang="'.$locale.'"', false)->assertSee('<title>'.$title.'</title>', false)
+        ->assertSee($notFound)->assertDontSee('Private insight');
+})->with([
+    ['nb-NO,nb;q=0.9', 'nb', 'Rapport', 'Laster rapport', 'Rapporten finnes ikke eller lenken er utløpt.'],
+    ['sv-SE,sv;q=0.9', 'sv', 'Rapport', 'Laddar rapport', 'Rapporten finns inte eller länken har gått ut.'],
+    ['en-US,en;q=0.9', 'en', 'Report', 'Loading report', 'The report does not exist or the link has expired.'],
+]);
+
+test('shared report rate limit responses retain security headers', function () {
+    $url = route('reports.shared', ['tenant' => 'invalid', 'selector' => 'invalid']);
+    for ($i = 0; $i < 60; $i++) {
+        $this->get($url)->assertNotFound();
+    }
+    $this->get($url)->assertStatus(429)
+        ->assertHeader('Cache-Control', 'no-store, private')
+        ->assertHeader('Referrer-Policy', 'no-referrer')
+        ->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')
+        ->assertHeader('X-Content-Type-Options', 'nosniff')
+        ->assertHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
+});
+
+test('report data is never read before a valid token for an active link', function () {
+    $world = MetricsWorld::create();
+    $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id, 'locale' => 'en']);
+    $due = new DueReport($schedule->id, $world->brand->id, 'weekly', 'en', ['report@example.test'], '2026-10-01', '2026-10-07', []);
+    $publisher = app(ReportPublisher::class);
+    $document = $publisher->document($world->tenant, $due, 'Private insight');
+    $report = $publisher->record($due, $document['path'], $document['data']['actions'], $document['data']);
+    $token = bin2hex(random_bytes(32));
+    $link = ReportLink::query()->create(['report_id' => $report->id, 'public_id' => bin2hex(random_bytes(16)), 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addDay()]);
+    $endpoint = route('reports.shared', ['tenant' => $world->tenant->id, 'selector' => $link->public_id]);
+    $queries = [];
+    DB::listen(function ($query) use (&$queries): void {
+        $queries[] = $query->sql;
+    });
+    $reportReads = function () use (&$queries): array {
+        return array_values(array_filter($queries, fn (string $sql) => preg_match('/\b(?:from|join)\s+"?reports"?(?:\s|$)/i', $sql) === 1));
+    };
+
+    $this->withHeader('Accept-Language', 'sv')->get($endpoint)->assertOk()->assertSee('<html lang="sv"', false)->assertDontSee('Private insight');
+    expect($reportReads())->toBe([]);
+    $this->withHeader('Authorization', 'Bearer '.str_repeat('0', 64))->get($endpoint)->assertNotFound()->assertSee('<html lang="sv"', false);
+    expect($reportReads())->toBe([]);
+
+    $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()->assertSee('Private insight');
+    expect($reportReads())->not->toBeEmpty();
+    app(TenantContext::class)->set($world->tenant->id);
+    $link->forceFill(['revoked_at' => now()])->save();
+    $queries = [];
+    $this->flushHeaders()->withHeader('Accept-Language', 'sv')->get($endpoint)->assertNotFound()->assertSee('<html lang="sv"', false);
+    expect($reportReads())->toBe([]);
+    app(TenantContext::class)->set($world->tenant->id);
+    $link->forceFill(['revoked_at' => null, 'expires_at' => now()->subSecond()])->save();
+    $queries = [];
+    $this->get($endpoint)->assertNotFound();
+    expect($reportReads())->toBe([]);
 });

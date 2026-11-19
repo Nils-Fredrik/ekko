@@ -28,6 +28,7 @@ use App\Http\Controllers\TeamSettingsController;
 use App\Http\Controllers\UsageController;
 use App\Http\Middleware\AuthenticateSessionAcrossGuards;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
+use App\Http\Middleware\SharedReportThrottle;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Http\Controllers\ConfirmablePasswordController;
 use Laravel\Fortify\Http\Controllers\PasswordController;
@@ -42,7 +43,7 @@ Route::redirect('/', '/dashboard')->name('home');
 // Language, including on the login page before anyone is signed in (docs/spec.md 14.1).
 Route::put('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
-Route::get('/shared-report/{tenant}/{selector}', SharedReportController::class)->whereNumber('tenant')->where('selector', '[a-f0-9]{32}')->middleware('throttle:60,1')->withoutMiddleware(EnsureTwoFactorEnabled::class)->name('reports.shared');
+Route::get('/shared-report/{tenant}/{selector}', SharedReportController::class)->middleware(SharedReportThrottle::class.':60,1')->withoutMiddleware(EnsureTwoFactorEnabled::class)->name('reports.shared');
 
 // Login with Google (docs/spec.md 5.4), rate limited per IP. The callback is the one URL registered with the
 // provider, so it also finishes a confirmation for a signed-in user (T07-F2); a guest logs in there. A signed-in
