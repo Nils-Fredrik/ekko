@@ -15,7 +15,7 @@ Du tar bare oppgaver med din egen merkelapp.
 ## Board
 
 - Board: https://board.maksimer.com/b/vn4w66vc (board-ID `vn4w66vc`), via Board CLI, ikke Board-MCP. Start med `board read vn4w66vc` og `board events vn4w66vc --for-me`; bruk `--board vn4w66vc` på oppgave- og postkommandoer. Se `board --help` for syntaks.
-- Oppgavetittelen har formen «[Agent] T<nr> – <tittel>». T-nummeret er spesifikasjonens arbeidspakke (`docs/spec.md`, kapittel 20). Board-oppgavenummeret (`task:<n>`) er et annet tall. Bruk Board-nummeret i Board-kallene og T-nummeret i grener og PR-er.
+- Oppgavetittelen har formen «[Agent] T<nr> – <tittel>». T-nummeret er spesifikasjonens arbeidspakke (`docs/spec.md`, kapittel 20). Arbeidspakkene for UI-forbedring bruker sitt eget U-nummer fra `docs/ui-forbedring.md`, f.eks. «[Cursor] U05 – Merkevare-dashboard» og grenen `u05-<kort-beskrivelse>`. Board-oppgavenummeret (`task:<n>`) er et annet tall. Bruk Board-nummeret i Board-kallene og T-nummeret i grener og PR-er.
 - Avhengighetene er lagt inn på Board. En oppgave er klar når alle oppgavene den avhenger av er lukket.
 
 ## Arbeidsflyt for hver økt
