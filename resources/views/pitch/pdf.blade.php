@@ -16,6 +16,7 @@
 <body>
     <header><h1>{{ $brand }}</h1><p>{{ __('pitch.report') }} · {{ $from }} – {{ $to }}</p></header>
     <main>
+        @if ($reduced_quality)<p>{{ __('pitch.reduced_quality', ['n' => $reduced_quality]) }}</p>@endif
         <h2>{{ __('pitch.visibility') }}</h2>
         @foreach ([['name' => $brand, 'visibility' => $visibility], ...$competitors] as $row)
             @php($metric = $row['visibility'])

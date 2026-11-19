@@ -11,6 +11,7 @@ return [
     'convert' => 'Konverter til kunde',
     'report' => 'Pitch-rapport',
     'download_pdf' => 'Last ned PDF',
+    'reduced_quality' => ':n svar mangler modelluttrekk og bruker bare automatisk gjenkjenning. Tallene kan være ufullstendige.',
     'visibility' => 'Synlighet mot konkurrenter',
     'sources' => 'Viktigste kilder',
     'metric' => ':name: :value (n=:n)',

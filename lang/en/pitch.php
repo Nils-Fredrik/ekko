@@ -11,6 +11,7 @@ return [
     'convert' => 'Convert to customer',
     'report' => 'Pitch report',
     'download_pdf' => 'Download PDF',
+    'reduced_quality' => ':n answers lack model extraction and use automatic matching only. The figures may be incomplete.',
     'visibility' => 'Visibility versus competitors',
     'sources' => 'Top sources',
     'metric' => ':name: :value (n=:n)',

@@ -14,6 +14,7 @@ use App\Models\Team;
 use App\Scheduling\EngineThrottle;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
+use App\Usage\RunReservations;
 use App\Work\WorkChain;
 use Carbon\CarbonImmutable;
 use RuntimeException;
@@ -62,13 +63,16 @@ final class CollectEngineRun extends TenantJob
 
             return;
         }
-        // A run already accepted by the provider is polled to completion. Work that has not been sent is stopped.
+        // A submitted task is already paid for: poll it, but never submit a new task after expiry.
         if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt(CarbonImmutable::now('UTC'))) {
             $accepted = $run->status === 'submitted'
+                && $run->provider_task_id !== null
                 && $tenant->pitch_expires_at !== null
                 && $run->created_at->lt($tenant->pitch_expires_at);
             if (! $accepted) {
-                $this->stop('pitch_expired');
+                if (! $this->stop('pitch_expired', preserveReservation: true)) {
+                    $this->release(30);
+                }
 
                 return;
             }
@@ -86,6 +90,13 @@ final class CollectEngineRun extends TenantJob
                 $collector->collect($run->id);
             }
         } catch (EngineCallFailed $failure) {
+            if ($failure->getMessage() === 'pitch_expired') {
+                if (! $this->stop('pitch_expired', preserveReservation: true)) {
+                    $this->release(30);
+                }
+
+                return;
+            }
             if ($failure->getMessage() === 'run_already_reserved') {
                 $this->release(30);
 
@@ -105,9 +116,14 @@ final class CollectEngineRun extends TenantJob
         $this->stop('engine_collection_failed');
     }
 
-    private function stop(string $errorCode): void
+    private function stop(string $errorCode, bool $preserveReservation = false): bool
     {
-        app(TenantContext::class)->run($this->tenantId, fn () => app(TenantRls::class)->run([$this->tenantId], function () use ($errorCode): void {
+        return app(TenantContext::class)->run($this->tenantId, fn (): bool => app(TenantRls::class)->run([$this->tenantId], function () use ($errorCode, $preserveReservation): bool {
+            $run = Run::query()->whereKey($this->runId)->lockForUpdate()->first();
+            if ($preserveReservation && $run !== null && in_array($run->status, ['queued', 'running', 'submitted'], true)
+                && RunReservations::active(CarbonImmutable::now('UTC'))->whereKey($run->id)->exists()) {
+                return false;
+            }
             $stopped = Run::query()->whereKey($this->runId)->whereIn('status', ['queued', 'running', 'submitted'])->update([
                 'status' => 'failed', 'error_code' => $errorCode, 'finished_at' => now(),
                 'enqueued_at' => null, 'provider_api_key' => null,
@@ -121,6 +137,8 @@ final class CollectEngineRun extends TenantJob
                     app(WorkChain::class)->ended($run);
                 }
             }
+
+            return true;
         }));
     }
 }

@@ -43,8 +43,7 @@ final class ExtractionSubmitter
     public function submitNext(int $tenantId): bool
     {
         $tenant = Team::query()->findOrFail($tenantId);
-        // Expiry stops new runs. Answers from runs created before pitch_expires_at are still extracted,
-        // including when they were collected after the pitch stopped (docs/pitch.md).
+        // Finish only answers belonging to runs created before the pitch expired.
         $now = CarbonImmutable::now('UTC');
         $finishStarted = $tenant->kind === 'pitch' && ! $tenant->mayStartProjectWorkAt($now);
         if ($finishStarted && $tenant->pitch_expires_at === null) {
@@ -105,6 +104,12 @@ final class ExtractionSubmitter
             $response->annotationUrls(),
         ))->all();
 
+        if (! $tenant->refresh()->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            // Preserve already collected answers without starting a new paid batch.
+            $chunk->each(fn (Response $response) => $this->writer->abandon($response));
+
+            return $more;
+        }
         try {
             $batchId = $this->runner->submit($requests);
         } catch (Throwable $failure) {

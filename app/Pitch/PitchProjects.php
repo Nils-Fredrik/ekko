@@ -6,6 +6,7 @@ use App\Enums\TenantStatus;
 use App\Models\Plan;
 use App\Models\Team;
 use App\Models\User;
+use App\Tenancy\AuditLog;
 use App\Tenancy\TenantAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ final class PitchProjects
 
     public const PARTNER_LIMIT = 3;
 
-    public function __construct(private readonly TenantAccess $access) {}
+    public function __construct(private readonly TenantAccess $access, private readonly AuditLog $audit) {}
 
     public function create(User $actor, Team $partner, string $name, CarbonImmutable $at): Team
     {
@@ -46,6 +47,7 @@ final class PitchProjects
                 'default_locale' => $partner->default_locale,
                 'timezone' => $partner->timezone,
             ])->save();
+            $this->audit->tenantCreated($actor, $team);
 
             return $team;
         });
@@ -63,7 +65,9 @@ final class PitchProjects
                 throw ValidationException::withMessages(['pitch' => __('pitch.no_customer_plan')]);
             }
             // Only metadata changes. Brand, market, prompts, runs, reports and usage retain the same tenant ID.
+            $previousPlanId = $pitch->plan_id;
             $pitch->forceFill(['kind' => 'customer', 'plan_id' => $plan->id, 'pitch_converted_at' => $at])->save();
+            $this->audit->pitchConverted($actor, $pitch, $previousPlanId);
 
             return $pitch;
         });

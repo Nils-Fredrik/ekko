@@ -11,6 +11,7 @@ return [
     'convert' => 'Konvertera till kund',
     'report' => 'Pitchrapport',
     'download_pdf' => 'Ladda ner PDF',
+    'reduced_quality' => ':n svar saknar modelluttag och använder enbart automatisk matchning. Siffrorna kan vara ofullständiga.',
     'visibility' => 'Synlighet jämfört med konkurrenter',
     'sources' => 'Viktigaste källor',
     'metric' => ':name: :value (n=:n)',

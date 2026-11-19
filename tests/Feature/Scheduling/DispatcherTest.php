@@ -2,6 +2,7 @@
 
 use App\Engines\RawResponseStore;
 use App\Jobs\CollectEngineRun;
+use App\Jobs\GenerateTenantActions;
 use App\Models\Engine;
 use App\Models\EnginePrice;
 use App\Models\Market;
@@ -71,6 +72,25 @@ test('a pitch does not schedule an engine switched off for its market', function
     app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => expect(Run::query()->count())->toBe(0)));
 });
 
+test('daily dispatch queues one template action refresh per pitch without adding customer jobs', function () {
+    $now = CarbonImmutable::now('UTC');
+    $engine = dispatchEngine();
+    $pitch = dispatchTenant($engine, 1);
+    $pitch->forceFill(['kind' => 'pitch', 'pitch_expires_at' => $now->addDays(7)])->save();
+    dispatchTenant($engine, 1);
+    $dispatcher = app(Dispatcher::class);
+    $dispatcher->dispatch($now);
+    $dispatcher->dispatch($now);
+    $actions = fn () => DB::table('jobs')->pluck('payload')->map(fn ($payload) => unserialize(json_decode($payload, true)['data']['command']))
+        ->filter(fn ($job) => $job instanceof GenerateTenantActions)->values();
+
+    expect($actions())->toHaveCount(1)->and($actions()[0]->tenantId)->toBe($pitch->id)->and($actions()[0]->force)->toBeTrue();
+    $dispatcher->dispatch($now->addDay());
+    expect($actions())->toHaveCount(2);
+    $dispatcher->dispatch($now->addDays(7));
+    expect($actions())->toHaveCount(2);
+});
+
 test('a queued pitch run cannot start provider work after the pitch expires', function () {
     $now = CarbonImmutable::now('UTC');
     $this->travelTo($now);
@@ -87,6 +107,54 @@ test('a queued pitch run cannot start provider work after the pitch expires', fu
     Http::assertNothingSent();
 });
 
+test('pitch expiry does not clear the reservation of an in-flight provider call', function () {
+    $now = CarbonImmutable::now('UTC');
+    $this->travelTo($now);
+    $engine = dispatchEngine();
+    $pitch = dispatchTenant($engine, 1);
+    $pitch->forceFill(['kind' => 'pitch', 'pitch_expires_at' => $now->addMinute()])->save();
+    app(Dispatcher::class)->dispatch($now);
+    $run = app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], function () use ($now) {
+        $run = Run::query()->sole();
+        $run->forceFill(['status' => 'running', 'quota_reservation_token' => '11111111-1111-4111-8111-111111111111', 'quota_reserved_at' => $now])->save();
+
+        return $run;
+    }));
+    $this->travelTo($now->addMinute());
+    Http::preventStrayRequests();
+    app()->instance(RawResponseStore::class, Mockery::mock(RawResponseStore::class));
+    app(TenantContext::class)->run($pitch->id, fn () => app()->call([new CollectEngineRun($pitch->id, $run->id), 'handle']));
+    app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => expect($run->fresh()->status)->toBe('running')
+        ->and($run->fresh()->quota_reservation_token)->toBe('11111111-1111-4111-8111-111111111111')));
+    Http::assertNothingSent();
+});
+
+test('pitch expiry preserves an older reservation while its provider lease is still held', function () {
+    $now = CarbonImmutable::now('UTC');
+    $this->travelTo($now);
+    $engine = dispatchEngine();
+    $pitch = dispatchTenant($engine, 1);
+    $pitch->forceFill(['kind' => 'pitch', 'pitch_expires_at' => $now->subMinute()])->save();
+    $run = app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], function () use ($engine, $now) {
+        $market = Market::query()->sole();
+        $prompt = Prompt::query()->sole();
+        $batch = RunBatch::factory()->for($market)->create();
+
+        return Run::factory()->for($batch, 'runBatch')->for($prompt)->for($engine)->create([
+            'status' => 'running', 'quota_reservation_token' => '22222222-2222-4222-8222-222222222222', 'quota_reserved_at' => $now->subHour(),
+        ]);
+    }));
+    DB::select('SELECT pg_advisory_lock(CAST(? AS bigint))', [-$run->id]);
+    try {
+        app()->instance(RawResponseStore::class, Mockery::mock(RawResponseStore::class));
+        app(TenantContext::class)->run($pitch->id, fn () => app()->call([new CollectEngineRun($pitch->id, $run->id), 'handle']));
+        app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => expect($run->fresh()->status)->toBe('running')
+            ->and($run->fresh()->quota_reservation_token)->toBe('22222222-2222-4222-8222-222222222222')));
+    } finally {
+        DB::select('SELECT pg_advisory_unlock(CAST(? AS bigint))', [-$run->id]);
+    }
+});
+
 test('a submitted pitch run created before expiry is still collected', function () {
     $now = CarbonImmutable::now('UTC');
     $this->travelTo($now);
@@ -96,7 +164,7 @@ test('a submitted pitch run created before expiry is still collected', function 
     expect(app(Dispatcher::class)->dispatch($now))->toBe(1);
     $runId = app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], function () use ($now): int {
         $run = Run::query()->sole();
-        $run->update(['status' => 'submitted', 'created_at' => $now->subMinute()]);
+        $run->forceFill(['status' => 'submitted', 'created_at' => $now->subMinute(), 'provider_task_id' => 'synthetic-task'])->save();
 
         return $run->id;
     }));

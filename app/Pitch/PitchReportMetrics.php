@@ -6,6 +6,7 @@ use App\Metrics\DailyAggregator;
 use App\Metrics\Formulas;
 use App\Metrics\Metric;
 use App\Models\Brand;
+use App\Models\Response;
 use Carbon\CarbonImmutable;
 
 /** Pitch windows can end mid-day, so daily aggregates cannot separate pitch and customer answers. */
@@ -13,7 +14,7 @@ final class PitchReportMetrics
 {
     public function __construct(private DailyAggregator $aggregator) {}
 
-    /** @return array{visibility: array{value: float|null, n: int, low_sample: bool}, competitors: list<array{name: string, visibility: array{value: float|null, n: int, low_sample: bool}}>, sources: list<array{domain: string, citations: int}>} */
+    /** @return array{visibility: array{value: float|null, n: int, low_sample: bool}, competitors: list<array{name: string, visibility: array{value: float|null, n: int, low_sample: bool}}>, sources: list<array{domain: string, citations: int}>, reduced_quality: int} */
     public function forWindow(Brand $brand, CarbonImmutable $start, CarbonImmutable $end, CarbonImmutable $runCreatedBefore): array
     {
         [$daily, $sources] = $this->aggregator->compute($start, $end, $runCreatedBefore);
@@ -44,6 +45,11 @@ final class PitchReportMetrics
             'visibility' => (new Metric(Formulas::ratio($mentioned, $responses), $responses))->toArray(),
             'competitors' => $competitors,
             'sources' => $domains,
+            'reduced_quality' => Response::query()->where('llm_failed', true)
+                ->where('collected_at', '>=', $start)->where('collected_at', '<', $end)
+                ->whereHas('run', fn ($query) => $query->where('status', 'extracted')->where('created_at', '<', $runCreatedBefore)
+                    ->whereHas('prompt.market', fn ($market) => $market->where('brand_id', $brand->id)))
+                ->count(),
         ];
     }
 }

@@ -50,7 +50,8 @@ class GenerateTenantActions extends TenantJob
     public function handle(ActionGenerator $generator, ActionFormulator $formulator, ActionPromptBuilder $prompts, TenantRls $rls): void
     {
         $now = CarbonImmutable::now();
-        if (! Team::query()->findOrFail($this->tenantId)->mayStartProjectWorkAt($now)) {
+        $tenant = Team::query()->findOrFail($this->tenantId);
+        if (! $tenant->mayStartProjectWorkAt($now)) {
             return;
         }
         $started = $now->getTimestamp();
@@ -69,7 +70,8 @@ class GenerateTenantActions extends TenantJob
             }
         }
 
-        if (! $formulator->available()) {
+        // Pitch refreshes use evidence-backed templates and incur no extra daily wording calls.
+        if (($tenant->kind === 'pitch' && $this->force) || ! $formulator->available()) {
             return;
         }
         // From the start of the job, so generation time counts too: the last call must end before the worker stops

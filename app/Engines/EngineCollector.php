@@ -121,6 +121,9 @@ final readonly class EngineCollector
         CarbonImmutable $occurredAt,
         #[SensitiveParameter] ?string $apiKey,
     ): ?ReservedEngineRun {
+        if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt($occurredAt)) {
+            throw new EngineCallFailed('pitch_expired');
+        }
         $engine = $run->engine()->first();
         if (! in_array($run->status, ['queued', 'running'], true) || ! $engine?->isAvailable()) {
             throw new LogicException('This run cannot collect an engine response.');

@@ -5,12 +5,41 @@ use App\Models\Plan;
 use App\Models\Team;
 use App\Models\User;
 use App\Pitch\PitchProjects;
+use App\Tenancy\Rls\TenantRls;
+use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Spatie\LaravelPdf\Facades\Pdf;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Support\Metrics\MetricsWorld;
+
+test('pitch creation and conversion are audited in the pitch tenant with the actual actors', function () {
+    $partner = Team::factory()->tenant()->create();
+    $customerPlan = Plan::factory()->create();
+    $partner->forceFill(['plan_id' => $customerPlan->id])->save();
+    $advisor = User::factory()->create();
+    $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
+    $admin = User::factory()->platformAdmin()->create();
+    $projects = app(PitchProjects::class);
+    $at = CarbonImmutable::now('UTC');
+    $pitch = $projects->create($advisor, $partner, 'Prospect', $at);
+    $pitchPlanId = $pitch->plan_id;
+    $projects->convert($admin, $pitch, $at->addMinute());
+
+    $rows = app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => DB::table('activity_log')
+        ->where('log_name', 'audit')->whereIn('event', ['tenant.created', 'pitch.converted'])->orderBy('id')->get()));
+    expect($rows)->toHaveCount(2)->and($rows[0]->event)->toBe('tenant.created')->and($rows[0]->causer_id)->toBe($advisor->id)
+        ->and($rows[1]->event)->toBe('pitch.converted')->and($rows[1]->causer_id)->toBe($admin->id)
+        ->and(json_decode($rows[1]->properties, true))->toEqual([
+            'from' => ['kind' => 'pitch', 'plan_id' => $pitchPlanId],
+            'to' => ['kind' => 'customer', 'plan_id' => $customerPlan->id],
+            'partner_team_id' => $partner->id,
+        ]);
+    $other = Team::factory()->tenant()->create();
+    expect(app(TenantRls::class)->run([$other->id], fn () => DB::table('activity_log')->where('tenant_id', $pitch->id)->count()))->toBe(0);
+});
 
 test('the pitch report uses its historical date range and the three highest ranked open actions', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-20 12:00:00 UTC'));
@@ -80,17 +109,25 @@ test('a converted pitch report separates answers on the same local day at the co
 
 test('a pitch PDF is generated from scoped report data and saved privately for download', function () {
     $world = MetricsWorld::create('UTC');
-    $world->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    $world->tenant->forceFill(['kind' => 'pitch', 'created_at' => now()->subMinute(), 'pitch_expires_at' => now()->addDays(7)])->save();
+    $answer = $world->answer($world->p1, now()->subSecond()->toIso8601String());
+    $answer->forceFill(['llm_failed' => true])->save();
+    $answer->run->forceFill(['created_at' => now()->subSecond()])->save();
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
     $disk = config()->string('ekko.reports.disk');
     Storage::fake($disk);
     $pdf = Pdf::fake();
 
+    $this->actingAs($owner)->get(route('pitches.report', $world->brand))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('reduced_quality', 1));
+
     $response = $this->actingAs($owner)->get(route('pitches.report.pdf', $world->brand))->assertOk()->assertHeader('content-type', 'application/pdf');
     expect($response->streamedContent())->toStartWith('%PDF');
     $pdf->assertViewIs('pitch.pdf');
     $pdf->assertViewHas('brand', 'Fjordkaffe');
+    $pdf->assertViewHas('reduced_quality', 1);
+    $pdf->assertSee(__('pitch.reduced_quality', ['n' => 1]));
     $files = Storage::disk($disk)->files('reports/'.$world->tenant->id);
     expect($files)->toBe(['reports/'.$world->tenant->id.'/pitch-'.$world->brand->id.'.pdf']);
     expect(Storage::disk($disk)->getVisibility($files[0]))->toBe('private');
