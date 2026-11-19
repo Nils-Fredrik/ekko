@@ -26,8 +26,8 @@ function amount(value) {
         </template>
 
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
-            <section class="space-y-2 rounded-xl border border-line bg-white p-5 text-ink">
-                <p class="text-sm text-ink-soft">{{ month }}</p>
+            <section class="space-y-2 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
+                <p class="text-sm text-shell-muted">{{ month }}</p>
                 <p>
                     {{ $t('app.workspace.calls') }}: {{ usage.calls }} /
                     {{ usage.quota_calls ?? $t('app.workspace.unlimited') }}
@@ -43,7 +43,7 @@ function amount(value) {
                 <p>{{ $t('app.workspace.usage_status') }}: {{ $t(`app.workspace.status_${usage.status}`) }}</p>
             </section>
 
-            <section class="space-y-2 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-2 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.by_engine') }}</h3>
                 <p v-if="engines.length === 0">{{ $t('app.workspace.no_usage') }}</p>
                 <p v-for="engine in engines" :key="engine.name">

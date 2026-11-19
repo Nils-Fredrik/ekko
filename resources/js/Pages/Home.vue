@@ -37,51 +37,53 @@ function when(value) {
                 </Link>
 
                 <section class="grid gap-4 md:grid-cols-2">
-                    <p v-if="brands.length === 0" class="text-sm text-ink-soft">{{ $t('app.dashboard.no_brands') }}</p>
+                    <p v-if="brands.length === 0" class="text-sm text-shell-muted">
+                        {{ $t('app.dashboard.no_brands') }}
+                    </p>
                     <Link
                         v-for="brand in brands"
                         :key="brand.id"
                         :href="route('brands.show', brand.id)"
-                        class="rounded-2xl border border-line bg-white p-5 text-ink no-underline"
+                        class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text no-underline"
                     >
                         <div class="flex items-baseline justify-between gap-3">
                             <h3 class="text-lg font-medium tracking-tight">{{ brand.name }}</h3>
-                            <span class="text-xs text-ink-soft">{{ brand.status }}</span>
+                            <span class="text-xs text-shell-muted">{{ brand.status }}</span>
                         </div>
-                        <p class="mt-1 text-sm text-ink-soft">
+                        <p class="mt-1 text-sm text-shell-muted">
                             {{ brand.markets.length ? brand.markets.join(', ') : $t('app.dashboard.no_markets') }}
                         </p>
-                        <p class="mt-4 text-xs text-ink-soft">{{ $t('app.dashboard.visibility') }}</p>
+                        <p class="mt-4 text-xs text-shell-muted">{{ $t('app.dashboard.visibility') }}</p>
                         <MetricValue :metric="brand.visibility" :previous="brand.previous_visibility" />
                     </Link>
                 </section>
 
                 <section class="grid gap-4 lg:grid-cols-3">
-                    <div class="rounded-2xl border border-line bg-white p-5 text-ink">
+                    <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                         <h3 class="text-sm font-medium">{{ $t('app.dashboard.alerts') }}</h3>
-                        <p v-if="alerts.length === 0" class="mt-3 text-sm text-ink-soft">
+                        <p v-if="alerts.length === 0" class="mt-3 text-sm text-shell-muted">
                             {{ $t('app.dashboard.no_alerts') }}
                         </p>
                         <ul v-else class="mt-3 flex flex-col gap-2 text-sm">
                             <li v-for="alert in alerts" :key="alert.id" class="border-s-4 border-warning ps-3">
                                 {{ $t('app.dashboard.alert', { brand: alert.brand, type: alert.type }) }}
-                                <span class="block text-xs text-ink-soft">{{ when(alert.triggered_at) }}</span>
+                                <span class="block text-xs text-shell-muted">{{ when(alert.triggered_at) }}</span>
                             </li>
                         </ul>
                     </div>
-                    <div class="rounded-2xl border border-line bg-white p-5 text-ink">
+                    <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                         <h3 class="text-sm font-medium">{{ $t('app.dashboard.runs') }}</h3>
-                        <p v-if="runs.length === 0" class="mt-3 text-sm text-ink-soft">
+                        <p v-if="runs.length === 0" class="mt-3 text-sm text-shell-muted">
                             {{ $t('app.dashboard.no_runs') }}
                         </p>
                         <ul v-else class="mt-3 flex flex-col gap-2 text-sm">
                             <li v-for="run in runs" :key="run.id">
                                 {{ $t('app.dashboard.run', { brand: run.brand, market: run.market }) }}
-                                <span class="block text-xs text-ink-soft">{{ when(run.scheduled_for) }}</span>
+                                <span class="block text-xs text-shell-muted">{{ when(run.scheduled_for) }}</span>
                             </li>
                         </ul>
                     </div>
-                    <div v-if="usage" class="rounded-2xl border border-line bg-white p-5 text-ink">
+                    <div v-if="usage" class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                         <h3 class="text-sm font-medium">{{ $t('app.dashboard.usage') }}</h3>
                         <p class="mt-3 text-sm">
                             {{
@@ -90,7 +92,7 @@ function when(value) {
                                     : $t('app.dashboard.usage_calls_open', { calls: usage.calls })
                             }}
                         </p>
-                        <p v-if="usage.budget_usd" class="mt-1 text-sm text-ink-soft">
+                        <p v-if="usage.budget_usd" class="mt-1 text-sm text-shell-muted">
                             {{ $t('app.dashboard.usage_cost', { cost: usage.cost_usd, budget: usage.budget_usd }) }}
                         </p>
                     </div>

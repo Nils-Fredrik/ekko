@@ -29,6 +29,15 @@ export function applyTheme(pref) {
     document.documentElement.dataset.theme = resolveTheme(choice);
 }
 
+// Charts read theme tokens once, when they draw. They subscribe so a later
+// switch repaints axis colors instead of leaving the previous theme on the canvas.
+export function onThemeChange(callback) {
+    const observer = new MutationObserver(callback);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+    return () => observer.disconnect();
+}
+
 // Follow the system when it changes while "system" is selected.
 export function watchSystemTheme(currentPref) {
     media()?.addEventListener?.('change', () => {

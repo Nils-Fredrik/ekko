@@ -15,10 +15,10 @@ defineProps({
 
         <div class="py-8">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <p v-if="brands.length === 0" class="text-sm text-ink-soft">{{ $t('app.dashboard.no_brands') }}</p>
-                <div v-else class="overflow-hidden rounded-2xl border border-line bg-white text-ink">
+                <p v-if="brands.length === 0" class="text-sm text-shell-muted">{{ $t('app.dashboard.no_brands') }}</p>
+                <div v-else class="overflow-hidden rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <table class="w-full text-left text-sm">
-                        <thead class="border-b border-line text-xs text-ink-soft">
+                        <thead class="border-b border-line text-xs text-shell-muted">
                             <tr>
                                 <th class="px-5 py-3 font-medium">{{ $t('app.dashboard.brands') }}</th>
                                 <th class="px-5 py-3 font-medium">{{ $t('app.dashboard.status') }}</th>
@@ -30,13 +30,13 @@ defineProps({
                                 <td class="px-5 py-3">
                                     <Link
                                         :href="route('brands.show', brand.id)"
-                                        class="font-medium text-ink no-underline"
+                                        class="font-medium text-shell-text no-underline"
                                     >
                                         {{ brand.name }}
                                     </Link>
                                 </td>
-                                <td class="px-5 py-3 text-ink-soft">{{ brand.status }}</td>
-                                <td class="px-5 py-3 text-ink-soft">
+                                <td class="px-5 py-3 text-shell-muted">{{ brand.status }}</td>
+                                <td class="px-5 py-3 text-shell-muted">
                                     {{
                                         brand.markets.length
                                             ? brand.markets.map((market) => market.label).join(', ')

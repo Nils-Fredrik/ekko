@@ -43,51 +43,51 @@ function when(value) {
                     :days="period.days"
                 />
 
-                <section class="rounded-2xl border border-line bg-white p-5 text-ink">
+                <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="font-medium">{{ prompt.text }}</h3>
-                    <p class="mt-1 text-xs text-ink-soft">
+                    <p class="mt-1 text-xs text-shell-muted">
                         {{ prompt.market }} · {{ prompt.intent }} · {{ prompt.funnel }} · {{ prompt.priority }}
                     </p>
                 </section>
 
-                <section class="rounded-2xl border border-line bg-white p-5 text-ink">
+                <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="text-sm font-medium">{{ $t('app.dashboard.trend') }}</h3>
-                    <p v-if="series.length === 0" class="mt-4 text-sm text-ink-soft">
+                    <p v-if="series.length === 0" class="mt-4 text-sm text-shell-muted">
                         {{ $t('app.dashboard.no_trend') }}
                     </p>
                     <TrendChart v-else class="mt-4" :points="series" />
                 </section>
 
-                <p v-if="truncated" class="text-sm text-ink-soft">
+                <p v-if="truncated" class="text-sm text-shell-muted">
                     {{ $t('app.library.truncated', { count: shown }) }}
                 </p>
-                <p v-if="engines.length === 0" class="text-sm text-ink-soft">{{ $t('app.library.no_answers') }}</p>
+                <p v-if="engines.length === 0" class="text-sm text-shell-muted">{{ $t('app.library.no_answers') }}</p>
 
                 <section v-for="group in engines" :key="group.engine" class="flex flex-col gap-4">
                     <h3 class="text-sm font-medium text-shell-fg">{{ group.engine }}</h3>
                     <article
                         v-for="answer in group.answers"
                         :key="answer.id"
-                        class="rounded-2xl border border-line bg-white p-5"
+                        class="rounded-2xl border border-line bg-shell-panel p-5"
                     >
-                        <div class="mb-3 flex items-center justify-between gap-3 text-xs text-ink-soft">
+                        <div class="mb-3 flex items-center justify-between gap-3 text-xs text-shell-muted">
                             <span>{{ when(answer.collected_at) }}</span>
                             <a :href="answer.raw" class="text-primary no-underline">{{ $t('app.library.raw') }}</a>
                         </div>
                         <AnswerText :segments="answer.segments" />
                         <ul v-if="answer.citations.length" class="mt-3 flex flex-col gap-1 text-xs">
                             <li v-for="citation in answer.citations" :key="citation.url || citation.domain">
-                                <a v-if="citation.url" :href="citation.url" class="text-ink no-underline">
+                                <a v-if="citation.url" :href="citation.url" class="text-shell-text no-underline">
                                     {{ citation.domain }}
                                 </a>
                                 <span v-else>{{ citation.domain }}</span>
-                                <span class="text-ink-soft">· {{ citation.ownership }}</span>
+                                <span class="text-shell-muted">· {{ citation.ownership }}</span>
                             </li>
                         </ul>
                     </article>
                 </section>
 
-                <p class="flex flex-wrap gap-3 text-xs text-ink-soft">
+                <p class="flex flex-wrap gap-3 text-xs text-shell-muted">
                     <span class="rounded-sm bg-primary/15 px-1">{{ $t('app.library.mention_brand') }}</span>
                     <span class="rounded-sm bg-medium-beige/60 px-1">{{ $t('app.library.mention_competitor') }}</span>
                     <span class="underline decoration-warning decoration-2">

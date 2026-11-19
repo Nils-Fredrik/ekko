@@ -66,8 +66,14 @@ const logout = () => {
                     <div class="flex h-16 justify-between">
                         <div class="flex items-center">
                             <Link :href="route('dashboard')" class="flex items-center gap-2.5 no-underline">
-                                <span class="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-white">
-                                    <img src="/images/maksimer-m-square.svg" alt="" class="h-[19px] w-[19px]" />
+                                <span
+                                    class="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-shell-panel"
+                                >
+                                    <img
+                                        src="/images/maksimer-m-square.svg"
+                                        alt=""
+                                        class="logo-mark h-[19px] w-[19px]"
+                                    />
                                 </span>
                                 <span class="text-[15px] font-semibold text-shell-fg">{{ $t('app.name') }}</span>
                             </Link>
@@ -127,7 +133,7 @@ const logout = () => {
 
                                     <template #content>
                                         <div class="w-60">
-                                            <div class="block px-4 py-2 text-xs text-dark-beige">
+                                            <div class="block px-4 py-2 text-xs text-shell-muted">
                                                 {{ $t('Manage Team') }}
                                             </div>
 
@@ -145,7 +151,7 @@ const logout = () => {
                                             <template v-if="user.all_teams.length > 1 && !page.props.actingAs">
                                                 <div class="border-t border-line-soft" />
 
-                                                <div class="block px-4 py-2 text-xs text-dark-beige">
+                                                <div class="block px-4 py-2 text-xs text-shell-muted">
                                                     {{ $t('Switch Teams') }}
                                                 </div>
 
@@ -175,6 +181,7 @@ const logout = () => {
                                     <template #trigger>
                                         <button
                                             type="button"
+                                            data-testid="account-menu"
                                             class="inline-flex items-center gap-2 rounded-lg px-1.5 py-1 text-sm text-shell-fg hover:bg-shell-fg/[.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                                         >
                                             <span
@@ -187,7 +194,7 @@ const logout = () => {
                                     </template>
 
                                     <template #content>
-                                        <div class="block px-4 py-2 text-xs text-dark-beige">
+                                        <div class="block px-4 py-2 text-xs text-shell-muted">
                                             {{ $t('Manage Account') }}
                                         </div>
 
@@ -235,7 +242,7 @@ const logout = () => {
                                         <div class="border-t border-line-soft" />
 
                                         <div
-                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase"
+                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase"
                                         >
                                             {{ $t('app.nav.theme') }}
                                         </div>
@@ -243,7 +250,7 @@ const logout = () => {
                                             v-for="option in themes"
                                             :key="option.code"
                                             type="button"
-                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-ink-soft hover:bg-light-beige hover:text-ink"
+                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-shell-muted hover:bg-shell-text/10 hover:text-shell-text"
                                             @click="setTheme(option.code)"
                                         >
                                             {{ option.label() }}
@@ -256,7 +263,7 @@ const logout = () => {
                                         <div class="border-t border-line-soft" />
 
                                         <div
-                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase"
+                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase"
                                         >
                                             {{ $t('app.nav.language') }}
                                         </div>
@@ -264,7 +271,7 @@ const logout = () => {
                                             v-for="item in locales"
                                             :key="item.code"
                                             type="button"
-                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-ink-soft hover:bg-light-beige hover:text-ink"
+                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-shell-muted hover:bg-shell-text/10 hover:text-shell-text"
                                             @click="setLocale(item.code)"
                                         >
                                             {{ item.label }}
@@ -316,7 +323,11 @@ const logout = () => {
                     <Link
                         :href="route('dashboard')"
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="route().current('dashboard') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'"
+                        :class="
+                            route().current('dashboard')
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
+                                : 'text-shell-muted'
+                        "
                         @click="menuOpen = false"
                     >
                         {{ $t('Dashboard') }}
@@ -324,7 +335,11 @@ const logout = () => {
                     <Link
                         :href="route('brands.index')"
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="route().current('brands.*') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'"
+                        :class="
+                            route().current('brands.*')
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
+                                : 'text-shell-muted'
+                        "
                         @click="menuOpen = false"
                     >
                         {{ $t('app.nav.brands') }}
@@ -335,8 +350,8 @@ const logout = () => {
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
                             route().current('onboarding.wizard')
-                                ? 'bg-light-beige font-medium text-ink'
-                                : 'text-ink-soft'
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
+                                : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
                     >
@@ -347,7 +362,9 @@ const logout = () => {
                         :href="route('partner.index')"
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
-                            route().current('partner.index') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'
+                            route().current('partner.index')
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
+                                : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
                     >
@@ -356,7 +373,11 @@ const logout = () => {
                     <Link
                         :href="route('alerts.index')"
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="route().current('alerts.*') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'"
+                        :class="
+                            route().current('alerts.*')
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
+                                : 'text-shell-muted'
+                        "
                         @click="menuOpen = false"
                     >
                         {{ $t('app.nav.alerts') }}
@@ -364,7 +385,11 @@ const logout = () => {
                     <Link
                         :href="route('reports.index')"
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="route().current('reports.*') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'"
+                        :class="
+                            route().current('reports.*')
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
+                                : 'text-shell-muted'
+                        "
                         @click="menuOpen = false"
                     >
                         {{ $t('app.nav.reports') }}
@@ -374,7 +399,9 @@ const logout = () => {
                         :href="route('usage.index')"
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
-                            route().current('usage.index') ? 'bg-light-beige font-medium text-ink' : 'text-ink-soft'
+                            route().current('usage.index')
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
+                                : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
                     >
@@ -382,7 +409,7 @@ const logout = () => {
                     </Link>
                     <Link
                         :href="route('profile.show')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
                         @click="menuOpen = false"
                     >
                         {{ $t('Profile') }}
@@ -390,7 +417,7 @@ const logout = () => {
                     <Link
                         v-if="$page.props.jetstream.hasApiFeatures"
                         :href="route('api-tokens.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
                         @click="menuOpen = false"
                     >
                         {{ $t('API Tokens') }}
@@ -398,7 +425,7 @@ const logout = () => {
                     <Link
                         v-if="$page.props.auth.user.is_platform_admin"
                         :href="route('admin.tenants.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
                         @click="menuOpen = false"
                     >
                         {{ $t('admin.nav.tenants') }}
@@ -406,14 +433,14 @@ const logout = () => {
                     <Link
                         v-if="$page.props.auth.user.is_platform_admin"
                         :href="route('admin.billing.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
                         @click="menuOpen = false"
                     >
                         {{ $t('billing.title') }}
                     </Link>
                     <Link
                         :href="route('mcp.connections')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
                         @click="menuOpen = false"
                     >
                         {{ $t('mcp.nav') }}
@@ -424,10 +451,10 @@ const logout = () => {
                     v-if="$page.props.jetstream.hasTeamFeatures && user.current_team"
                     class="border-t border-line-soft py-3"
                 >
-                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase">
+                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase">
                         {{ $t('Switch Teams') }}
                     </div>
-                    <div class="px-3 py-1.5 text-sm text-ink">{{ user.current_team.name }}</div>
+                    <div class="px-3 py-1.5 text-sm text-shell-text">{{ user.current_team.name }}</div>
                     <form
                         v-for="team in page.props.actingAs ? [] : user.all_teams"
                         :key="team.id"
@@ -436,14 +463,14 @@ const logout = () => {
                         <button
                             v-if="team.id != user.current_team_id"
                             type="submit"
-                            class="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-ink-soft hover:bg-light-beige"
+                            class="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted hover:bg-shell-text/10"
                         >
                             {{ team.name }}
                         </button>
                     </form>
                     <Link
                         :href="route('teams.show', user.current_team)"
-                        class="block rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        class="block rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
                         @click="menuOpen = false"
                     >
                         {{ $t('Team Settings') }}
@@ -451,7 +478,7 @@ const logout = () => {
                     <Link
                         v-if="$page.props.jetstream.canCreateTeams"
                         :href="route('teams.create')"
-                        class="block rounded-lg px-3 py-2.5 text-sm text-ink-soft no-underline"
+                        class="block rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
                         @click="menuOpen = false"
                     >
                         {{ $t('Create New Team') }}
@@ -459,14 +486,14 @@ const logout = () => {
                 </div>
 
                 <div class="border-t border-line-soft py-3">
-                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase">
+                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase">
                         {{ $t('app.nav.theme') }}
                     </div>
                     <button
                         v-for="option in themes"
                         :key="option.code"
                         type="button"
-                        class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-start text-sm text-ink-soft"
+                        class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted"
                         @click="setTheme(option.code)"
                     >
                         {{ option.label() }}
@@ -475,14 +502,14 @@ const logout = () => {
                 </div>
 
                 <div class="border-t border-line-soft py-3">
-                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase">
+                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase">
                         {{ $t('app.nav.language') }}
                     </div>
                     <button
                         v-for="item in locales"
                         :key="item.code"
                         type="button"
-                        class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-start text-sm text-ink-soft"
+                        class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted"
                         @click="setLocale(item.code)"
                     >
                         {{ item.label }}
@@ -491,7 +518,10 @@ const logout = () => {
                 </div>
 
                 <form class="border-t border-line-soft py-3" @submit.prevent="logout">
-                    <button type="submit" class="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-ink-soft">
+                    <button
+                        type="submit"
+                        class="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted"
+                    >
                         {{ $t('Log Out') }}
                     </button>
                 </form>

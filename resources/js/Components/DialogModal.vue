@@ -26,16 +26,16 @@ const close = () => {
 <template>
     <Modal :show="show" :max-width="maxWidth" :closeable="closeable" @close="close">
         <div class="px-6 py-4">
-            <div class="text-lg font-medium text-ink">
+            <div class="text-lg font-medium text-shell-text">
                 <slot name="title" />
             </div>
 
-            <div class="mt-4 text-sm text-ink-soft">
+            <div class="mt-4 text-sm text-shell-muted">
                 <slot name="content" />
             </div>
         </div>
 
-        <div class="flex flex-row justify-end bg-light-beige px-6 py-4 text-end">
+        <div class="flex flex-row justify-end bg-shell-surface px-6 py-4 text-end">
             <slot name="footer" />
         </div>
     </Modal>

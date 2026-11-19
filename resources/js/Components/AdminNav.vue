@@ -17,7 +17,7 @@ const links = [
             :key="name"
             :href="route(name)"
             class="rounded-full px-3 py-1.5 text-sm no-underline"
-            :class="route().current(name) ? 'bg-primary font-medium text-white' : 'border border-line text-ink-soft'"
+            :class="route().current(name) ? 'bg-primary font-medium text-white' : 'border border-line text-shell-muted'"
         >
             {{ $t(label) }}
         </Link>

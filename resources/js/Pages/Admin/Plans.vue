@@ -8,7 +8,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({ plans: Array, engines: Array, frequencies: Array });
-const field = 'mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
+const field = 'mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 
 function blank(plan = {}) {
     return {
@@ -75,11 +75,11 @@ function toggle(form, key) {
         </template>
         <div class="mx-auto max-w-7xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
             <AdminNav />
-            <p class="text-sm text-ink-soft">{{ $t('admin.plans.intro') }} {{ $t('admin.plans.unlimited') }}</p>
+            <p class="text-sm text-shell-muted">{{ $t('admin.plans.intro') }} {{ $t('admin.plans.unlimited') }}</p>
             <form
                 v-for="row in rows"
                 :key="row.key"
-                class="space-y-3 rounded-2xl border border-line bg-white p-6 text-ink"
+                class="space-y-3 rounded-2xl border border-line bg-shell-panel p-6 text-shell-text"
                 @submit.prevent="send(row)"
             >
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

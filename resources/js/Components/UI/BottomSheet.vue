@@ -1,5 +1,5 @@
 <!--
-  Bottom sheet for small screens: a white panel that slides up, with a title and a close button.
+  Bottom sheet for small screens: a shell surface that slides up, with a title and a close button.
   Closes with the button, Escape, or a press outside. The page behind is locked while it is open.
   A fixed footer can sit in #footer.
 -->
@@ -40,13 +40,13 @@ useOverlay(
                 role="dialog"
                 aria-modal="true"
                 :aria-label="title"
-                class="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col rounded-t-2xl bg-white text-ink shadow-pop"
+                class="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col rounded-t-2xl bg-shell-surface text-shell-text shadow-pop"
             >
                 <div class="flex items-center justify-between gap-3 pt-2 pr-2 pb-1 pl-5">
                     <h2 class="text-[15px] font-semibold">{{ title }}</h2>
                     <button
                         type="button"
-                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-soft hover:bg-light-beige hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-shell-muted hover:bg-shell-text/10 hover:text-shell-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                         :aria-label="$t('app.common.close')"
                         @click="emit('close')"
                     >

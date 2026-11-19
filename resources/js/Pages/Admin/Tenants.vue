@@ -9,7 +9,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({ tenants: Array, plans: Array, partners: Array, statuses: Array });
-const field = 'mt-1 w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
+const field = 'mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 
 const closePassword = {
     title: 'app.tenant_close.title',
@@ -76,8 +76,11 @@ function act() {
         </template>
         <div class="mx-auto max-w-7xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
             <AdminNav />
-            <p class="text-sm text-ink-soft">{{ $t('admin.tenants.intro') }}</p>
-            <form class="space-y-3 rounded-2xl border border-line bg-white p-6 text-ink" @submit.prevent="create">
+            <p class="text-sm text-shell-muted">{{ $t('admin.tenants.intro') }}</p>
+            <form
+                class="space-y-3 rounded-2xl border border-line bg-shell-panel p-6 text-shell-text"
+                @submit.prevent="create"
+            >
                 <div class="grid gap-3 sm:grid-cols-3">
                     <label class="text-sm">
                         {{ $t('admin.tenants.name') }}
@@ -102,11 +105,11 @@ function act() {
                 <InputError v-for="(message, key) in creating.errors" :key="key" :message="message" />
                 <PrimaryButton :disabled="creating.processing">{{ $t('admin.tenants.create') }}</PrimaryButton>
             </form>
-            <p v-if="!tenants.length" class="text-sm text-ink-soft">{{ $t('admin.tenants.empty') }}</p>
+            <p v-if="!tenants.length" class="text-sm text-shell-muted">{{ $t('admin.tenants.empty') }}</p>
             <form
                 v-for="tenant in tenants"
                 :key="tenant.id"
-                class="space-y-3 rounded-2xl border border-line bg-white p-6 text-ink"
+                class="space-y-3 rounded-2xl border border-line bg-shell-panel p-6 text-shell-text"
                 @submit.prevent="save(tenant)"
             >
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -173,7 +176,7 @@ function act() {
             </form>
             <form
                 v-if="tenants.length"
-                class="space-y-3 rounded-2xl border border-line bg-white p-6 text-ink"
+                class="space-y-3 rounded-2xl border border-line bg-shell-panel p-6 text-shell-text"
                 @submit.prevent
             >
                 <h3 class="font-medium">{{ $t('admin.tenants.act') }}</h3>

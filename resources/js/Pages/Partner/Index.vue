@@ -43,11 +43,11 @@ function formatChange(current, previous) {
             <h2 class="text-xl font-medium tracking-tight text-shell-fg">{{ $t('app.partner.title') }}</h2>
         </template>
         <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
-            <p class="text-sm text-ink-soft">{{ $t('app.partner.intro', { days: period.days }) }}</p>
-            <p v-if="clients.length === 0" class="mt-6 text-sm text-ink-soft">{{ $t('app.partner.empty') }}</p>
-            <div v-else class="mt-6 overflow-hidden rounded-2xl border border-line bg-white">
-                <table class="min-w-full text-sm text-ink">
-                    <thead class="border-b border-line text-left text-ink-soft">
+            <p class="text-sm text-shell-muted">{{ $t('app.partner.intro', { days: period.days }) }}</p>
+            <p v-if="clients.length === 0" class="mt-6 text-sm text-shell-muted">{{ $t('app.partner.empty') }}</p>
+            <div v-else class="mt-6 overflow-hidden rounded-2xl border border-line bg-shell-panel">
+                <table class="min-w-full text-sm text-shell-text">
+                    <thead class="border-b border-line text-left text-shell-muted">
                         <tr>
                             <th class="px-4 py-3 font-medium">{{ $t('app.partner.client') }}</th>
                             <th class="px-4 py-3 text-right font-medium">{{ $t('app.partner.visibility') }}</th>

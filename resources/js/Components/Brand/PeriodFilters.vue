@@ -40,7 +40,7 @@ function apply() {
                 {{ $t('app.dashboard.period') }}
                 <select
                     v-model="daysModel"
-                    class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                    class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                     @change="apply"
                 >
                     <option v-for="length in lengths" :key="length" :value="length">
@@ -52,7 +52,7 @@ function apply() {
                 {{ $t('app.dashboard.market') }}
                 <select
                     v-model="marketModel"
-                    class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                    class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                     @change="apply"
                 >
                     <option value="">{{ $t('app.dashboard.all_markets') }}</option>
@@ -63,7 +63,7 @@ function apply() {
                 {{ $t('app.dashboard.engine') }}
                 <select
                     v-model="engineModel"
-                    class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                    class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                     @change="apply"
                 >
                     <option value="">{{ $t('app.dashboard.all_engines') }}</option>
@@ -82,7 +82,7 @@ function apply() {
                         {{ $t('app.dashboard.period') }}
                         <select
                             v-model="daysModel"
-                            class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                         >
                             <option v-for="length in lengths" :key="length" :value="length">
                                 {{ $t('app.dashboard.period_days', { days: length }) }}
@@ -93,7 +93,7 @@ function apply() {
                         {{ $t('app.dashboard.market') }}
                         <select
                             v-model="marketModel"
-                            class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                         >
                             <option value="">{{ $t('app.dashboard.all_markets') }}</option>
                             <option v-for="item in markets" :key="item.id" :value="item.id">{{ item.label }}</option>
@@ -103,7 +103,7 @@ function apply() {
                         {{ $t('app.dashboard.engine') }}
                         <select
                             v-model="engineModel"
-                            class="rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink"
+                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
                         >
                             <option value="">{{ $t('app.dashboard.all_engines') }}</option>
                             <option v-for="item in engines" :key="item.key" :value="item.key">{{ item.name }}</option>

@@ -47,7 +47,7 @@ const form = useForm({
 
 const hasClickHouse = props.integrations.some((integration) => integration.type === 'clickhouse_logs');
 
-const field = 'w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
+const field = 'w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 
 function save() {
     form.put(route('brands.settings.update', props.brand.id), {
@@ -64,7 +64,7 @@ function save() {
         </template>
 
         <form class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6" @submit.prevent="save">
-            <section class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <label class="block text-sm">
                     {{ $t('app.workspace.name') }}
                     <input v-model="form.name" :disabled="!can.manage" :class="field" class="mt-1" />
@@ -77,7 +77,7 @@ function save() {
                 </label>
             </section>
 
-            <section class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.aliases') }}</h3>
                 <div v-for="(row, index) in form.aliases" :key="index" class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
                     <input v-model="row.alias" :disabled="!can.manage" :class="field" />
@@ -88,7 +88,7 @@ function save() {
                     <button
                         v-if="can.manage"
                         type="button"
-                        class="text-sm text-ink-soft"
+                        class="text-sm text-shell-muted"
                         @click="form.aliases.splice(index, 1)"
                     >
                         {{ $t('app.workspace.remove') }}
@@ -109,7 +109,7 @@ function save() {
                 <InputError :message="form.errors.aliases" />
             </section>
 
-            <section class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.domains') }}</h3>
                 <div v-for="(row, index) in form.domains" :key="index" class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
                     <input v-model="row.domain" :disabled="!can.manage" :class="field" />
@@ -120,7 +120,7 @@ function save() {
                     <button
                         v-if="can.manage"
                         type="button"
-                        class="text-sm text-ink-soft"
+                        class="text-sm text-shell-muted"
                         @click="form.domains.splice(index, 1)"
                     >
                         {{ $t('app.workspace.remove') }}
@@ -143,7 +143,7 @@ function save() {
                 <InputError :message="form.errors.domains" />
             </section>
 
-            <section class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.markets') }}</h3>
                 <div v-for="(row, index) in form.markets" :key="row.id" class="grid gap-2 sm:grid-cols-[1fr_auto]">
                     <label class="text-sm">
@@ -164,7 +164,7 @@ function save() {
                 </div>
             </section>
 
-            <section class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.engines') }}</h3>
                 <div v-for="(row, index) in form.engines" :key="row.id" class="grid gap-2 sm:grid-cols-4">
                     <p class="text-sm sm:col-span-4">{{ engines[index].market }} · {{ engines[index].name }}</p>
@@ -193,7 +193,10 @@ function save() {
                 </div>
             </section>
 
-            <section v-if="can.integrations" class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink">
+            <section
+                v-if="can.integrations"
+                class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text"
+            >
                 <h3 class="font-medium">{{ $t('app.workspace.integrations') }}</h3>
                 <p v-if="integrations.length === 0">{{ $t('app.workspace.no_integrations') }}</p>
                 <div v-for="integration in integrations" :key="integration.type" class="text-sm">
@@ -212,7 +215,7 @@ function save() {
                             )
                         }}
                     </p>
-                    <p class="text-ink-soft">
+                    <p class="text-shell-muted">
                         {{
                             integration.last_sync_at
                                 ? $t('app.workspace.last_sync', { time: dateTime(integration.last_sync_at) })

@@ -25,6 +25,8 @@ const save = () => form.put(route('admin.billing.markup', props.tenantId), { pre
             <PrimaryButton :disabled="form.processing">{{ $t('billing.save') }}</PrimaryButton>
         </div>
         <InputError :message="form.errors.markup_percent" class="mt-2" />
-        <p v-if="form.recentlySuccessful" role="status" class="mt-2 text-sm text-ink-soft">{{ $t('billing.saved') }}</p>
+        <p v-if="form.recentlySuccessful" role="status" class="mt-2 text-sm text-shell-muted">
+            {{ $t('billing.saved') }}
+        </p>
     </form>
 </template>

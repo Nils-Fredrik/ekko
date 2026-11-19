@@ -5,10 +5,10 @@ defineProps({
 
 function kindClass(kind) {
     if (kind === 'brand') {
-        return 'rounded-sm bg-primary/15 px-0.5 text-ink';
+        return 'rounded-sm bg-primary/15 px-0.5 text-shell-text';
     }
     if (kind === 'competitor') {
-        return 'rounded-sm bg-medium-beige/60 px-0.5 text-ink';
+        return 'rounded-sm bg-medium-beige/60 px-0.5 text-shell-text';
     }
     if (kind === 'unknown') {
         return 'underline decoration-warning decoration-2';
@@ -19,7 +19,7 @@ function kindClass(kind) {
 </script>
 
 <template>
-    <p class="text-sm whitespace-pre-wrap text-ink">
+    <p class="text-sm whitespace-pre-wrap text-shell-text">
         <span v-for="(part, index) in segments" :key="index" :class="kindClass(part.kind)">{{ part.text }}</span>
     </p>
 </template>

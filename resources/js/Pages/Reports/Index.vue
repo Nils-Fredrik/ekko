@@ -15,7 +15,7 @@ const props = defineProps({
     canManage: { type: Boolean, required: true },
 });
 
-const field = 'rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink';
+const field = 'rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 
 function blank(brandId) {
     return useForm({
@@ -88,7 +88,7 @@ function add() {
         </template>
 
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
-            <section class="space-y-4 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.schedules') }}</h3>
                 <p v-if="rows.length === 0">{{ $t('app.workspace.no_schedules') }}</p>
                 <form
@@ -113,7 +113,7 @@ function add() {
                             rows="3"
                         />
                     </label>
-                    <p class="text-xs text-ink-soft">{{ $t('app.workspace.recipients_help') }}</p>
+                    <p class="text-xs text-shell-muted">{{ $t('app.workspace.recipients_help') }}</p>
                     <InputError :message="recipientError(row.form.errors)" />
                     <select v-model="row.form.locale" :disabled="!canManage" :class="field">
                         <option v-for="locale in reportLocales" :key="locale" :value="locale">
@@ -159,7 +159,7 @@ function add() {
                 </form>
             </section>
 
-            <section class="space-y-3 rounded-xl border border-line bg-white p-5 text-ink">
+            <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.history') }}</h3>
                 <p v-if="reports.length === 0">{{ $t('app.workspace.no_reports') }}</p>
                 <article
@@ -174,7 +174,7 @@ function add() {
                     <a v-if="report.downloadable" :href="route('reports.download', report.id)" class="text-sm">
                         {{ $t('app.workspace.download') }}
                     </a>
-                    <p v-else class="text-ink-soft">
+                    <p v-else class="text-shell-muted">
                         {{ report.sent_at ? dateTime(report.sent_at) : $t('app.workspace.not_sent') }}
                     </p>
                 </article>

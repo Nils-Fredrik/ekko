@@ -77,9 +77,10 @@
 
     --color-ink: #1a1212;
     --color-ink-soft: #4a3a36;
-    --color-line: #e8ded2;
-    --color-line-soft: #f0e6d8;
-    --color-row-hover: #fbf7f1;
+    /* Dark theme is the default. Light theme overrides the line tokens below. */
+    --color-line: #4a3f3a;
+    --color-line-soft: #2e2624;
+    --color-row-hover: #1a1412;
 
     --color-chrome: #0c0a0a;
     --color-panel: #15100f;
@@ -91,29 +92,34 @@
     --color-shell-surface: #0b0909;
     --color-shell-fg: #ffffff;
     --color-shell-text: #f5ede4;
+    --color-shell-muted: #c4b6a8;
     --color-shell-accent: #ffb6c3;
 
     --color-success: #4a7c59;
     --color-warning: #c97b3e;
     --color-error: #a8382f;
 
-    /* Jetstream's built-in components use gray and indigo. Map them onto the palette
-       so existing forms match without rewriting each component. */
-    --color-gray-50: #fbf7f1;
-    --color-gray-100: #f5ede4;
-    --color-gray-200: #f0e6d8;
-    --color-gray-300: #e8ded2;
-    --color-gray-400: #906056;
-    --color-gray-500: #6f4a42;
-    --color-gray-600: #4a3a36;
-    --color-gray-700: #4a3a36;
-    --color-gray-800: #1a1212;
-    --color-gray-900: #1a1212;
-    --color-indigo-100: #ffd8df;
+    /* Jetstream still uses gray, indigo and red class names. The dark theme is the
+       default, so these map onto shell text and surfaces here. Light theme restores
+       the light palette below. QR codes need a light quiet zone in both themes. */
+    --color-gray-50: #161210;
+    --color-gray-100: #1a1412;
+    --color-gray-200: #2e2624;
+    --color-gray-300: #4a3f3a;
+    --color-gray-400: #c4b6a8;
+    --color-gray-500: #c4b6a8;
+    --color-gray-600: #c4b6a8;
+    --color-gray-700: #f5ede4;
+    --color-gray-800: #f5ede4;
+    --color-gray-900: #f5ede4;
+    --color-indigo-50: #1a1412;
+    --color-indigo-100: #2a1818;
     --color-indigo-400: #e84a38;
     --color-indigo-500: #e84a38;
     --color-indigo-600: #e84a38;
-    --color-indigo-700: #c73823;
+    --color-indigo-700: #e84a38;
+    --color-red-100: #3a1816;
+    --color-qr-quiet: #ffffff;
 
     --shadow-pop: 0 14px 40px rgba(26, 18, 18, 0.1), 0 4px 10px rgba(26, 18, 18, 0.05);
     --shadow-card: 0 4px 14px rgba(26, 18, 18, 0.06), 0 2px 4px rgba(26, 18, 18, 0.04);
@@ -125,12 +131,58 @@
     --color-shell-surface: #ffffff;
     --color-shell-fg: #1a1212;
     --color-shell-text: #1a1212;
+    --color-shell-muted: #4a3a36;
     --color-shell-accent: #c73823;
+    --color-line: #e8ded2;
+    --color-line-soft: #f0e6d8;
+    --color-row-hover: #fbf7f1;
+    --data-seq-0: #ffffff;
+    --data-seq-1: #fbe1de;
+    --data-seq-2: #f7c3bd;
+    --data-seq-3: #f4a49c;
+    --data-seq-4: #f0867a;
+    --data-seq-5: #ec6859;
+    --data-seq-6: #e84a38;
+    --color-gray-50: #fbf7f1;
+    --color-gray-100: #f5ede4;
+    --color-gray-200: #f0e6d8;
+    --color-gray-300: #e8ded2;
+    --color-gray-400: #906056;
+    --color-gray-500: #6f4a42;
+    --color-gray-600: #4a3a36;
+    --color-gray-700: #4a3a36;
+    --color-gray-800: #1a1212;
+    --color-gray-900: #1a1212;
+    --color-indigo-50: #fff5f6;
+    --color-indigo-100: #ffd8df;
+    --color-indigo-700: #c73823;
+    --color-red-100: #fee2e2;
     --shell-scheme: light;
 }
 
+/* Outside @theme. Tailwind drops unused theme variables, and the charts read these
+   from computed style rather than from a utility class. */
 :root {
     --shell-scheme: dark;
+    --data-own: #e84a38;
+    --data-cat-1: #c45c48;
+    --data-cat-2: #906056;
+    --data-cat-3: #9a6840;
+    --data-cat-4: #a35a68;
+    --data-cat-5: #7d6248;
+    --data-cat-6: #b56a4e;
+    --data-positive: #4a7c59;
+    --data-negative: #a8382f;
+    --data-neutral: #8a7568;
+    --data-marker-model: #a85e2e;
+    --data-marker-action: #c46b7a;
+    --data-seq-0: #0b0909;
+    --data-seq-1: #301411;
+    --data-seq-2: #551f19;
+    --data-seq-3: #7a2a20;
+    --data-seq-4: #9e3428;
+    --data-seq-5: #c33f30;
+    --data-seq-6: #e84a38;
 }
 
 @layer base {
@@ -158,67 +210,14 @@
     table {
         font-variant-numeric: tabular-nums;
     }
-
-    .bg-white,
-    .bg-light-beige {
-        color: var(--color-ink);
-    }
-
-    input:where(
-            [type='text'],
-            [type='email'],
-            [type='url'],
-            [type='password'],
-            [type='number'],
-            [type='date'],
-            [type='month'],
-            [type='week'],
-            [type='time'],
-            [type='datetime-local'],
-            [type='search'],
-            [type='tel']
-        ),
-    select,
-    textarea {
-        border-radius: 0.5rem;
-        border-color: var(--color-line);
-        background-color: #fff;
-        color: var(--color-ink);
-    }
-
-    input:where(
-            [type='text'],
-            [type='email'],
-            [type='url'],
-            [type='password'],
-            [type='number'],
-            [type='date'],
-            [type='month'],
-            [type='week'],
-            [type='time'],
-            [type='datetime-local'],
-            [type='search'],
-            [type='tel']
-        ):focus,
-    select:focus,
-    textarea:focus {
-        border-color: var(--color-primary);
-        --tw-ring-color: rgb(232 74 56 / 0.3);
-    }
-
-    input[type='checkbox'],
-    input[type='radio'] {
-        border-color: var(--color-line);
-        color: var(--color-primary);
-        --tw-ring-color: rgb(232 74 56 / 0.4);
-    }
-
-    ::placeholder {
-        color: rgba(74, 58, 54, 0.5);
-    }
 }
 
 @layer components {
+    /* The mark is a black glyph. Invert it on the dark shell so it stays visible. */
+    :root:not([data-theme='light']) img.logo-mark {
+        filter: invert(1);
+    }
+
     .eyebrow {
         font-size: 11.5px;
         letter-spacing: 0.12em;
@@ -228,22 +227,84 @@
     }
 }
 
+/* Components comes after the forms plugin in base, and before utilities, so a field
+   utility such as rounded-md or bg-* can still override these defaults. */
+@layer components {
+input:where(
+    [type='text'],
+    [type='email'],
+    [type='url'],
+    [type='password'],
+    [type='number'],
+    [type='date'],
+    [type='month'],
+    [type='week'],
+    [type='time'],
+    [type='datetime-local'],
+    [type='search'],
+    [type='tel']
+),
+select,
+textarea {
+    border-radius: 0.5rem;
+    border-color: var(--color-line);
+    background-color: var(--color-shell-surface);
+    color: var(--color-shell-text);
+}
+
+input:where(
+        [type='text'],
+        [type='email'],
+        [type='url'],
+        [type='password'],
+        [type='number'],
+        [type='date'],
+        [type='month'],
+        [type='week'],
+        [type='time'],
+        [type='datetime-local'],
+        [type='search'],
+        [type='tel']
+    ):focus,
+select:focus,
+textarea:focus {
+    border-color: var(--color-primary);
+    --tw-ring-color: rgb(232 74 56 / 0.3);
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+    border-color: var(--color-line);
+    color: var(--color-primary);
+    --tw-ring-color: rgb(232 74 56 / 0.4);
+}
+
+input[type='checkbox']:not(:checked),
+input[type='radio']:not(:checked) {
+    background-color: var(--color-shell-surface);
+}
+
+::placeholder {
+    color: color-mix(in srgb, var(--color-shell-muted) 80%, transparent);
+}
+}
+
 /* Touch screens zoom in on focus when a field is smaller than 16px. */
 @media (pointer: coarse) and (width < 64rem) {
     input:where(
-            [type='text'],
-            [type='email'],
-            [type='url'],
-            [type='password'],
-            [type='number'],
-            [type='date'],
-            [type='month'],
-            [type='week'],
-            [type='time'],
-            [type='datetime-local'],
-            [type='search'],
-            [type='tel']
-        ),
+        [type='text'],
+        [type='email'],
+        [type='url'],
+        [type='password'],
+        [type='number'],
+        [type='date'],
+        [type='month'],
+        [type='week'],
+        [type='time'],
+        [type='datetime-local'],
+        [type='search'],
+        [type='tel']
+    ),
     select,
     textarea {
         font-size: 16px;
