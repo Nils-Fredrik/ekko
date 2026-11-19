@@ -697,7 +697,7 @@ Tenant-admin legger inn fakta om merkevaren (f.eks. grunnleggelsesår, kontorer,
 - Evidensen har faktumet, antall motsigende og bekreftende svar, eksempler på påstander, kildesidene (adresse, domene, eierskap og antall svar) og `source_kind`. Mest siterte side er kilden i teksten. `own` (sitatets domene er merkevarens) gir «rett egen side», `other` «be utgiveren av siden rette», `unknown` en tekst som ikke gjetter.
 - Fakta endres bare gjennom `BrandFactManager` (høyst 50 per merkevare, 300 tegn, ingen like). Tenant-admin og partner-rådgiver endrer; alle roller leser. Teksten står aldri i revisjonsloggen. Påstandene skrives bare av faktasjekken.
 - Veiviseren foreslår høyst 8 fakta (`facts` i forslaget) fra sidene, uten e-postadresser og telefonnumre. De lagres som aktive fakta først når brukeren bekrefter, og bare for en ny merkevare. **Avvik:** T48 leverer backend (forslag i API-svaret og `facts` i bekreftelsen). Veiviser-UI-et (`Wizard.vue`) hører til T49 og viser ikke fakta ennå; til T49 er gjort, kommer forslagene ikke fram til brukeren.
-- `php artisan ekko:factcheck:eval` kjører vurderingen mot gullsettet (`tests/Fixtures/factcheck/gold.json`) med modellen i konfigurasjonen og viser treffsikkerhet, presisjon og treffrate per dom (ADR 0036).
+- `php artisan ekko:factcheck:eval` kjører vurderingen mot gullsettet (`database/evals/factcheck-gold.json`) med modellen i konfigurasjonen og viser treffsikkerhet, presisjon og treffrate per dom (ADR 0036).
 
 ---
 

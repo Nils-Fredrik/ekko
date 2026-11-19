@@ -18,7 +18,7 @@ use InvalidArgumentException;
 class EvaluateFactCheck extends Command
 {
     protected $signature = 'ekko:factcheck:eval
-        {--gold= : Gold set file (default tests/Fixtures/factcheck/gold.json)}
+        {--gold= : Gold set file (default database/evals/factcheck-gold.json)}
         {--recorded= : Replay recorded model output from this file instead of calling the API}
         {--record= : Save the model output of this run to this file, for later offline replay}';
 
@@ -26,7 +26,7 @@ class EvaluateFactCheck extends Command
 
     public function handle(): int
     {
-        $gold = (string) ($this->option('gold') ?: base_path('tests/Fixtures/factcheck/gold.json'));
+        $gold = (string) ($this->option('gold') ?: base_path('database/evals/factcheck-gold.json'));
 
         try {
             $judge = $this->option('recorded')

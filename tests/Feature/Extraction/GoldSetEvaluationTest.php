@@ -13,7 +13,7 @@ use Tests\Support\Extraction\FakeExtractionClient;
 
 function goldPath(): string
 {
-    return base_path('tests/Fixtures/extraction/gold.json');
+    return base_path('database/evals/extraction-gold.json');
 }
 
 function recordingPath(): string
