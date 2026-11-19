@@ -59,7 +59,6 @@ final class ClickHouseBotHits
                     'param_suffixes' => $this->arrayParameter(array_keys(array_filter($domains))),
                     'param_agents' => $this->arrayParameter(array_keys($bots)),
                     'param_bots' => $this->arrayParameter(array_values($bots)),
-                    'wait_end_of_query' => 1,
                 ])
                 ->withBody($query, 'text/plain')
                 ->post($endpoint);
