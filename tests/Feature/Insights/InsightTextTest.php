@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\Log;
 use Tests\Support\Insights\FakeInsightWriter;
 use Tests\Support\Metrics\MetricsWorld;
 
-const BRAND_TEXT = 'Synligheten er {visibility_now} og endret seg med {visibility_change}. Størst endring i {engine_1_change}.';
+const BRAND_TEXT = 'Synligheten er {visibility_now} og endret seg med {visibility_change}. Motoren med størst endring ligger på {engine_1_now}.';
 
 beforeEach(function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-16 08:00:00', 'Europe/Oslo'));
@@ -91,13 +91,13 @@ function textNumbers(string $text): array
 test('the model writes a template and the code fills in the figures from the database', function () {
     $insight = brandInsight($this, $this->w);
 
-    expect($insight['text'])->toBe("Synligheten er 40\u{00A0}% og endret seg med 4,3 prosentpoeng. Størst endring i 30 prosentpoeng.")
+    expect($insight['text'])->toBe("Synligheten er 40\u{00A0}% og endret seg med 4,3 prosentpoeng. Motoren med størst endring ligger på 20\u{00A0}%.")
         ->and($insight['label'])->toBe('AI-oppsummering')
         ->and($insight['generated_on'])->toBe('2026-11-16');
 
     // The model gets directions and placeholder names, never the figures.
     $request = $this->writer->requests[0];
-    expect($request->user)->toContain('visibility_now')->toContain('"direction":"down"')->toContain('engine_1_change')
+    expect($request->user)->toContain('visibility_now')->toContain('"direction":"down"')->toContain('engine_1_now')
         ->and($request->user)->not->toContain('40')->not->toContain('0.4')
         ->and($request->system)->toContain('Write in Norwegian');
 });
@@ -123,10 +123,6 @@ test('no number in the text deviates from the numbers on the page (U12 acceptanc
     }
     foreach ($props['engines'] as $engine) {
         $page[] = round($engine['visibility']['value'] * 100, 1);
-        // The change per engine is read from the daily rows the page's charts are drawn from.
-        $share = fn (string $from, string $to): float => AggDaily::query()->where('engine_key', $engine['key'])->whereBetween('date', [$from, $to])->sum('brand_mentioned')
-            / AggDaily::query()->where('engine_key', $engine['key'])->whereBetween('date', [$from, $to])->sum('responses');
-        $page[] = round(abs($share($props['period']['from'], $props['period']['to']) - $share($props['period']['previous_from'], $props['period']['previous_to'])) * 100, 1);
     }
 
     $numbers = textNumbers($insight['text']);
@@ -387,8 +383,8 @@ test('another tenant never sees the stored text or the brand', function () {
 });
 
 test('a movement placeholder keeps pointing at the engine the text names; if the ranking moves on, the text is hidden', function () {
-    $this->writer->reply = FakeInsightWriter::json('Mest endring i motoren: {engine_1_now}, endring {engine_1_change}.');
-    expect(brandInsight($this, $this->w)['text'])->toContain("20\u{00A0}%")->toContain('30 prosentpoeng');
+    $this->writer->reply = FakeInsightWriter::json('Mest endring i motoren: {engine_1_now}.');
+    expect(brandInsight($this, $this->w)['text'])->toContain("20\u{00A0}%");
 
     // Engine 1 now moves more than engine 2 did: the first mover is another engine, so the stored sentence no longer fits.
     AggDaily::query()->where('engine_key', $this->w->engine->key)->where('date', '2026-11-10')->update(['responses' => 40, 'brand_mentioned' => 40, 'brand_recommended' => 1, 'sum_position' => 1, 'count_position' => 1, 'own_cited' => 1]);

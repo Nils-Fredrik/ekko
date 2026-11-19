@@ -29,6 +29,17 @@ final class InsightFigureBuilder
         'citation_rate' => 'citationRate',
     ];
 
+    /*
+     * Which figures of a mover get a placeholder: only what the page shows (ADR 0038). The overview shows each
+     * brand's visibility now and before; the brand page shows the value per engine but not the earlier one, and
+     * no per-competitor visibility or per-prompt figure. The rest is named with a direction, without a number.
+     */
+    private const BOTH = 'both';
+
+    private const NOW = 'now';
+
+    private const NONE = 'none';
+
     public function __construct(private readonly MetricsService $metrics) {}
 
     /**
@@ -67,7 +78,7 @@ final class InsightFigureBuilder
             array_map(fn (MetricsSummary $s): Metric => $s->visibility, $before['engines']),
             fn (string $key): string => $labels[$key] ?? DashboardLabels::engine($key),
         );
-        $this->movements($figures, $findings, $names, 'engine', $engines);
+        $this->movements($figures, $findings, $names, 'engine', $engines, self::NOW);
 
         $competitors = $this->metrics->competitorComparison($filter);
         $competitorsBefore = $this->metrics->competitorComparison($previous);
@@ -79,10 +90,10 @@ final class InsightFigureBuilder
         foreach ($competitorsBefore as $row) {
             $beforeByName[$row['name']] = $row['visibility'];
         }
-        $this->movements($figures, $findings, $names, 'competitor', $this->movers($byName, $beforeByName, fn (string $name): string => $name));
+        $this->movements($figures, $findings, $names, 'competitor', $this->movers($byName, $beforeByName, fn (string $name): string => $name), self::NONE);
 
         $prompts = $this->promptMovers($filter, $previous);
-        $this->movements($figures, $findings, $names, 'prompt', $prompts);
+        $this->movements($figures, $findings, $names, 'prompt', $prompts, self::NONE);
 
         $changes = $this->metrics->modelChanges($period->from, $period->to, $filter->engineKeys);
         $changeLabels = DashboardLabels::engines($changes->pluck('engine_key')->unique()->all());
@@ -92,7 +103,7 @@ final class InsightFigureBuilder
             array_push($names, $engine, $change->from_model, $change->to_model);
         }
 
-        $this->completedActions($figures, $findings, $period, $brand->id);
+        $this->completedActions($findings, $period, $brand->id);
 
         return new InsightFigures($figures, $findings, array_values(array_unique($names)), $anchored);
     }
@@ -119,7 +130,7 @@ final class InsightFigureBuilder
 
         $reliable = array_filter($now, fn (Metric $m): bool => $this->reliable($m));
         $movers = $this->movers($now, $before, fn (string $key): string => $named[$key]);
-        $this->movements($figures, $findings, $names, 'brand', $movers);
+        $this->movements($figures, $findings, $names, 'brand', $movers, self::BOTH);
 
         $changes = $this->metrics->modelChanges($period->from, $period->to);
         $labels = DashboardLabels::engines($changes->pluck('engine_key')->unique()->all());
@@ -128,7 +139,7 @@ final class InsightFigureBuilder
             $findings[] = ['topic' => 'model_change', 'engine' => $engine, 'from_model' => $change->from_model, 'to_model' => $change->to_model];
             array_push($names, $engine, $change->from_model, $change->to_model);
         }
-        $this->completedActions($figures, $findings, $period, null);
+        $this->completedActions($findings, $period, null);
 
         return new InsightFigures($figures, $findings, array_values(array_unique($names)), $reliable !== [] && $movers !== []);
     }
@@ -197,19 +208,21 @@ final class InsightFigureBuilder
      * @param  list<string>  $names
      * @param  list<array{key: string, label: string, now: Metric, change: InsightFigure}>  $movers
      */
-    private function movements(array &$figures, array &$findings, array &$names, string $type, array $movers): void
+    private function movements(array &$figures, array &$findings, array &$names, string $type, array $movers, string $show): void
     {
         foreach ($movers as $index => $mover) {
             $prefix = $type.'_'.($index + 1);
             $entity = $type.':'.$mover['key'];
-            $figures[$prefix.'_now'] = InsightFigure::percent((float) $mover['now']->value, $entity);
-            $figures[$prefix.'_change'] = new InsightFigure($mover['change']->kind, $mover['change']->value, $mover['change']->direction, $entity);
-            $findings[] = [
-                'topic' => $type.'_visibility',
-                'name' => $mover['label'],
-                'direction' => $this->direction($mover['change']),
-                'placeholders' => ['now' => $prefix.'_now', 'change' => $prefix.'_change'],
-            ];
+            $finding = ['topic' => $type.'_visibility', 'name' => $mover['label'], 'direction' => $this->direction($mover['change'])];
+            if ($show !== self::NONE) {
+                $figures[$prefix.'_now'] = InsightFigure::percent((float) $mover['now']->value, $entity);
+                $finding['placeholders'] = ['now' => $prefix.'_now'];
+            }
+            if ($show === self::BOTH) {
+                $figures[$prefix.'_change'] = new InsightFigure($mover['change']->kind, $mover['change']->value, $mover['change']->direction, $entity);
+                $finding['placeholders']['change'] = $prefix.'_change';
+            }
+            $findings[] = $finding;
             $names[] = $mover['label'];
         }
     }
@@ -246,19 +259,19 @@ final class InsightFigureBuilder
     }
 
     /**
-     * @param  array<string, InsightFigure>  $figures
+     * Completed actions are named without a number: no page shows the count.
+     *
      * @param  list<array<string, mixed>>  $findings
      */
-    private function completedActions(array &$figures, array &$findings, DashboardPeriod $period, ?int $brandId): void
+    private function completedActions(array &$findings, DashboardPeriod $period, ?int $brandId): void
     {
         $from = CarbonImmutable::parse($period->from, $period->timezone)->startOfDay()->utc();
         $until = CarbonImmutable::parse($period->to, $period->timezone)->addDay()->startOfDay()->utc();
         $done = Action::query()
             ->when($brandId !== null, fn ($query) => $query->where('brand_id', $brandId))
-            ->where('completed_at', '>=', $from)->where('completed_at', '<', $until)->count();
-        if ($done > 0) {
-            $figures['actions_done'] = InsightFigure::count($done);
-            $findings[] = ['topic' => 'completed_actions', 'placeholders' => ['count' => 'actions_done']];
+            ->where('completed_at', '>=', $from)->where('completed_at', '<', $until)->exists();
+        if ($done) {
+            $findings[] = ['topic' => 'completed_actions', 'note' => 'some actions were completed in the period'];
         }
     }
 }

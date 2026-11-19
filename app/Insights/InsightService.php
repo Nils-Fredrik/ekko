@@ -152,7 +152,7 @@ final readonly class InsightService
         };
 
         $dayStart = CarbonImmutable::parse($period->to, $period->timezone)->startOfDay()->utc();
-        if (Insight::query()->whereNotNull('usage_event_id')->where('attempted_at', '>=', $dayStart)->count() >= (int) config('ekko.insights.max_per_tenant_per_day')) {
+        if (Insight::query()->where(fn ($q) => $q->whereNotNull('usage_event_id')->orWhere('reason', 'unknown'))->where('attempted_at', '>=', $dayStart)->count() >= (int) config('ekko.insights.max_per_tenant_per_day')) {
             Log::info('Insight call.', $log + ['outcome' => 'not_called', 'reason' => 'cap']);
 
             return $store(Insight::UNAVAILABLE, 'cap');
