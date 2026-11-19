@@ -3,7 +3,7 @@ locals {
   monitoring_channels = [for channel in google_monitoring_notification_channel.operations : channel.name]
   monitoring_runbook  = "https://github.com/Nils-Fredrik/ekko/blob/main/docs/runbook.md"
   database_signals    = var.enable_monitoring && var.enable_workloads ? toset(["cpu", "disk"]) : toset([])
-  application_signals = var.enable_monitoring && var.enable_workloads ? toset(["engine_error_rate", "collection_overdue", "extraction_overdue"]) : toset([])
+  application_signals = var.enable_monitoring && var.enable_workloads ? toset(["engine_error_rate", "collection_overdue", "extraction_overdue", "work_stopped"]) : toset([])
 }
 
 resource "google_monitoring_notification_channel" "operations" {
@@ -113,7 +113,7 @@ resource "google_monitoring_alert_policy" "application" {
   combiner              = "OR"
   notification_channels = local.monitoring_channels
   documentation {
-    content   = "Health check detected ${each.key}. Logs contain only counts and internal identifiers. engine_error_rate is >20% over the last 24 hours; collection_overdue means pending runs after 6 hours; extraction_overdue means submitted extraction after 24 hours. ${local.monitoring_runbook}"
+    content   = "Health check detected ${each.key}. Logs contain only counts and internal identifiers. engine_error_rate is >20% over the last 24 hours; collection_overdue means pending runs after 6 hours; extraction_overdue means submitted extraction after 24 hours; work_stopped means durable work that failed for 24 hours and was stopped (ADR 0032, re-arm with ekko:work:retry). ${local.monitoring_runbook}"
     mime_type = "text/markdown"
   }
   conditions {

@@ -3,7 +3,7 @@
 ## Overvåking og hendelser (T36)
 
 Varslene går til plattformadmin på den godkjente e-postkanalen. Terraform i
-`infra/terraform/monitoring.tf` eier åtte policyer, én varslingskanal og én
+`infra/terraform/monitoring.tf` eier ni policyer, én varslingskanal og én
 loggmetrikk. `ekko-monitor-health` kjører `ekko:monitor-health` i `ekko-task`
 hvert 15. minutt, uavhengig av `enable_schedules`. Kontrollen kaller ingen
 leverandører og starter ingen innsamling. `enable_monitoring_schedule` skal først
@@ -16,6 +16,7 @@ slås på når kommandoen finnes i det utrullede jobbimaget.
 | Motor | >20 % `failed` av `collected`, `extracted`, `failed` siste 24 timer, per motor | Leverandørstatus, pris, autentisering og kvote; ikke aktiver rå HTTP-logging |
 | Innsamling | Batch planlagt for >6 timer siden har fortsatt `queued`, `running` eller `submitted` | Scheduler, workerstart, kø og reservasjoner; ferdige kjøringer varsler ikke selv med gamle batchtellere |
 | Uttrekk | `extraction_jobs.status=submitted` i >24 timer | Poll-schedule, leverandørbatch og feilkrok; ikke send samme batch på nytt uten å kontrollere eksisterende resultat |
+| Stoppet arbeid | Varig behandlingsbehov (`work_signals`) som har feilet sammenhengende i 24 timer og er stoppet (ADR 0032) | Feiltype i `work.stopped` (bare interne ID-er og unntaksklasse); rett årsaken og kjør `php artisan ekko:work:retry <tenant-id> <signal-id>`. Et nytt signal for samme omfang starter også arbeidet igjen |
 | SQL CPU / disk | >80 % kontinuerlig i 30 minutter | Kapasitet, tilkoblinger og aktive spørringer; ikke slett data som første tiltak |
 | Helsekontroll mangler | Ingen fullført kontroll i 45 minutter | Scheduler og `ekko-task`; varslet aktiveres etter første registrerte måling |
 

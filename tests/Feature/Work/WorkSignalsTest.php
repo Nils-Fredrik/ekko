@@ -255,7 +255,7 @@ test('an expired lease is taken over, and the old token acknowledges nothing', f
 
     expect(fn () => ($this->inTenant)(fn () => $this->signals->acknowledge($first)))->toThrow(LeaseLost::class)
         ->and(fn () => ($this->inTenant)(fn () => $this->signals->defer($first, now()->toImmutable()->addMinute())))->toThrow(LeaseLost::class)
-        ->and(($this->inTenant)(fn () => $this->signals->fail($first, new RuntimeException('late'))))->toBeFalse()
+        ->and(($this->inTenant)(fn () => $this->signals->fail($first, new RuntimeException('late'))))->toBe(WorkResult::LEASE_LOST)
         ->and(($this->row)()->lease_token)->toBe($second->token);
 
     ($this->inTenant)(fn () => $this->signals->acknowledge($second));
@@ -585,4 +585,149 @@ test('ProcessWorkSignal runs in the tenant context and releases itself while the
     expect($handler->claims)->toHaveCount(1)
         ->and(($this->row)()->isPending())->toBeFalse()
         ->and((new ProcessWorkSignal($this->tenant->id, $id, 'k'))->middleware())->toHaveCount(1);
+});
+
+test('a failing streak longer than the stop window stops the signal and alerts once', function () {
+    Log::spy();
+    config(['ekko.work.stop_after_seconds' => 86400, 'ekko.work.retry_max_seconds' => 3600]);
+    $handler = ($this->handler)(fn () => throw new RuntimeException('provider said: secret customer text'));
+    config(['ekko.work.handlers.extraction' => CallbackWorkHandler::class]);
+    ($this->signal)(WorkKind::Extraction, WorkScope::runBatch(9));
+    $id = ($this->row)()->id;
+
+    $statuses = [];
+    $firstFailure = null;
+    while (count($statuses) < 100) {
+        $status = app(WorkProcessor::class)->process($id)->status;
+        $statuses[] = $status;
+        $firstFailure ??= ($this->row)()->failing_since;
+        if ($status !== WorkResult::FAILED) {
+            break;
+        }
+        $this->travelTo(($this->row)()->available_at);
+    }
+
+    $row = ($this->row)();
+    expect(end($statuses))->toBe(WorkResult::STOPPED)
+        ->and($firstFailure?->toIso8601String())->toBe('2026-11-19T10:00:00+00:00')
+        ->and($row->stopped_at)->not->toBeNull()
+        ->and($row->stopped_at->greaterThanOrEqualTo($firstFailure->addDay()))->toBeTrue()
+        ->and($row->stopped_at->lessThan($firstFailure->addDay()->addHour()->addMinute()))->toBeTrue()
+        ->and($row->isPending())->toBeTrue()
+        ->and($row->lease_token)->toBeNull();
+
+    // Stopped: no more attempts, no retry wake-up, and later deliveries find nothing to do.
+    $published = count($this->publisher->published);
+    $claims = count($handler->claims);
+    $this->travel(2)->days();
+    expect(app(WorkProcessor::class)->process($id)->status)->toBe(WorkResult::IDLE)
+        ->and($handler->claims)->toHaveCount($claims)
+        ->and($this->publisher->published)->toHaveCount($published);
+
+    // The alert went out exactly once, with internal ids, kind, scope type and exception class only.
+    Log::shouldHaveReceived('error')->withArgs(fn (string $message) => $message === 'work.stopped')->once();
+    Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context) => $message === 'work.stopped'
+        && $context === ['tenant_id' => $this->tenant->id, 'work_signal_id' => $id, 'work_kind' => 'extraction', 'scope_type' => 'run_batch', 'attempts' => count($statuses), 'error_type' => RuntimeException::class])->once();
+});
+
+test('a handler that always outlives its lease is stopped after the stop window', function () {
+    Log::spy();
+    config(['ekko.work.stop_after_seconds' => 3600]);
+    ($this->signal)();
+    $id = ($this->row)()->id;
+
+    // Every attempt dies without a failure record: only the lease expiry shows it.
+    $taken = 0;
+    while (($claim = ($this->claim)($id)) !== null) {
+        $taken++;
+        $this->travel(361)->seconds();
+    }
+
+    $row = ($this->row)();
+    expect($taken)->toBe(10)
+        ->and($row->stopped_at)->not->toBeNull()
+        ->and($row->last_error)->toBe('LeaseExpired')
+        ->and($row->lease_token)->toBeNull();
+    Log::shouldHaveReceived('error')->withArgs(fn (string $message) => $message === 'work.stopped')->once();
+});
+
+test('a success or a deferral ends the failing streak', function (bool $defer) {
+    config(['ekko.work.stop_after_seconds' => 3600]);
+    $fail = true;
+    ($this->handler)(function () use (&$fail, $defer) {
+        if ($fail) {
+            throw new RuntimeException('down');
+        }
+
+        return $defer ? WorkOutcome::retryAt(CarbonImmutable::now()->addMinute()) : WorkOutcome::done();
+    });
+    ($this->signal)();
+    $id = ($this->row)()->id;
+    app(WorkProcessor::class)->process($id);
+    expect(($this->row)()->failing_since)->not->toBeNull();
+
+    $fail = false;
+    $this->travelTo(($this->row)()->available_at);
+    app(WorkProcessor::class)->process($id);
+    expect(($this->row)()->failing_since)->toBeNull();
+})->with(['done' => false, 'deferred' => true]);
+
+test('the recovery sweep ignores stopped signals', function () {
+    ($this->signal)();
+    ($this->inTenant)(fn () => DB::table('work_signals')->update(['stopped_at' => now(), 'failing_since' => now()->subDay()]));
+    app(TenantContext::class)->forget();
+
+    $this->travel(1)->day();
+    $this->artisan('ekko:work:recover')->assertSuccessful();
+
+    expect($this->publisher->reasons())->toBe([WorkWakeUp::REASON_SIGNAL]);
+});
+
+test('a new signal re-arms a stopped signal and starts a new streak', function () {
+    $handler = ($this->handler)(fn () => WorkOutcome::done());
+    ($this->signal)();
+    $id = ($this->row)()->id;
+    ($this->inTenant)(fn () => DB::table('work_signals')->update(['stopped_at' => now(), 'failing_since' => now()->subDay(), 'attempts' => 30, 'available_at' => now()->addHour()]));
+
+    $this->travel(10)->minutes();
+    ($this->signal)();
+
+    $row = ($this->row)();
+    expect($row->stopped_at)->toBeNull()
+        ->and($row->failing_since)->toBeNull()
+        ->and($row->attempts)->toBe(0)
+        ->and($row->available_at->toIso8601String())->toBe('2026-11-19T10:10:00+00:00')
+        ->and($this->publisher->reasons())->toBe([WorkWakeUp::REASON_SIGNAL, WorkWakeUp::REASON_SIGNAL])
+        ->and(app(WorkProcessor::class)->process($id)->status)->toBe(WorkResult::PROCESSED)
+        ->and($handler->claims[0]->version)->toBe(2);
+});
+
+test('ekko:work:retry re-arms a stopped signal and wakes it', function () {
+    ($this->signal)();
+    $id = ($this->row)()->id;
+    ($this->inTenant)(fn () => DB::table('work_signals')->update(['stopped_at' => now(), 'failing_since' => now()->subDay(), 'attempts' => 30]));
+    expect(($this->inTenant)(fn () => $this->signals->stoppedCount()))->toBe(1);
+
+    $this->artisan('ekko:work:retry', ['tenant' => $this->tenant->id, 'signal' => $id])->assertSuccessful();
+    // Not stopped any more: a second retry finds nothing, as do bad arguments.
+    $this->artisan('ekko:work:retry', ['tenant' => $this->tenant->id, 'signal' => $id])->assertFailed();
+    $this->artisan('ekko:work:retry', ['tenant' => 'x', 'signal' => $id])->assertFailed();
+
+    app(TenantContext::class)->set($this->tenant->id);
+    $row = ($this->row)();
+    expect($row->stopped_at)->toBeNull()
+        ->and($row->attempts)->toBe(0)
+        ->and($this->publisher->reasons())->toBe([WorkWakeUp::REASON_SIGNAL, WorkWakeUp::REASON_REARM])
+        ->and(($this->claim)($id))->not->toBeNull();
+});
+
+test('the health check reports stopped work as work_stopped', function () {
+    ($this->signal)();
+    ($this->inTenant)(fn () => DB::table('work_signals')->update(['stopped_at' => now(), 'failing_since' => now()->subDay()]));
+    app(TenantContext::class)->forget();
+    Log::spy();
+
+    $this->artisan('ekko:monitor-health')->assertSuccessful();
+
+    Log::shouldHaveReceived('warning')->with('monitoring.issue', ['signal' => 'work_stopped', 'count' => 1])->once();
 });

@@ -54,7 +54,7 @@ test('overdue signals use strict age boundaries and actual pending collection wo
         ExtractionJob::factory()->create(['submitted_at' => now()->subDays(2), 'status' => 'failed']);
     });
     $snapshot = app(HealthSnapshot::class)->collect(CarbonImmutable::now('UTC'));
-    expect($snapshot['collection_overdue'])->toBe(1)->and($snapshot['extraction_overdue'])->toBe(1);
+    expect($snapshot['collection_overdue'])->toBe(1)->and($snapshot['extraction_overdue'])->toBe(1)->and($snapshot['work_stopped'])->toBe(0);
 });
 
 test('monitor emits bounded numeric signals and caches engine status without customer content', function () {

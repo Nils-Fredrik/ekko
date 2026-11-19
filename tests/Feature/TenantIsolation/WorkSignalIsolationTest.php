@@ -12,6 +12,7 @@ use App\Work\WorkClaim;
 use App\Work\WorkKind;
 use App\Work\WorkOutcome;
 use App\Work\WorkPublisher;
+use App\Work\WorkResult;
 use App\Work\WorkSignals;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
@@ -83,7 +84,7 @@ test('a tenant cannot claim, acknowledge, defer or fail the other tenant\'s sign
     foreach ([$claimB, $forged] as $claim) {
         expect(fn () => ($this->as)($this->a, fn () => app(WorkSignals::class)->acknowledge($claim)))->toThrow(LeaseLost::class)
             ->and(fn () => ($this->as)($this->a, fn () => app(WorkSignals::class)->defer($claim, CarbonImmutable::now()->addHour())))->toThrow(LeaseLost::class)
-            ->and(($this->as)($this->a, fn () => app(WorkSignals::class)->fail($claim, new RuntimeException('x'))))->toBeFalse();
+            ->and(($this->as)($this->a, fn () => app(WorkSignals::class)->fail($claim, new RuntimeException('x'))))->toBe(WorkResult::LEASE_LOST);
     }
 
     $rowB = ($this->as)($this->b, fn () => WorkSignal::query()->sole());
@@ -119,6 +120,22 @@ test('the recovery sweep wakes every tenant\'s stranded work under that tenant o
         ->map(fn ($wakeUp) => [$wakeUp->tenantId, $wakeUp->signalId])->values()->all();
 
     expect($recovered)->toBe([[$this->a->id, $this->idA], [$this->b->id, $this->idB]]);
+});
+
+test('a stopped signal is re-armed only through its own tenant', function () {
+    foreach ([$this->a, $this->b] as $tenant) {
+        ($this->as)($tenant, fn () => DB::table('work_signals')->update(['stopped_at' => now(), 'failing_since' => now()->subDay()]));
+    }
+
+    // The operator command takes the tenant explicitly: B's signal id under A is not found, and B stays stopped.
+    $this->artisan('ekko:work:retry', ['tenant' => $this->a->id, 'signal' => $this->idB])->assertFailed();
+    expect(($this->as)($this->a, fn () => app(WorkSignals::class)->rearm($this->idB)))->toBeFalse()
+        ->and(($this->as)($this->b, fn () => WorkSignal::query()->sole()->stopped_at))->not->toBeNull();
+
+    $this->artisan('ekko:work:retry', ['tenant' => $this->b->id, 'signal' => $this->idB])->assertSuccessful();
+    expect(($this->as)($this->b, fn () => WorkSignal::query()->sole()->stopped_at))->toBeNull()
+        ->and(($this->as)($this->a, fn () => WorkSignal::query()->sole()->stopped_at))->not->toBeNull()
+        ->and(($this->as)($this->a, fn () => app(WorkSignals::class)->stoppedCount()))->toBe(1);
 });
 
 test('the work_signals table forces row-level security for the ordinary role', function () {

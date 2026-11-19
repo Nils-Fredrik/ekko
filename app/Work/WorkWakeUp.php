@@ -26,6 +26,8 @@ final readonly class WorkWakeUp
 
     public const REASON_RECOVERY = 'recovery';
 
+    public const REASON_REARM = 'rearm';
+
     public function __construct(
         public int $tenantId,
         public int $signalId,

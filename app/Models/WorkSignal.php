@@ -27,6 +27,8 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonInterface|null $lease_expires_at
  * @property int $attempts
  * @property bool $deferred
+ * @property CarbonInterface|null $failing_since
+ * @property CarbonInterface|null $stopped_at
  * @property string|null $last_error
  * @property CarbonInterface|null $processed_at
  */
@@ -58,6 +60,8 @@ class WorkSignal extends Model
             'leased_at' => 'immutable_datetime',
             'lease_expires_at' => 'immutable_datetime',
             'processed_at' => 'immutable_datetime',
+            'failing_since' => 'immutable_datetime',
+            'stopped_at' => 'immutable_datetime',
         ];
     }
 }
