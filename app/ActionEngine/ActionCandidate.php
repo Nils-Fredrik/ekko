@@ -38,7 +38,12 @@ final readonly class ActionCandidate
 
     public function fingerprint(int $brandId): string
     {
-        return hash('sha256', implode('|', [$this->type->value, $brandId, $this->marketId ?? '-', mb_strtolower(trim($this->subject))]));
+        return self::fingerprintOf($this->type, $brandId, $this->marketId, $this->subject);
+    }
+
+    public static function fingerprintOf(ActionType $type, int $brandId, ?int $marketId, string $subject): string
+    {
+        return hash('sha256', implode('|', [$type->value, $brandId, $marketId ?? '-', mb_strtolower(trim($subject))]));
     }
 
     public function impactScore(): float

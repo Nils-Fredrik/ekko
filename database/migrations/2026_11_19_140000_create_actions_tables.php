@@ -33,7 +33,8 @@ return new class extends Migration
             $table->string('status', 16)->default('new');
             $table->string('created_by', 8)->default('system');
             $table->string('text_source', 8)->default('template');
-            $table->string('locale', 8);
+            // A BCP 47 tag as markets allow it (max 35), or nb/sv/en for a template text.
+            $table->string('locale', 35);
             $table->string('fingerprint', 64)->nullable();
             $table->unsignedSmallInteger('unsupported_generations')->default(0);
             $table->timestampTz('last_generated_at')->nullable();

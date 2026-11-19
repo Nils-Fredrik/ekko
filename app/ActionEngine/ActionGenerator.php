@@ -83,6 +83,9 @@ final class ActionGenerator
                 }
             }
 
+            foreach ($outcome->alsoSupported as $supported) {
+                $seen[ActionCandidate::fingerprintOf($source->type(), $brand->id, $supported['market_id'], $supported['subject'])] = true;
+            }
             if ($counts) {
                 $expired += $this->countUnsupported($brand, $source, $outcome, array_keys($seen));
             }

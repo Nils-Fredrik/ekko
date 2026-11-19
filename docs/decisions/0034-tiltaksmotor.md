@@ -17,7 +17,7 @@ Spesifikasjonen 11.3 beskriver hva et tiltak er, de fem typene, rangeringen, sta
 - `expired`: åpnes igjen som `new`.
 - `done`, `declined`: står urørt, også evidensen fra da brukeren avsluttet.
 
-**Utløp.** En generering teller per merkevare og lokal ISO-uke (`action_generations`, unik). For hver kilde: åpne systemtiltak av kildens type i et vurdert omfang som ikke ble funnet, får `unsupported_generations + 1`; ved 2 settes `expired`. Bare `new` og `planned` utløper. `in_progress` utløper ikke: arbeidet kan være grunnen til at funnet forsvant, og markøren skal stå. Omfang kilden ikke kunne vurdere (for lite data, ingen robotdata), teller ikke. `--force` oppdaterer samme uke uten å telle.
+**Utløp.** En generering teller per merkevare og lokal ISO-uke (`action_generations`, unik). For hver kilde: åpne systemtiltak av kildens type i et vurdert omfang som ikke ble funnet, får `unsupported_generations + 1`; ved 2 settes `expired`. Bare `new` og `planned` utløper. `in_progress` utløper ikke: arbeidet kan være grunnen til at funnet forsvant, og markøren skal stå. Omfang kilden ikke kunne vurdere (for lite data, ingen robotdata), teller ikke. Et funn som fortsatt er over terskelen, men utenfor kildens grense for nye tiltak (`source_gap.max_per_market`), regnes som støttet (`SourceOutcome::alsoSupported`): tiltaket utløper ikke, men evidensen oppdateres først når funnet er blant de største igjen. `new_competitor` vurderer et marked etter varselets minimum (11.1), de andre etter `ekko.actions.min_answers`. `--force` oppdaterer samme uke uten å telle.
 
 **Effekt.** `impact_score` = berørte svar per måned × andel av dem der konkurrenter nevnes og merkevaren ikke gjør det. Per type:
 - `source_gap`: svar som siterer domenet × andel kildegap.

@@ -13,10 +13,14 @@ use App\Metrics\MetricsService;
 
 /**
  * source_gap (docs/spec.md 9 and 11.3): domains cited in answers that name competitors but not the brand. One
- * action per domain and market, the largest gaps first.
+ * action per domain and market for the largest ekko.actions.source_gap.max_per_market gaps; smaller gaps over the
+ * threshold keep an existing action from expiring.
  */
 final readonly class SourceGapSource implements ActionSource
 {
+    /** How many gap domains per market are read to know which actions the data still supports. */
+    private const SUPPORT_LIMIT = 500;
+
     public function __construct(private MetricsService $metrics) {}
 
     public function type(): ActionType
@@ -33,6 +37,7 @@ final readonly class SourceGapSource implements ActionSource
 
         $evaluated = [];
         $candidates = [];
+        $alsoSupported = [];
         foreach ($context->markets as $market) {
             $filter = new MetricsFilter($context->brand->id, $from, $to, marketIds: [$market->id]);
             $reach = $this->metrics->reach($filter);
@@ -41,8 +46,12 @@ final readonly class SourceGapSource implements ActionSource
             }
             $evaluated[] = $market->id;
 
-            $gaps = array_filter($this->metrics->sourceGap($filter, $limit), fn (array $gap): bool => $gap['gap_responses'] >= $minimum);
-            foreach ($gaps as $gap) {
+            // Every gap over the threshold still supports its action; only the largest become candidates.
+            $gaps = array_values(array_filter($this->metrics->sourceGap($filter, self::SUPPORT_LIMIT), fn (array $gap): bool => $gap['gap_responses'] >= $minimum));
+            foreach (array_slice($gaps, $limit) as $gap) {
+                $alsoSupported[] = ['market_id' => $market->id, 'subject' => $gap['domain']];
+            }
+            foreach (array_slice($gaps, 0, $limit) as $gap) {
                 $detail = $this->metrics->sourceGapDetail($filter, $gap['domain']);
                 $top = $detail['competitors'][0] ?? null;
                 $candidates[] = new ActionCandidate(
@@ -54,7 +63,8 @@ final readonly class SourceGapSource implements ActionSource
                         'domain' => $gap['domain'],
                         'gap_responses' => $gap['gap_responses'],
                         'responses_with_domain' => $detail['responses_with_domain'],
-                        'competitor_only_responses' => $gap['n'],
+                        // All answers in the market that name a competitor and not the brand (the gap rate's n).
+                        'market_competitor_only_responses' => $gap['n'],
                         'responses' => $reach['responses'],
                     ],
                     affectedPerMonth: GenerationContext::perMonth($detail['responses_with_domain'], $days),
@@ -75,6 +85,6 @@ final readonly class SourceGapSource implements ActionSource
             }
         }
 
-        return new SourceOutcome($evaluated, $candidates);
+        return new SourceOutcome($evaluated, $candidates, $alsoSupported);
     }
 }

@@ -118,6 +118,14 @@ test('a market in a language without templates gets the template in English and 
         ->and(Action::query()->sole()->locale)->toBe('da');
 });
 
+test('a long language tag is stored with the model text', function () {
+    $this->w->market->forceFill(['language' => 'zh-Hant-TW', 'country' => 'TW'])->save();
+
+    generateTenant($this->w);
+
+    expect(Action::query()->sole()->locale)->toBe('zh-Hant-TW')->and(Action::query()->sole()->text_source)->toBe('model');
+});
+
 test('without a model text the template locale is the nearest of nb, sv and en', function () {
     $this->w->market->forceFill(['language' => 'da', 'country' => 'DK'])->save();
     config(['services.anthropic.key' => '']);

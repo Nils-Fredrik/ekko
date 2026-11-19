@@ -66,6 +66,8 @@ test('a source gap becomes an action with the counts, competitors and prompts fr
             'citations' => [['bransjeside.no', 'third_party']],
         ]);
     }
+    // A competitor-only answer that does not cite the domain: in the market's n, not in the domain's gap.
+    $w->answer($w->p2, '2026-11-11 12:00:00', ['competitors' => [$w->c2->id => 1]]);
     aggregateDays('2026-11-10', '2026-11-11');
 
     generateActions($w);
@@ -80,8 +82,8 @@ test('a source gap becomes an action with the counts, competitors and prompts fr
         ->and($action->evidence['domain'])->toBe('bransjeside.no')
         ->and($action->evidence['gap_responses'])->toBe(5)
         ->and($action->evidence['responses_with_domain'])->toBe(8)
-        ->and($action->evidence['competitor_only_responses'])->toBe(5)
-        ->and($action->evidence['responses'])->toBe(33)
+        ->and($action->evidence['market_competitor_only_responses'])->toBe(6)
+        ->and($action->evidence['responses'])->toBe(34)
         ->and($action->evidence['period'])->toEqual(['from' => '2026-10-17', 'to' => '2026-11-15', 'days' => 30])
         ->and($action->competitor_evidence)->toEqual([
             ['competitor_id' => $w->c1->id, 'name' => 'Nordlys', 'answers' => 5, 'of' => 5],
@@ -96,6 +98,30 @@ test('a source gap becomes an action with the counts, competitors and prompts fr
         ->and($action->title)->toBe('Bli omtalt på bransjeside.no')
         ->and(ActionTemplates::evidenceSentence($action, 'nb'))
         ->toBe('bransjeside.no ble sitert i 5 svar der konkurrenter ble nevnt og dere ikke, de siste 30 dagene. Nordlys ble nevnt i 5 av dem.');
+});
+
+test('a gap that falls outside the largest per market still supports its action', function () {
+    $w = $this->w;
+    config(['ekko.actions.source_gap.max_per_market' => 1, 'ekko.actions.source_gap.min_gap_responses' => 2]);
+    brandAnswers($w, $w->p2, '2026-11-01', 30);
+    $gap = fn (string $domain, int $count, string $day) => collect(range(1, $count))->each(fn () => $w->answer($w->p1, "{$day} 10:00:00", [
+        'competitors' => [$w->c1->id => 1], 'citations' => [[$domain, 'third_party']],
+    ]));
+    $gap('a.no', 3, '2026-11-02');
+    aggregateDays('2026-11-01', '2026-11-02');
+    generateActions($w);
+    $first = Action::query()->sole();
+
+    // b.no overtakes a.no; a.no stays over the threshold.
+    $gap('b.no', 6, '2026-11-17');
+    foreach ([7, 14] as $days) {
+        $this->travelTo(CarbonImmutable::parse('2026-11-16 08:00:00', 'Europe/Oslo')->addDays($days));
+        aggregateDays('2026-11-17');
+        generateActions($w);
+    }
+
+    expect($first->refresh()->status)->toBe(ActionStatus::New)->and($first->unsupported_generations)->toBe(0)
+        ->and(Action::query()->count())->toBe(2);
 });
 
 test('a source gap below the minimum, or a market with too few answers, gives no action', function () {
