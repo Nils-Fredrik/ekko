@@ -69,6 +69,7 @@ final class OnboardingFakes
                 ['name' => 'Skobutikker', 'cross_market_key' => 'shoe_stores'],
             ],
             'prompts' => $prompts,
+            'facts' => ['Eksempel AS ble grunnlagt i 1998.', 'Eksempel AS har butikk i Oslo og Bergen.'],
         ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
     }
 

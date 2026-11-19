@@ -19,7 +19,7 @@ final class OnboardingSchema
         return [
             'type' => 'object',
             'additionalProperties' => false,
-            'required' => ['industry', 'category', 'name_variants', 'competitors', 'topics', 'prompts'],
+            'required' => ['industry', 'category', 'name_variants', 'competitors', 'topics', 'prompts', 'facts'],
             'properties' => [
                 'industry' => ['type' => 'string'],
                 'category' => ['type' => 'string'],
@@ -49,6 +49,8 @@ final class OnboardingSchema
                     ],
                 ],
                 'prompts' => ['type' => 'array', 'items' => self::prompt(['type' => 'string'])],
+                // Facts about the brand that the pages state, for the fact check (docs/spec.md 11.6).
+                'facts' => ['type' => 'array', 'items' => ['type' => 'string']],
             ],
         ];
     }
