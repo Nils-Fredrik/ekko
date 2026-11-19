@@ -286,7 +286,7 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
+| `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf, actions), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
 | `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `byok_cost_usd`, `byok_budget_usd`, `quota_alerted_threshold`, `status` (ok, warning, capped) |
 | `alert_rules` | `tenant_id`, `brand_id`, `type`, `threshold`, `channels` (jsonb), `is_active` |
 | `alerts` | `tenant_id`, `alert_rule_id`, `subject`, `triggered_at`, `payload` (jsonb), `digest_date`, `deliveries` (jsonb, kvittering per kanal), `delivered_at`, `acknowledged_by`, `acknowledged_at` |
@@ -624,6 +624,48 @@ Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like 
 - **Profil:** `report_schedules.branding` velger tenantens eller partnerens profil. T28 lagrer primærfargen i `teams.branding`. Logofilen lastes opp og tegnes inn i PDF-en i T32.
 - **Språk:** rapportens `locale`, uavhengig av mottakers brukerinnstilling.
 - **Lagring og utsending:** PDF-en lagres på disken `ekko.reports.disk` (standard `local`) under `reports/{tenant}/` og sendes som vedlegg. T32 skriver til samme disk og prefiks. Bøtten `ekko-reports` settes som den disken når den finnes. Grensesnittet har nedlastingslenke.
+
+### 11.3 Tiltak
+
+Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen bak. Tiltakene genereres ukentlig per merkevare og marked av `ekko:generate-actions`, og vises i grensesnittet, i rapportene, i API-et og i MCP.
+
+**Kilder til tiltak:**
+
+| Type | Utløses av | Eksempel på evidens |
+|---|---|---|
+| `source_gap` | Kildegap (kapittel 9): domener som siteres i svar der konkurrenter nevnes og merkevaren ikke gjør det | «bransjeside.no ble sitert i 14 svar om nettbyrå de siste 30 dagene. Konkurrent X ble nevnt i 11 av dem, dere i ingen.» |
+| `owned_content` | Prompts med lav synlighet der egne sider aldri siteres | «Ingen egne sider siteres på 9 av 12 prompts om temaet «Shopify-migrering».» |
+| `new_competitor` | Ukjent merkevare over terskel (11.1) | «Merkevare Z nevnes i 18 % av svarene i Sverige, men er ikke registrert som konkurrent.» |
+| `crawler_access` | AI-roboter som blokkeres eller ikke henter sidene (10.1) | «OAI-SearchBot har ikke hentet noen sider siste 14 dager.» |
+| `fact_correction` | Påstander som motsies av merkevarens fakta (11.6) | «Svar på 4 prompts oppgir feil grunnleggelsesår. Kilden er side Y.» |
+
+**Innhold i et tiltak:** tittel, beskrivelse, type, tema, marked, motorer, evidens (strukturert JSON med tall og periode), konkurrentevidens, berørte prompts, forslag til konkrete steg og forventet effekt.
+
+**Rangering:** forventet effekt beregnes som antall berørte svar per måned × andel der konkurrenter nevnes og merkevaren ikke gjør det, og vises som fem nivåer fra «svært lav» til «svært høy». Tiltak av typen `fact_correction` rangeres alltid øverst innenfor sin merkevare.
+
+**Formulering:** tittel, beskrivelse og steg skrives av Claude Sonnet 5.5 ut fra evidensen, på merkevarens språk. Tallene i evidensen hentes alltid fra databasen og skrives aldri av modellen.
+
+**Statuser:** `new`, `planned`, `in_progress`, `done`, `declined`, `expired`. Tiltak som ikke lenger støttes av data etter to genereringer, settes til `expired`. Brukere kan opprette egne tiltak (`planned`).
+
+**Tiltaksmarkører:** når et tiltak går til `in_progress` eller `done`, lagres datoen. Trendgrafene i grensesnittet og rapporten viser markører for disse datoene, på samme måte som modellbytte-markørene, slik at effekten av arbeidet kan leses direkte av grafen.
+
+**I rapporten:** de 3–5 høyest rangerte åpne tiltakene, pluss tiltak som er fullført i perioden med utvikling i synlighet siden de ble fullført.
+
+**Datamodell:**
+
+| Tabell | Viktige kolonner |
+|---|---|
+| `actions` | `tenant_id`, `brand_id`, `market_id`, `type`, `topic_id`, `title`, `description`, `steps` (jsonb), `evidence` (jsonb), `competitor_evidence` (jsonb), `impact_level` (1–5), `status`, `created_by` (system, user), `started_at`, `completed_at`, `fingerprint` (for å gjenkjenne samme tiltak ved neste generering) |
+| `action_prompts` | `action_id`, `prompt_id` |
+
+**Implementasjon (T43, [ADR 0034](decisions/0034-tiltaksmotor.md)):**
+- Generering mandag 05:00 (Europe/Oslo), før ukesrapporten. Én generering per merkevare og lokal ISO-uke teller mot utløp (`action_generations`); `--force` oppdaterer samme uke uten å telle. Vinduet er de siste 30 hele lokale dagene, `new_competitor` 7 dager som varselet og `crawler_access` 14 dager. Tersklene står i `config/ekko.php` (`ekko.actions`).
+- Kildene leser tallene via `MetricsService` (`reach`, `sourceGap`, `sourceGapDetail`, `breakdown`, `unknownBrands`, `unknownBrandDetail`, `botHits`). Et marked med færre enn 30 svar i vinduet vurderes ikke, og da teller heller ikke utløpet der (`new_competitor` bruker varselets minimum, `ekko.alerts.min_responses.new_competitor`). `source_gap` lager tiltak for de 5 største gapene per marked; mindre gap over terskelen holder et eksisterende tiltak i live. `crawler_access` vurderes bare når andre AI-roboter har treff i det samme 14-dagersvinduet, og er på merkevarenivå (`market_id` tom). `owned_content` gjelder prompts med tema. `fact_correction` er en egen kilde som T48 registrerer i `ekko.actions.sources`.
+- `fingerprint` er sha256 av type, merkevare, marked og funnets nøkkel (domene, tema, navn, robot). Et åpent tiltak får ny evidens, effekt og prompts. Et utløpt tiltak åpnes igjen som `new`. `done` og `declined` står som brukeren satte dem.
+- Utløp gjelder bare `new` og `planned`. Tiltak som pågår, utløper ikke, fordi arbeidet kan være grunnen til at funnet forsvant.
+- Modellen skriver tekst uten tall; tallene vises fra `evidence` (evidenssetningen i `lang/*/action_items.php`). En tekst med tall utenfor et navn modellen fikk, skrevet fullt ut, avvises, og maltekst beholdes. Modellen skriver på markedets språk (tenantens for merkevarenivå); malene finnes på nb, sv og en. Et nytt tiltak har maltekst til modellen har formulert det. Kallet reserverer på Anthropic-kontoen før HTTP (ADR 0023), stoppes i redusert modus og bokføres i `usage_events` med `kind = actions`. Høyst `ekko.actions.max_formulations` kall per tenant og generering, og ingen nye kall etter `ekko.actions.word_seconds` per tenant eller kommandoens samlede frist.
+- Tilleggskolonner: `engine_keys` (motorer), `impact_score` (effekten bak nivået), `text_source` (template, model, user), `locale` (språktaggen teksten står på, inntil 35 tegn), `unsupported_generations`, `last_generated_at`. `action_prompts` har også `tenant_id` (6). Egne tiltak kan mangle type.
+- Statusflyt for brukere i `ActionWorkflow`: `started_at` settes første gang tiltaket går til `in_progress`, `completed_at` når det går til `done`, og nullstilles hvis det åpnes igjen. Tenant-admin, partner-rådgiver og redaktør endrer tiltak; alle roller ser dem.
 
 ---
 
@@ -1426,6 +1468,12 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 - Gjeldende main må ha vellykket CI og deploy før neste endring. Native auto-merge går uavhengig av køen; stoppknappen påvirker ikke allerede aktiverte native auto-merges.
 - Før generell aktivering: verifiser App-/miljøsperre, to parallelle PR-er, ny head/base, konflikt, rød CI/review, native auto-merge og at merge utløser CI og syntetisk deploy i et isolert testrepo. Dokumenter bevis på task:61; kode-merge alene lukker ikke aktiveringsaksepten.
 - Isolert live aksept er dokumentert i [akseptbeviset](t42-merge-queue-evidence.md), inkludert grønn ny head med kvittering for forrige head. Første produksjonskjøring 17.11.2026 stoppet ved PR-feil uten merge; køen ble reaktivert 18.11.2026 etter godkjent kryssreview, merge og deploy av beviset. Produksjonsaksepten etter ADR 0026 punkt 5 er nå verifisert: kø-Appen merget ordinær PR89 til `500ec37500bf1019d764b32ab9df607eb4196cf9`, og CI/deploy 44347688339 bestod. Beviset knytter sammen App-actor, review, køkjøring, merge-SHA og aktiv produksjonsrevisjon (task:69 / T42-F2).
+
+### T43 – Tiltak: motor og datamodell
+`actions` og `action_prompts`, `ekko:generate-actions` med de fem tiltakstypene i 11.3, rangering, formulering med Claude Sonnet 5.5, statusflyt, utløp og lagring av datoer for tiltaksmarkører. `crawler_access` og `fact_correction` aktiveres når T22 og T48 er på plass.
+- Tallene i evidensen kommer fra databasen og er dekket av tester.
+- Samme tiltak gjenkjennes ved neste generering (`fingerprint`) og dupliseres ikke.
+- Eieren har besluttet at agenten som utfører T43, kjører med Opus 5.5 (Board #947). Formuleringsmodellen i produktet er fortsatt Claude Sonnet 5.5. T22 er på plass, så `crawler_access` er aktiv. `fact_correction` kobles på av T48.
 
 ---
 

@@ -592,6 +592,149 @@ final class MetricsService
     }
 
     /**
+     * Reach of a filter for the expected effect of an action (docs/spec.md 11.3): the answers and the answers that
+     * name a competitor but not the brand (competitor_only_responses), summed from agg_daily.
+     *
+     * @return array{responses: int, competitor_only_responses: int}
+     */
+    public function reach(MetricsFilter $filter): array
+    {
+        $row = $this->dailyQuery($filter)->toBase()
+            ->selectRaw('coalesce(sum(agg_daily.responses), 0) as responses, coalesce(sum(agg_daily.competitor_only_responses), 0) as competitor_only_responses')
+            ->first();
+
+        return [
+            'responses' => (int) ($row->responses ?? 0),
+            'competitor_only_responses' => (int) ($row->competitor_only_responses ?? 0),
+        ];
+    }
+
+    /**
+     * Who and what lies behind the source gap of one domain (docs/spec.md 9 and 11.3): the answers that cite the
+     * domain, the gap answers among them (a competitor of the brand named, the brand not, the domain not the
+     * brand's own; same rule as DailyAggregator), the competitors named in the gap answers, and the prompts and
+     * engines of the gap answers. Read from the extracted answers of the filter's markets and period; topic,
+     * intent, funnel and prompt filters are refused like the other source figures.
+     *
+     * @return array{responses_with_domain: int, gap_responses: int, competitors: list<array{competitor_id: int, name: string, answers: int}>, prompts: array<int, int>, engines: list<string>}
+     */
+    public function sourceGapDetail(MetricsFilter $filter, string $domain): array
+    {
+        $this->refuseSourcePromptLimits($filter);
+        $citing = $this->extractedAnswers($filter)
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('citations')
+                ->whereColumn('citations.response_id', 'responses.id')->where('citations.domain', $domain));
+
+        $gap = (clone $citing)
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('citations')
+                ->whereColumn('citations.response_id', 'responses.id')->where('citations.domain', $domain)->where('citations.ownership', 'own'))
+            ->whereNotExists(fn ($q) => $this->brandMention($q, $filter->brandId))
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('mentions')
+                ->join('competitors', 'competitors.id', '=', 'mentions.entity_id')
+                ->whereColumn('mentions.response_id', 'responses.id')
+                ->where('mentions.entity_type', 'competitor')
+                ->where('competitors.brand_id', $filter->brandId));
+
+        $gapIds = (clone $gap)->select('responses.id');
+        $competitors = Mention::query()
+            ->join('competitors', 'competitors.id', '=', 'mentions.entity_id')
+            ->where('mentions.entity_type', 'competitor')
+            ->where('competitors.brand_id', $filter->brandId)
+            ->whereIn('mentions.response_id', $gapIds)
+            ->toBase()
+            ->selectRaw('competitors.id as competitor_id, competitors.name, count(distinct mentions.response_id) as answers')
+            ->groupBy('competitors.id', 'competitors.name')
+            ->orderByDesc('answers')->orderBy('competitors.name')
+            ->get()
+            ->map(fn (object $row): array => ['competitor_id' => (int) $row->competitor_id, 'name' => (string) $row->name, 'answers' => (int) $row->answers])
+            ->all();
+
+        return [
+            'responses_with_domain' => (int) (clone $citing)->count('responses.id'),
+            'gap_responses' => (int) (clone $gap)->count('responses.id'),
+            'competitors' => array_values($competitors),
+            'prompts' => $this->answersPerPrompt(clone $gap),
+            'engines' => $this->enginesOf(clone $gap),
+        ];
+    }
+
+    /**
+     * The answers behind one unknown brand of {@see unknownBrands()} (key = lower-case trimmed name): how many
+     * answers name it, how many of those do not name the brand, and their prompts and engines.
+     *
+     * @return array{answers: int, without_brand: int, prompts: array<int, int>, engines: list<string>}
+     */
+    public function unknownBrandDetail(MetricsFilter $filter, string $key): array
+    {
+        $naming = $this->extractedAnswers($filter)
+            ->whereExists(fn ($q) => $q->selectRaw('1')->from('mentions')
+                ->whereColumn('mentions.response_id', 'responses.id')
+                ->where('mentions.entity_type', 'unknown')
+                ->whereRaw('lower(trim(mentions.surface_name)) = ?', [$key]));
+
+        return [
+            'answers' => (int) (clone $naming)->count('responses.id'),
+            'without_brand' => (int) (clone $naming)->whereNotExists(fn ($q) => $this->brandMention($q, $filter->brandId))->count('responses.id'),
+            'prompts' => $this->answersPerPrompt(clone $naming),
+            'engines' => $this->enginesOf(clone $naming),
+        ];
+    }
+
+    /**
+     * Extracted answers of the filter's brand, markets, engines and tenant-local period (only runs with status
+     * extracted count, ADR 0012).
+     *
+     * @return Builder<Response>
+     */
+    private function extractedAnswers(MetricsFilter $filter): Builder
+    {
+        [$start, $end] = $this->window($filter);
+
+        return Response::query()
+            ->join('runs', 'runs.id', '=', 'responses.run_id')
+            ->join('prompts', 'prompts.id', '=', 'runs.prompt_id')
+            ->join('markets', 'markets.id', '=', 'prompts.market_id')
+            ->where('runs.status', 'extracted')
+            ->where('markets.brand_id', $filter->brandId)
+            ->when($filter->marketIds !== [], fn (Builder $q) => $q->whereIn('prompts.market_id', $filter->marketIds))
+            ->when($filter->engineKeys !== [], fn (Builder $q) => $q->whereIn('responses.engine_key', $filter->engineKeys))
+            ->where('responses.collected_at', '>=', $start)->where('responses.collected_at', '<', $end);
+    }
+
+    private function brandMention(\Illuminate\Database\Query\Builder $query, int $brandId): \Illuminate\Database\Query\Builder
+    {
+        return $query->selectRaw('1')->from('mentions')
+            ->whereColumn('mentions.response_id', 'responses.id')
+            ->where('mentions.entity_type', 'brand')
+            ->where('mentions.entity_id', $brandId);
+    }
+
+    /**
+     * @param  Builder<Response>  $answers
+     * @return array<int, int> prompt id => answers, most answers first
+     */
+    private function answersPerPrompt(Builder $answers): array
+    {
+        $result = [];
+        foreach ($answers->toBase()->selectRaw('runs.prompt_id, count(distinct responses.id) as answers')
+            ->groupBy('runs.prompt_id')->orderByDesc('answers')->orderBy('runs.prompt_id')->get() as $row) {
+            $result[(int) $row->prompt_id] = (int) $row->answers;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  Builder<Response>  $answers
+     * @return list<string>
+     */
+    private function enginesOf(Builder $answers): array
+    {
+        return $answers->toBase()->distinct()->orderBy('responses.engine_key')->pluck('responses.engine_key')
+            ->map(fn ($key): string => (string) $key)->values()->all();
+    }
+
+    /**
      * The model id an engine answered with most often on each tenant-local day (answers with a model id, any
      * run status). A tie goes to the model of the previous day when it is among the tied, otherwise to the
      * smallest id, so a tie does not flip back and forth. Days without answers are left out. Providers alternate
