@@ -67,10 +67,19 @@ return [
             'title' => 'Rätta felaktig uppgift: :fact',
             'description' => 'AI-svar anger en uppgift som strider mot det ni har registrerat som fakta. Källan bör rättas så att svaren blir korrekta.',
             'steps' => [
-                'Hitta sidan svaret bygger på: :source.',
-                'Rätta sidan om den är er egen, eller be utgivaren rätta den.',
+                ':find',
+                ':fix',
             ],
         ],
+    ],
+    // Parts of the fact_correction texts that depend on where the wrong claim comes from (FactCorrectionSource).
+    'fact' => [
+        'find_known' => 'Hitta sidan svaret bygger på: :source.',
+        'find_unknown' => 'Ta reda på vilken sida svaren bygger på, till exempel genom att söka efter påståendet i svaren.',
+        'fix_own' => 'Rätta er egen sida så att uppgiften stämmer.',
+        'fix_other' => 'Be utgivaren av sidan rätta uppgiften.',
+        'fix_unknown' => 'Rätta sidan om den är er egen, annars be utgivaren rätta den.',
+        'source_unknown' => 'inte angiven i svaren',
     ],
     'evidence' => [
         'source_gap' => ':domain citerades i :gap_responses svar där konkurrenter nämndes och ni inte, de senaste :days dagarna. :competitor nämndes i :competitor_answers av dem.',

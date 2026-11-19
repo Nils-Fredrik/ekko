@@ -6,6 +6,7 @@ use App\Dashboard\DashboardLabels;
 use App\Integrations\BrandIntegrations;
 use App\Jobs\RunOnboardingAnalysis;
 use App\Models\Brand;
+use App\Models\BrandFact;
 use App\Models\Engine;
 use App\Models\Market;
 use App\Models\Plan;
@@ -113,6 +114,8 @@ class OnboardingController extends Controller
             'competitors' => ['sometimes', 'array', 'max:10'],
             'competitors.*.name' => ['required', 'string', 'max:120'],
             'competitors.*.domain' => ['required', 'string', 'max:255'],
+            'facts' => ['sometimes', 'array', 'max:'.(int) config('ekko.facts.max_per_brand')],
+            'facts.*' => ['string', 'max:'.BrandFact::TEXT_MAX],
             'topics' => ['sometimes', 'array', 'max:8'],
             'topics.*.name' => ['required', 'string', 'max:100'],
             'topics.*.cross_market_key' => ['required', 'string', 'max:100'],

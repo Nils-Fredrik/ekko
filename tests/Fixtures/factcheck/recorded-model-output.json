@@ -1,0 +1,615 @@
+{
+  "outputs": {
+    "nb-01": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "ble grunnlagt i 2009",
+            "quote": "ble grunnlagt i 2009",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 2,
+            "text": "holder til i Bergen",
+            "quote": "holder til i Bergen",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 130
+    },
+    "nb-02": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "startet opp i 2012",
+            "quote": "startet opp i 2012",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://www.kaffeguiden.no/brennerier"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-03": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 2,
+            "text": "hovedkontor i Oslo",
+            "quote": "hovedkontor i Oslo",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://fjordkaffe.no/om-oss"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-04": {
+      "text": {
+        "claims": []
+      },
+      "input_tokens": 900,
+      "output_tokens": 60
+    },
+    "nb-05": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 3,
+            "text": "fem kaffebarer",
+            "quote": "fem kaffebarer",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-06": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 3,
+            "text": "kaffebarer i Bergen og Stavanger",
+            "quote": "kaffebarer i Bergen og Stavanger",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-07": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 4,
+            "text": "Fjordkaffe nevnes ofte i anmeldelser",
+            "quote": "Fjordkaffe nevnes ofte i anmeldelser",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-08": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 4,
+            "text": "ingen økologiske produkter",
+            "quote": "ingen økologiske produkter",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://www.kaffeguiden.no/brennerier"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-09": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "etablert i 2009",
+            "quote": "etablert i 2009",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 2,
+            "text": "Brenneriet ligger fortsatt i byen",
+            "quote": "Brenneriet ligger fortsatt i byen",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 130
+    },
+    "nb-10": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "startet i 2014",
+            "quote": "startet i 2014",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 4,
+            "text": "eget verksted i Trondheim",
+            "quote": "eget verksted i Trondheim",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 130
+    },
+    "nb-11": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 2,
+            "text": "gratis frakt på alle bestillinger",
+            "quote": "gratis frakt på alle bestillinger",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://www.sykkelbloggen.no/nettbutikker"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-12": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 2,
+            "text": "gratis frakt når du handler for over 1 500 kroner",
+            "quote": "gratis frakt når du handler for over 1 500 kroner",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 3,
+            "text": "30 dagers åpent kjøp",
+            "quote": "30 dagers åpent kjøp",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 130
+    },
+    "nb-13": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 3,
+            "text": "14 dagers angrerett",
+            "quote": "14 dagers angrerett",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://forbrukerguiden.no/sykkelkjop"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-14": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "åpnet i 2009",
+            "quote": "åpnet i 2009",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://forbrukerguiden.no/sykkelkjop"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-15": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 4,
+            "text": "verksted i Oslo",
+            "quote": "verksted i Oslo",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://www.sykkelbloggen.no/nettbutikker"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-16": {
+      "text": {
+        "claims": []
+      },
+      "input_tokens": 900,
+      "output_tokens": 60
+    },
+    "nb-17": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 4,
+            "text": "Nordvik Sykkel i Trondheim har både nettbutikk og verksted",
+            "quote": "Nordvik Sykkel i Trondheim har både nettbutikk og verksted",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "nb-18": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 3,
+            "text": "30 dagers åpent kjøp",
+            "quote": "30 dagers åpent kjøp",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 2,
+            "text": "Frakten er gratis fra 1 500 kroner",
+            "quote": "Frakten er gratis fra 1 500 kroner",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 130
+    },
+    "sv-01": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "grundades 1998",
+            "quote": "grundades 1998",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 2,
+            "text": "tre butiker i staden",
+            "quote": "tre butiker i staden",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 130
+    },
+    "sv-02": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "öppnade 2005",
+            "quote": "öppnade 2005",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://www.goteborgsmat.se/bagerier"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-03": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 2,
+            "text": "denne setningen står ikke i svaret",
+            "quote": "denne setningen står ikke i svaret",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://lingonbageriet.se/butiker"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-04": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 3,
+            "text": "bakas på plats i butikerna varje morgon",
+            "quote": "bakas på plats i butikerna varje morgon",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-05": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 3,
+            "text": "bakar sitt bröd i ett centralt bageri utanför staden",
+            "quote": "bakar sitt bröd i ett centralt bageri utanför staden",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://www.goteborgsmat.se/bagerier"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-06": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 4,
+            "text": "kör ut bröd hem till dig i hela Göteborg",
+            "quote": "kör ut bröd hem till dig i hela Göteborg",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-07": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 4,
+            "text": "ingen hemleverans",
+            "quote": "ingen hemleverans",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-08": {
+      "text": {
+        "claims": []
+      },
+      "input_tokens": 900,
+      "output_tokens": 60
+    },
+    "sv-09": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "grundat 1998",
+            "quote": "grundat 1998",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 3,
+            "text": "bakar allt sitt surdegsbröd på plats",
+            "quote": "bakar allt sitt surdegsbröd på plats",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 130
+    },
+    "sv-10": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "grundades 2012 i Malmö",
+            "quote": "grundades 2012 i Malmö",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 3,
+            "text": "villor och bostadsrättsföreningar",
+            "quote": "villor och bostadsrättsföreningar",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 130
+    },
+    "sv-11": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "grundades 2016",
+            "quote": "grundades 2016",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://www.solenergiguiden.se/installatorer"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-12": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 2,
+            "text": "25 års garanti på solpanelerna",
+            "quote": "25 års garanti på solpanelerna",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-13": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 2,
+            "text": "10 års garanti på sina solpaneler",
+            "quote": "10 års garanti på sina solpaneler",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://www.solenergiguiden.se/installatorer"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-14": {
+      "text": {
+        "claims": []
+      },
+      "input_tokens": 900,
+      "output_tokens": 60
+    },
+    "sv-15": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 4,
+            "text": "kontor i Malmö och Uppsala",
+            "quote": "kontor i Malmö och Uppsala",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-16": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 4,
+            "text": "kontor i Göteborg",
+            "quote": "kontor i Göteborg",
+            "verdict": "contradicted",
+            "source_urls": [
+              "https://solvikenergi.se/kontakt"
+            ]
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    },
+    "sv-17": {
+      "text": {
+        "claims": []
+      },
+      "input_tokens": 900,
+      "output_tokens": 60
+    },
+    "sv-18": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 1,
+            "text": "grundades 2012",
+            "quote": "grundades 2012",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 2,
+            "text": "25 års garanti",
+            "quote": "25 års garanti",
+            "verdict": "supported",
+            "source_urls": []
+          },
+          {
+            "fact_id": 4,
+            "text": "kontor i både Malmö och Uppsala",
+            "quote": "kontor i både Malmö och Uppsala",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 165
+    },
+    "sv-19": {
+      "text": {
+        "claims": [
+          {
+            "fact_id": 3,
+            "text": "villaägare och till bostadsrättsföreningar",
+            "quote": "villaägare och till bostadsrättsföreningar",
+            "verdict": "supported",
+            "source_urls": []
+          }
+        ]
+      },
+      "input_tokens": 900,
+      "output_tokens": 95
+    }
+  }
+}

@@ -39,6 +39,9 @@ function tenantModelRights(): array
         Models\CompetitorDomain::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\Prompt::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\Topic::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
+        // Facts for the fact check (11.6): entered by the admin; the claims are written by the extraction.
+        Models\BrandFact::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
+        Models\Claim::class => $system(POLICY_EVERY_ROLE),
 
         // Alerts and reports (6.5): set by the admin, seen by everyone.
         Models\AlertRule::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),

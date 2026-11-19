@@ -6,6 +6,9 @@ use App\Detection\DetectedMention;
 use App\Detection\DetectionCatalog;
 use App\Detection\DeterministicDetector;
 use App\Detection\UrlNormalizer;
+use App\FactCheck\FactCatalog;
+use App\Jobs\CheckTenantFacts;
+use App\Models\BrandFact;
 use App\Models\Citation;
 use App\Models\Mention;
 use App\Models\Response;
@@ -86,6 +89,11 @@ final class ExtractionWriter
             $response->update(['answer_type' => $extraction->answerType, 'llm_failed' => $extraction->llmFailed]);
             $this->markExtracted($response);
         });
+
+        // A brand with facts has its answers judged against them (docs/spec.md 11.6, ADR 0036), after the commit.
+        if (BrandFact::query()->where('brand_id', FactCatalog::brandId($response))->where('is_active', true)->exists()) {
+            CheckTenantFacts::dispatch((int) $response->getAttribute('tenant_id'))->afterCommit();
+        }
     }
 
     /** The model stage could not be completed at all: keep the deterministic results and flag the response. */
