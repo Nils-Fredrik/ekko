@@ -2,7 +2,7 @@
 
 - **Status:** Foreslått
 - **Dato:** 2026-11-19
-- **Board:** `task:73` / T40-F2 (del 1 av 3 under T40; del 2 er `task:74` / T40-F3, del 3 er `task:75` / T40-F4)
+- **Board:** `task:73` / T40-F2, med oppfølgingen T40-F2-F1 for stopp etter 24 timer (del 1 av 3 under T40; del 2 er `task:74` / T40-F3, del 3 er `task:75` / T40-F4)
 
 ## Kontekst
 
