@@ -1,5 +1,6 @@
 <script setup>
 import { usePage } from '@inertiajs/vue3';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 defineProps({
@@ -44,7 +45,12 @@ function formatChange(current, previous) {
         </template>
         <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
             <p class="text-sm text-shell-muted">{{ $t('app.partner.intro', { days: period.days }) }}</p>
-            <p v-if="clients.length === 0" class="mt-6 text-sm text-shell-muted">{{ $t('app.partner.empty') }}</p>
+            <EmptyState
+                v-if="clients.length === 0"
+                class="mt-6"
+                :title="$t('app.empty.partner_title')"
+                :body="$t('app.empty.partner_body')"
+            />
             <div v-else class="mt-6 overflow-hidden rounded-2xl border border-line bg-shell-panel">
                 <table class="min-w-full text-sm text-shell-text">
                     <thead class="border-b border-line text-left text-shell-muted">

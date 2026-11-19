@@ -2,6 +2,7 @@
 import { useDateTime } from '@/Composables/useDateTime';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm } from '@inertiajs/vue3';
 
@@ -198,7 +199,11 @@ function save() {
                 class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text"
             >
                 <h3 class="font-medium">{{ $t('app.workspace.integrations') }}</h3>
-                <p v-if="integrations.length === 0">{{ $t('app.workspace.no_integrations') }}</p>
+                <EmptyState
+                    v-if="integrations.length === 0"
+                    :title="$t('app.empty.integrations_title')"
+                    :body="$t('app.empty.integrations_body')"
+                />
                 <div v-for="integration in integrations" :key="integration.type" class="text-sm">
                     <p>
                         {{

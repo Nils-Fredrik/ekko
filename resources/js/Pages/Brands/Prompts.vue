@@ -3,6 +3,7 @@ import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
 import InputError from '@/Components/InputError.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
@@ -122,7 +123,11 @@ function importCsv(event) {
                     {{ $t('app.library.personal_data') }}
                 </p>
 
-                <p v-if="prompts.length === 0" class="text-sm text-shell-muted">{{ $t('app.library.no_prompts') }}</p>
+                <EmptyState
+                    v-if="prompts.length === 0"
+                    :title="$t('app.empty.prompts_title')"
+                    :body="$t('app.empty.prompts_body')"
+                />
                 <div v-else class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <table class="w-full text-left text-sm">
                         <thead class="border-b border-line text-xs text-shell-muted">

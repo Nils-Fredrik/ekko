@@ -2,6 +2,7 @@
 import { Chart } from 'chart.js/auto';
 import { trans } from 'laravel-vue-i18n';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { chartAnimation, chartIntroPending, markChartIntro } from '@/chartMotion';
 import { onThemeChange } from '@/theme';
 
 const props = defineProps({
@@ -49,7 +50,7 @@ function render() {
             ],
         },
         options: {
-            animation: false,
+            animation: chartAnimation(chartIntroPending('trend')),
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { display: false },
@@ -93,6 +94,7 @@ function render() {
             },
         },
     });
+    markChartIntro('trend');
 }
 
 onMounted(() => {

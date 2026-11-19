@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { router } from '@inertiajs/vue3';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 // "Claude": how to connect Claude to Ekko, and the user's own connections (docs/spec.md 15.2, ADR 0016).
@@ -45,9 +46,12 @@ const revoke = (connection, message) => {
 
             <section class="rounded-2xl border border-line bg-shell-panel p-6 text-shell-text">
                 <h3 class="text-sm font-medium">{{ $t('mcp.connections.list_title') }}</h3>
-                <p v-if="connections.length === 0" class="mt-3 text-sm text-shell-muted">
-                    {{ $t('mcp.connections.empty') }}
-                </p>
+                <EmptyState
+                    v-if="connections.length === 0"
+                    class="mt-3"
+                    :title="$t('app.empty.connections_title')"
+                    :body="$t('app.empty.connections_body')"
+                />
                 <table v-else class="mt-4 w-full text-left text-sm">
                     <thead class="text-xs text-shell-muted">
                         <tr>

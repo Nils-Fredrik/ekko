@@ -2,6 +2,7 @@
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 defineProps({
@@ -40,9 +41,12 @@ function rate(row, key) {
 
                 <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <h3 class="px-4 pt-4 text-sm font-medium">{{ $t('app.library.share') }}</h3>
-                    <p v-if="share.length === 0" class="px-4 py-4 text-sm text-shell-muted">
-                        {{ $t('app.library.no_sources') }}
-                    </p>
+                    <EmptyState
+                        v-if="share.length === 0"
+                        class="m-4"
+                        :title="$t('app.empty.sources_title')"
+                        :body="$t('app.empty.sources_body')"
+                    />
                     <table v-else class="w-full text-left text-sm">
                         <thead class="border-b border-line text-xs text-shell-muted">
                             <tr>
@@ -65,9 +69,12 @@ function rate(row, key) {
 
                 <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <h3 class="px-4 pt-4 text-sm font-medium">{{ $t('app.library.gap') }}</h3>
-                    <p v-if="gap.length === 0" class="px-4 py-4 text-sm text-shell-muted">
-                        {{ $t('app.library.no_gap') }}
-                    </p>
+                    <EmptyState
+                        v-if="gap.length === 0"
+                        class="m-4"
+                        :title="$t('app.empty.gap_title')"
+                        :body="$t('app.empty.gap_body')"
+                    />
                     <table v-else class="w-full text-left text-sm">
                         <thead class="border-b border-line text-xs text-shell-muted">
                             <tr>

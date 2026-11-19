@@ -802,7 +802,7 @@ Ekko skal se ut og oppføre seg som Varde og Borg. Tokenene under er hentet fra 
 | `--color-shell-text` | `#f5ede4` | `#1a1212` |
 | `--color-shell-accent` | `#ffb6c3` | `#c73823` |
 
-Flater og datafarger utover tabellen står i `docs/ui-forbedring.md`.
+Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `docs/ui-forbedring.md`.
 
 **Typografi:**
 - **Skrift:** Suisse Intl med vektene 300 (Light), 400 (Book), 450 (Regular) og 500 (Medium), selvhostet som woff2 under `/fonts`. Reserve: `ui-sans-serif, system-ui, -apple-system`.

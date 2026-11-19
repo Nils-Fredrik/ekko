@@ -4,6 +4,7 @@ import { useForm } from '@inertiajs/vue3';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -73,9 +74,15 @@ function submitUpload() {
                 <p v-else class="text-sm text-shell-muted">{{ $t('bot_logs.unavailable') }}</p>
             </div>
 
-            <section v-if="uploads.length" class="rounded-2xl border border-line bg-shell-panel p-6 text-shell-text">
+            <section class="rounded-2xl border border-line bg-shell-panel p-6 text-shell-text">
                 <h2 class="font-medium">{{ $t('bot_logs.recent_uploads') }}</h2>
-                <ul class="mt-4 divide-y divide-line">
+                <EmptyState
+                    v-if="uploads.length === 0"
+                    class="mt-4"
+                    :title="$t('app.empty.uploads_title')"
+                    :body="$t('app.empty.uploads_body')"
+                />
+                <ul v-else class="mt-4 divide-y divide-line">
                     <li
                         v-for="upload in uploads"
                         :key="upload.id"
