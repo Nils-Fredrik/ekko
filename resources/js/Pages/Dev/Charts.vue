@@ -52,6 +52,9 @@ function walk(seed, count, start, spread, lowEvery = 0) {
 }
 
 const t = (key, replace) => trans(`app.charts.examples.${key}`, replace);
+// A name with the characters ECharts reads in label templates and rich text ({a}, {style|text}).
+// Test data, like the domains below: the browser test checks that it is drawn as written.
+const specialName = 'Brand {a} {b|c} }';
 const letters = ['A', 'B', 'C', 'D', 'E'];
 // Texts are computed, so they follow the language once it has loaded.
 const engines = computed(() =>
@@ -75,7 +78,11 @@ const trendSeries = computed(() => [
         points: walk(11 + index, 28, 0.2 + index * 0.08, 0.06),
     })),
 ]);
-const previous = computed(() => ({ label: trans('app.charts.previous_period'), points: walk(17, 28, 0.38, 0.06) }));
+// The previous period has low n every 12th day and no low_sample flag, so the chart falls back to n < 10.
+const previous = computed(() => ({
+    label: trans('app.charts.previous_period'),
+    points: walk(17, 28, 0.38, 0.06, 12).map((point) => ({ value: point.value, n: point.n })),
+}));
 const markers = computed(() => [
     { key: 'm1', date: categories[8], kind: 'model', label: engines.value[0].label, detail: t('model_change') },
     { key: 'a1', date: categories[19], kind: 'action', label: t('action') },
@@ -104,7 +111,7 @@ const heatRows = computed(() =>
     Array.from({ length: 9 }, (_, index) => ({
         key: `p${index + 1}`,
         label: t('prompt', { n: index + 1 }),
-        group: t('topic', { n: Math.floor(index / 3) + 1 }),
+        group: index >= 6 ? specialName : t('topic', { n: Math.floor(index / 3) + 1 }),
     })),
 );
 const heatCells = computed(() => {
@@ -137,7 +144,7 @@ const rankSeries = computed(() => {
         { key: 'own', label: t('own'), own: true },
         ...letters.map((letter, index) => ({
             key: `c-${letter}`,
-            label: t('competitor', { letter }),
+            label: index === letters.length - 1 ? specialName : t('competitor', { letter }),
             colorIndex: index,
         })),
     ];
@@ -307,6 +314,7 @@ function show(value) {
                     :panels="panels"
                     :markers="panelMarkers"
                     @marker="show($event.label)"
+                    @select="show($event)"
                 />
             </section>
 
@@ -319,10 +327,10 @@ function show(value) {
                         :rows="heatRows"
                         :columns="engines"
                         :cells="heatCells"
-                        @select="show(`${$event.row} · ${$event.column}`)"
+                        @select="show($event)"
                     />
                 </section>
-                <section class="rounded-lg border border-line bg-shell-panel p-4">
+                <section class="rounded-lg border border-line bg-shell-panel p-4" data-testid="example-rank">
                     <h2 class="text-sm font-medium">{{ $t('app.charts.examples.rank') }}</h2>
                     <RankChart
                         class="mt-3"
@@ -337,16 +345,16 @@ function show(value) {
                         class="mt-3"
                         :label="$t('app.charts.examples.sentiment')"
                         :rows="sentimentRows"
-                        @select="show($event.row)"
+                        @select="show($event)"
                     />
                 </section>
-                <section class="rounded-lg border border-line bg-shell-panel p-4">
+                <section class="rounded-lg border border-line bg-shell-panel p-4" data-testid="example-sources">
                     <h2 class="text-sm font-medium">{{ $t('app.charts.examples.sources') }}</h2>
                     <RankedBarChart
                         class="mt-3"
                         :label="$t('app.charts.examples.sources')"
                         :bars="sourceBars"
-                        @select="show($event.key)"
+                        @select="show($event)"
                     />
                 </section>
                 <section class="rounded-lg border border-line bg-shell-panel p-4">
@@ -355,7 +363,7 @@ function show(value) {
                         class="mt-3"
                         :label="$t('app.charts.examples.gap')"
                         :rows="gapRows"
-                        @select="show($event.key)"
+                        @select="show($event)"
                     />
                 </section>
                 <section class="rounded-lg border border-line bg-shell-panel p-4">
@@ -364,7 +372,7 @@ function show(value) {
                         class="mt-3"
                         :label="$t('app.charts.examples.treemap')"
                         :items="treemapItems"
-                        @select="show($event.key)"
+                        @select="show($event)"
                     />
                 </section>
                 <section class="rounded-lg border border-line bg-shell-panel p-4">

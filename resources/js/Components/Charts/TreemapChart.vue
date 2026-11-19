@@ -1,9 +1,10 @@
 <script setup>
 // Treemap: cited sources by source type (docs/ui-forbedring.md 6, U08). Area is the value
-// (citations); each type has a fixed palette color. Clicking a tile emits `select` with its key.
+// (citations); each type has a fixed palette color. Clicking a tile emits `select` with `{ key }`, the tile key.
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
+import { selection } from './support/data.js';
 import { formatValue, isLowSample, tooltipHtml } from './support/format.js';
 import { tableValue } from './support/lines.js';
 import { paletteColor, readableOn } from './support/palette.js';
@@ -82,7 +83,7 @@ function option({ palette }) {
 
 function select(params) {
     if (params.data?.key !== undefined) {
-        emit('select', { key: params.data.key });
+        emit('select', selection(params.data.key));
     }
 }
 

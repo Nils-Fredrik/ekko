@@ -1,5 +1,5 @@
 <script setup>
-// The table view of a chart (docs/ui-forbedring.md 9): the same numbers as text, for screen readers,
+// The table view of a chart (docs/ui-forbedring.md 5): the same numbers as text, for screen readers,
 // keyboard users and anyone who wants the exact values.
 defineProps({
     caption: { type: String, required: true },

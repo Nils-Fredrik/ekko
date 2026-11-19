@@ -60,9 +60,27 @@ Alle grafer går gjennom `<EkkoChart>` i `resources/js/Components/Charts/`. Den 
 - **Markører:** `{ key, date, kind: 'model' | 'action', label, detail?, href? }`. En markør havner i siste bøtte som starter på eller før datoen, så den treffer riktig punkt i daglig, ukentlig og månedlig visning. Markører etter `until` utelates. Klikk gir hendelsen `marker` med markøren (T45).
 - **Tabellvisning og tekstbeskrivelse:** knappen «Vis som tabell» og en beskrivelse for skjermlesere (`aria-describedby`). Tabellen viser n ved hver andel. Hver graftype lager beskrivelsen selv hvis siden ikke sender `description`.
 - **Bevegelse:** 300 ms ved første tegning, ingen ved oppdatering eller med `prefers-reduced-motion`.
-- **Klikk:** hendelsen `select`.
+- **Klikk:** hendelsen `select`, med samme form i alle graftyper (se under).
+- **Navn i grafen:** navn på merkevarer, prompter, temaer og kilder går aldri inn i ECharts som malstreng eller rik tekst. En `formatter` som streng er en mal der `{a}`, `{b}`, `{c}` og `{@…}` byttes ut, og rik tekst leser `{stil|tekst}`. ECharts har ingen escaping for dette. Komponentene bruker derfor funksjoner som `formatter` og `textStyle` per kategori i stedet for `rich`. Tooltipen er HTML og escapes i `tooltipHtml`.
 
 Konkurrenter får farge etter `colorIndex` (fast plass i konkurrentlisten), ikke etter rekkefølgen i grafen, så de har samme farge på alle sider.
+
+### Hendelsen `select`
+
+Graftypene sender `select` når brukeren klikker et element. Nyttelasten lages av `selection()` i `support/data.js` og har alltid `key`, nøkkelen siden sendte inn for elementet. Grafer med en dimensjon til legger den ved:
+
+| Komponent | Nyttelast | `key` er |
+|---|---|---|
+| `DivergingBarChart` | `{ key }` | raden |
+| `RankedBarChart` | `{ key }` | stolpen |
+| `GapBarChart` | `{ key }` | raden (kilden) |
+| `TreemapChart` | `{ key }` | flisen |
+| `HeatmapChart` | `{ key, column }` | raden (prompten); `column` er kolonnen (motoren) |
+| `SmallMultiplesChart` | `{ key, category }` | panelet (motoren); `category` er bøttedatoen til punktet som ble klikket |
+
+Felter uten verdi utelates. `TrendLineChart`, `StackedAreaChart`, `RankChart`, `SparklineChart`, `DotRowChart` og `FunnelChart` sender ikke `select`; tidsgrafene sender `marker` ved klikk på en markør. `<EkkoChart>` selv sender de rå ECharts-parameterne, og bare graftypene lytter på dem.
+
+Den første versjonen sendte `{ row }` (`DivergingBarChart`), `{ row, column }` (`HeatmapChart`) og `{ panel, dataIndex }` (`SmallMultiplesChart`). Disse feltene sendes fortsatt ved siden av `key`, så sider som er skrevet mot dem virker, men ny kode leser `key`. Aliasene fjernes når U04–U10 er ferdige.
 
 ## 6. Grafkatalog
 
@@ -72,7 +90,7 @@ Konkurrenter får farge etter `colorIndex` (fast plass i konkurrentlisten), ikke
 | Linjegraf mot konkurrenter, forrige periode og markører | `TrendLineChart` | `categories`, `series: [{ key, label, own?, colorIndex?, points }]`, `previous`, `markers`, `until` |
 | 100 % stablet areal (share of voice) | `StackedAreaChart normalized` | som over |
 | Små multipler per motor | `SmallMultiplesChart` | `categories`, `panels: [{ key, label, points }]`, `markers: { [panel]: [...] }` |
-| Heatmap tema × motor (en overskriftslinje per tema) | `HeatmapChart` | `rows: [{ key, label, group }]`, `columns`, `cells: [{ row, column, value, n }]`; `select` gir `{ row, column }` |
+| Heatmap tema × motor (en overskriftslinje per tema) | `HeatmapChart` | `rows: [{ key, label, group }]`, `columns`, `cells: [{ row, column, value, n }]`; `select` gir `{ key, column }` |
 | Prikkrad 14 dager | `DotRowChart` | `points: [{ x, value, n }]` |
 | Rangeringsgraf topp 6 | `RankChart` | `series: [{ ..., points: [{ rank, n }] }]` |
 | Divergerende sentiment | `DivergingBarChart` | `rows: [{ key, label, negative, neutral, positive, n }]` |

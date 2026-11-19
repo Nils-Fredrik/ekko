@@ -1,10 +1,11 @@
 <script setup>
 // Heatmap: prompts grouped by topic (rows) × engines (columns), colored on the sequential
 // scale (docs/ui-forbedring.md 6, U06). Low-n cells are muted with a dashed border. Clicking a
-// cell emits `select` with { row, column } keys.
+// cell emits `select` with `{ key, column }`: the row key and the column key.
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
+import { selection } from './support/data.js';
 import { formatValue, isLowSample, tooltipHtml } from './support/format.js';
 import { tableValue } from './support/lines.js';
 
@@ -124,14 +125,15 @@ function option({ palette, width }) {
         yAxis: {
             type: 'category',
             inverse: true,
-            data: lines.value.map((line) => (line.row ? short(line.row.label) : line.heading)),
+            // Group headings are styled per category (textStyle), not with rich text: ECharts reads
+            // `{style|text}` in rich labels, and a topic or prompt name may contain braces.
+            data: lines.value.map((line) =>
+                line.row
+                    ? short(line.row.label)
+                    : { value: line.heading, textStyle: { color: palette.muted, fontWeight: 600, fontSize: 11 } },
+            ),
             axisLine: { show: false },
-            axisLabel: {
-                interval: 0,
-                color: palette.text,
-                formatter: (value, index) => (lines.value[index]?.heading ? `{group|${value}}` : value),
-                rich: { group: { color: palette.muted, fontWeight: 600, fontSize: 11 } },
-            },
+            axisLabel: { interval: 0, color: palette.text },
         },
         series: [
             {
@@ -151,7 +153,8 @@ function select(params) {
     const [x, y] = params.value;
     const row = lines.value[y]?.row;
     if (row) {
-        emit('select', { row: row.key, column: props.columns[x]?.key });
+        // `row` is the alias from the first version (the same as `key`); new pages read `key`.
+        emit('select', selection(row.key, { column: props.columns[x]?.key, row: row.key }));
     }
 }
 

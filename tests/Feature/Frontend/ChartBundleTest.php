@@ -1,6 +1,6 @@
 <?php
 
-// U02: ECharts is loaded asynchronously and only on pages with charts (docs/ui-forbedring.md 5 and 9).
+// U02: ECharts is loaded asynchronously and only on pages with charts (docs/ui-forbedring.md 5).
 // The Vite build must keep the library in one chunk that is reached only through import(),
 // never through a static import from the app entry or a page. CI builds the frontend before the tests.
 
