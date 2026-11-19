@@ -19,7 +19,7 @@ use InvalidArgumentException;
  * production, without a database: the request with the brand's facts, one call to the judge model per answer, and
  * the claim validation of ClaimAssembler. What is left is compared with the expected verdicts.
  *
- * The gold file is `tests/Fixtures/factcheck/gold.json`: cases with a brand, its facts, an answer and the expected
+ * The gold file is `database/evals/factcheck-gold.json`: cases with a brand, its facts, an answer and the expected
  * claims (`fact_id`, `verdict` supported or contradicted, and `quote`). A fact without an expected claim is a fact
  * the answer says nothing about; a supported or contradicted claim on it counts against precision.
  */
