@@ -33,6 +33,7 @@ class AggDaily extends Model
         'first_place',
         'sum_sentiment',
         'count_sentiment',
+        'sentiment_distribution',
         'own_cited',
         'competitor_only_responses',
         'competitor_mentions',
@@ -69,6 +70,7 @@ class AggDaily extends Model
             'date' => 'date',
             'sum_sentiment' => 'decimal:3',
             'competitor_mentions' => 'array',
+            'sentiment_distribution' => 'array',
         ];
     }
 }

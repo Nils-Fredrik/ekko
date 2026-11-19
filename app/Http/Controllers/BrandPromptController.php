@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Dashboard\BrandPage;
 use App\Dashboard\DashboardLabels;
+use App\Dashboard\GraphCache;
 use App\Engines\RawResponseStore;
 use App\Metrics\Metric;
 use App\Metrics\MetricsFilter;
@@ -43,6 +44,7 @@ class BrandPromptController extends Controller
         $marketIds = BrandPage::marketIds($brand, $request);
         $promptMarketIds = $marketIds === [] ? $brand->markets->pluck('id')->all() : $marketIds;
         $filter = new MetricsFilter($brand->id, $period->from, $period->to, marketIds: $marketIds);
+        $dotsFilter = new MetricsFilter($brand->id, CarbonImmutable::parse($period->to)->subDays(13), $period->to, marketIds: $marketIds);
         $byPrompt = $metrics->breakdown($filter, 'prompt');
         $stability = [];
         foreach ($metrics->stabilityByPromptEngine($filter) as $cell) {
@@ -101,6 +103,12 @@ class BrandPromptController extends Controller
             'canManage' => Gate::allows('create', Prompt::class),
             'importResult' => session('prompt_import'),
             'personalData' => (bool) session('personal_data'),
+            'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
+                'brand.prompts', $filter, $period->timezone, fn (): array => [
+                    'heatmap' => $metrics->visibilityByPromptEngine($filter),
+                    'stability' => $metrics->stabilityDots($dotsFilter),
+                ],
+            )),
         ]);
     }
 

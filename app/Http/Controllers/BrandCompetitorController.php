@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Dashboard\BrandPage;
+use App\Dashboard\GraphCache;
+use App\Metrics\MetricsFilter;
+use App\Metrics\MetricsService;
 use App\Models\Brand;
 use App\Models\Competitor;
 use App\Prompts\UnknownBrands;
@@ -10,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,12 +24,14 @@ use Inertia\Response;
  */
 class BrandCompetitorController extends Controller
 {
-    public function index(Request $request, Brand $brand): Response
+    public function index(Request $request, Brand $brand, MetricsService $metrics): Response
     {
         BrandPage::authorizeView($brand);
         $brand->load('markets');
         $period = BrandPage::period($request);
         $marketIds = BrandPage::marketIds($brand, $request);
+        $grain = $request->validate(['grain' => ['sometimes', Rule::in(MetricsService::GRAINS)]])['grain'] ?? 'day';
+        $filter = new MetricsFilter($brand->id, $period->from, $period->to, marketIds: $marketIds);
 
         $competitors = Competitor::query()
             ->where('brand_id', $brand->id)
@@ -48,6 +54,12 @@ class BrandCompetitorController extends Controller
             'competitors' => $competitors,
             'suggestions' => UnknownBrands::suggestions($brand, $period, $marketIds),
             'canManage' => Gate::allows('create', Competitor::class),
+            'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
+                'brand.competitors.'.$grain, $filter, $period->timezone, fn (): array => [
+                    'series' => $metrics->competitorVisibilitySeries($filter, $grain),
+                    'sentiment' => $metrics->sentimentDistribution($filter),
+                ],
+            )),
         ]);
     }
 

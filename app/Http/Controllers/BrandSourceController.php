@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Dashboard\BrandPage;
 use App\Dashboard\DashboardLabels;
+use App\Dashboard\GraphCache;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\Brand;
@@ -44,6 +45,13 @@ class BrandSourceController extends Controller
                 ...$row,
                 'low_sample' => $row['n'] < 10,
             ], $metrics->sourceGap($filter)),
+            'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
+                'brand.sources', $filter, $period->timezone, fn (): array => [
+                    'distribution' => $metrics->citationDistribution($filter),
+                    'share' => $metrics->sourceShare($filter),
+                    'gap' => $metrics->sourceGap($filter),
+                ],
+            )),
         ]);
     }
 
