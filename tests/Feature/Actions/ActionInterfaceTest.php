@@ -52,6 +52,50 @@ test('the list filters by status and the detail shows the evidence', function ()
             ->where('action.competitors.0', fn (string $line) => str_contains($line, 'Nordlys')));
 });
 
+test('the detail shows the figures the sources store', function () {
+    $this->action->update([
+        'evidence' => [
+            'text_params' => ['domain' => 'bransjeside.no', 'gap_responses' => 14, 'days' => 30],
+            'period' => ['from' => '2026-10-01', 'to' => '2026-10-31', 'days' => 30],
+            'domain' => 'bransjeside.no',
+            'gap_responses' => 14,
+            'market_competitor_only_responses' => 40,
+            'prompts_without_own_citation' => 3,
+            'competitor_only_responses' => 6,
+            'visibility' => ['value' => 0.25, 'n' => 80, 'low_sample' => false],
+            'max_visibility' => 0.5,
+            'share' => ['value' => null, 'n' => 0, 'low_sample' => true],
+            'other_bot_hits' => 12,
+            'hits' => 0,
+            'answers' => 9,
+            'answers_without_brand' => 4,
+            'threshold_percent' => 10,
+        ],
+    ]);
+
+    $this->actingAs($this->owner)
+        ->get(route('brands.actions.show', [$this->world->brand, $this->action]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('action.figures', function (mixed $figures): bool {
+            $byLabel = collect($figures)->pluck('value', 'label');
+
+            return $byLabel['Periode'] === '2026-10-01 – 2026-10-31'
+                && $byLabel['Domene'] === 'bransjeside.no'
+                && $byLabel['Svar med gap'] === '14'
+                && $byLabel['Svar med konkurrent og uten merkevaren'] === '40'
+                && $byLabel['Prompter uten egen sitering'] === '3'
+                && $byLabel['Svar med bare konkurrenter'] === '6'
+                && $byLabel['Synlighet'] === '25,0 %'
+                && $byLabel['Grense for synlighet'] === '50,0 %'
+                && $byLabel['Andel'] === '–'
+                && $byLabel['Treff fra andre roboter'] === '12'
+                && $byLabel['Treff'] === '0'
+                && $byLabel['Svar som nevner navnet'] === '9'
+                && $byLabel['Svar uten merkevaren'] === '4'
+                && $byLabel['Terskel'] === '10,0 %';
+        }));
+});
+
 test('status and steps can be changed from the interface, and a reader cannot', function () {
     $reader = User::factory()->create();
     $this->world->tenant->users()->attach($reader, ['role' => 'reader']);

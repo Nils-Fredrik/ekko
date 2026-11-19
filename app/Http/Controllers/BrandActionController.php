@@ -209,7 +209,8 @@ class BrandActionController extends Controller
     }
 
     /**
-     * Scalar figures from the stored evidence, without the text parameters the sentence already uses.
+     * Figures from the stored evidence, labelled with the keys the sources write. Rates and the period are
+     * formatted; text_params stay in the sentence and are not repeated here.
      *
      * @param  array<string, mixed>  $evidence
      * @return list<array{label: string, value: string}>
@@ -218,17 +219,58 @@ class BrandActionController extends Controller
     {
         $rows = [];
         foreach ($evidence as $key => $value) {
-            if ($key === 'text_params' || is_array($value)) {
+            if ($key === 'text_params') {
                 continue;
             }
             $label = __("action_items.fields.{$key}");
             if ($label === "action_items.fields.{$key}") {
                 continue;
             }
-            $rows[] = ['label' => $label, 'value' => (string) $value];
+            $formatted = $this->figure($key, $value);
+            if ($formatted === null) {
+                continue;
+            }
+            $rows[] = ['label' => $label, 'value' => $formatted];
         }
 
         return $rows;
+    }
+
+    private function figure(string $key, mixed $value): ?string
+    {
+        if ($key === 'period' && is_array($value)) {
+            $from = $value['from'] ?? null;
+            $to = $value['to'] ?? null;
+            if (! is_string($from) || $from === '' || ! is_string($to) || $to === '') {
+                return null;
+            }
+
+            return __('action_items.period_value', ['from' => $from, 'to' => $to]);
+        }
+        if (in_array($key, ['visibility', 'share'], true) && is_array($value)) {
+            return $this->percent(is_numeric($value['value'] ?? null) ? (float) $value['value'] : null);
+        }
+        if ($key === 'max_visibility' && is_numeric($value)) {
+            return $this->percent((float) $value);
+        }
+        if ($key === 'threshold_percent' && is_numeric($value)) {
+            return $this->percent((float) $value, true);
+        }
+        if (is_array($value) || $value === null) {
+            return null;
+        }
+
+        return (string) $value;
+    }
+
+    private function percent(?float $value, bool $alreadyPercent = false): string
+    {
+        if ($value === null) {
+            return __('reports.empty_value');
+        }
+        $decimal = app()->getLocale() === 'en' ? '.' : ',';
+
+        return number_format($alreadyPercent ? $value : $value * 100, 1, $decimal, ' ').' %';
     }
 
     /** @return list<string> */
