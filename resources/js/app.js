@@ -57,6 +57,6 @@ createInertiaApp({
             .mount(el);
     },
     progress: {
-        color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#e84a38',
+        color: 'var(--color-primary)',
     },
 });
