@@ -2,6 +2,7 @@
 
 namespace App\Onboarding\Model;
 
+use App\Models\BrandFact;
 use App\Onboarding\Fetch\SiteUrl;
 
 /**
@@ -26,7 +27,7 @@ final class ProposalParser
             return null;
         }
 
-        /** @var array{max_competitors: int, max_topics: int, max_prompts: int, max_core_prompts: int, max_name_variants: int} $max */
+        /** @var array{max_competitors: int, max_topics: int, max_prompts: int, max_core_prompts: int, max_name_variants: int, max_facts: int} $max */
         $max = config('ekko.wizard.suggestions');
         $warnings = [];
 
@@ -78,6 +79,7 @@ final class ProposalParser
         $topics = array_slice($topics, 0, $max['max_topics'], true);
 
         [$prompts, $promptWarnings] = $this->prompts($data['prompts'], array_keys($topics), $max['max_prompts'], $max['max_core_prompts']);
+        [$facts, $factWarnings] = $this->facts($data['facts'] ?? [], (int) $max['max_facts']);
 
         return [
             'proposal' => [
@@ -87,9 +89,46 @@ final class ProposalParser
                 'competitors' => array_slice($competitors, 0, $max['max_competitors']),
                 'topics' => array_values($topics),
                 'prompts' => $prompts,
+                'facts' => $facts,
             ],
-            'warnings' => array_values(array_unique([...$warnings, ...$promptWarnings])),
+            'warnings' => array_values(array_unique([...$warnings, ...$promptWarnings, ...$factWarnings])),
         ];
+    }
+
+    /**
+     * Facts the pages state about the brand (docs/spec.md 11.6): short statements the user approves before they
+     * are checked against answers. Text only (trimmed and cut), no email address or phone number (16), no repeats.
+     *
+     * @return array{0: list<string>, 1: list<string>}
+     */
+    private function facts(mixed $raw, int $max): array
+    {
+        $facts = [];
+        $warnings = [];
+        $seen = [];
+        foreach (is_array($raw) ? $raw : [] as $fact) {
+            if (count($facts) >= $max) {
+                break;
+            }
+            $text = $this->text($fact, BrandFact::TEXT_MAX);
+            if ($text === null || mb_strlen($text) < 8) {
+                $warnings[] = 'fact_dropped';
+
+                continue;
+            }
+            if ($this->hasPersonalData($text)) {
+                $warnings[] = 'fact_personal_data';
+
+                continue;
+            }
+            $key = mb_strtolower($text);
+            if (! isset($seen[$key])) {
+                $seen[$key] = true;
+                $facts[] = $text;
+            }
+        }
+
+        return [$facts, array_values(array_unique($warnings))];
     }
 
     /**

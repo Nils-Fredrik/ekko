@@ -37,7 +37,7 @@ if (! function_exists('configurationRowCount')) {
     /** The rows the wizard would create when the user confirms. None of them may exist before. */
     function configurationRowCount(): int
     {
-        return collect(['brands', 'brand_aliases', 'brand_domains', 'competitors', 'competitor_aliases', 'competitor_domains', 'markets', 'market_engines', 'topics', 'prompts'])
+        return collect(['brands', 'brand_aliases', 'brand_domains', 'competitors', 'competitor_aliases', 'competitor_domains', 'markets', 'market_engines', 'topics', 'prompts', 'brand_facts'])
             ->sum(fn (string $table): int => DB::table($table)->count());
     }
 }

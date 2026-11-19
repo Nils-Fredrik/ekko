@@ -53,6 +53,12 @@ class Brand extends Model
         return $this->hasMany(Topic::class);
     }
 
+    /** @return HasMany<BrandFact, $this> */
+    public function facts(): HasMany
+    {
+        return $this->hasMany(BrandFact::class);
+    }
+
     /** @return HasMany<Integration, $this> */
     public function integrations(): HasMany
     {

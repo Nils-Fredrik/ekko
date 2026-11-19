@@ -1,6 +1,7 @@
 <?php
 
 use App\ActionEngine\Sources\CrawlerAccessSource;
+use App\ActionEngine\Sources\FactCorrectionSource;
 use App\ActionEngine\Sources\NewCompetitorSource;
 use App\ActionEngine\Sources\OwnedContentSource;
 use App\ActionEngine\Sources\SourceGapSource;
@@ -203,7 +204,7 @@ return [
     | the platform pays for (T48's fact-check, for example) adds its kind here.
     */
     'usage' => [
-        'platform_paid_kinds' => ['actions'],
+        'platform_paid_kinds' => ['actions', 'factcheck'],
     ],
 
     /*
@@ -239,6 +240,22 @@ return [
             'input_usd_per_mtok' => '2.00',
             'output_usd_per_mtok' => '10.00',
             'estimated_cost_usd' => '0.15',
+        ],
+
+        /*
+        | Fact check (docs/spec.md 11.6, ADR 0036): one call per answer judges the claims about the brand against its
+        | facts. Sonnet first; the model id is configuration so it can be switched to Opus if accuracy is too low
+        | (EKKO_FACTCHECK_MODEL). Prices are USD per million tokens, so change them with the model; estimated_cost_usd is
+        | reserved on the Anthropic account before each call (ADR 0023).
+        */
+        'factcheck' => [
+            'model' => env('EKKO_FACTCHECK_MODEL', 'claude-sonnet-5-5'),
+            'max_tokens' => 4000,
+            'effort' => 'low',
+            'input_usd_per_mtok' => env('EKKO_FACTCHECK_INPUT_USD_PER_MTOK', '2.00'),
+            'output_usd_per_mtok' => env('EKKO_FACTCHECK_OUTPUT_USD_PER_MTOK', '10.00'),
+            'estimated_cost_usd' => env('EKKO_FACTCHECK_ESTIMATED_COST_USD', '0.02'),
+            'timeout_seconds' => 60,
         ],
 
         /*
@@ -279,6 +296,7 @@ return [
             'max_prompts' => 50,
             'max_core_prompts' => 10,
             'max_name_variants' => 10,
+            'max_facts' => 8,
         ],
         // How long an unconfirmed proposal stays readable. Proposals live only in the cache, never in the database.
         'proposal_ttl_hours' => 24,
@@ -331,12 +349,13 @@ return [
         // a deadline for all tenants in sync mode.
         'word_seconds' => 300,
         'command_word_seconds' => 2700,
-        // The sources that produce candidates, in order. T48 adds the fact_correction source here.
+        // The sources that produce candidates, in order.
         'sources' => [
             SourceGapSource::class,
             OwnedContentSource::class,
             NewCompetitorSource::class,
             CrawlerAccessSource::class,
+            FactCorrectionSource::class,
         ],
         'source_gap' => [
             'min_gap_responses' => 3,
@@ -353,11 +372,32 @@ return [
             'window_days' => 7,
             'default_threshold_percent' => 10,
         ],
+        'fact_correction' => [
+            // A fact becomes an action when this many answers in the window contradict it (docs/spec.md 11.6).
+            'min_responses' => 2,
+            // Claims shown as examples in the evidence.
+            'max_claim_examples' => 3,
+            // Sources (pages) listed in the evidence.
+            'max_sources' => 5,
+        ],
         'crawler_access' => [
             'window_days' => 14,
             // Search bots that should fetch the brand's pages (keys of bot_logs.bots).
             'bots' => ['oai_searchbot', 'perplexitybot', 'claude_searchbot'],
         ],
+    ],
+
+    /*
+    | Fact check (docs/spec.md 11.6, ADR 0036): the facts a brand is checked against and the claims kept per answer.
+    */
+    'facts' => [
+        'max_per_brand' => 50,
+        'max_claims_per_response' => 20,
+        // Answers judged per job run, and how long back an unjudged answer is still worth judging.
+        'max_checks_per_run' => 60,
+        'max_age_days' => 35,
+        // No call starts later than this many seconds after the job started (the job's timeout is 420 s).
+        'check_seconds' => 300,
     ],
 
     'bot_logs' => [

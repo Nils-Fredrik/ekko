@@ -40,6 +40,8 @@ return [
         'topic_dropped' => 'Noen temaer var ugyldige og er utelatt.',
         'prompt_dropped' => 'Noen prompts var ugyldige og er utelatt.',
         'prompt_personal_data' => 'Noen prompts inneholdt e-postadresser eller telefonnummer og er utelatt.',
+        'fact_dropped' => 'Noen fakta var for korte eller ugyldige og er utelatt.',
+        'fact_personal_data' => 'Noen fakta inneholdt e-postadresser eller telefonnummer og er utelatt.',
     ],
     'issues' => [
         'unknown_engine' => 'Motoren :engine finnes ikke eller er slått av.',

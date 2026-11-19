@@ -1,0 +1,1307 @@
+{
+  "description": "Gold set for the fact check (docs/spec.md 11.6, T48): synthetic answers about invented brands, in Norwegian (nb) and Swedish (sv), each with the brand's facts and the expected verdict (supported or contradicted) per fact. A fact without an expected entry is a fact the answer says nothing about. The brands and answers are made up; no customer data.",
+  "cases": [
+    {
+      "id": "nb-01",
+      "language": "nb",
+      "brand": "Fjordkaffe",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Fjordkaffe ble grunnlagt i 2009."
+        },
+        {
+          "id": 2,
+          "text": "Fjordkaffe har hovedkontor og brenneri i Bergen."
+        },
+        {
+          "id": 3,
+          "text": "Fjordkaffe har tre kaffebarer: to i Bergen og en i Stavanger."
+        },
+        {
+          "id": 4,
+          "text": "Fjordkaffe selger økologisk og Fairtrade-sertifisert kaffe."
+        }
+      ],
+      "text": "Fjordkaffe er et kaffebrenneri som ble grunnlagt i 2009 og holder til i Bergen. De brenner bønnene selv og selger dem i nettbutikken.",
+      "citations": [
+        {
+          "url": "https://www.kaffeguiden.no/brennerier"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "supported",
+          "quote": "ble grunnlagt i 2009"
+        },
+        {
+          "fact_id": 2,
+          "verdict": "supported",
+          "quote": "holder til i Bergen"
+        }
+      ]
+    },
+    {
+      "id": "nb-02",
+      "language": "nb",
+      "brand": "Fjordkaffe",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Fjordkaffe ble grunnlagt i 2009."
+        },
+        {
+          "id": 2,
+          "text": "Fjordkaffe har hovedkontor og brenneri i Bergen."
+        },
+        {
+          "id": 3,
+          "text": "Fjordkaffe har tre kaffebarer: to i Bergen og en i Stavanger."
+        },
+        {
+          "id": 4,
+          "text": "Fjordkaffe selger økologisk og Fairtrade-sertifisert kaffe."
+        }
+      ],
+      "text": "Fjordkaffe startet opp i 2012 og har siden vokst raskt. Ifølge Kaffeguiden er de et av de mest spennende nye brennerienes i Vestlandet.",
+      "citations": [
+        {
+          "url": "https://www.kaffeguiden.no/brennerier"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "contradicted",
+          "quote": "startet opp i 2012"
+        }
+      ]
+    },
+    {
+      "id": "nb-03",
+      "language": "nb",
+      "brand": "Fjordkaffe",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Fjordkaffe ble grunnlagt i 2009."
+        },
+        {
+          "id": 2,
+          "text": "Fjordkaffe har hovedkontor og brenneri i Bergen."
+        },
+        {
+          "id": 3,
+          "text": "Fjordkaffe har tre kaffebarer: to i Bergen og en i Stavanger."
+        },
+        {
+          "id": 4,
+          "text": "Fjordkaffe selger økologisk og Fairtrade-sertifisert kaffe."
+        }
+      ],
+      "text": "Fjordkaffe har hovedkontor i Oslo, men brenner kaffen i Bergen. De har også en liten butikk i sentrum.",
+      "citations": [
+        {
+          "url": "https://fjordkaffe.no/om-oss"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 2,
+          "verdict": "contradicted",
+          "quote": "hovedkontor i Oslo"
+        }
+      ]
+    },
+    {
+      "id": "nb-04",
+      "language": "nb",
+      "brand": "Fjordkaffe",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Fjordkaffe ble grunnlagt i 2009."
+        },
+        {
+          "id": 2,
+          "text": "Fjordkaffe har hovedkontor og brenneri i Bergen."
+        },
+        {
+          "id": 3,
+          "text": "Fjordkaffe har tre kaffebarer: to i Bergen og en i Stavanger."
+        },
+        {
+          "id": 4,
+          "text": "Fjordkaffe selger økologisk og Fairtrade-sertifisert kaffe."
+        }
+      ],
+      "text": "Hos Fjordkaffe kan du kjøpe både økologisk kaffe og Fairtrade-merket kaffe. Sortimentet er mindre enn hos de store kjedene, men kvaliteten er høy.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 4,
+          "verdict": "supported",
+          "quote": "økologisk kaffe og Fairtrade-merket kaffe"
+        }
+      ]
+    },
+    {
+      "id": "nb-05",
+      "language": "nb",
+      "brand": "Fjordkaffe",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Fjordkaffe ble grunnlagt i 2009."
+        },
+        {
+          "id": 2,
+          "text": "Fjordkaffe har hovedkontor og brenneri i Bergen."
+        },
+        {
+          "id": 3,
+          "text": "Fjordkaffe har tre kaffebarer: to i Bergen og en i Stavanger."
+        },
+        {
+          "id": 4,
+          "text": "Fjordkaffe selger økologisk og Fairtrade-sertifisert kaffe."
+        }
+      ],
+      "text": "Fjordkaffe driver fem kaffebarer rundt om i Vestlandet, blant annet i Bergen, Stavanger og Haugesund.",
+      "citations": [
+        {
+          "url": "https://www.kaffeguiden.no/brennerier"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 3,
+          "verdict": "contradicted",
+          "quote": "fem kaffebarer"
+        }
+      ]
+    },
+    {
+      "id": "nb-06",
+      "language": "nb",
+      "brand": "Fjordkaffe",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Fjordkaffe ble grunnlagt i 2009."
+        },
+        {
+          "id": 2,
+          "text": "Fjordkaffe har hovedkontor og brenneri i Bergen."
+        },
+        {
+          "id": 3,
+          "text": "Fjordkaffe har tre kaffebarer: to i Bergen og en i Stavanger."
+        },
+        {
+          "id": 4,
+          "text": "Fjordkaffe selger økologisk og Fairtrade-sertifisert kaffe."
+        }
+      ],
+      "text": "Fjordkaffe har kaffebarer i Bergen og Stavanger. Bergensbarene ligger på Nordnes og i Sentrum.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 3,
+          "verdict": "supported",
+          "quote": "kaffebarer i Bergen og Stavanger"
+        }
+      ]
+    },
+    {
+      "id": "nb-07",
+      "language": "nb",
+      "brand": "Fjordkaffe",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Fjordkaffe ble grunnlagt i 2009."
+        },
+        {
+          "id": 2,
+          "text": "Fjordkaffe har hovedkontor og brenneri i Bergen."
+        },
+        {
+          "id": 3,
+          "text": "Fjordkaffe har tre kaffebarer: to i Bergen og en i Stavanger."
+        },
+        {
+          "id": 4,
+          "text": "Fjordkaffe selger økologisk og Fairtrade-sertifisert kaffe."
+        }
+      ],
+      "text": "Hvis du leter etter lokalt brent kaffe på Vestlandet, finnes det flere gode alternativer. Fjordkaffe nevnes ofte i anmeldelser for sin mørkbrente espresso.",
+      "citations": [],
+      "expected": []
+    },
+    {
+      "id": "nb-08",
+      "language": "nb",
+      "brand": "Fjordkaffe",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Fjordkaffe ble grunnlagt i 2009."
+        },
+        {
+          "id": 2,
+          "text": "Fjordkaffe har hovedkontor og brenneri i Bergen."
+        },
+        {
+          "id": 3,
+          "text": "Fjordkaffe har tre kaffebarer: to i Bergen og en i Stavanger."
+        },
+        {
+          "id": 4,
+          "text": "Fjordkaffe selger økologisk og Fairtrade-sertifisert kaffe."
+        }
+      ],
+      "text": "Fjordkaffe selger kun vanlig kaffe uten sertifiseringer, og de har ingen økologiske produkter i sortimentet.",
+      "citations": [
+        {
+          "url": "https://www.kaffeguiden.no/brennerier"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 4,
+          "verdict": "contradicted",
+          "quote": "ingen økologiske produkter"
+        }
+      ]
+    },
+    {
+      "id": "nb-09",
+      "language": "nb",
+      "brand": "Fjordkaffe",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Fjordkaffe ble grunnlagt i 2009."
+        },
+        {
+          "id": 2,
+          "text": "Fjordkaffe har hovedkontor og brenneri i Bergen."
+        },
+        {
+          "id": 3,
+          "text": "Fjordkaffe har tre kaffebarer: to i Bergen og en i Stavanger."
+        },
+        {
+          "id": 4,
+          "text": "Fjordkaffe selger økologisk og Fairtrade-sertifisert kaffe."
+        }
+      ],
+      "text": "Fjordkaffe ble etablert i 2009 av to venner fra Bergen. Brenneriet ligger fortsatt i byen, mens kaffebarene finnes i både Bergen og Stavanger.",
+      "citations": [
+        {
+          "url": "https://fjordkaffe.no/om-oss"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "supported",
+          "quote": "etablert i 2009"
+        },
+        {
+          "fact_id": 2,
+          "verdict": "supported",
+          "quote": "Brenneriet ligger fortsatt i byen"
+        }
+      ]
+    },
+    {
+      "id": "nb-10",
+      "language": "nb",
+      "brand": "Nordvik Sykkel",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Nordvik Sykkel ble startet i 2014."
+        },
+        {
+          "id": 2,
+          "text": "Nordvik Sykkel gir gratis frakt på bestillinger over 1 500 kroner."
+        },
+        {
+          "id": 3,
+          "text": "Nordvik Sykkel har 30 dagers åpent kjøp."
+        },
+        {
+          "id": 4,
+          "text": "Nordvik Sykkel har eget verksted i Trondheim."
+        }
+      ],
+      "text": "Nordvik Sykkel er en nettbutikk som ble startet i 2014. De selger alt fra bysykler til terrengsykler og har et eget verksted i Trondheim.",
+      "citations": [
+        {
+          "url": "https://www.sykkelbloggen.no/nettbutikker"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "supported",
+          "quote": "startet i 2014"
+        },
+        {
+          "fact_id": 4,
+          "verdict": "supported",
+          "quote": "eget verksted i Trondheim"
+        }
+      ]
+    },
+    {
+      "id": "nb-11",
+      "language": "nb",
+      "brand": "Nordvik Sykkel",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Nordvik Sykkel ble startet i 2014."
+        },
+        {
+          "id": 2,
+          "text": "Nordvik Sykkel gir gratis frakt på bestillinger over 1 500 kroner."
+        },
+        {
+          "id": 3,
+          "text": "Nordvik Sykkel har 30 dagers åpent kjøp."
+        },
+        {
+          "id": 4,
+          "text": "Nordvik Sykkel har eget verksted i Trondheim."
+        }
+      ],
+      "text": "Nordvik Sykkel har gratis frakt på alle bestillinger, uansett beløp. Det gjør dem til et godt valg for mindre deler og tilbehør.",
+      "citations": [
+        {
+          "url": "https://www.sykkelbloggen.no/nettbutikker"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 2,
+          "verdict": "contradicted",
+          "quote": "gratis frakt på alle bestillinger"
+        }
+      ]
+    },
+    {
+      "id": "nb-12",
+      "language": "nb",
+      "brand": "Nordvik Sykkel",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Nordvik Sykkel ble startet i 2014."
+        },
+        {
+          "id": 2,
+          "text": "Nordvik Sykkel gir gratis frakt på bestillinger over 1 500 kroner."
+        },
+        {
+          "id": 3,
+          "text": "Nordvik Sykkel har 30 dagers åpent kjøp."
+        },
+        {
+          "id": 4,
+          "text": "Nordvik Sykkel har eget verksted i Trondheim."
+        }
+      ],
+      "text": "Hos Nordvik Sykkel får du gratis frakt når du handler for over 1 500 kroner, og du har 30 dagers åpent kjøp hvis sykkelen ikke passer.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 2,
+          "verdict": "supported",
+          "quote": "gratis frakt når du handler for over 1 500 kroner"
+        },
+        {
+          "fact_id": 3,
+          "verdict": "supported",
+          "quote": "30 dagers åpent kjøp"
+        }
+      ]
+    },
+    {
+      "id": "nb-13",
+      "language": "nb",
+      "brand": "Nordvik Sykkel",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Nordvik Sykkel ble startet i 2014."
+        },
+        {
+          "id": 2,
+          "text": "Nordvik Sykkel gir gratis frakt på bestillinger over 1 500 kroner."
+        },
+        {
+          "id": 3,
+          "text": "Nordvik Sykkel har 30 dagers åpent kjøp."
+        },
+        {
+          "id": 4,
+          "text": "Nordvik Sykkel har eget verksted i Trondheim."
+        }
+      ],
+      "text": "Nordvik Sykkel tilbyr 14 dagers angrerett, noe som er standard i bransjen, men ikke like romslig som enkelte konkurrenter.",
+      "citations": [
+        {
+          "url": "https://forbrukerguiden.no/sykkelkjop"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 3,
+          "verdict": "contradicted",
+          "quote": "14 dagers angrerett"
+        }
+      ]
+    },
+    {
+      "id": "nb-14",
+      "language": "nb",
+      "brand": "Nordvik Sykkel",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Nordvik Sykkel ble startet i 2014."
+        },
+        {
+          "id": 2,
+          "text": "Nordvik Sykkel gir gratis frakt på bestillinger over 1 500 kroner."
+        },
+        {
+          "id": 3,
+          "text": "Nordvik Sykkel har 30 dagers åpent kjøp."
+        },
+        {
+          "id": 4,
+          "text": "Nordvik Sykkel har eget verksted i Trondheim."
+        }
+      ],
+      "text": "Nordvik Sykkel åpnet i 2009 og er dermed en av de eldste nettbutikkene for sykler i Norge.",
+      "citations": [
+        {
+          "url": "https://forbrukerguiden.no/sykkelkjop"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "contradicted",
+          "quote": "åpnet i 2009"
+        }
+      ]
+    },
+    {
+      "id": "nb-15",
+      "language": "nb",
+      "brand": "Nordvik Sykkel",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Nordvik Sykkel ble startet i 2014."
+        },
+        {
+          "id": 2,
+          "text": "Nordvik Sykkel gir gratis frakt på bestillinger over 1 500 kroner."
+        },
+        {
+          "id": 3,
+          "text": "Nordvik Sykkel har 30 dagers åpent kjøp."
+        },
+        {
+          "id": 4,
+          "text": "Nordvik Sykkel har eget verksted i Trondheim."
+        }
+      ],
+      "text": "Nordvik Sykkel har verksted i Oslo hvor du kan få montert og justert sykkelen din etter kjøp.",
+      "citations": [
+        {
+          "url": "https://www.sykkelbloggen.no/nettbutikker"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 4,
+          "verdict": "contradicted",
+          "quote": "verksted i Oslo"
+        }
+      ]
+    },
+    {
+      "id": "nb-16",
+      "language": "nb",
+      "brand": "Nordvik Sykkel",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Nordvik Sykkel ble startet i 2014."
+        },
+        {
+          "id": 2,
+          "text": "Nordvik Sykkel gir gratis frakt på bestillinger over 1 500 kroner."
+        },
+        {
+          "id": 3,
+          "text": "Nordvik Sykkel har 30 dagers åpent kjøp."
+        },
+        {
+          "id": 4,
+          "text": "Nordvik Sykkel har eget verksted i Trondheim."
+        }
+      ],
+      "text": "Blant norske sykkelbutikker på nett er Nordvik Sykkel et av navnene som ofte dukker opp. Prisene er konkurransedyktige, og leveringen er rask.",
+      "citations": [],
+      "expected": []
+    },
+    {
+      "id": "nb-17",
+      "language": "nb",
+      "brand": "Nordvik Sykkel",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Nordvik Sykkel ble startet i 2014."
+        },
+        {
+          "id": 2,
+          "text": "Nordvik Sykkel gir gratis frakt på bestillinger over 1 500 kroner."
+        },
+        {
+          "id": 3,
+          "text": "Nordvik Sykkel har 30 dagers åpent kjøp."
+        },
+        {
+          "id": 4,
+          "text": "Nordvik Sykkel har eget verksted i Trondheim."
+        }
+      ],
+      "text": "Nordvik Sykkel i Trondheim har både nettbutikk og verksted. Verkstedet tar imot service og reparasjoner på sykler kjøpt andre steder også.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 4,
+          "verdict": "supported",
+          "quote": "Nordvik Sykkel i Trondheim har både nettbutikk og verksted"
+        }
+      ]
+    },
+    {
+      "id": "nb-18",
+      "language": "nb",
+      "brand": "Nordvik Sykkel",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Nordvik Sykkel ble startet i 2014."
+        },
+        {
+          "id": 2,
+          "text": "Nordvik Sykkel gir gratis frakt på bestillinger over 1 500 kroner."
+        },
+        {
+          "id": 3,
+          "text": "Nordvik Sykkel har 30 dagers åpent kjøp."
+        },
+        {
+          "id": 4,
+          "text": "Nordvik Sykkel har eget verksted i Trondheim."
+        }
+      ],
+      "text": "Hvis du vil prøve før du kjøper, har Nordvik Sykkel 30 dagers åpent kjøp. Frakten er gratis fra 1 500 kroner.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 3,
+          "verdict": "supported",
+          "quote": "30 dagers åpent kjøp"
+        },
+        {
+          "fact_id": 2,
+          "verdict": "supported",
+          "quote": "Frakten er gratis fra 1 500 kroner"
+        }
+      ]
+    },
+    {
+      "id": "sv-01",
+      "language": "sv",
+      "brand": "Lingonbageriet",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Lingonbageriet grundades 1998."
+        },
+        {
+          "id": 2,
+          "text": "Lingonbageriet har tre butiker i Göteborg."
+        },
+        {
+          "id": 3,
+          "text": "Lingonbageriet bakar allt surdegsbröd på plats."
+        },
+        {
+          "id": 4,
+          "text": "Lingonbageriet erbjuder hemleverans i hela Göteborg."
+        }
+      ],
+      "text": "Lingonbageriet grundades 1998 och är ett av Göteborgs mer kända bagerier. De har tre butiker i staden och säljer mest surdegsbröd och kanelbullar.",
+      "citations": [
+        {
+          "url": "https://www.goteborgsmat.se/bagerier"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "supported",
+          "quote": "grundades 1998"
+        },
+        {
+          "fact_id": 2,
+          "verdict": "supported",
+          "quote": "tre butiker i staden"
+        }
+      ]
+    },
+    {
+      "id": "sv-02",
+      "language": "sv",
+      "brand": "Lingonbageriet",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Lingonbageriet grundades 1998."
+        },
+        {
+          "id": 2,
+          "text": "Lingonbageriet har tre butiker i Göteborg."
+        },
+        {
+          "id": 3,
+          "text": "Lingonbageriet bakar allt surdegsbröd på plats."
+        },
+        {
+          "id": 4,
+          "text": "Lingonbageriet erbjuder hemleverans i hela Göteborg."
+        }
+      ],
+      "text": "Lingonbageriet öppnade 2005 och har sedan dess blivit ett populärt bageri i Göteborg.",
+      "citations": [
+        {
+          "url": "https://www.goteborgsmat.se/bagerier"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "contradicted",
+          "quote": "öppnade 2005"
+        }
+      ]
+    },
+    {
+      "id": "sv-03",
+      "language": "sv",
+      "brand": "Lingonbageriet",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Lingonbageriet grundades 1998."
+        },
+        {
+          "id": 2,
+          "text": "Lingonbageriet har tre butiker i Göteborg."
+        },
+        {
+          "id": 3,
+          "text": "Lingonbageriet bakar allt surdegsbröd på plats."
+        },
+        {
+          "id": 4,
+          "text": "Lingonbageriet erbjuder hemleverans i hela Göteborg."
+        }
+      ],
+      "text": "Lingonbageriet har fem butiker i Göteborg, bland annat på Linné och i Mölndal.",
+      "citations": [
+        {
+          "url": "https://lingonbageriet.se/butiker"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 2,
+          "verdict": "contradicted",
+          "quote": "fem butiker i Göteborg"
+        }
+      ]
+    },
+    {
+      "id": "sv-04",
+      "language": "sv",
+      "brand": "Lingonbageriet",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Lingonbageriet grundades 1998."
+        },
+        {
+          "id": 2,
+          "text": "Lingonbageriet har tre butiker i Göteborg."
+        },
+        {
+          "id": 3,
+          "text": "Lingonbageriet bakar allt surdegsbröd på plats."
+        },
+        {
+          "id": 4,
+          "text": "Lingonbageriet erbjuder hemleverans i hela Göteborg."
+        }
+      ],
+      "text": "Allt surdegsbröd hos Lingonbageriet bakas på plats i butikerna varje morgon, vilket ger ett färskt bröd.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 3,
+          "verdict": "supported",
+          "quote": "bakas på plats i butikerna varje morgon"
+        }
+      ]
+    },
+    {
+      "id": "sv-05",
+      "language": "sv",
+      "brand": "Lingonbageriet",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Lingonbageriet grundades 1998."
+        },
+        {
+          "id": 2,
+          "text": "Lingonbageriet har tre butiker i Göteborg."
+        },
+        {
+          "id": 3,
+          "text": "Lingonbageriet bakar allt surdegsbröd på plats."
+        },
+        {
+          "id": 4,
+          "text": "Lingonbageriet erbjuder hemleverans i hela Göteborg."
+        }
+      ],
+      "text": "Lingonbageriet bakar sitt bröd i ett centralt bageri utanför staden och levererar det färdigbakat till butikerna.",
+      "citations": [
+        {
+          "url": "https://www.goteborgsmat.se/bagerier"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 3,
+          "verdict": "contradicted",
+          "quote": "bakar sitt bröd i ett centralt bageri utanför staden"
+        }
+      ]
+    },
+    {
+      "id": "sv-06",
+      "language": "sv",
+      "brand": "Lingonbageriet",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Lingonbageriet grundades 1998."
+        },
+        {
+          "id": 2,
+          "text": "Lingonbageriet har tre butiker i Göteborg."
+        },
+        {
+          "id": 3,
+          "text": "Lingonbageriet bakar allt surdegsbröd på plats."
+        },
+        {
+          "id": 4,
+          "text": "Lingonbageriet erbjuder hemleverans i hela Göteborg."
+        }
+      ],
+      "text": "Lingonbageriet kör ut bröd hem till dig i hela Göteborg, om du beställer före klockan tio.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 4,
+          "verdict": "supported",
+          "quote": "kör ut bröd hem till dig i hela Göteborg"
+        }
+      ]
+    },
+    {
+      "id": "sv-07",
+      "language": "sv",
+      "brand": "Lingonbageriet",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Lingonbageriet grundades 1998."
+        },
+        {
+          "id": 2,
+          "text": "Lingonbageriet har tre butiker i Göteborg."
+        },
+        {
+          "id": 3,
+          "text": "Lingonbageriet bakar allt surdegsbröd på plats."
+        },
+        {
+          "id": 4,
+          "text": "Lingonbageriet erbjuder hemleverans i hela Göteborg."
+        }
+      ],
+      "text": "Lingonbageriet har ingen hemleverans, utan du måste hämta ditt bröd i någon av butikerna.",
+      "citations": [
+        {
+          "url": "https://lingonbageriet.se/butiker"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 4,
+          "verdict": "contradicted",
+          "quote": "ingen hemleverans"
+        }
+      ]
+    },
+    {
+      "id": "sv-08",
+      "language": "sv",
+      "brand": "Lingonbageriet",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Lingonbageriet grundades 1998."
+        },
+        {
+          "id": 2,
+          "text": "Lingonbageriet har tre butiker i Göteborg."
+        },
+        {
+          "id": 3,
+          "text": "Lingonbageriet bakar allt surdegsbröd på plats."
+        },
+        {
+          "id": 4,
+          "text": "Lingonbageriet erbjuder hemleverans i hela Göteborg."
+        }
+      ],
+      "text": "På Göteborgs bästa bagerilista hittar man Lingonbageriet bland flera andra. Kanelbullarna får särskilt mycket beröm i omdömena.",
+      "citations": [],
+      "expected": []
+    },
+    {
+      "id": "sv-09",
+      "language": "sv",
+      "brand": "Lingonbageriet",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Lingonbageriet grundades 1998."
+        },
+        {
+          "id": 2,
+          "text": "Lingonbageriet har tre butiker i Göteborg."
+        },
+        {
+          "id": 3,
+          "text": "Lingonbageriet bakar allt surdegsbröd på plats."
+        },
+        {
+          "id": 4,
+          "text": "Lingonbageriet erbjuder hemleverans i hela Göteborg."
+        }
+      ],
+      "text": "Lingonbageriet är grundat 1998 och bakar allt sitt surdegsbröd på plats. Butikerna finns i centrala Göteborg.",
+      "citations": [
+        {
+          "url": "https://lingonbageriet.se/butiker"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "supported",
+          "quote": "grundat 1998"
+        },
+        {
+          "fact_id": 3,
+          "verdict": "supported",
+          "quote": "bakar allt sitt surdegsbröd på plats"
+        }
+      ]
+    },
+    {
+      "id": "sv-10",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Solvik Energi grundades 2012 i Malmö och installerar solceller för både villor och bostadsrättsföreningar.",
+      "citations": [
+        {
+          "url": "https://www.solenergiguiden.se/installatorer"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "supported",
+          "quote": "grundades 2012 i Malmö"
+        },
+        {
+          "fact_id": 3,
+          "verdict": "supported",
+          "quote": "villor och bostadsrättsföreningar"
+        }
+      ]
+    },
+    {
+      "id": "sv-11",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Solvik Energi grundades 2016 och är därför en relativt ny aktör på solcellsmarknaden i Skåne.",
+      "citations": [
+        {
+          "url": "https://www.solenergiguiden.se/installatorer"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "contradicted",
+          "quote": "grundades 2016"
+        }
+      ]
+    },
+    {
+      "id": "sv-12",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Hos Solvik Energi får du 25 års garanti på solpanelerna, vilket är i den övre delen av vad marknaden erbjuder.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 2,
+          "verdict": "supported",
+          "quote": "25 års garanti på solpanelerna"
+        }
+      ]
+    },
+    {
+      "id": "sv-13",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Solvik Energi ger 10 års garanti på sina solpaneler, medan växelriktaren har kortare garanti.",
+      "citations": [
+        {
+          "url": "https://www.solenergiguiden.se/installatorer"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 2,
+          "verdict": "contradicted",
+          "quote": "10 års garanti på sina solpaneler"
+        }
+      ]
+    },
+    {
+      "id": "sv-14",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Solvik Energi installerar bara solceller åt privatpersoner med villa och tar inte uppdrag för bostadsrättsföreningar.",
+      "citations": [
+        {
+          "url": "https://www.solenergiguiden.se/installatorer"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 3,
+          "verdict": "contradicted",
+          "quote": "tar inte uppdrag för bostadsrättsföreningar"
+        }
+      ]
+    },
+    {
+      "id": "sv-15",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Solvik Energi har kontor i Malmö och Uppsala, så de kan ta uppdrag i både södra och östra Sverige.",
+      "citations": [
+        {
+          "url": "https://solvikenergi.se/kontakt"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 4,
+          "verdict": "supported",
+          "quote": "kontor i Malmö och Uppsala"
+        }
+      ]
+    },
+    {
+      "id": "sv-16",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Solvik Energi har sitt kontor i Göteborg och arbetar främst i Västsverige.",
+      "citations": [
+        {
+          "url": "https://solvikenergi.se/kontakt"
+        }
+      ],
+      "expected": [
+        {
+          "fact_id": 4,
+          "verdict": "contradicted",
+          "quote": "kontor i Göteborg"
+        }
+      ]
+    },
+    {
+      "id": "sv-17",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Det finns flera solcellsinstallatörer i Skåne som är värda att jämföra. Solvik Energi är en av dem och får bra omdömen för sin service.",
+      "citations": [],
+      "expected": []
+    },
+    {
+      "id": "sv-18",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Solvik Energi, som grundades 2012, ger 25 års garanti och har kontor i både Malmö och Uppsala.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 1,
+          "verdict": "supported",
+          "quote": "grundades 2012"
+        },
+        {
+          "fact_id": 2,
+          "verdict": "supported",
+          "quote": "25 års garanti"
+        },
+        {
+          "fact_id": 4,
+          "verdict": "supported",
+          "quote": "kontor i både Malmö och Uppsala"
+        }
+      ]
+    },
+    {
+      "id": "sv-19",
+      "language": "sv",
+      "brand": "Solvik Energi",
+      "facts": [
+        {
+          "id": 1,
+          "text": "Solvik Energi grundades 2012 i Malmö."
+        },
+        {
+          "id": 2,
+          "text": "Solvik Energi ger 25 års garanti på solpanelerna."
+        },
+        {
+          "id": 3,
+          "text": "Solvik Energi installerar solceller för villor och bostadsrättsföreningar."
+        },
+        {
+          "id": 4,
+          "text": "Solvik Energi har kontor i Malmö och Uppsala."
+        }
+      ],
+      "text": "Solvik Energi säljer solceller till villaägare och till bostadsrättsföreningar, och har kontor i Malmö.",
+      "citations": [],
+      "expected": [
+        {
+          "fact_id": 3,
+          "verdict": "supported",
+          "quote": "villaägare och till bostadsrättsföreningar"
+        }
+      ]
+    }
+  ]
+}

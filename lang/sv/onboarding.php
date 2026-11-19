@@ -40,6 +40,8 @@ return [
         'topic_dropped' => 'Några teman var ogiltiga och har utelämnats.',
         'prompt_dropped' => 'Några prompter var ogiltiga och har utelämnats.',
         'prompt_personal_data' => 'Några prompter innehöll e-postadresser eller telefonnummer och har utelämnats.',
+        'fact_dropped' => 'Några fakta var för korta eller ogiltiga och har utelämnats.',
+        'fact_personal_data' => 'Några fakta innehöll e-postadresser eller telefonnummer och har utelämnats.',
     ],
     'issues' => [
         'unknown_engine' => 'Motorn :engine finns inte eller är avstängd.',
