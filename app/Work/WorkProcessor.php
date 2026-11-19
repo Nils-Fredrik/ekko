@@ -7,7 +7,9 @@ use App\Models\Team;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Container\Container;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use LogicException;
 use Throwable;
 
 /**
@@ -33,6 +35,12 @@ final class WorkProcessor
     public function process(int $signalId): WorkResult
     {
         $tenantId = $this->context->require();
+
+        // Inside another transaction the lease would stay invisible until that one ends. Under the test runner one
+        // level is the transactional test case itself (RefreshDatabase); the Settlement suite checks level 0.
+        if (DB::transactionLevel() > (app()->runningUnitTests() ? 1 : 0)) {
+            throw new LogicException('work_processor_must_not_run_in_a_transaction');
+        }
 
         // A closed tenant waits to be deleted (T39-F6): no more processing, and nothing is acknowledged.
         if (Team::query()->whereKey($tenantId)->value('status') === TenantStatus::Closed) {

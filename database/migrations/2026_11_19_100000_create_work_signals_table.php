@@ -31,6 +31,8 @@ return new class extends Migration
             $table->timestampTz('leased_at')->nullable();
             $table->timestampTz('lease_expires_at')->nullable();
             $table->unsignedInteger('attempts')->default(0);
+            // Set by a handler's deferral (an external batch still running): new signals keep its time, like a backoff.
+            $table->boolean('deferred')->default(false);
             // The exception class of the last failure, never its message.
             $table->string('last_error', 120)->nullable();
             $table->timestampTz('processed_at')->nullable();

@@ -24,6 +24,7 @@ Tabellen `work_signals` er tenant-eid (`BelongsToTenant`, `FORCE ROW LEVEL SECUR
 | `available_at` | Tidligste behandlingstid (forsinkelse, retry eller utsettelse) |
 | `lease_token`, `lease_version`, `leased_at`, `lease_expires_at` | Leasen til en aktiv behandler |
 | `attempts`, `last_error` | Mislykkede forsøk siden siste kvittering; bare unntaksklassen lagres |
+| `deferred` | Handleren har utsatt raden (`retryAt`); nye signaler beholder tidspunktet |
 | `pending_since`, `last_signaled_at`, `processed_at` | Ventetid og måling (del 2 og 3) |
 
 Det finnes ikke noe metadata-felt. Signalet sier bare «noe i dette omfanget er endret»; behandleren leser gjeldende tilstand selv. Dermed havner verken råsvar, hemmeligheter eller kundedata i tabellen, vekkingen eller loggene.
@@ -34,9 +35,9 @@ Det finnes ikke noe metadata-felt. Signalet sier bare «noe i dette omfanget er 
 
 ### Samling med versjonsteller
 
-- Gjentatte signaler for samme omfang gir samme rad og høyere `version`. Mens raden venter, beholdes det tidligste tidspunktet. En rad i backoff beholder backoffen.
+- Gjentatte signaler for samme omfang gir samme rad og høyere `version`. Mens raden venter, beholdes det tidligste tidspunktet. En rad i backoff eller med en utsettelse fra handleren (`deferred`) beholder tidspunktet sitt, uavhengig av tidligere feil. Den utsatte eller nye kjøringen tar med seg de nye versjonene.
 - En behandler leaser gjeldende versjon (`claim`) og kvitterer bare for den: `processed_version = lease_version`. Signaler som kommer under kjøringen, gir høyere `version`, og raden blir stående. Kvitteringen publiserer da en ny vekking (`remaining`) etter commit.
-- Et signal mot en leaset rad publiserer ingenting, fordi kvitteringen vekker. Et signal mot en rad i backoff publiserer heller ingenting, fordi feilen allerede har planlagt vekking.
+- Et signal mot en leaset rad publiserer ingenting, fordi kvitteringen vekker. Et signal mot en rad i backoff eller en utsatt rad publiserer heller ingenting, fordi feilen eller utsettelsen allerede har planlagt vekking. Dermed gir nye signaler ikke ekstra statuskall mot en modellbatch som fortsatt kjører.
 
 ### Lease, retry og krasj
 
@@ -48,7 +49,7 @@ Det finnes ikke noe metadata-felt. Signalet sier bare «noe i dette omfanget er 
 
 En handler kan returnere `WorkOutcome::retryAt(t)`, for eksempel når en ekstern modellbatch fortsatt kjører. Da utsettes signalet uten at det teller som feil, og en `defer`-vekking planlegges til `t`.
 
-Leasen varer `ekko.work.lease_seconds` (360 s), lenger enn jobbens `timeout` (300 s). Når leasen utløper, kan en annen behandler overta signalet. Overtakelsen logges. Jobben `ProcessWorkSignal` arver `TenantJob` og bruker `SetTenantContext`, men ikke den ytre `ApplyTenantRls`-transaksjonen. Ellers ville leasen ikke vært synlig før jobben var ferdig. Dette er det andre bevisste unntaket etter `CollectEngineRun` (ADR 0020). Hvert databaseavsnitt kjører med `TenantRls::run` for jobbens tenant.
+Leasen varer `ekko.work.lease_seconds` (360 s), lenger enn jobbens `timeout` (300 s). Når leasen utløper, kan en annen behandler overta signalet. Overtakelsen logges, og et forsøk som aldri ble ferdig (krasj eller timeout) teller mot `alert_after_attempts` som en feil, så en handler som alltid bruker for lang tid, gir feillogg. Jobben `ProcessWorkSignal` arver `TenantJob` og bruker `SetTenantContext`, men ikke den ytre `ApplyTenantRls`-transaksjonen. Ellers ville leasen ikke vært synlig før jobben var ferdig. Som `CollectEngineRun` (ADR 0020) og noen andre jobber med egne transaksjonsfaser kjører hvert databaseavsnitt med `TenantRls::run` for jobbens tenant. `WorkProcessor::process()` avviser kall inne i en åpen transaksjon (under testkjøring tillates ett nivå for den transaksjonelle testen).
 
 En stengt tenant behandles ikke (T39-F6). En type uten konfigurert handler (`ekko.work.handlers`) behandles som feil, så signalet blir stående og synlig i loggen i stedet for å bli kvittert ubehandlet.
 
@@ -62,7 +63,7 @@ En stengt tenant behandles ikke (T39-F6). En type uten konfigurert handler (`ekk
 
 - `payload()`: bare `{tenant_id, signal_id}`, aldri råsvar, hemmeligheter eller kommandoer
 - `notBefore`: tidspunktet oppgaven skal kjøres (Cloud Tasks `scheduleTime`)
-- `key()`: `ws-<tenant>-<signal>-<processed_version>-<available_at>` (`[A-Za-z0-9-]`), brukbar som deterministisk Cloud Tasks-oppgave-ID. Signaler i samme ventende periode med samme tidspunkt får samme nøkkel og samles. Retry og utsettelse flytter `available_at` og gir ny nøkkel. Gjenopprettingsvekking får suffiks `-r<tid>`, fordi den opprinnelige ID-en kan være brukt opp av en levering som ikke fant signalet ledig.
+- `key()`: `ws-<tenant>-<signal>-<processed_version>-<available_at i ms>-<reason>` (`[a-z0-9-]`), brukbar som deterministisk Cloud Tasks-oppgave-ID. Signaler i samme ventende periode med samme tidspunkt og årsak får samme nøkkel og samles. Retry og utsettelse har egen årsak og eget tidspunkt og får ny nøkkel, også når en utsettelse havner i samme millisekund som vekkingen som kjørte den. Gjenopprettingsvekking får sveipetiden som suffiks, fordi den opprinnelige ID-en kan være brukt opp av en levering som ikke fant signalet ledig.
 - `reason`: `signal`, `remaining`, `retry`, `defer` eller `recovery`, for måling
 
 Levering kan skje flere ganger og for sent. Mottakeren (`ProcessWorkSignal` eller del 3s HTTP-mål) kaller `WorkProcessor::process(signal_id)` i tenantens kontekst. Et resultat med `BUSY` og `busyUntil` betyr «kom tilbake da»: køjobben frigir seg selv, og del 3 kan svare med en feilkode så Cloud Tasks prøver igjen, eller planlegge ny vekking. HTTP 2xx betyr bare at vekkingen er mottatt. Raden er kvitteringen.

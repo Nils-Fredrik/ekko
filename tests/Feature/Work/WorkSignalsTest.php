@@ -85,7 +85,7 @@ test('a signal is registered in the transaction and published only after commit'
         ->and($wakeUp->signalId)->toBe($row->id)
         ->and($wakeUp->reason)->toBe(WorkWakeUp::REASON_SIGNAL)
         ->and($wakeUp->payload())->toBe(['tenant_id' => $this->tenant->id, 'signal_id' => $row->id])
-        ->and($wakeUp->key())->toBe('ws-'.$this->tenant->id.'-'.$row->id.'-0-'.CarbonImmutable::now()->getTimestamp())
+        ->and($wakeUp->key())->toBe('ws-'.$this->tenant->id.'-'.$row->id.'-0-'.CarbonImmutable::now()->getTimestampMs().'-signal')
         ->and($wakeUp->key())->toMatch('/^[A-Za-z0-9_-]{1,500}$/');
 });
 
@@ -372,6 +372,69 @@ test('a handler can defer without a failure, for an external batch that is still
         ->and(app(WorkProcessor::class)->process($id)->status)->toBe(WorkResult::BUSY);
 });
 
+test('a new signal keeps a deferral, without a wake-up of its own', function (bool $failedBefore) {
+    $fail = $failedBefore;
+    ($this->handler)(function () use (&$fail) {
+        if ($fail) {
+            $fail = false;
+
+            throw new RuntimeException('down');
+        }
+
+        return WorkOutcome::retryAt(CarbonImmutable::now()->addMinutes(10));
+    });
+    ($this->signal)();
+    $id = ($this->row)()->id;
+    if ($failedBefore) {
+        expect(app(WorkProcessor::class)->process($id)->status)->toBe(WorkResult::FAILED);
+        $this->travelTo(($this->row)()->available_at);
+    }
+    expect(app(WorkProcessor::class)->process($id)->status)->toBe(WorkResult::DEFERRED);
+    $deferredUntil = ($this->row)()->available_at;
+    $published = count($this->publisher->published);
+
+    ($this->signal)();
+    ($this->signal)();
+
+    $row = ($this->row)();
+    expect($row->available_at->equalTo($deferredUntil))->toBeTrue()
+        ->and($row->deferred)->toBeTrue()
+        ->and($row->version)->toBe(3)
+        ->and($this->publisher->published)->toHaveCount($published)
+        ->and(app(WorkProcessor::class)->process($id)->status)->toBe(WorkResult::BUSY);
+
+    // The deferred run takes the new versions with it.
+    $this->travelTo($deferredUntil);
+    $claim = ($this->claim)($id);
+    expect($claim->version)->toBe(3)
+        ->and(($this->row)()->deferred)->toBeFalse();
+})->with(['without earlier failures' => false, 'after a failure' => true]);
+
+test('a deferral in the same millisecond as its wake-up still gets its own wake-up key', function () {
+    ($this->handler)(fn () => WorkOutcome::retryAt(CarbonImmutable::now()->subMinute()));
+    ($this->signal)();
+
+    expect(app(WorkProcessor::class)->process(($this->row)()->id)->status)->toBe(WorkResult::DEFERRED)
+        ->and($this->publisher->published)->toHaveCount(2)
+        ->and($this->publisher->published[0]->notBefore->equalTo($this->publisher->published[1]->notBefore))->toBeTrue()
+        ->and($this->publisher->published[0]->key())->not->toBe($this->publisher->published[1]->key());
+});
+
+test('repeated lease expiry counts towards the alert threshold', function () {
+    Log::spy();
+    config(['ekko.work.alert_after_attempts' => 2]);
+    ($this->signal)();
+    $id = ($this->row)()->id;
+
+    foreach (range(1, 3) as $ignored) {
+        expect(($this->claim)($id))->not->toBeNull();
+        $this->travel(361)->seconds();
+    }
+
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message) => str_contains($message, 'taken over'))->once();
+    Log::shouldHaveReceived('error')->withArgs(fn (string $message, array $context) => str_contains($message, 'keeps failing') && $context['attempts'] === 2)->once();
+});
+
 test('a lost lease rolls back the handler writes and leaves the signal to the new owner', function () {
     TenantRecord::createTable();
     ($this->signal)();
@@ -427,7 +490,7 @@ test('a failed publish loses no work, and the recovery sweep wakes it again', fu
     $this->artisan('ekko:work:recover')->assertSuccessful();
     expect($this->publisher->reasons())->toBe([WorkWakeUp::REASON_RECOVERY])
         ->and($this->publisher->published[0]->tenantId)->toBe($this->tenant->id)
-        ->and($this->publisher->published[0]->key())->toEndWith('-r'.CarbonImmutable::now()->getTimestamp());
+        ->and($this->publisher->published[0]->key())->toEndWith('-recovery-'.CarbonImmutable::now()->getTimestampMs());
 });
 
 test('a crash between commit and publish loses no work', function () {
@@ -500,7 +563,7 @@ test('the queue publisher queues a unique ProcessWorkSignal per wake-up key, del
 
     Queue::assertPushed(ProcessWorkSignal::class, 2);
     Queue::assertPushed(ProcessWorkSignal::class, fn (ProcessWorkSignal $job) => $job->signalId === 7 && $job->delay === null
-        && $job->tenantId() === $this->tenant->id && $job->uniqueId() === 'work:ws-'.$this->tenant->id.'-7-0-'.$now->getTimestamp());
+        && $job->tenantId() === $this->tenant->id && $job->uniqueId() === 'work:ws-'.$this->tenant->id.'-7-0-'.$now->getTimestampMs().'-signal');
     Queue::assertPushed(ProcessWorkSignal::class, fn (ProcessWorkSignal $job) => $job->signalId === 8 && $job->delay !== null);
 });
 

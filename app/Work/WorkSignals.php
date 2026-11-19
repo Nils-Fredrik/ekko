@@ -59,7 +59,8 @@ final class WorkSignals
         $available = $notBefore !== null && $notBefore->greaterThan($now) ? $notBefore->utc() : $now;
 
         // An idle row starts a new pending epoch at the requested time. A pending row keeps the earliest time,
-        // except while it waits out a retry backoff. A leased row only gets a higher version.
+        // except while it waits out a retry backoff or a deferral the handler asked for: those keep their time, and
+        // the deferred or retried run picks up the new version. A leased row only gets a higher version.
         $row = $db->selectOne(<<<'SQL'
             INSERT INTO work_signals AS w
                 (tenant_id, kind, scope, version, processed_version, available_at, pending_since, last_signaled_at, attempts, created_at, updated_at)
@@ -71,14 +72,15 @@ final class WorkSignals
                 pending_since = CASE WHEN w.version = w.processed_version THEN EXCLUDED.pending_since ELSE w.pending_since END,
                 available_at = CASE
                     WHEN w.version = w.processed_version THEN EXCLUDED.available_at
-                    WHEN w.lease_token IS NULL AND w.attempts > 0 THEN w.available_at
+                    WHEN w.lease_token IS NULL AND (w.attempts > 0 OR w.deferred) THEN w.available_at
                     ELSE LEAST(w.available_at, EXCLUDED.available_at)
                 END
-            RETURNING id, processed_version, available_at, lease_token, attempts
+            RETURNING id, processed_version, available_at, lease_token, attempts, deferred
             SQL, [$tenantId, $kind->value, $scope, $this->ts($available), $this->ts($now), $this->ts($now), $this->ts($now), $this->ts($now)]);
 
-        // A leased row is woken by its acknowledgement, a row in backoff by its failure; both already published.
-        if ($row->lease_token === null && (int) $row->attempts === 0) {
+        // A leased row is woken by its acknowledgement, a row in backoff by its failure and a deferred row by its
+        // deferral; all of them already published.
+        if ($row->lease_token === null && (int) $row->attempts === 0 && ! $row->deferred) {
             $wakeUp = new WorkWakeUp($tenantId, (int) $row->id, (int) $row->processed_version, CarbonImmutable::parse($row->available_at)->utc());
             $db->afterCommit(fn () => $this->publish($wakeUp));
         }
@@ -98,7 +100,7 @@ final class WorkSignals
         $row = $this->connection()->selectOne(<<<'SQL'
             UPDATE work_signals AS w SET
                 lease_token = ?, lease_version = w.version, leased_at = ?, lease_expires_at = ?,
-                attempts = w.attempts + 1, updated_at = ?
+                attempts = w.attempts + 1, deferred = false, updated_at = ?
             FROM (SELECT id, lease_token AS previous FROM work_signals WHERE id = ? AND tenant_id = ? FOR UPDATE) AS old
             WHERE w.id = old.id
                 AND w.version > w.processed_version
@@ -112,7 +114,14 @@ final class WorkSignals
         }
 
         if ($row->taken_over) {
-            Log::warning('Work signal lease expired and was taken over.', ['tenant_id' => $tenantId, 'work_signal_id' => $signalId]);
+            // The previous attempt never finished (a crash or a timeout): it counts towards the alert threshold too,
+            // so a handler that always outlives its lease is not retried silently.
+            $context = ['tenant_id' => $tenantId, 'work_signal_id' => $signalId, 'attempts' => (int) $row->attempts - 1];
+            if ((int) $row->attempts - 1 >= (int) config('ekko.work.alert_after_attempts')) {
+                Log::error('Work signal keeps failing: its lease expired again and was taken over.', $context);
+            } else {
+                Log::warning('Work signal lease expired and was taken over.', $context);
+            }
         }
 
         return new WorkClaim($tenantId, (int) $row->id, WorkKind::from($row->kind), $row->scope, (int) $row->version, $token, (int) $row->attempts, $expires);
@@ -176,7 +185,7 @@ final class WorkSignals
         $row = $this->connection()->selectOne(<<<'SQL'
             UPDATE work_signals SET
                 lease_token = NULL, lease_version = NULL, leased_at = NULL, lease_expires_at = NULL,
-                attempts = GREATEST(attempts - 1, 0), available_at = ?, updated_at = ?
+                attempts = GREATEST(attempts - 1, 0), deferred = true, available_at = ?, updated_at = ?
             WHERE id = ? AND tenant_id = ? AND lease_token = ?
             RETURNING processed_version, available_at
             SQL, [$this->ts($at->greaterThan($now) ? $at->utc() : $now), $this->ts($now), $claim->signalId, $claim->tenantId, $claim->token]);

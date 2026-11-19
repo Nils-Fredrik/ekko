@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property CarbonInterface|null $leased_at
  * @property CarbonInterface|null $lease_expires_at
  * @property int $attempts
+ * @property bool $deferred
  * @property string|null $last_error
  * @property CarbonInterface|null $processed_at
  */
@@ -50,6 +51,7 @@ class WorkSignal extends Model
             'processed_version' => 'integer',
             'lease_version' => 'integer',
             'attempts' => 'integer',
+            'deferred' => 'boolean',
             'available_at' => 'immutable_datetime',
             'pending_since' => 'immutable_datetime',
             'last_signaled_at' => 'immutable_datetime',

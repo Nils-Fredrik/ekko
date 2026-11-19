@@ -6,7 +6,9 @@ use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use App\Work\LeaseLost;
 use App\Work\WorkKind;
+use App\Work\WorkProcessor;
 use App\Work\WorkPublisher;
+use App\Work\WorkResult;
 use App\Work\WorkSignals;
 use App\Work\WorkWakeUp;
 use Carbon\CarbonImmutable;
@@ -162,4 +164,12 @@ test('work committed while the wake-up fails is published by the recovery sweep'
 
     expect($this->publisher->reasons())->toBe([WorkWakeUp::REASON_RECOVERY])
         ->and($this->publisher->levels)->toBe([0, 0]);
+});
+
+test('the processor refuses to run inside a transaction, where its lease would stay invisible', function () {
+    expect(app(WorkProcessor::class)->process(1)->status)->toBe(WorkResult::IDLE);
+
+    // Under the test runner one level is allowed for the transactional test case, so nest two here.
+    expect(fn () => DB::transaction(fn () => DB::transaction(fn () => app(WorkProcessor::class)->process(1))))
+        ->toThrow(LogicException::class, 'work_processor_must_not_run_in_a_transaction');
 });
