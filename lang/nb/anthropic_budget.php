@@ -12,6 +12,7 @@ return [
     'forecast' => 'Prognose inkludert buffer: :amount USD',
     'buffer' => 'Buffer: :amount USD',
     'held' => 'Reservert for pågående kall: :amount USD',
+    'platform_paid' => 'Herav hjelpekall betalt av plattformen: :amount USD',
     'additions' => 'Planlagte tillegg i dag',
     'none' => 'Ingen tillegg',
     'no_forecast' => 'Ingen prognose er beregnet ennå.',

@@ -37,11 +37,13 @@ final class Planner
                 return;
             }
             $baseline = 0;
+            $platformPaid = 0;
             $offers = [];
             $tenants = Team::query()->where('personal_team', false)->where('status', TenantStatus::Active->value)->with('plan')->orderBy('id')->get();
             foreach ($tenants as $tenant) {
                 $catalog = $this->context->run($tenant->id, fn () => $this->rls->run([$tenant->id], fn () => $this->catalog($tenant, $now, $days)));
                 $baseline += $catalog['baseline'];
+                $platformPaid += $catalog['platform_paid'];
                 array_push($offers, ...$catalog['offers']);
             }
             // Rotate ties daily across tenants. Variance has priority only within the repetition tier.
@@ -66,21 +68,27 @@ final class Planner
                 }));
             }
             $counts = array_count_values(array_column($forecast['additions'], 'kind'));
-            $public = ['forecast_usd' => Money::usd($forecast['forecast']), 'buffer_usd' => Money::usd($forecast['buffer']), 'available_usd' => Money::usd($forecast['available']), 'held_usd' => Money::usd($held), 'additions' => $counts];
+            $public = ['forecast_usd' => Money::usd($forecast['forecast']), 'buffer_usd' => Money::usd($forecast['buffer']), 'available_usd' => Money::usd($forecast['available']), 'held_usd' => Money::usd($held), 'platform_paid_usd' => Money::usd($platformPaid), 'additions' => $counts];
             DB::table('anthropic_budget_cycles')->upsert([['cycle_start' => $cycle->start->toDateString(), 'forecast' => json_encode($public, JSON_THROW_ON_ERROR), 'planned_at' => $now]], ['cycle_start'], ['forecast', 'planned_at']);
         } finally {
             $lock->release();
         }
     }
 
-    /** @return array{baseline: int, offers: list<array{key: string, kind: string, cost: int, tier: int, variance: float, tenant: int, prompt: int, engine: string, repetition: int, brand?: int}>} */
+    /**
+     * The baseline includes the tenant's expected platform-paid helper calls (platform_paid, also on its own), which
+     * are outside its quota but draw on the same account (ADR 0034).
+     *
+     * @return array{baseline: int, platform_paid: int, offers: list<array{key: string, kind: string, cost: int, tier: int, variance: float, tenant: int, prompt: int, engine: string, repetition: int, brand?: int}>}
+     */
     private function catalog(Team $tenant, CarbonImmutable $now, int $days): array
     {
-        $baseline = 0;
+        $platformPaid = $this->estimator->platformPaid($now, $days);
+        $baseline = $platformPaid;
         $offers = [];
         $plan = $tenant->plan;
         if ($plan === null) {
-            return compact('baseline', 'offers');
+            return ['baseline' => $baseline, 'platform_paid' => $platformPaid, 'offers' => $offers];
         }
         $extractionCost = $this->estimator->expectedExtraction($now);
         $local = $now->setTimezone($tenant->timezone)->startOfDay();
@@ -142,6 +150,6 @@ final class Planner
             }
         }
 
-        return ['baseline' => $baseline, 'offers' => array_values($offers)];
+        return ['baseline' => $baseline, 'platform_paid' => $platformPaid, 'offers' => array_values($offers)];
     }
 }

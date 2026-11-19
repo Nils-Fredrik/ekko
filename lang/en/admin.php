@@ -84,5 +84,7 @@ return [
         'unassigned' => 'Unassigned',
         'export' => 'Export billing basis',
         'engines' => 'Cost per engine',
+        'platform_paid' => 'Paid by the platform',
+        'platform_paid_hint' => 'Helper calls the platform pays for, such as wording actions. Not counted in the tenant\'s quota, budget or billing basis.',
     ],
 ];

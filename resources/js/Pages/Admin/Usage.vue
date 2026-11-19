@@ -39,6 +39,7 @@ function usd(value) {
                             <th class="p-2 text-right">{{ $t('admin.usage.calls') }}</th>
                             <th class="p-2 text-right">{{ $t('admin.usage.cost') }}</th>
                             <th class="p-2 text-right">{{ $t('admin.usage.byok') }}</th>
+                            <th class="p-2 text-right">{{ $t('admin.usage.platform_paid') }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -47,9 +48,13 @@ function usd(value) {
                             <td class="p-2 text-right tabular-nums">{{ tenant.calls }}</td>
                             <td class="p-2 text-right tabular-nums">{{ usd(tenant.cost_usd) }}</td>
                             <td class="p-2 text-right tabular-nums">{{ usd(tenant.byok_cost_usd) }}</td>
+                            <td class="p-2 text-right tabular-nums">{{ usd(tenant.platform_paid_cost_usd) }}</td>
                         </tr>
                     </tbody>
                 </table>
+                <p v-if="tenants.length" class="mt-2 text-xs text-shell-muted">
+                    {{ $t('admin.usage.platform_paid_hint') }}
+                </p>
                 <h3 class="mt-6 font-medium">{{ $t('admin.usage.engines') }}</h3>
                 <EmptyState
                     v-if="!engines.length"
@@ -109,6 +114,11 @@ function usd(value) {
                     <p>{{ $t('anthropic_budget.forecast', { amount: usd(anthropic.forecast.forecast_usd) }) }}</p>
                     <p>{{ $t('anthropic_budget.buffer', { amount: usd(anthropic.forecast.buffer_usd) }) }}</p>
                     <p>{{ $t('anthropic_budget.held', { amount: usd(anthropic.forecast.held_usd) }) }}</p>
+                    <p v-if="anthropic.forecast.platform_paid_usd !== undefined">
+                        {{
+                            $t('anthropic_budget.platform_paid', { amount: usd(anthropic.forecast.platform_paid_usd) })
+                        }}
+                    </p>
                     <h3 class="font-medium">{{ $t('anthropic_budget.additions') }}</h3>
                     <p v-if="Object.keys(anthropic.forecast.additions).length === 0">
                         {{ $t('anthropic_budget.none') }}

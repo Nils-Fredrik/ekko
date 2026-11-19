@@ -12,6 +12,7 @@ return [
     'forecast' => 'Prognos inklusive buffert: :amount USD',
     'buffer' => 'Buffert: :amount USD',
     'held' => 'Reserverat för pågående anrop: :amount USD',
+    'platform_paid' => 'Varav hjälpanrop betalda av plattformen: :amount USD',
     'additions' => 'Planerade tillägg i dag',
     'none' => 'Inga tillägg',
     'no_forecast' => 'Ingen prognos har beräknats ännu.',
