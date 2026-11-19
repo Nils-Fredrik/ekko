@@ -127,7 +127,7 @@ final class ExtractionSubmitter
     /**
      * Whether a failed submit may still have created the batch: a broken connection or timeout, a request timeout
      * or a server error. A rejection (4xx such as 400, 401, 413 or 429) created nothing and is safe to try again,
-     * and so is a failure before the request went out.
+     * and so is 529 (overloaded: the API did not take the request) and a failure before the request went out.
      */
     public static function ambiguous(Throwable $failure): bool
     {
@@ -135,6 +135,6 @@ final class ExtractionSubmitter
             return true;
         }
 
-        return $failure instanceof APIStatusException && ($failure->status === null || $failure->status === 408 || $failure->status >= 500);
+        return $failure instanceof APIStatusException && ($failure->status === null || $failure->status === 408 || ($failure->status >= 500 && $failure->status !== 529));
     }
 }

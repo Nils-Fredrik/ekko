@@ -5,6 +5,7 @@ use App\Engines\EngineCollector;
 use App\Engines\EngineRegistry;
 use App\Engines\QueuedEngineCollector;
 use App\Engines\RawResponseStore;
+use App\Extraction\AnthropicExtractionClient;
 use App\Extraction\ExtractionClient;
 use App\Extraction\ExtractionWriter;
 use App\Jobs\CollectEngineRun;
@@ -49,6 +50,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Tests\Support\Engines\EngineFixtures;
 use Tests\Support\Extraction\FakeExtractionClient;
+use Tests\Support\Extraction\FakeHttpClient;
 use Tests\Support\Work\ChainEngineAdapter;
 use Tests\Support\Work\ChainExtractionClient;
 use Tests\Support\Work\ChainRawStore;
@@ -578,3 +580,55 @@ test('a batch status check has a scope of internal ids only', function () {
         ->and(WorkKind::Extraction->accepts('extraction_job:abc'))->toBeFalse()
         ->and(WorkKind::Aggregation->accepts('extraction_job:42'))->toBeFalse();
 });
+
+test('answers already in a submitted batch do not make the rest of the group look like a full batch', function () {
+    config(['ekko.anthropic.extraction.batch_size' => 2]);
+    $world = ($this->world)(engines: ['chain_engine', 'chain_engine', 'chain_engine', 'chain_engine']);
+    $tenant = $world['tenant'];
+    $group = 'extraction:'.WorkScope::runBatch($world['batch']->id);
+
+    ($this->collect)($tenant, $world['runs'][0]);
+    ($this->collect)($tenant, $world['runs'][1]);
+    ($this->drain)();
+    expect($this->extraction->inner->batches)->toHaveCount(1);
+
+    // The first two are in flight; the third alone is no full batch and waits for the group.
+    ($this->collect)($tenant, $world['runs'][2]);
+    expect(($this->signals)($tenant)[$group]->available_at->isFuture())->toBeTrue();
+    ($this->drain)();
+    expect($this->extraction->inner->batches)->toHaveCount(1);
+
+    // The last one finishes the group: both go together.
+    ($this->collect)($tenant, $world['runs'][3]);
+    ($this->drain)();
+    expect($this->extraction->inner->batches)->toHaveCount(2)
+        ->and($this->extraction->inner->batches[1])->toHaveCount(2);
+});
+
+test('the real client: a possibly accepted submission gets the fallback, a rejection is retried', function (int $status, bool $ambiguous) {
+    config(['services.anthropic.key' => 'test-key-not-real']);
+    $http = new FakeHttpClient(['POST /v1/messages/batches' => [$status, '{"type":"error","error":{"type":"api_error","message":"failure"}}']]);
+    app()->instance(ExtractionClient::class, AnthropicExtractionClient::fromConfig($http));
+    $world = ($this->world)(engines: ['chain_engine']);
+    $tenant = $world['tenant'];
+    ($this->collect)($tenant, $world['runs'][0]);
+
+    $statuses = ($this->drain)();
+
+    // Sent once, never by the SDK again; then either the terminal fallback or a backoff without it.
+    $signal = ($this->signals)($tenant)['extraction:'.WorkScope::runBatch($world['batch']->id)];
+    expect($http->requests)->toHaveCount(1)
+        ->and(in_array(WorkResult::FAILED, $statuses, true))->toBe(! $ambiguous)
+        ->and($signal->isPending())->toBe(! $ambiguous)
+        ->and($signal->attempts)->toBe($ambiguous ? 0 : 1);
+    ($this->inTenant)($tenant, function () use ($world, $ambiguous) {
+        expect($world['runs'][0]->refresh()->status)->toBe($ambiguous ? 'extracted' : 'collected')
+            ->and(Response::query()->sole()->llm_failed)->toBe($ambiguous);
+    });
+})->with([
+    'server error' => [500, true],
+    'request timeout' => [408, true],
+    'bad request' => [400, false],
+    'rate limited' => [429, false],
+    'overloaded' => [529, false],
+]);

@@ -100,8 +100,8 @@ Del 2 kaller `signal()` i samme transaksjon som lagringen. Det gjelder etter inn
 
 | Hendelse | Hvor | Signal |
 |---|---|---|
-| Kjøring blir `collected` | `EngineCollector::settle`, `QueuedEngineCollector` | `extraction`, `run_batch:<id>`; med en gang når gruppen er ferdig eller har en full batch, ellers etter `ekko.work.extraction.group_wait_seconds` |
-| Kjøring ender uten svar (`failed`, `skipped_quota`) | `CollectEngineRun::stop`, kvotestopp i begge innsamlerne | `extraction`, `run_batch:<id>` med en gang, hvis gruppen da er ferdig og har svar som venter |
+| Kjøring blir `collected` | `EngineCollector::settle`, `QueuedEngineCollector` | `extraction`, `run_batch:<id>`; med en gang når gruppen er ferdig eller har en full batch av svar som ikke er i en innsendt batch, ellers etter `ekko.work.extraction.group_wait_seconds` |
+| Kjøring ender uten svar (`failed`, `skipped_quota`) | `CollectEngineRun::stop`, kvotestopp i begge innsamlerne (kvotestopp ved planlegging skjer før gruppen har svar, og signalerer ikke) | `extraction`, `run_batch:<id>` med en gang, hvis gruppen da er ferdig og har svar som venter |
 | Batch sendt inn | `ExtractionSubmitter` | `extraction`, `extraction_job:<id>`, første kontroll etter `status_first_seconds` |
 | Svar blir `extracted` (normal batch, tomt svar, terminal fallback) | `ExtractionWriter::markExtracted` | `aggregation`, lokal dato for `responses.collected_at` i tenantens tidssone |
 | `UsageEvent` opprettet (innhenting, uttrekk, veiviser, rapporter) | `UsageWorkObserver` | `usage_rollup`, UTC-måned for `occurred_at` |
@@ -116,7 +116,7 @@ Alle signaler skjer i transaksjonen til lagringen, så rollback gir verken behov
 
 ### Betalte batcher
 
-En betalt batch skal aldri sendes på nytt i blinde. Med bryteren på sendes batchinnsendingen uten SDK-ens egne omforsøk. Feil som betyr at batchen kan ha blitt opprettet (brutt forbindelse, tidsavbrudd, 408, 5xx), gir terminal fallback for svarene i stedet for et nytt forsøk: deterministiske resultater beholdes, `llm_failed` settes, og `extraction.submit_ambiguous` logges med tenant-ID, antall og unntaksklasse. Avvisninger (4xx) og feil før kallet gir vanlig backoff. Statuskontroller bruker bare `retrieve`, aldri en ny innsending. Et krasj etter innsending, men før commit, kan fortsatt gi en ny innsending; det er det samme som i dagens jobb, og leasen (360 s) er lengre enn jobbens tidsgrense (300 s).
+En betalt batch skal aldri sendes på nytt i blinde. Med bryteren på sendes batchinnsendingen uten SDK-ens egne omforsøk. Feil som betyr at batchen kan ha blitt opprettet (brutt forbindelse, tidsavbrudd, 408, 5xx unntatt 529), gir terminal fallback for svarene i stedet for et nytt forsøk: deterministiske resultater beholdes, `llm_failed` settes, og `extraction.submit_ambiguous` logges med tenant-ID, antall og unntaksklasse. Avvisninger (4xx), 529 (overbelastet: forespørselen ble ikke tatt imot) og feil før kallet gir vanlig backoff. Testene kjører den ekte klienten mot en PSR-18-transport og viser at batchen sendes nøyaktig én gang. Statuskontroller bruker bare `retrieve`, aldri en ny innsending. Et krasj etter innsending, men før commit, kan fortsatt gi en ny innsending; det er det samme som i dagens jobb, og leasen (360 s) er lengre enn jobbens tidsgrense (300 s).
 
 ### Rettinger fra review av del 1
 

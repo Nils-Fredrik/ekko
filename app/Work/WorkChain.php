@@ -51,7 +51,15 @@ final class WorkChain
         }
 
         $batchId = (int) $run->run_batch_id;
-        $waiting = Run::query()->where('run_batch_id', $batchId)->where('status', 'collected')->count();
+        // Only answers a new batch can take: those already in a submitted batch stay collected until their results
+        // are written, and must not make every later answer of the group look like a full batch.
+        $waiting = Response::query()
+            ->whereHas('run', fn ($query) => $query->where('run_batch_id', $batchId)->where('status', 'collected'))
+            ->whereNotExists(fn ($query) => $query->selectRaw('1')->from('extraction_jobs')
+                ->whereColumn('extraction_jobs.tenant_id', 'responses.tenant_id')
+                ->where('extraction_jobs.status', 'submitted')
+                ->whereRaw('extraction_jobs.response_ids @> to_jsonb(responses.id)'))
+            ->count();
         $full = $waiting >= max(1, (int) config('ekko.anthropic.extraction.batch_size'));
         $notBefore = $full || ! $this->inProgress($batchId)
             ? null
