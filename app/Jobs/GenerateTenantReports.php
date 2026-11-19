@@ -41,6 +41,9 @@ class GenerateTenantReports extends TenantJob
 
     public function handle(TenantRls $rls, ReportPublisher $publisher, InsightWriter $insights): void
     {
+        if (! Team::query()->findOrFail($this->tenantId)->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            return;
+        }
         $lock = Cache::lock('reports:tenant:'.$this->tenantId, InsightWriter::CLAIM_SECONDS);
         if (! $lock instanceof Lock) {
             throw new RuntimeException('The report lock cannot be renewed.');
@@ -73,6 +76,9 @@ class GenerateTenantReports extends TenantJob
         /** @var array<int, true> $claimedBrands */
         $claimedBrands = [];
         foreach ($due as $item) {
+            if (! $tenant->refresh()->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+                return;
+            }
             try {
                 $this->hold($lock);
                 $rls->run([$this->tenantId], fn () => $publisher->claim($item));
@@ -94,6 +100,10 @@ class GenerateTenantReports extends TenantJob
                 report($e);
                 $failed = true;
             }
+        }
+
+        if (! $tenant->refresh()->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            return;
         }
 
         /** @var list<Report> $unsent */

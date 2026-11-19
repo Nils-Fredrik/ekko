@@ -10,6 +10,7 @@ use App\Jobs\PollExtractionBatch;
 use App\Jobs\SubmitExtractionBatch;
 use App\Models\ExtractionJob;
 use App\Models\Response;
+use App\Models\Team;
 use App\Work\WorkChain;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -41,6 +42,10 @@ final class ExtractionSubmitter
     /** Submits the next batch; true when more answers wait than fitted in it. */
     public function submitNext(int $tenantId): bool
     {
+        $tenant = Team::query()->findOrFail($tenantId);
+        if (! $tenant->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            return false;
+        }
         DB::select('select pg_advisory_xact_lock(?, ?)', [self::LOCK_NAMESPACE, $tenantId]);
 
         $size = max(1, (int) config('ekko.anthropic.extraction.batch_size'));
@@ -90,6 +95,9 @@ final class ExtractionSubmitter
             $response->annotationUrls(),
         ))->all();
 
+        if (! $tenant->refresh()->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            return false;
+        }
         try {
             $batchId = $this->runner->submit($requests);
         } catch (Throwable $failure) {

@@ -44,6 +44,10 @@ final readonly class ActionFormulator
             return null;
         }
 
+        $project = Team::query()->findOrFail($tenantId);
+        if (! $project->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            return null;
+        }
         $configured = app(Account::class)->configured();
         $operation = 'actions:'.Str::uuid()->toString();
         $log = ['tenant' => $tenantId, 'action' => $actionId, 'operation' => $operation];
@@ -53,7 +57,15 @@ final readonly class ActionFormulator
             return null;
         }
 
-        $projectKind = Team::query()->findOrFail($tenantId)->kind;
+        $project = Team::query()->findOrFail($tenantId);
+        if (! $project->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            if ($configured) {
+                Account::independent()->settle($operation);
+            }
+
+            return null;
+        }
+        $projectKind = $project->kind;
         try {
             // Resolved here: without ANTHROPIC_API_KEY the container cannot build the client.
             $result = app(ActionWriter::class)->write($request);

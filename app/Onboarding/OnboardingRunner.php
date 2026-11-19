@@ -43,6 +43,9 @@ final class OnboardingRunner
 
     public function brand(Analysis $analysis): void
     {
+        if (! $this->mayStart($analysis)) {
+            return;
+        }
         /** @var array{name: string, primary_domain: string, country: string, language: string} $input */
         $input = $analysis->input;
 
@@ -73,6 +76,9 @@ final class OnboardingRunner
 
     public function market(Analysis $analysis): void
     {
+        if (! $this->mayStart($analysis)) {
+            return;
+        }
         /** @var array{brand_id: int, country: string, language: string} $input */
         $input = $analysis->input;
 
@@ -104,6 +110,9 @@ final class OnboardingRunner
      */
     private function finish(Analysis $analysis, OnboardingRequest $request, callable $parse): void
     {
+        if (! $this->mayStart($analysis)) {
+            return;
+        }
         try {
             // Resolved here, not injected: without ANTHROPIC_API_KEY the container cannot build the client.
             $result = app(OnboardingModelClient::class)->suggest($request);
@@ -132,6 +141,16 @@ final class OnboardingRunner
         $analysis->proposal = $parsed['proposal'];
         $analysis->warnings = $parsed['warnings'];
         $this->advance($analysis, Analysis::READY);
+    }
+
+    private function mayStart(Analysis $analysis): bool
+    {
+        if (Team::query()->findOrFail($analysis->tenantId)->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            return true;
+        }
+        $this->fail($analysis, 'pitch_expired');
+
+        return false;
     }
 
     /**

@@ -76,6 +76,20 @@ it('can be polled until ready, and is a 404 once the proposal has expired', func
     $this->getJson("/onboarding/analyses/{$id}")->assertNotFound();
 });
 
+it('stops a queued analysis when the pitch expires before the worker starts', function () {
+    [$tenant, $owner] = wizardTenant();
+    $tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addMinute()])->save();
+    $fakes = OnboardingFakes::bind();
+    Queue::fake();
+    $id = $this->actingAs($owner)->postJson('/onboarding/analyses', startBrandAnalysis())->assertStatus(202)->json('id');
+
+    $this->travel(2)->minutes();
+    (new RunOnboardingAnalysis($tenant->id, $id))->handle(app(AnalysisStore::class), app(OnboardingRunner::class));
+
+    expect($fakes->model->requests)->toBeEmpty();
+    $this->getJson("/onboarding/analyses/{$id}")->assertOk()->assertJsonPath('status', 'failed')->assertJsonPath('error.code', 'pitch_expired');
+});
+
 it('sets the job up for a tenant without a job-wide transaction, and never retries it', function () {
     $job = new RunOnboardingAnalysis(7, 'x');
 

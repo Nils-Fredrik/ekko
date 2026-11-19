@@ -83,6 +83,19 @@ function asTenant(Team $tenant, Closure $callback): mixed
     return app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], $callback));
 }
 
+it('does not submit queued extraction after pitch expiry', function () {
+    $a = extractionTenant();
+    $a['tenant']->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()])->save();
+    $response = collectedResponse($a, 'Et innsamlet svar.');
+    $client = new FakeExtractionClient(fn (string $id): array => entry([]));
+    app()->instance(ExtractionClient::class, $client);
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+
+    expect($client->batches)->toBeEmpty()
+        ->and($response->run()->withoutGlobalScopes()->first()->status)->toBe('collected');
+});
+
 it('submits one batch per tenant for collected answers and stores the batch as an extraction job', function () {
     Bus::fake([PollExtractionBatch::class]);
     $a = extractionTenant();

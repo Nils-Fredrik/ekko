@@ -74,7 +74,7 @@ final class Dispatcher
                         }
 
                         $this->refreshBatches();
-                        if (Run::query()->where('status', 'collected')->exists()) {
+                        if ($tenant->mayStartProjectWorkAt($now) && Run::query()->where('status', 'collected')->exists()) {
                             SubmitExtractionBatch::dispatch($tenant->id)->onConnection('database')->afterCommit();
                         }
 

@@ -68,7 +68,7 @@ final class FactChecker
      */
     public function run(int $tenantId, int $deadline): string
     {
-        if (! $this->available()) {
+        if (! $this->available() || ! Team::query()->findOrFail($tenantId)->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
             return self::DONE;
         }
         if (! DB::selectOne('select pg_try_advisory_lock(?, ?) as locked', [self::LOCK_NAMESPACE, $tenantId])->locked) {
@@ -93,12 +93,15 @@ final class FactChecker
             if (CarbonImmutable::now()->getTimestamp() >= $deadline) {
                 return self::MORE;
             }
-            $projectKind = Team::query()->findOrFail($tenantId)->kind;
+            $project = Team::query()->findOrFail($tenantId);
+            if (! $project->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+                return self::DONE;
+            }
             $outcome = $this->call($tenantId, $item['request']);
             if ($outcome === 'stop') {
                 return self::DONE;
             }
-            $this->store($tenantId, $item, $outcome instanceof FactJudgeResult ? $outcome : null, $projectKind);
+            $this->store($tenantId, $item, $outcome instanceof FactJudgeResult ? $outcome : null);
             if ($outcome === 'unknown') {
                 // The outcome of the call is unknown (timeout, 5xx, 529): the service may be down, and each further
                 // call could be billed without a trace. This answer is marked judged; the rest wait for the next run.
@@ -162,6 +165,14 @@ final class FactChecker
             return 'stop';
         }
 
+        $project = Team::query()->findOrFail($tenantId);
+        if (! $project->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            if ($configured) {
+                Account::independent()->settle($operation);
+            }
+
+            return 'stop';
+        }
         try {
             // Resolved here: without ANTHROPIC_API_KEY the container cannot build the client.
             $result = app(FactJudge::class)->judge($request);
@@ -188,6 +199,7 @@ final class FactChecker
             Account::independent()->settleKnown($operation, $this->cost->of($result->inputTokens, $result->outputTokens));
         }
         $result->operation = $operation;
+        $result->projectKind = $project->kind;
 
         return $result;
     }
@@ -198,7 +210,7 @@ final class FactChecker
      *
      * @param  array{id: int, brand_id: int, text: string, facts: array<int, string>, request: FactCheckRequest}  $item
      */
-    private function store(int $tenantId, array $item, ?FactJudgeResult $result, string $projectKind): void
+    private function store(int $tenantId, array $item, ?FactJudgeResult $result): void
     {
         $claims = [];
         if ($result !== null) {
@@ -209,7 +221,7 @@ final class FactChecker
             $claims = $this->assembler->assemble($item['text'], $parsed ?? [], array_keys($item['facts']));
         }
 
-        $this->rls->run([$tenantId], function () use ($item, $result, $claims, $projectKind): void {
+        $this->rls->run([$tenantId], function () use ($item, $result, $claims): void {
             if ($result !== null) {
                 UsageEvent::recordForProject([
                     'kind' => 'factcheck',
@@ -222,7 +234,7 @@ final class FactChecker
                     'cost_usd' => $this->cost->of($result->inputTokens, $result->outputTokens),
                     'billed_to' => 'platform',
                     'anthropic_operation' => $result->operation,
-                ], $projectKind);
+                ], $result->projectKind ?? throw new \LogicException('Missing project type for fact check'));
             }
             // A fact removed, switched off or reworded while the call ran gets no claim: the verdict was given on the
             // text in the request. The rows are locked, so an edit cannot slip in between this check and the insert

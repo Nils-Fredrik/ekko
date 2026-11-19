@@ -141,6 +141,12 @@ class Team extends JetstreamTeam
             || ($this->pitch_expires_at !== null && $at->lessThan($this->pitch_expires_at)));
     }
 
+    /** Other project work follows the pitch expiry without changing ordinary customer behaviour. */
+    public function mayStartProjectWorkAt(CarbonImmutable $at): bool
+    {
+        return $this->kind !== 'pitch' || $this->mayCollectAt($at);
+    }
+
     /**
      * A partner relation is at most one level deep: a partner cannot itself have a partner,
      * and a tenant with clients cannot get a partner (docs/spec.md 5.1).

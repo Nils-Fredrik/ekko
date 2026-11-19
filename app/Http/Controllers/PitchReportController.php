@@ -22,6 +22,9 @@ final class PitchReportController extends Controller
         $from = CarbonImmutable::parse($team->created_at)->setTimezone($team->timezone)->toDateString();
         $today = CarbonImmutable::now($team->timezone)->toDateString();
         $to = min($today, $team->pitch_expires_at->setTimezone($team->timezone)->toDateString());
+        if ($team->pitch_converted_at !== null) {
+            $to = min($to, $team->pitch_converted_at->setTimezone($team->timezone)->toDateString());
+        }
         $filter = new MetricsFilter($brand->id, $from, $to);
         $section = $actions->section($brand->id, $from, $to);
         $section['open'] = array_slice($section['open'], 0, 3);

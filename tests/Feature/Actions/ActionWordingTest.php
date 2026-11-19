@@ -91,6 +91,14 @@ test('action usage keeps its pitch classification when conversion happens during
     expect(UsageEvent::query()->sole()->getAttribute('project_kind'))->toBe('pitch');
 });
 
+test('queued action generation does not run for an expired pitch', function () {
+    $this->w->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()])->save();
+
+    generateTenant($this->w);
+
+    expect(Action::query()->count())->toBe(0)->and($this->writer->requests)->toBeEmpty();
+});
+
 test('each call writes one structured log line with internal IDs and no text (T43-F1)', function () {
     Log::spy();
 

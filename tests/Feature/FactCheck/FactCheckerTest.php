@@ -115,6 +115,14 @@ test('fact check usage keeps its pitch classification when conversion happens du
     expect(UsageEvent::query()->sole()->getAttribute('project_kind'))->toBe('pitch');
 });
 
+test('queued fact checking does not call the model after pitch expiry', function () {
+    $this->w->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()])->save();
+    factAnswer($this->w);
+
+    expect(runFactCheck($this->w))->toBe('done');
+    expect($this->judge->requests)->toBeEmpty()->and(UsageEvent::query()->count())->toBe(0);
+});
+
 test('the model and its prices come from configuration, so Opus can replace Sonnet without a code change', function () {
     config(['ekko.anthropic.factcheck.model' => 'claude-opus-test', 'ekko.anthropic.factcheck.input_usd_per_mtok' => '15.00', 'ekko.anthropic.factcheck.output_usd_per_mtok' => '75.00']);
     factAnswer($this->w);

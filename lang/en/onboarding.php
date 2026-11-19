@@ -14,6 +14,7 @@ return [
         'quota_reached' => "This month's quota or budget is used up. The analysis cannot be started.",
         'busy' => 'An analysis is already being started for this tenant. Try again in a moment.',
         'brand_gone' => 'The brand no longer exists.',
+        'pitch_expired' => 'The pitch project has expired.',
         'fetch_invalid_url' => 'The address is not valid. The wizard only fetches pages over https.',
         'fetch_blocked_address' => 'The address points to an internal or private IP address and cannot be fetched.',
         'fetch_dns' => 'The domain could not be looked up.',

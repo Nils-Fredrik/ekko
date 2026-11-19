@@ -8,6 +8,7 @@ use App\ActionEngine\ActionPromptBuilder;
 use App\Jobs\Middleware\SetTenantContext;
 use App\Models\Action;
 use App\Models\Brand;
+use App\Models\Team;
 use App\Tenancy\Rls\TenantRls;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
@@ -49,6 +50,9 @@ class GenerateTenantActions extends TenantJob
     public function handle(ActionGenerator $generator, ActionFormulator $formulator, ActionPromptBuilder $prompts, TenantRls $rls): void
     {
         $now = CarbonImmutable::now();
+        if (! Team::query()->findOrFail($this->tenantId)->mayStartProjectWorkAt($now)) {
+            return;
+        }
         $started = $now->getTimestamp();
         $brandIds = $rls->run([$this->tenantId], fn (): array => Brand::query()->where('status', 'active')->orderBy('id')->pluck('id')->all());
 
