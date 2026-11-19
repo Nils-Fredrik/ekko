@@ -1,16 +1,9 @@
 <script setup>
 import { Chart } from 'chart.js/auto';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onThemeChange } from '@/theme';
 
-const palette = [
-    '--data-own',
-    '--data-cat-1',
-    '--data-cat-2',
-    '--data-cat-3',
-    '--data-cat-4',
-    '--data-cat-5',
-    '--data-cat-6',
-];
+const competitors = ['--data-cat-1', '--data-cat-2', '--data-cat-3', '--data-cat-4', '--data-cat-5', '--data-cat-6'];
 
 const props = defineProps({
     parts: { type: Array, required: true },
@@ -18,6 +11,7 @@ const props = defineProps({
 
 const canvas = ref(null);
 let chart;
+let stopTheme;
 
 function token(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -37,7 +31,8 @@ function render() {
                 {
                     data: props.parts.map((part) => part.share),
                     backgroundColor: props.parts.map((part, index) => {
-                        const color = token(palette[index % palette.length]);
+                        const name = index === 0 ? '--data-own' : competitors[(index - 1) % competitors.length];
+                        const color = token(name);
 
                         return part.low_sample ? `${color}59` : color;
                     }),
@@ -70,9 +65,15 @@ function render() {
     });
 }
 
-onMounted(render);
+onMounted(() => {
+    render();
+    stopTheme = onThemeChange(render);
+});
 watch(() => props.parts, render, { deep: true });
-onBeforeUnmount(() => chart?.destroy());
+onBeforeUnmount(() => {
+    stopTheme?.();
+    chart?.destroy();
+});
 </script>
 
 <template>

@@ -2,6 +2,7 @@
 import { Chart } from 'chart.js/auto';
 import { trans } from 'laravel-vue-i18n';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onThemeChange } from '@/theme';
 
 const props = defineProps({
     points: { type: Array, required: true },
@@ -9,13 +10,14 @@ const props = defineProps({
 
 const canvas = ref(null);
 let chart;
+let stopTheme;
 
 function token(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
 function colorFor(point) {
-    const color = token('--color-primary');
+    const color = token('--data-own');
 
     return point?.visibility.low_sample ? `${color}59` : color;
 }
@@ -33,8 +35,8 @@ function render() {
             datasets: [
                 {
                     data: props.points.map((point) => point.visibility.value),
-                    borderColor: token('--color-primary'),
-                    backgroundColor: token('--color-primary'),
+                    borderColor: token('--data-own'),
+                    backgroundColor: token('--data-own'),
                     borderWidth: 2,
                     pointRadius: props.points.map((point) => (point.visibility.low_sample ? 3 : 0)),
                     pointBackgroundColor: props.points.map((point) => colorFor(point)),
@@ -93,9 +95,15 @@ function render() {
     });
 }
 
-onMounted(render);
+onMounted(() => {
+    render();
+    stopTheme = onThemeChange(render);
+});
 watch(() => props.points, render, { deep: true });
-onBeforeUnmount(() => chart?.destroy());
+onBeforeUnmount(() => {
+    stopTheme?.();
+    chart?.destroy();
+});
 </script>
 
 <template>
