@@ -4,6 +4,7 @@
 // and never duplicated; actions without support for two generations expire; fact_correction ranks first.
 
 use App\ActionEngine\ActionGenerator;
+use App\ActionEngine\ActionWorkflow;
 use App\Enums\ActionStatus;
 use App\Enums\ActionType;
 use App\Models\Action;
@@ -191,6 +192,29 @@ test('the ranking groups the actions per brand', function () {
     Action::factory()->create(['brand_id' => $other->id, 'type' => ActionType::FactCorrection, 'impact_level' => 5]);
 
     expect(Action::query()->ranked()->pluck('brand_id')->all())->toBe([$this->w->brand->id, $other->id]);
+});
+
+test('steps the user ticked off are kept when the template is refreshed', function () {
+    $s = $this->source;
+    $s->candidates = [$s->candidate($this->w->market->id, 'a.no')];
+    $first = runGeneration($this->w, $s);
+    $action = Action::query()->sole();
+    (new ActionWorkflow)->setStepDone($action, 0, true);
+
+    nextWeek();
+    $second = runGeneration($this->w, $s);
+
+    expect($action->refresh()->steps[0]['done'])->toBeTrue()
+        ->and($first->toWord)->toBe([$action->id])->and($second->toWord)->toBe([]);
+});
+
+test('a very long name gives a title that fits the column', function () {
+    $s = $this->source;
+    $s->candidates = [$s->candidate($this->w->market->id, str_repeat('a', 255))];
+
+    runGeneration($this->w, $s);
+
+    expect(mb_strlen(Action::query()->sole()->title))->toBeLessThanOrEqual(255);
 });
 
 test('a candidate of another type than its source is ignored', function () {

@@ -78,7 +78,7 @@ final class ActionGenerator
                     $this->refresh($action, $candidate, $now);
                     $refreshed++;
                 }
-                if ($action->status === ActionStatus::New && $action->text_source === 'template') {
+                if ($action->status === ActionStatus::New && $action->text_source === 'template' && ! $action->hasStepsDone()) {
                     $toWord[] = $action->id;
                 }
             }
@@ -157,7 +157,7 @@ final class ActionGenerator
             $text = ActionTemplates::text($candidate->type, $candidate->textParams, $action->locale);
             $action->title = $text->title;
             $action->description = $text->description;
-            if ($action->status === ActionStatus::New) {
+            if ($action->status === ActionStatus::New && ! $action->hasStepsDone()) {
                 $action->steps = $text->stepRows();
             }
         }

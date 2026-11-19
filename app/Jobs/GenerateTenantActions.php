@@ -96,8 +96,9 @@ class GenerateTenantActions extends TenantJob
 
             $rls->run([$this->tenantId], function () use ($actionId, $text): void {
                 $action = Action::query()->find($actionId);
-                // The user may have acted on it meanwhile; only a new action with the template text is replaced.
-                if ($action === null || $action->text_source !== 'template' || $action->status->value !== 'new') {
+                // The user may have acted on it meanwhile; only a new action with the template text and no ticked
+                // step is replaced.
+                if ($action === null || $action->text_source !== 'template' || $action->status->value !== 'new' || $action->hasStepsDone()) {
                     return;
                 }
                 $action->forceFill([

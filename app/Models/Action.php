@@ -85,6 +85,12 @@ class Action extends Model
         'completed_at',
     ];
 
+    /** Whether the user has ticked off a step: the steps are then the user's and are not replaced. */
+    public function hasStepsDone(): bool
+    {
+        return array_filter($this->steps, fn (array $step): bool => $step['done']) !== [];
+    }
+
     /** @return BelongsTo<Brand, $this> */
     public function brand(): BelongsTo
     {

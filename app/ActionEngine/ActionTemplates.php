@@ -5,6 +5,7 @@ namespace App\ActionEngine;
 use App\ActionEngine\Writing\ActionText;
 use App\Enums\ActionType;
 use App\Models\Action;
+use Illuminate\Support\Str;
 
 /**
  * The template text of an action and its evidence sentence (lang action_items), used before the model has
@@ -27,7 +28,8 @@ final class ActionTemplates
         }
 
         return new ActionText(
-            (string) trans("{$base}.title", $params, $locale),
+            // A name can be long (an unknown brand up to 255 characters); the title column holds 255.
+            Str::limit((string) trans("{$base}.title", $params, $locale), 250),
             (string) trans("{$base}.description", $params, $locale),
             $stepTexts,
         );
