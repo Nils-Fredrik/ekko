@@ -209,6 +209,12 @@ final class ReportPublisher
                 $this->headline('reports.sentiment', $now->sentiment, $then->sentiment, false),
             ],
             'responses' => $now->responses,
+            // Keep the raw daily metrics alongside the PDF data so a future interactive
+            // rendering does not silently recompute a historical report from newer aggregates.
+            'trend' => array_map(fn (array $point): array => [
+                'period' => $point['period'],
+                ...$point['summary']->toArray(),
+            ], $this->metrics->series($current)),
             'engines' => $this->engines($current),
             'prompts' => $this->prompts($current, $previous),
             'competitors' => $this->competitors($current),

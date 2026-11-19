@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AggDaily;
 use App\Models\Report;
 use App\Models\ReportLink;
 use App\Models\ReportLinkView;
@@ -85,8 +86,15 @@ test('link lifetime is validated before a link is created', function () {
 test('the published report retains its immutable web snapshot when recorded', function () {
     $world = MetricsWorld::create();
     $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id]);
+    AggDaily::factory()->create([
+        'market_id' => $world->market->id, 'engine_key' => $world->engine->key, 'prompt_id' => $world->p1->id,
+        'date' => '2026-10-03', 'responses' => 10, 'brand_mentioned' => 4,
+    ]);
     $due = new DueReport($schedule->id, $world->brand->id, 'weekly', 'nb', ['report@example.test'], '2026-10-01', '2026-10-07', []);
     $snapshot = app(ReportPublisher::class)->viewData($world->tenant, $schedule, $due->from, $due->to, 'Recorded insight');
     $report = app(ReportPublisher::class)->record($due, 'reports/'.$world->tenant->id.'/report.pdf', $snapshot['actions'], $snapshot);
-    expect($report->fresh()->web_snapshot['insight'])->toBe('Recorded insight');
+    expect($report->fresh()->web_snapshot['insight'])->toBe('Recorded insight')
+        ->and($report->fresh()->web_snapshot['trend'][0]['period'])->toBe('2026-10-03')
+        ->and($report->fresh()->web_snapshot['trend'][0]['visibility']['value'])->toBe(0.4)
+        ->and($report->fresh()->web_snapshot['trend'][0]['visibility']['n'])->toBe(10);
 });
