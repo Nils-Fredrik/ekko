@@ -9,7 +9,7 @@ locals {
     task     = { command = ["sh", "-c"], timeout = "3600s" }
     migrate  = { command = ["php", "artisan", "migrate", "--force"], timeout = "3600s" }
   } : {}
-  common_env = {
+  common_env = merge({
     APP_ENV                        = "production"
     APP_URL                        = var.app_url
     APP_DEBUG                      = "false"
@@ -37,7 +37,7 @@ locals {
     EKKO_REPORTS_BUCKET            = google_storage_bucket.reports.name
     # Laravel resolves REMOTE_ADDR per request; trust the fixed ALB hop as well.
     TRUSTED_PROXIES = var.enable_https ? "REMOTE_ADDR,${google_compute_global_address.web[0].address}" : "*"
-  }
+  }, local.work_env)
   web_secrets = {
     APP_KEY              = "app-key"
     DB_PASSWORD          = "db-password"
@@ -153,6 +153,8 @@ resource "google_cloud_run_v2_job" "job" {
   name                = "ekko-${each.key}"
   location            = var.region
   deletion_protection = true
+  # The applied work rollout stage, read back by the guard in work.tf.
+  labels = each.key == "wake" ? { "ekko-work-rollout" = local.work_rollout_stage } : null
   template {
     task_count  = 1
     parallelism = each.key == "worker" ? null : 1

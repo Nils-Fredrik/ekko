@@ -46,6 +46,22 @@ final readonly class WorkWakeUp
     }
 
     /**
+     * The Cloud Tasks task id (T40-F4): the key behind a hash prefix. The same key gives the same id, so a repeated
+     * publish of one wake-up is refused as ALREADY_EXISTS; the hash spreads the ids, because Cloud Tasks slows down
+     * on sequential ids or prefixes.
+     */
+    public function taskId(): string
+    {
+        return self::hashedTaskId($this->key());
+    }
+
+    /** A deterministic, well-spread Cloud Tasks id for a key of [a-z0-9-]. */
+    public static function hashedTaskId(string $key): string
+    {
+        return substr(hash('sha256', $key), 0, 16).'-'.$key;
+    }
+
+    /**
      * What a delivery may carry (T40-F4): ids only, never answers, secrets or commands.
      *
      * @return array{tenant_id: int, signal_id: int}

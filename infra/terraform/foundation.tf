@@ -1,5 +1,5 @@
 locals {
-  apis = toset([
+  apis = toset(concat([
     "analyticsdata.googleapis.com",
     "artifactregistry.googleapis.com",
     "cloudresourcemanager.googleapis.com",
@@ -15,7 +15,7 @@ locals {
     "secretmanager.googleapis.com",
     "sqladmin.googleapis.com",
     "sts.googleapis.com",
-  ])
+  ], local.work_tasks_enabled ? ["cloudtasks.googleapis.com"] : []))
   identities = toset(["web", "dispatch", "worker", "task", "migrate", "scheduler", "ci"])
   secrets = toset([
     "app-key",
