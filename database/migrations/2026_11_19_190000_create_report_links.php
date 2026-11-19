@@ -17,6 +17,7 @@ return new class extends Migration
             $table->id();
             TenantSchema::tenantColumn($table);
             $table->unsignedBigInteger('report_id');
+            $table->char('public_id', 32)->unique();
             $table->char('token_hash', 64)->unique();
             $table->timestampTz('expires_at');
             $table->timestampTz('revoked_at')->nullable();

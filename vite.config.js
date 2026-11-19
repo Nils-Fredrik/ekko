@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => {
     return {
         plugins: [
             laravel({
-                input: ['resources/js/app.js', 'resources/js/shared-report.js'],
+                input: ['resources/js/app.js', 'resources/js/shared-report.js', 'resources/js/shared-bootstrap.js'],
                 refresh: true,
             }),
             tailwindcss(),

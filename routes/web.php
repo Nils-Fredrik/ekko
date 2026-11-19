@@ -42,7 +42,7 @@ Route::redirect('/', '/dashboard')->name('home');
 // Language, including on the login page before anyone is signed in (docs/spec.md 14.1).
 Route::put('/locale', [LocaleController::class, 'update'])->name('locale.update');
 
-Route::get('/shared-report/{tenant}', SharedReportController::class)->whereNumber('tenant')->middleware('throttle:60,1')->withoutMiddleware(EnsureTwoFactorEnabled::class)->name('reports.shared');
+Route::get('/shared-report/{tenant}/{selector}', SharedReportController::class)->whereNumber('tenant')->where('selector', '[a-f0-9]{32}')->middleware('throttle:60,1')->withoutMiddleware(EnsureTwoFactorEnabled::class)->name('reports.shared');
 
 // Login with Google (docs/spec.md 5.4), rate limited per IP. The callback is the one URL registered with the
 // provider, so it also finishes a confirmation for a signed-in user (T07-F2); a guest logs in there. A signed-in

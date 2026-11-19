@@ -6,7 +6,7 @@ test('a shared report renders its saved trend with a gap and interactive values 
     const token = process.env.SMOKE_REPORT_TOKEN;
     const requests = [];
     page.on('request', (request) => requests.push(request));
-    await page.goto(`/shared-report/${process.env.SMOKE_TENANT_ID}#${token}`);
+    await page.goto(`/shared-report/${process.env.SMOKE_TENANT_ID}/${process.env.SMOKE_REPORT_SELECTOR}#${token}`);
     await expect(page.getByText('Saved report insight')).toBeVisible();
     const trend = page.getByTestId('shared-report-trend');
     await expect(trend.locator('figure[data-chart-ready="true"]')).toBeVisible();

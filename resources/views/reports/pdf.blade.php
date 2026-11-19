@@ -47,6 +47,8 @@
             @endphp
             <div id="shared-report-chart"></div>
             <script type="application/json" id="shared-report-chart-data">@json($chartData)</script>
+        @elseif (! empty($trend))
+            @include('reports.partials.pdf-trend')
         @endif
         @if ($insight)
             <h2>{{ __('reports.insight') }}</h2>

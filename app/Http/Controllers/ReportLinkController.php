@@ -17,6 +17,7 @@ final class ReportLinkController extends Controller
         $token = bin2hex(random_bytes(32));
         $link = ReportLink::query()->create([
             'report_id' => $report->id,
+            'public_id' => bin2hex(random_bytes(16)),
             'token_hash' => hash('sha256', $token),
             'expires_at' => now()->addDays((int) ($data['days'] ?? 90)),
             'created_by' => $request->user()->id,
@@ -24,7 +25,7 @@ final class ReportLinkController extends Controller
 
         return response()->json([
             'id' => $link->id,
-            'url' => rtrim(config()->string('app.url'), '/').route('reports.shared', ['tenant' => $report->tenant_id], false).'#'.$token,
+            'url' => rtrim(config()->string('app.url'), '/').route('reports.shared', ['tenant' => $report->tenant_id, 'selector' => $link->public_id], false).'#'.$token,
             'expires_at' => $link->expires_at->toIso8601String(),
         ], 201, ['Cache-Control' => 'private, no-store', 'Referrer-Policy' => 'no-referrer']);
     }

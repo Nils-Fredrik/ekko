@@ -50,7 +50,7 @@ function isolationReportLink(int $tenantId): array
     return app(TenantContext::class)->run($tenantId, function (): array {
         $report = Report::factory()->create();
         $link = ReportLink::query()->create([
-            'report_id' => $report->id, 'token_hash' => hash('sha256', random_bytes(32)),
+            'report_id' => $report->id, 'public_id' => bin2hex(random_bytes(16)), 'token_hash' => hash('sha256', random_bytes(32)),
             'expires_at' => now()->addDay(),
         ]);
 

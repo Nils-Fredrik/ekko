@@ -15,7 +15,7 @@ use Illuminate\Http\Response;
 
 final class SharedReportController extends Controller
 {
-    public function __invoke(Request $request, string $tenant, TenantContext $context, TenantRls $rls): Response
+    public function __invoke(Request $request, string $tenant, string $selector, TenantContext $context, TenantRls $rls): Response
     {
         $headers = [
             'Cache-Control' => 'private, no-store',
@@ -23,26 +23,33 @@ final class SharedReportController extends Controller
             'X-Robots-Tag' => 'noindex, nofollow, noarchive',
             'X-Content-Type-Options' => 'nosniff',
         ];
-        // The secret stays in the URL fragment, which browsers do not send to proxies or access logs.
-        // The bootstrap sends it only in an Authorization header and makes no third-party requests.
-        if ($request->header('Authorization') === null) {
-            return response()->view('reports.shared-bootstrap', [], 200, $headers + [
-                'Content-Security-Policy' => "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
-            ]);
-        }
         $token = $request->bearerToken();
-        if (! is_string($token) || preg_match('/\A[a-f0-9]{64}\z/', $token) !== 1 || ! ctype_digit($tenant) || (int) $tenant < 1 || (string) (int) $tenant !== $tenant) {
+        if (! ctype_digit($tenant) || (int) $tenant < 1 || (string) (int) $tenant !== $tenant || preg_match('/\A[a-f0-9]{32}\z/', $selector) !== 1 || ($request->header('Authorization') !== null && (! is_string($token) || preg_match('/\A[a-f0-9]{64}\z/', $token) !== 1))) {
             return response('Not Found', 404, $headers);
         }
 
-        return $context->run((int) $tenant, fn (): Response => $rls->run([(int) $tenant], function () use ($token, $tenant, $headers): Response {
-            $link = ReportLink::query()->where('token_hash', hash('sha256', $token))->lockForUpdate()->first();
+        // The random selector identifies link state without revealing its separate secret.
+        // The secret stays in the fragment and is sent only in the Authorization header.
+        return $context->run((int) $tenant, fn (): Response => $rls->run([(int) $tenant], function () use ($request, $selector, $token, $tenant, $headers): Response {
+            $query = ReportLink::query()->where('public_id', $selector);
+            if ($token !== null) {
+                $query->where('token_hash', hash('sha256', $token))->lockForUpdate();
+            }
+            $link = $query->first();
             if (! $link instanceof ReportLink || $link->revoked_at !== null || $link->expires_at->isPast()) {
                 return response('Not Found', 404, $headers);
             }
-            $report = $link->report()->with('reportSchedule.brand')->first();
             $team = Team::query()->find((int) $tenant);
-            if ($report === null || $team === null || $team->status === TenantStatus::Closed) {
+            if ($team === null || $team->status === TenantStatus::Closed) {
+                return response('Not Found', 404, $headers);
+            }
+            if ($request->header('Authorization') === null) {
+                return response()->view('reports.shared-bootstrap', [], 200, $headers + [
+                    'Content-Security-Policy' => "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+                ]);
+            }
+            $report = $link->report()->with('reportSchedule.brand')->first();
+            if ($report === null) {
                 return response('Not Found', 404, $headers);
             }
             $schedule = $report->reportSchedule;
