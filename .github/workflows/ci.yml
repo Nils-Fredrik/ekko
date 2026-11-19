@@ -99,7 +99,7 @@ jobs:
 
             - name: Install Chromium for PDF reports
               run: |
-                  npx playwright install --with-deps chromium
+                  scripts/ci-install-chromium.sh
                   echo "CHROME_PATH=$(node -e "console.log(require('@playwright/test').chromium.executablePath())")" >> "$GITHUB_ENV"
 
             - name: Pest, including the tenant isolation suite
@@ -219,7 +219,7 @@ jobs:
                   node-version: '24'
                   cache: npm
             - run: npm ci --no-audit --no-fund
-            - run: npx playwright install --with-deps chromium
+            - run: scripts/ci-install-chromium.sh
             - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
             - run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
             - name: Download this run's verified images
