@@ -41,7 +41,12 @@ function option({ palette }) {
         }).map((line) =>
             line.id.endsWith('-low')
                 ? line
-                : { ...line, endLabel: { show: true, formatter: item.label, color: palette.text, fontSize: 11 } },
+                : {
+                      ...line,
+                      // A function, not the name as a string: ECharts treats a string formatter as a
+                      // template and would replace {a}, {b}, {c} or {@…} in a brand name.
+                      endLabel: { show: true, formatter: () => item.label, color: palette.text, fontSize: 11 },
+                  },
         ),
     );
 
