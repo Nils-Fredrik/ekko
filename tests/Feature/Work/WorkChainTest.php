@@ -632,3 +632,59 @@ test('the real client: a possibly accepted submission gets the fallback, a rejec
     'rate limited' => [429, false],
     'overloaded' => [529, false],
 ]);
+
+test('rollback: switching chaining off mid-flight loses no work and pays for no batch twice (T40-F4)', function () {
+    $world = ($this->world)(engines: ['chain_engine', 'chain_engine', 'chain_slow']);
+    $tenant = $world['tenant'];
+    [$first, $second, $slow] = $world['runs'];
+
+    // Chaining on: two answers are collected and submitted as one batch, whose status check is a deferred signal;
+    // the slow engine's answer arrives later and waits for its group.
+    ($this->collect)($tenant, $first);
+    ($this->collect)($tenant, $second);
+    $this->travel(10)->minutes();
+    ($this->drain)();
+    ($this->collect)($tenant, $slow);
+    expect($this->extraction->inner->batches)->toHaveCount(1);
+    $wakeUps = $this->publisher->published;
+
+    // Rollback: chaining off and the queue publisher back (EKKO_WORK_CHAINING=false, EKKO_WORK_PUBLISHER=queue). The
+    // restored extraction-poll submits the waiting answer, but never the one already in a batch.
+    // (Its PollExtractionBatch runs at once on the test's sync queue, finds the batch running and releases itself.)
+    config(['ekko.work.chaining' => false]);
+    dispatch_sync(new SubmitExtractionBatch($tenant->id));
+    expect($this->extraction->inner->batches)->toHaveCount(2)
+        ->and(collect($this->extraction->inner->batches)->flatten()->unique()->count())->toBe(3);
+
+    // The wake-ups that were already out (Cloud Tasks deliveries, or the recovery check) still drain the old signals:
+    // the group signal finds nothing left to submit, and the first batch's status checks go on until it has ended.
+    $this->publisher->published = $wakeUps;
+    $this->travel(15)->minutes();
+    ($this->drain)();
+    Artisan::call('ekko:work:recover');
+    ($this->drain)();
+    expect($this->extraction->inner->batches)->toHaveCount(2);
+
+    $this->extraction->ended = true;
+    $this->travel(20)->minutes();
+    ($this->drain)();
+    Artisan::call('ekko:work:recover');
+    ($this->drain)();
+    // The first batch was written by its last status check; the second by its own released poll job, as the queue
+    // runs it again. Running both again writes nothing twice.
+    expect(($this->inTenant)($tenant, fn () => ExtractionJob::query()->orderBy('id')->first()->status))->toBe('completed');
+    foreach (($this->inTenant)($tenant, fn () => ExtractionJob::query()->orderBy('id')->get()) as $job) {
+        dispatch_sync(new PollExtractionBatch($tenant->id, $job->id));
+    }
+
+    ($this->inTenant)($tenant, function () {
+        expect(Run::query()->pluck('status')->unique()->all())->toBe(['extracted'])
+            ->and(ExtractionJob::query()->pluck('status')->unique()->all())->toBe(['completed']);
+    });
+    expect($this->extraction->inner->batches)->toHaveCount(2)
+        ->and(array_filter(($this->signals)($tenant), fn (WorkSignal $signal): bool => $signal->kind === WorkKind::Extraction && $signal->isPending()))->toBe([]);
+
+    // With chaining off the dashboard comes from the restored hourly recompute, as before the switch.
+    Artisan::call('ekko:aggregate', ['date' => '2026-11-19', '--sync' => true, '--tenant' => [$tenant->id]]);
+    expect(($this->inTenant)($tenant, fn () => AggDaily::query()->where('date', '2026-11-19')->sum('responses')))->toEqual(3);
+});

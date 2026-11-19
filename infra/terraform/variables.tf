@@ -130,3 +130,9 @@ variable "monitoring_email" {
     error_message = "Provide a valid monitoring email address."
   }
 }
+
+variable "allow_work_rollout_downgrade" {
+  description = "Only for the documented rollback of the work rollout stage (work.tf, docs/t40-f4-produksjonsaksept.md), or the first apply that creates ekko-wake: lets one reviewed plan move the stage backwards. Pass on the command line, never in a tfvars file."
+  type        = bool
+  default     = false
+}

@@ -26,7 +26,11 @@ final class ExtractionRunner
 
     public function ended(string $batchId): bool
     {
-        return $this->client->batchEnded($batchId);
+        $ended = $this->client->batchEnded($batchId);
+        // One line per provider status call, so the production acceptance can count them on both paths (T40-F4).
+        Log::info('extraction.status_check', ['ended' => $ended]);
+
+        return $ended;
     }
 
     /**

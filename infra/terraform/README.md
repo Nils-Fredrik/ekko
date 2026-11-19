@@ -90,6 +90,15 @@ Keep individual job timeout overrides below the reservation time. Cloud Run
 allows 3900 seconds per worker task so a job can finish after the worker reaches
 its 3300-second process lifetime.
 
+Event-driven work wake-ups (T40-F4, ADR 0033) are in `work.tf`. Their rollout
+stage is a committed local (`legacy` by default, today's production), not a tfvars
+value: from `ready` on it, not `enable_dashboard_schedules`, decides whether
+`extraction-poll`, `aggregate` and `usage-rollup` run, so another worktree's
+tfvars cannot change them. The applied stage is a label on `ekko-wake`; a plan that
+would move it backwards fails on `terraform_data.work_rollout_guard` unless
+`-var=allow_work_rollout_downgrade=true` is passed for a reviewed rollback. Follow
+`docs/t40-f4-produksjonsaksept.md` for every stage change.
+
 The default bucket names are global. If they are already owned elsewhere,
 choose unique names using `raw_bucket_name` and `reports_bucket_name`; do not
 import or delete an existing bucket without verifying ownership. Standard raw

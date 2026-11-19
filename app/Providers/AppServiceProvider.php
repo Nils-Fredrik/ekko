@@ -25,6 +25,8 @@ use App\Tenancy\ActingAs;
 use App\Tenancy\Rls\DatabaseRoleCheck;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
+use App\Work\CloudTasks\CloudTasksWorkPublisher;
+use App\Work\Listeners\PublishQueueWakeOnWorkerStop;
 use App\Work\NullWorkPublisher;
 use App\Work\QueueWorkPublisher;
 use App\Work\WorkPublisher;
@@ -35,6 +37,7 @@ use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -68,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(WorkSignals::class);
         $this->app->bind(WorkPublisher::class, fn (): WorkPublisher => match (config('ekko.work.publisher')) {
             'queue' => new QueueWorkPublisher,
+            'cloud_tasks' => app(CloudTasksWorkPublisher::class),
             'none' => new NullWorkPublisher,
             default => throw new \InvalidArgumentException('Unknown ekko.work.publisher.'),
         });
@@ -85,6 +89,8 @@ class AppServiceProvider extends ServiceProvider
         // A login role that could bypass row-level security stops the instance (T39-F2): /up is the web service's
         // startup probe, and the worker and the ekko:* commands check before they start. The migrations run as
         // the owner of the tables on purpose, so migrate and the other commands are not checked.
+        // A worker that stops while queue jobs wait for later registers its next start (T40-F4, ADR 0033).
+        Event::listen(WorkerStopping::class, PublishQueueWakeOnWorkerStop::class);
         Event::listen(DiagnosingHealth::class, function (): void {
             if (DatabaseRoleCheck::enforced()) {
                 app(DatabaseRoleCheck::class)->assertSafe();

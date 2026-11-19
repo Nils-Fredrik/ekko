@@ -313,6 +313,9 @@ Ukes- og månedstall beregnes fra `agg_daily` i spørringer (`MetricsService`). 
 | `log-sync` | daglig 04:00 | `ekko:sync-bot-hits` og `ekko:sync-ga4` |
 | `reports` | mandag 06:30 og den 1. hver måned 06:30 | `ekko:send-reports` |
 | `usage-rollup` | hver time, via `ekko-task` | `ekko:usage-rollup` og kvotekontroll |
+| `work-recover` | hver time, minutt 7, via internt endepunkt | Reservekontrollen for hendelsesstyrt arbeid (T40-F4, ADR 0033). Finnes fra utrullingstrinnet `ready` |
+
+`extraction-poll`, `aggregate` og `usage-rollup` er den gamle behandlingsveien. Fra utrullingstrinnet `ready` (`infra/terraform/work.tf`) styres de av trinnet og ikke av `enable_dashboard_schedules`, og i trinnet `event` er de satt på pause (T40-F4).
 
 **Avgrenset aktivering:** Terraform-bryteren `enable_dashboard_schedules` aktiverer `extraction-poll`, `aggregate` og `usage-rollup` uten å aktivere øvrige schedules. Polling kan gjenoppta allerede kølagt innsamling og sende inn betalte uttrekk, men planlegger ikke nye daglige kjøringer. Begge brytere er av som standard; `enable_schedules` aktiverer alle ordinære schedules. Aktivering krever eierens godkjenning og verifisering etter [runbook](runbook.md#automatisk-behandling-av-innsamlede-svar).
 
@@ -334,6 +337,13 @@ Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-a
 - **Uttrekk → aggregering:** `ExtractionWriter::markExtracted` (normal batch, tomt svar og terminal fallback) signalerer `aggregation` for den lokale datoen til `responses.collected_at` i tenantens tidssone, også for sene resultater utenfor `ekko:aggregate` sitt tilbakeblikk. Handleren kjører `DailyAggregator` for datoen, så resultatet er det samme som en full omberegning.
 - **Forbruk:** hver `UsageEvent` (innhenting, uttrekk, veiviser og rapporter) signalerer `usage_rollup` for sin UTC-måned. Handleren kjører `UsageRollup::refreshMonth` for inneværende eller forrige måned, med samme regler og under samme tenantlås som `ekko:usage-rollup`, så forbruk og terskelvarsler ikke telles to ganger.
 - Når bryteren er av, registreres ingenting og flyten er som før (`PollExtractionBatch` poller selv). Planene over (`extraction-poll`, `aggregate`, `usage-rollup`) kjører uendret som reserve også når bryteren er på; alt de gjør, er idempotent mot kjedingen. T40-F4 innfører målrettet vekking med Cloud Tasks, kjører `ekko:work:recover` som reservekontroll og slår av de ordinære planene etter verifisert overgang.
+
+**Målrettet vekking (T40-F4, [ADR 0033](decisions/0033-malrettet-vekking-med-cloud-tasks.md)):** Med `EKKO_WORK_PUBLISHER=cloud_tasks` blir hver vekking en Cloud Tasks-oppgave i køen `ekko-work`. Oppgave-ID-en er deterministisk (hash-prefiks og `WorkWakeUp::key()`), `scheduleTime` er tidligste behandlingstid, og innholdet er bare tenant- og signal-ID. Oppgaven går til den faste ruten `POST /internal/work/wake` med OIDC-token for `ekko-tasks` og audience `{APP_URL}/internal/work`.
+- Web leser signalet under tenantens RLS, legger `ProcessWorkSignal` i køen (unik per signalversjon) og sørger for en worker. En aktiv worker foretrekkes; ellers vekkes den faste `ekko-wake` uten overrides (ADR 0030), høyst hvert andre minutt. Web behandler aldri selv og starter aldri workeren.
+- Svar: 204 når leveringen ikke har mer å vokte (ferdig, stoppet, ukjent, annen tenant, eller senere tidspunkt med egen vekking), og 425 til en worker har leaset eller kvittert arbeidet. 422 for misdannet innhold, 401 for feil identitet eller audience, og 503 hvis dispatcheren ikke kan vekkes.
+- En workerprosess som stopper mens køjobber venter på et senere tidspunkt, publiserer en køvekking til `POST /internal/work/queue-wake` for det tidligste av dem. Dermed gjenopptas forsinket arbeid uten fast poll.
+- Reservekontrollen `work-recover` publiserer vekking på nytt for forfalte signaler uten levende lease (aldri publisert, feilet publisering, utløpt lease). Den vekker dispatcheren bare når køjobber står klare uten aktiv worker. Den regner ikke om noe og starter ingenting i en tom time.
+- Utrullingen styres av det versjonerte trinnet `legacy` → `ready` → `shadow` → `event` i `infra/terraform/work.tf`. Standard er `legacy`, altså dagens produksjon. En plan som ville flytte trinnet bakover, stoppes; tilbakerulling er en bevisst plan med `allow_work_rollout_downgrade=true`. Produksjonsaksepten følger [docs/t40-f4-produksjonsaksept.md](t40-f4-produksjonsaksept.md).
 
 ### 7.2 Kvotekontroll før kjøring
 
@@ -1383,6 +1393,7 @@ Konsernets tenants (Maksimer AS, Maksimer AB, Mediebruket, Funbit) og én partne
 - Kostnad avviker mindre enn 15 % fra estimatet i veiviseren.
 - Hendelsesstyrt behandling i tre deler: varig registrering av behandlingsbehov (T40-F2, ADR 0032), kjeding av innhenting, uttrekk og dashboardoppdatering (T40-F3) og målrettet vekking med reservekontroll (T40-F4).
 - T40-F3: kjedingen ligger bak `ekko.work.chaining` (av som standard). Produksjonsbevis og overgang leveres i T40-F4.
+- T40-F4: målrettet vekking med Cloud Tasks, reservekontroll og varig utrullingstrinn (ADR 0033). Koden og Terraform leveres med trinnet `legacy`, altså dagens produksjon. Overgangen (`ready` → `shadow` → `event`) skjer etter eierens godkjenning og målt baseline etter [produksjonsaksepten](t40-f4-produksjonsaksept.md). Oppgaven lukkes etter merge og dokumentert produksjonsaksept.
 
 ### T41 – Kredittstyrt planlegging for Anthropic
 `ekko:anthropic-budget` med prognose, buffer, fordeling av tillegg og redusert modus etter 12.5. Håndtering av svar fra API-et om at kredittene er brukt opp. Visning i `Admin/Usage.vue`.
