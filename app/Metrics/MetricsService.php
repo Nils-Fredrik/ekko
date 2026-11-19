@@ -159,6 +159,115 @@ final class MetricsService
     }
 
     /**
+     * Visibility and share of voice for the brand and active competitors in each period. A point's sample is
+     * the number of answers, not the number of mentions. Ratios are computed after summing all daily rows.
+     * Ranking is by visibility within the period, with a shared rank for ties and null when no answers exist.
+     *
+     * @return list<array{period: string, entities: list<array{id: string, name: string|null, visibility: array{value: float|null, n: int, low_sample: bool}, share_of_voice: array{value: float|null, n: int, low_sample: bool}, rank: int|null}>}>
+     */
+    public function competitorVisibilitySeries(MetricsFilter $filter, string $grain = 'day'): array
+    {
+        $period = $this->graphPeriod($grain);
+        $competitors = Competitor::query()->where('brand_id', $filter->brandId)->where('is_active', true)
+            ->orderBy('name')->orderBy('id')->get(['id', 'name']);
+        $query = $this->dailyQuery($filter)->toBase()->selectRaw(
+            "{$period} as period, sum(agg_daily.responses) as responses, sum(agg_daily.brand_mentioned) as brand_mentioned",
+        );
+        $this->selectCompetitorCounters($query, $competitors);
+        $rows = $query->groupByRaw($period)->orderBy('period')->get();
+        $result = [];
+        foreach ($rows as $row) {
+            $n = (int) $row->responses;
+            $counts = [['id' => 'brand', 'name' => null, 'count' => (int) $row->brand_mentioned]];
+            foreach ($competitors as $index => $competitor) {
+                $counts[] = ['id' => (string) $competitor->id, 'name' => $competitor->name, 'count' => (int) $row->{"competitor_{$index}"}];
+            }
+            $totalMentions = array_sum(array_column($counts, 'count'));
+            $entities = [];
+            foreach ($counts as $entity) {
+                $rank = $n === 0 ? null : 1 + count(array_filter($counts, fn (array $other): bool => $other['count'] > $entity['count']));
+                $entities[] = [
+                    'id' => $entity['id'], 'name' => $entity['name'],
+                    'visibility' => (new Metric(Formulas::ratio($entity['count'], $n), $n))->toArray(),
+                    'share_of_voice' => (new Metric(Formulas::ratio($entity['count'], $totalMentions), $n))->toArray(),
+                    'rank' => $rank,
+                ];
+            }
+            $result[] = ['period' => substr((string) $row->period, 0, 10), 'entities' => $entities];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Visibility per prompt and engine, for the heatmap. Empty cells are omitted rather than inventing zeroes.
+     *
+     * @return list<array{prompt_id: int, engine_key: string, visibility: array{value: float|null, n: int, low_sample: bool}}>
+     */
+    public function visibilityByPromptEngine(MetricsFilter $filter): array
+    {
+        return $this->dailyQuery($filter)->toBase()
+            ->selectRaw('agg_daily.prompt_id, agg_daily.engine_key, sum(agg_daily.responses) as responses, sum(agg_daily.brand_mentioned) as mentioned')
+            ->groupBy('agg_daily.prompt_id', 'agg_daily.engine_key')->orderBy('agg_daily.prompt_id')->orderBy('agg_daily.engine_key')
+            ->get()->map(fn (object $row): array => [
+                'prompt_id' => (int) $row->prompt_id, 'engine_key' => (string) $row->engine_key,
+                'visibility' => (new Metric(Formulas::ratio($row->mentioned, $row->responses), (int) $row->responses))->toArray(),
+            ])->all();
+    }
+
+    /**
+     * Visibility series for the small multiples, keeping the underlying n for every period and engine.
+     *
+     * @return list<array{period: string, engine_key: string, visibility: array{value: float|null, n: int, low_sample: bool}}>
+     */
+    public function visibilityByEngineSeries(MetricsFilter $filter, string $grain = 'day'): array
+    {
+        $period = $this->graphPeriod($grain);
+
+        return $this->dailyQuery($filter)->toBase()
+            ->selectRaw("{$period} as period, agg_daily.engine_key, sum(agg_daily.responses) as responses, sum(agg_daily.brand_mentioned) as mentioned")
+            ->groupByRaw($period)->groupBy('agg_daily.engine_key')->orderBy('period')->orderBy('agg_daily.engine_key')
+            ->get()->map(fn (object $row): array => [
+                'period' => substr((string) $row->period, 0, 10), 'engine_key' => (string) $row->engine_key,
+                'visibility' => (new Metric(Formulas::ratio($row->mentioned, $row->responses), (int) $row->responses))->toArray(),
+            ])->all();
+    }
+
+    /**
+     * The last 14 days within the selected period: whether at least one answer mentioned the brand, plus the
+     * number of answers. Missing days have no point and days with zero answers have a null value.
+     *
+     * @return list<array{prompt_id: int, engine_key: string, period: string, value: float|null, n: int, low_sample: bool}>
+     */
+    public function stabilityDots(MetricsFilter $filter): array
+    {
+        $start = max($filter->from, CarbonImmutable::parse($filter->to)->subDays(13)->format('Y-m-d'));
+
+        return $this->dailyQuery($filter)->where('agg_daily.date', '>=', $start)->toBase()
+            ->selectRaw('agg_daily.prompt_id, agg_daily.engine_key, agg_daily.date, sum(agg_daily.responses) as responses, sum(agg_daily.brand_mentioned) as mentioned')
+            ->groupBy('agg_daily.prompt_id', 'agg_daily.engine_key', 'agg_daily.date')
+            ->orderBy('agg_daily.prompt_id')->orderBy('agg_daily.engine_key')->orderBy('agg_daily.date')
+            ->get()->map(function (object $row): array {
+                $n = (int) $row->responses;
+                $value = $n === 0 ? null : ((int) $row->mentioned > 0 ? 1.0 : 0.0);
+
+                return [
+                    'prompt_id' => (int) $row->prompt_id, 'engine_key' => (string) $row->engine_key,
+                    'period' => substr((string) $row->date, 0, 10), ...(new Metric($value, $n))->toArray(),
+                ];
+            })->all();
+    }
+
+    private function graphPeriod(string $grain): string
+    {
+        if (! in_array($grain, self::GRAINS, true)) {
+            throw new InvalidArgumentException("Unknown grain: {$grain}");
+        }
+
+        return $grain === 'day' ? 'agg_daily.date' : "date_trunc('{$grain}', agg_daily.date)::date";
+    }
+
+    /**
      * The summary per value of a dimension (market, engine, prompt, topic, intent or funnel_stage), keyed by the
      * value (the topic key is "" for prompts without a topic).
      *
