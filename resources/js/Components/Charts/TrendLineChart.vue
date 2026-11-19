@@ -5,7 +5,7 @@
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
-import { bucketMarkers } from './support/data.js';
+import { bucketMarkers, trendSelection } from './support/data.js';
 import { axisFormatter, formatChange, formatDate, formatValue, isLowSample, tooltipHtml } from './support/format.js';
 import { firstAndLast, lineSeries, pointRows, timeTable } from './support/lines.js';
 import { markerNotes, markerSeries } from './support/markers.js';
@@ -100,6 +100,11 @@ function option({ palette }) {
     };
 }
 
+function select(params) {
+    const selected = trendSelection(params, props.categories, props.series);
+    if (selected) emit('select', selected);
+}
+
 function legendNames() {
     const names = props.series.map((item) => item.label);
 
@@ -163,6 +168,6 @@ const summary = computed(() => {
         :height="height"
         :option="option"
         @marker="emit('marker', $event)"
-        @select="emit('select', $event)"
+        @select="select"
     />
 </template>

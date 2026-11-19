@@ -26,8 +26,9 @@ const points = computed(() => {
 const series = computed(() => [{ key: 'own', label: props.brand, own: true, points: points.value }]);
 const selected = ref(null);
 function select(event) {
-    const index = event?.dataIndex;
-    if (!Number.isInteger(index) || points.value[index]?.value == null) return;
+    if (event?.key !== 'own') return;
+    const index = categories.value.indexOf(event.category);
+    if (index < 0 || points.value[index]?.value == null) return;
     selected.value = { date: categories.value[index], ...points.value[index] };
 }
 const selectedValue = computed(() => {
@@ -64,7 +65,7 @@ function formatPoint(value) {
                         v-if="point.value != null"
                         type="button"
                         class="underline"
-                        @click="select({ dataIndex: index })"
+                        @click="select({ key: 'own', category: categories[index] })"
                     >
                         {{ categories[index] }} · {{ formatPoint(point.value) }}
                     </button>
