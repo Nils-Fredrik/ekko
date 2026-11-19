@@ -99,6 +99,17 @@ test('queued action generation does not run for an expired pitch', function () {
     expect(Action::query()->count())->toBe(0)->and($this->writer->requests)->toBeEmpty();
 });
 
+test('a daily pitch refresh updates findings during the week without paid wording calls', function () {
+    $this->w->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    dispatch_sync(new GenerateTenantActions($this->w->tenant->id, force: true));
+    $first = Action::query()->sole()->impact_score;
+    $this->source->candidates = [$this->source->candidate($this->w->market->id, 'branschsajt.se', perMonth: 40, share: 1)];
+    dispatch_sync(new GenerateTenantActions($this->w->tenant->id, force: true));
+
+    expect(Action::query()->count())->toBe(1)->and(Action::query()->sole()->impact_score)->not->toBe($first)
+        ->and($this->writer->requests)->toBeEmpty();
+});
+
 test('each call writes one structured log line with internal IDs and no text (T43-F1)', function () {
     Log::spy();
 

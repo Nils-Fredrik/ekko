@@ -8,6 +8,7 @@ use App\Engines\Credentials\TenantApiKeys;
 use App\Engines\EnginePricing;
 use App\Enums\TenantStatus;
 use App\Jobs\CollectEngineRun;
+use App\Jobs\GenerateTenantActions;
 use App\Jobs\SubmitExtractionBatch;
 use App\Models\AnthropicBudgetPlan;
 use App\Models\Market;
@@ -74,7 +75,7 @@ final class Dispatcher
                         }
 
                         $this->refreshBatches();
-                        if ($tenant->mayStartProjectWorkAt($now) && Run::query()->where('status', 'collected')->exists()) {
+                        if (Run::query()->where('status', 'collected')->exists()) {
                             SubmitExtractionBatch::dispatch($tenant->id)->onConnection('database')->afterCommit();
                         }
 
@@ -137,12 +138,18 @@ final class Dispatcher
         }
         $day = $now->setTimezone($tenant->timezone)->startOfDay();
         $candidates = [];
+        $pitchActionsQueued = false;
         $budget = app(Account::class);
         $additions = $this->budgetPlanned && $budget->configured() ? (AnthropicBudgetPlan::query()->where('day', $now->utc()->toDateString())->first()->additions ?? []) : [];
         foreach (Market::query()->where('is_active', true)->whereHas('brand', fn ($q) => $q->where('status', 'active'))->with(['marketEngines.engine', 'prompts' => fn ($q) => $q->where('is_active', true)->orderByRaw("CASE WHEN priority = 'core' THEN 0 ELSE 1 END")->orderBy('id')])->orderBy('id')->get() as $market) {
             $batch = RunBatch::query()->firstOrCreate(['market_id' => $market->id, 'dispatch_date' => $day->toDateString()], ['scheduled_for' => $day->utc(), 'status' => 'queued']);
             if (! $batch->wasRecentlyCreated) {
                 continue;
+            }
+            if ($tenant->kind === 'pitch' && ! $pitchActionsQueued) {
+                // The daily market batch is the durable once-per-day marker; queue and marker commit together.
+                Queue::connection('database')->push(new GenerateTenantActions($tenant->id, force: true));
+                $pitchActionsQueued = true;
             }
             foreach ($market->prompts as $prompt) {
                 foreach ($market->marketEngines->groupBy('engine_key') as $key => $settings) {

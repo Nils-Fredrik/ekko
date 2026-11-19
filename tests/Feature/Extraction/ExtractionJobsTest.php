@@ -83,17 +83,59 @@ function asTenant(Team $tenant, Closure $callback): mixed
     return app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], $callback));
 }
 
-it('does not submit queued extraction after pitch expiry', function () {
+it('keeps deterministic extraction for collected answers without starting a paid batch after expiry', function () {
     $a = extractionTenant();
     $a['tenant']->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()])->save();
-    $response = collectedResponse($a, 'Et innsamlet svar.');
+    $response = collectedResponse($a, 'Fjordkaffe er anbefalt.');
     $client = new FakeExtractionClient(fn (string $id): array => entry([]));
     app()->instance(ExtractionClient::class, $client);
 
     dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
 
     expect($client->batches)->toBeEmpty()
-        ->and($response->run()->withoutGlobalScopes()->first()->status)->toBe('collected');
+        ->and($response->run()->withoutGlobalScopes()->first()->status)->toBe('extracted');
+    asTenant($a['tenant'], fn () => expect($response->fresh()->llm_failed)->toBeTrue()
+        ->and(Mention::query()->where('response_id', $response->id)->where('entity_type', 'brand')->exists())->toBeTrue());
+});
+
+it('finishes a paid extraction batch after pitch expiry without a new paid retry', function () {
+    Bus::fake([PollExtractionBatch::class]);
+    $a = extractionTenant();
+    $a['tenant']->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addMinute()])->save();
+    $response = collectedResponse($a, 'Fjordkaffe er anbefalt.');
+    $client = new FakeExtractionClient(fn (string $id): array => ['batch' => ['text' => 'not json', 'input_tokens' => 50, 'output_tokens' => 5]]);
+    app()->instance(ExtractionClient::class, $client);
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    $job = ExtractionJob::query()->withoutGlobalScopes()->sole();
+
+    $this->travel(2)->minutes();
+    asTenant($a['tenant'], fn () => app()->call([new PollExtractionBatch($a['tenant']->id, $job->id), 'handle']));
+
+    expect($client->batches)->toHaveCount(1)->and($client->retries)->toBeEmpty();
+    asTenant($a['tenant'], function () use ($response, $job): void {
+        expect($response->fresh()->llm_failed)->toBeTrue()->and($response->run->fresh()->status)->toBe('extracted')
+            ->and($job->fresh()->status)->toBe('completed')
+            ->and(UsageEvent::query()->where('kind', 'extraction')->count())->toBe(1);
+    });
+});
+
+it('preserves a valid paid extraction result received after pitch expiry', function () {
+    Bus::fake([PollExtractionBatch::class]);
+    $a = extractionTenant();
+    $a['tenant']->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addMinute()])->save();
+    $response = collectedResponse($a, 'Fjordkaffe er anbefalt.');
+    $client = new FakeExtractionClient(fn (string $id): array => entry([reported('Fjordkaffe', 'brand', $a['brand'], true)]));
+    app()->instance(ExtractionClient::class, $client);
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    $job = ExtractionJob::query()->withoutGlobalScopes()->sole();
+    $this->travel(2)->minutes();
+
+    asTenant($a['tenant'], fn () => app()->call([new PollExtractionBatch($a['tenant']->id, $job->id), 'handle']));
+
+    expect($client->retries)->toBeEmpty();
+    asTenant($a['tenant'], fn () => expect($response->fresh()->llm_failed)->toBeFalse()
+        ->and($response->run->fresh()->status)->toBe('extracted')
+        ->and(UsageEvent::query()->where('kind', 'extraction')->count())->toBe(1));
 });
 
 it('submits one batch per tenant for collected answers and stores the batch as an extraction job', function () {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Engines\EngineAdapter;
+use App\Engines\EngineCallFailed;
 use App\Engines\EngineCollector;
 use App\Engines\EngineRegistry;
 use App\Engines\EngineRequest;
@@ -21,6 +22,18 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\Engines\EngineFixtures;
+
+it('refuses a new engine admission after pitch expiry even when called directly', function () {
+    $tenant = Team::factory()->tenant()->create(['kind' => 'pitch', 'pitch_expires_at' => now()]);
+    $run = app(TenantContext::class)->run($tenant->id, fn () => Run::factory()->create());
+    app()->instance(RawResponseStore::class, Mockery::mock(RawResponseStore::class));
+    app()->instance(EngineRegistry::class, new EngineRegistry([]));
+    Http::preventStrayRequests();
+
+    expect(fn () => app(TenantContext::class)->run($tenant->id, fn () => app(EngineCollector::class)->collect($run->id)))
+        ->toThrow(EngineCallFailed::class, 'pitch_expired');
+    Http::assertNothingSent();
+});
 
 it('collects a fixture through the engine registry and records exactly one response and usage event', function (?string $apiKey, string $billedTo) {
     Http::preventStrayRequests();

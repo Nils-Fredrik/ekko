@@ -11,6 +11,7 @@ defineProps({
     competitors: Array,
     sources: Array,
     actions: Object,
+    reduced_quality: Number,
 });
 function percent(value) {
     return value === null || value === undefined
@@ -30,6 +31,9 @@ function percent(value) {
         <div class="mx-auto max-w-3xl space-y-6 px-4 py-8">
             <a :href="route('pitches.report.pdf', brandId)" class="text-sm underline">{{ $t('pitch.download_pdf') }}</a>
             <p>{{ $t('app.workspace.period_range', { start: from, end: to }) }}</p>
+            <p v-if="reduced_quality" class="text-sm text-shell-muted">
+                {{ $t('pitch.reduced_quality', { n: reduced_quality }) }}
+            </p>
             <section>
                 <h3>{{ $t('pitch.visibility') }}</h3>
                 <p :class="{ 'opacity-50': visibility.low_sample }">

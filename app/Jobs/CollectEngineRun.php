@@ -62,7 +62,8 @@ final class CollectEngineRun extends TenantJob
 
             return;
         }
-        if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt(CarbonImmutable::now('UTC'))) {
+        // A submitted task is already paid for: poll it, but never submit a new task after expiry.
+        if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt(CarbonImmutable::now('UTC')) && $run->provider_task_id === null) {
             $this->stop('pitch_expired');
 
             return;
@@ -80,6 +81,11 @@ final class CollectEngineRun extends TenantJob
                 $collector->collect($run->id);
             }
         } catch (EngineCallFailed $failure) {
+            if ($failure->getMessage() === 'pitch_expired') {
+                $this->stop('pitch_expired');
+
+                return;
+            }
             if ($failure->getMessage() === 'run_already_reserved') {
                 $this->release(30);
 

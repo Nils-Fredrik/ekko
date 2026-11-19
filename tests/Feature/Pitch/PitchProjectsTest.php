@@ -80,17 +80,25 @@ test('a converted pitch report separates answers on the same local day at the co
 
 test('a pitch PDF is generated from scoped report data and saved privately for download', function () {
     $world = MetricsWorld::create('UTC');
-    $world->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    $world->tenant->forceFill(['kind' => 'pitch', 'created_at' => now()->subMinute(), 'pitch_expires_at' => now()->addDays(7)])->save();
+    $answer = $world->answer($world->p1, now()->subSecond()->toIso8601String());
+    $answer->forceFill(['llm_failed' => true])->save();
+    $answer->run->forceFill(['created_at' => now()->subSecond()])->save();
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
     $disk = config()->string('ekko.reports.disk');
     Storage::fake($disk);
     $pdf = Pdf::fake();
 
+    $this->actingAs($owner)->get(route('pitches.report', $world->brand))->assertOk()
+        ->assertInertia(fn ($page) => $page->where('reduced_quality', 1));
+
     $response = $this->actingAs($owner)->get(route('pitches.report.pdf', $world->brand))->assertOk()->assertHeader('content-type', 'application/pdf');
     expect($response->streamedContent())->toStartWith('%PDF');
     $pdf->assertViewIs('pitch.pdf');
     $pdf->assertViewHas('brand', 'Fjordkaffe');
+    $pdf->assertViewHas('reduced_quality', 1);
+    $pdf->assertSee(__('pitch.reduced_quality', ['n' => 1]));
     $files = Storage::disk($disk)->files('reports/'.$world->tenant->id);
     expect($files)->toBe(['reports/'.$world->tenant->id.'/pitch-'.$world->brand->id.'.pdf']);
     expect(Storage::disk($disk)->getVisibility($files[0]))->toBe('private');

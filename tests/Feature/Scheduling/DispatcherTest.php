@@ -2,6 +2,7 @@
 
 use App\Engines\RawResponseStore;
 use App\Jobs\CollectEngineRun;
+use App\Jobs\GenerateTenantActions;
 use App\Models\Engine;
 use App\Models\EnginePrice;
 use App\Models\Market;
@@ -68,6 +69,25 @@ test('a pitch does not schedule an engine switched off for its market', function
 
     expect(app(Dispatcher::class)->dispatch($now))->toBe(0);
     app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => expect(Run::query()->count())->toBe(0)));
+});
+
+test('daily dispatch queues one template action refresh per pitch without adding customer jobs', function () {
+    $now = CarbonImmutable::now('UTC');
+    $engine = dispatchEngine();
+    $pitch = dispatchTenant($engine, 1);
+    $pitch->forceFill(['kind' => 'pitch', 'pitch_expires_at' => $now->addDays(7)])->save();
+    dispatchTenant($engine, 1);
+    $dispatcher = app(Dispatcher::class);
+    $dispatcher->dispatch($now);
+    $dispatcher->dispatch($now);
+    $actions = fn () => DB::table('jobs')->pluck('payload')->map(fn ($payload) => unserialize(json_decode($payload, true)['data']['command']))
+        ->filter(fn ($job) => $job instanceof GenerateTenantActions)->values();
+
+    expect($actions())->toHaveCount(1)->and($actions()[0]->tenantId)->toBe($pitch->id)->and($actions()[0]->force)->toBeTrue();
+    $dispatcher->dispatch($now->addDay());
+    expect($actions())->toHaveCount(2);
+    $dispatcher->dispatch($now->addDays(7));
+    expect($actions())->toHaveCount(2);
 });
 
 test('a queued pitch run cannot start provider work after the pitch expires', function () {

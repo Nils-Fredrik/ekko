@@ -43,9 +43,6 @@ final class ExtractionSubmitter
     public function submitNext(int $tenantId): bool
     {
         $tenant = Team::query()->findOrFail($tenantId);
-        if (! $tenant->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
-            return false;
-        }
         DB::select('select pg_advisory_xact_lock(?, ?)', [self::LOCK_NAMESPACE, $tenantId]);
 
         $size = max(1, (int) config('ekko.anthropic.extraction.batch_size'));
@@ -96,7 +93,10 @@ final class ExtractionSubmitter
         ))->all();
 
         if (! $tenant->refresh()->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
-            return false;
+            // Preserve already collected answers without starting a new paid batch.
+            $chunk->each(fn (Response $response) => $this->writer->abandon($response));
+
+            return $more;
         }
         try {
             $batchId = $this->runner->submit($requests);

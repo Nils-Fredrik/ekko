@@ -629,6 +629,8 @@ Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like 
 - **Språk:** rapportens `locale`, uavhengig av mottakers brukerinnstilling.
 - **Lagring og utsending:** PDF-en lagres på disken `ekko.reports.disk` (standard `local`) under `reports/{tenant}/` og sendes som vedlegg. T32 skriver til samme disk og prefiks. Bøtten `ekko-reports` settes som den disken når den finnes. Grensesnittet har nedlastingslenke.
 
+**Pitchrapport (T47):** Den korte pitchrapporten har privat PDF-nedlasting og lagrer siste PDF per merkevare. Den er foreløpig ikke koblet til ordinær rapportliste, versjonert rapporthistorikk, planlagt e-postutsending eller rapportplanens profil- og språkvalg. Det er ikke avklart om alle kravene i 11.2 også skal gjelde pitchrapporter; dette er et åpent avvik, ikke en besluttet endring av kravene.
+
 ### 11.3 Tiltak
 
 Pitch-rapporter bruker de tre høyest rangerte åpne tiltakene. Oppsett, separat forbruk og konvertering er beskrevet i [pitch-spesifikasjonen](pitch.md) (T47).
