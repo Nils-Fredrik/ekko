@@ -157,6 +157,8 @@ jobs:
               run: bash tests/deploy/test-deploy.sh
             - name: Verify registry digest selection
               run: python3 -m unittest discover -s tests/deploy -v
+            - name: Verify artifact download retry and fail-closed behavior
+              run: node --test tests/deploy/artifact-download.test.mjs
             - name: Save verified images
               run: |
                   mkdir -p "$RUNNER_TEMP/verified-images"
