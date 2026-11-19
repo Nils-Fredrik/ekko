@@ -133,6 +133,8 @@ test('rejects drafts, forks, untrusted authors and unknown titles', () => {
     assert.equal(eligible({ ...p, head: { ...p.head, repo: { full_name: 'attacker/fork' } } }, authors), false);
     assert.equal(eligible({ ...p, user: { login: 'stranger' } }, authors), false);
     assert.equal(eligible({ ...p, title: 'urgent fix' }, authors), false);
+    assert.equal(eligible({ ...p, title: '[Cursor] U05 – Dashboard' }, authors), true);
+    assert.equal(eligible({ ...p, title: '[Cursor] X05 – Dashboard' }, authors), false);
 });
 
 test('only the newest successful required checks from GitHub Actions count', () => {

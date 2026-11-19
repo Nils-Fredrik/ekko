@@ -73,6 +73,27 @@
 
         <h2>{{ __('reports.models') }}</h2>
         @include('reports.partials.table', ['columns' => [__('reports.engine'), __('reports.changed_on'), __('reports.from_model'), __('reports.to_model')], 'rows' => array_map(fn ($row) => [$row['engine'], $row['on'], $row['from'], $row['to']], $models)])
+
+        <h2>{{ $actions['title'] }}</h2>
+        <h3>{{ $actions['open_title'] }}</h3>
+        @forelse ($actions['open'] as $action)
+            <p><strong>{{ $action['title'] }}</strong> · {{ $action['impact'] }}</p>
+            @if ($action['evidence'] !== '')
+                <p>{{ $action['evidence'] }}</p>
+            @endif
+        @empty
+            <p class="muted">{{ $actions['empty_open'] }}</p>
+        @endforelse
+        <h3>{{ $actions['done_title'] }}</h3>
+        @forelse ($actions['completed'] as $action)
+            <p><strong>{{ $action['title'] }}</strong> · {{ $action['impact'] }}</p>
+            @if ($action['evidence'] !== '')
+                <p>{{ $action['evidence'] }}</p>
+            @endif
+            <p class="muted">{{ $actions['change_label'] }}: {{ $action['change'] }}</p>
+        @empty
+            <p class="muted">{{ $actions['empty_done'] }}</p>
+        @endforelse
     </main>
 </body>
 </html>

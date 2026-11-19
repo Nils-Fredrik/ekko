@@ -1,9 +1,9 @@
-<!-- Tittel: «[Agent] T<nr> – <tittel>», samme som Board-oppgaven. Beskrivelsen skrives på norsk. -->
+<!-- Tittel: «[Agent] T<nr> – <tittel>» eller «[Agent] U<nr> – <tittel>», samme som Board-oppgaven. Beskrivelsen skrives på norsk. -->
 
 ## Oppgave
 
 - Board: `task:<n>` (https://board.maksimer.com/b/vn4w66vc)
-- Arbeidspakke: T<nr> (`docs/spec.md`, kapittel 20)
+- Arbeidspakke: T<nr> (`docs/spec.md`, kapittel 20) eller U<nr> (`docs/ui-forbedring.md`)
 
 ## Hva er gjort
 
