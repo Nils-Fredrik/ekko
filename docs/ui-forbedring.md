@@ -15,9 +15,11 @@ Alle kort og paneler bruker skallets flatetokens, slik at begge temaer fungerer:
 | 2 | `--color-shell-surface` | Kort i kort, felter, popovers, tooltips |
 | Linje | `--color-line` | Skiller og grafrutenett. Mørk verdi i mørkt tema, lys verdi i lyst tema. `--color-line-soft` er den svakere varianten. |
 
-`bg-white` og `text-ink` er fjernet fra komponentene og erstattet med tokens. `text-shell-muted` er den dempede tekstfargen. En ESLint-regel stopper nye forekomster.
+`bg-white` og `text-ink` er fjernet fra komponentene og erstattet med tokens. `text-shell-muted` er den dempede tekstfargen. En ESLint-regel stopper nye forekomster, også i Vue-maler.
 
-Merkevaremerket er et svart glyf. I mørkt tema inverteres det, så flisen kan følge skallet.
+Jetstream-komponentene bruker fortsatt gray-, indigo- og red-klassene. Verdiene følger temaet: lys tekst og mørke flater i mørkt tema, den opprinnelige lyse paletten i lyst tema.
+
+Merkevaremerket er et svart glyf. I mørkt tema inverteres det, så flisen kan følge skallet. QR-koden for tofaktor beholder en hvit stillesone (`bg-qr-quiet`) i begge temaer, fordi skanneren trenger lys bakgrunn.
 
 ## 4.2 Datafarger
 

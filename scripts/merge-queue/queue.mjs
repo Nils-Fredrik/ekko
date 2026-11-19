@@ -6,7 +6,7 @@ const REVIEW_APP_ID = 5773706;
 const REVIEW_BOT_ID = 357077641;
 const ACTIONS_APP_ID = 15368;
 const SHA = /^[a-f0-9]{40}$/;
-const AGENT_TITLE = /^\[(?:Codex|Claude Code|Cursor)\] [TU]\d+(?:-[A-Za-z0-9]+)?\s*[–-]\s*\S/;
+const AGENT_TITLE = /^\[(?:Codex|Claude Code|Cursor)\] T\d+(?:-[A-Za-z0-9]+)?\s*[–-]\s*\S/;
 const ROUND = /^<!-- ekko-review-round:v1 (\{[^\n]+\}) -->/;
 
 export function validateProtection(protection) {

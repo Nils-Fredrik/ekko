@@ -133,7 +133,7 @@ const logout = () => {
 
                                     <template #content>
                                         <div class="w-60">
-                                            <div class="block px-4 py-2 text-xs text-dark-beige">
+                                            <div class="block px-4 py-2 text-xs text-shell-muted">
                                                 {{ $t('Manage Team') }}
                                             </div>
 
@@ -151,7 +151,7 @@ const logout = () => {
                                             <template v-if="user.all_teams.length > 1 && !page.props.actingAs">
                                                 <div class="border-t border-line-soft" />
 
-                                                <div class="block px-4 py-2 text-xs text-dark-beige">
+                                                <div class="block px-4 py-2 text-xs text-shell-muted">
                                                     {{ $t('Switch Teams') }}
                                                 </div>
 
@@ -193,7 +193,7 @@ const logout = () => {
                                     </template>
 
                                     <template #content>
-                                        <div class="block px-4 py-2 text-xs text-dark-beige">
+                                        <div class="block px-4 py-2 text-xs text-shell-muted">
                                             {{ $t('Manage Account') }}
                                         </div>
 
@@ -241,7 +241,7 @@ const logout = () => {
                                         <div class="border-t border-line-soft" />
 
                                         <div
-                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase"
+                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase"
                                         >
                                             {{ $t('app.nav.theme') }}
                                         </div>
@@ -249,7 +249,7 @@ const logout = () => {
                                             v-for="option in themes"
                                             :key="option.code"
                                             type="button"
-                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-shell-muted hover:bg-shell-surface hover:text-shell-text"
+                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-shell-muted hover:bg-shell-text/10 hover:text-shell-text"
                                             @click="setTheme(option.code)"
                                         >
                                             {{ option.label() }}
@@ -262,7 +262,7 @@ const logout = () => {
                                         <div class="border-t border-line-soft" />
 
                                         <div
-                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase"
+                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase"
                                         >
                                             {{ $t('app.nav.language') }}
                                         </div>
@@ -270,7 +270,7 @@ const logout = () => {
                                             v-for="item in locales"
                                             :key="item.code"
                                             type="button"
-                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-shell-muted hover:bg-shell-surface hover:text-shell-text"
+                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-shell-muted hover:bg-shell-text/10 hover:text-shell-text"
                                             @click="setLocale(item.code)"
                                         >
                                             {{ item.label }}
@@ -324,7 +324,7 @@ const logout = () => {
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
                             route().current('dashboard')
-                                ? 'bg-shell-surface font-medium text-shell-text'
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
                                 : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
@@ -336,7 +336,7 @@ const logout = () => {
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
                             route().current('brands.*')
-                                ? 'bg-shell-surface font-medium text-shell-text'
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
                                 : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
@@ -349,7 +349,7 @@ const logout = () => {
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
                             route().current('onboarding.wizard')
-                                ? 'bg-shell-surface font-medium text-shell-text'
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
                                 : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
@@ -362,7 +362,7 @@ const logout = () => {
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
                             route().current('partner.index')
-                                ? 'bg-shell-surface font-medium text-shell-text'
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
                                 : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
@@ -374,7 +374,7 @@ const logout = () => {
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
                             route().current('alerts.*')
-                                ? 'bg-shell-surface font-medium text-shell-text'
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
                                 : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
@@ -386,7 +386,7 @@ const logout = () => {
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
                             route().current('reports.*')
-                                ? 'bg-shell-surface font-medium text-shell-text'
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
                                 : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
@@ -399,7 +399,7 @@ const logout = () => {
                         class="rounded-lg px-3 py-2.5 text-sm no-underline"
                         :class="
                             route().current('usage.index')
-                                ? 'bg-shell-surface font-medium text-shell-text'
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
                                 : 'text-shell-muted'
                         "
                         @click="menuOpen = false"
@@ -450,7 +450,7 @@ const logout = () => {
                     v-if="$page.props.jetstream.hasTeamFeatures && user.current_team"
                     class="border-t border-line-soft py-3"
                 >
-                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase">
+                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase">
                         {{ $t('Switch Teams') }}
                     </div>
                     <div class="px-3 py-1.5 text-sm text-shell-text">{{ user.current_team.name }}</div>
@@ -462,7 +462,7 @@ const logout = () => {
                         <button
                             v-if="team.id != user.current_team_id"
                             type="submit"
-                            class="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted hover:bg-shell-surface"
+                            class="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted hover:bg-shell-text/10"
                         >
                             {{ team.name }}
                         </button>
@@ -485,7 +485,7 @@ const logout = () => {
                 </div>
 
                 <div class="border-t border-line-soft py-3">
-                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase">
+                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase">
                         {{ $t('app.nav.theme') }}
                     </div>
                     <button
@@ -501,7 +501,7 @@ const logout = () => {
                 </div>
 
                 <div class="border-t border-line-soft py-3">
-                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-dark-beige uppercase">
+                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase">
                         {{ $t('app.nav.language') }}
                     </div>
                     <button

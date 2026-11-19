@@ -27,7 +27,7 @@ const noHardcodedColor = {
             }
         };
 
-        return {
+        const scriptVisitor = {
             Literal(node) {
                 check(node, node.value);
             },
@@ -35,6 +35,15 @@ const noHardcodedColor = {
                 check(node, node.value.cooked);
             },
         };
+        const templateVisitor = {
+            ...scriptVisitor,
+            VLiteral(node) {
+                check(node, node.value);
+            },
+        };
+        const defineTemplateBodyVisitor = context.sourceCode.parserServices?.defineTemplateBodyVisitor;
+
+        return defineTemplateBodyVisitor ? defineTemplateBodyVisitor(templateVisitor, scriptVisitor) : scriptVisitor;
     },
 };
 

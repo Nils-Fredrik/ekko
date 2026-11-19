@@ -69,7 +69,17 @@ test('data colors contrast with both theme backgrounds', function () {
         }
         expect($colors['--data-seq-0'])->toBe($colors['--color-shell-surface'])
             ->and($colors['--data-seq-6'])->toBe($colors['--data-own']);
+        foreach (['--color-gray-600', '--color-gray-700', '--color-gray-900'] as $text) {
+            foreach ($backgrounds as $background) {
+                expect(contrastRatio($colors[$text], $background))->toBeGreaterThanOrEqual(3, "{$text} on {$background} in {$theme}");
+            }
+        }
     }
+
+    expect(relativeLuminance($dark['--color-gray-100']))->toBeLessThan(0.05)
+        ->and(relativeLuminance($light['--color-gray-100']))->toBeGreaterThan(0.7)
+        ->and($dark['--color-qr-quiet'])->toBe('#ffffff')
+        ->and($light['--color-qr-quiet'])->toBe('#ffffff');
 });
 
 test('components do not hardcode white surfaces or ink text', function () {

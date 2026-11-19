@@ -20,6 +20,7 @@ test('dark theme has no white surfaces', async ({ page }) => {
         `/brands/${brand()}/crawlers`,
         '/alerts',
         '/reports',
+        '/user/profile',
     ];
 
     await page.goto('/login');
@@ -32,12 +33,18 @@ test('dark theme has no white surfaces', async ({ page }) => {
         const response = await page.goto(path);
         expect(response?.status(), path).toBeLessThan(400);
         await expect(page.locator('html'), `${path} ${page.url()}`).toHaveAttribute('data-theme', 'dark');
-        const white = await page.evaluate(() =>
-            [...document.querySelectorAll('body *')]
-                .filter((element) => getComputedStyle(element).backgroundColor === 'rgb(255, 255, 255)')
+        const lightSurfaces = await page.evaluate(() => {
+            const banned = new Set(['rgb(255, 255, 255)', 'rgb(245, 237, 228)', 'rgb(251, 247, 241)']);
+            return [...document.querySelectorAll('body *')]
+                .filter((element) => banned.has(getComputedStyle(element).backgroundColor))
                 .slice(0, 6)
-                .map((element) => `${element.tagName}.${String(element.className).slice(0, 80)}`),
-        );
-        expect(white, path).toEqual([]);
+                .map((element) => `${element.tagName}.${String(element.className).slice(0, 80)}`);
+        });
+        expect(lightSurfaces, path).toEqual([]);
     }
+
+    await page.locator('button:has(span[class*="h-[34px]"])').click();
+    const profile = page.getByRole('link', { name: 'Profile', exact: true });
+    await expect(profile).toBeVisible();
+    await expect(profile).toHaveCSS('color', 'rgb(245, 237, 228)');
 });

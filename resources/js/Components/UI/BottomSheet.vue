@@ -46,7 +46,7 @@ useOverlay(
                     <h2 class="text-[15px] font-semibold">{{ title }}</h2>
                     <button
                         type="button"
-                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-shell-muted hover:bg-shell-surface hover:text-shell-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+                        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-shell-muted hover:bg-shell-text/10 hover:text-shell-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                         :aria-label="$t('app.common.close')"
                         @click="emit('close')"
                     >
