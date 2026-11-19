@@ -9,7 +9,6 @@ use App\Reports\ReportActions;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -26,7 +25,7 @@ final class PitchReportController extends Controller
     public function download(Brand $brand, PitchReportMetrics $metrics, ReportActions $actions): StreamedResponse
     {
         $data = $this->data($brand, $metrics, $actions);
-        $path = 'reports/'.current_tenant_id().'/pitch-'.$brand->id.'-'.Str::uuid().'.pdf';
+        $path = 'reports/'.current_tenant_id().'/pitch-'.$brand->id.'.pdf';
         $locale = app()->getLocale();
 
         // The stream is rendered after the tenant RLS transaction has committed; its data is already scoped.

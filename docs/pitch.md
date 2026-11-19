@@ -4,4 +4,6 @@ En pitch-rapport viser et prospekts AI-synlighet før et salgsmøte, uten at pro
 
 En partner kan ha inntil tre aktive pitch-prosjekter samtidig. Forbruket vises separat og er merket i fakturagrunnlaget. Rapporten oppdateres med nyeste tall og viser synlighet mot konkurrenter, viktige kilder og de tre høyest rangerte åpne tiltakene. Konvertering til ordinær tenant beholder historikken.
 
+Rapporten kan lastes ned som PDF. Den siste genererte PDF-en lagres privat under tenantens rapportprefiks. Pitch-PDF-en inngår foreløpig ikke i den ordinære rapportlisten eller planlagt e-postutsending, og bruker ikke rapportplanens profil eller språkvalg. For å holde pitchhistorikken atskilt tas bare svar fra kjøringer opprettet før utløp eller konvertering med, også når svarene kommer senere.
+
 Datamodellen har `teams.kind` (`customer`, `pitch`), `teams.pitch_expires_at`, `teams.pitch_converted_at` og `usage_events.project_kind`. En intern pitch-pakke tillater én merkevare, ett marked, 25 prompts og daglige standardmotorer, med 4000 kall per måned som i Basis. Ved konvertering velges partnerens ordinære pakke. Konvertering endrer ikke tenant-ID. Forbrukshendelser klassifiseres etter prosjektet da tilhørende kjøring eller operasjon startet, også når bokføringen skjer senere.

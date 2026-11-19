@@ -92,12 +92,26 @@ test('a pitch PDF is generated from scoped report data and saved privately for d
     $pdf->assertViewIs('pitch.pdf');
     $pdf->assertViewHas('brand', 'Fjordkaffe');
     $files = Storage::disk($disk)->files('reports/'.$world->tenant->id);
-    expect($files)->toHaveCount(1)->and($files[0])->toStartWith('reports/'.$world->tenant->id.'/pitch-');
+    expect($files)->toBe(['reports/'.$world->tenant->id.'/pitch-'.$world->brand->id.'.pdf']);
     expect(Storage::disk($disk)->getVisibility($files[0]))->toBe('private');
+    $this->get(route('pitches.report.pdf', $world->brand))->assertOk()->streamedContent();
+    expect(Storage::disk($disk)->files('reports/'.$world->tenant->id))->toBe($files);
 
     $other = Team::factory()->tenant()->create();
     $other->owner->switchTeam($other);
     $this->actingAs($other->owner)->get(route('pitches.report.pdf', $world->brand))->assertNotFound();
+});
+
+test('the pitch PDF renders a real PDF document', function () {
+    $world = MetricsWorld::create('UTC');
+    $world->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    Storage::fake(config()->string('ekko.reports.disk'));
+
+    $response = $this->actingAs($owner)->get(route('pitches.report.pdf', $world->brand))->assertOk();
+    $document = $response->streamedContent();
+    expect($document)->toStartWith('%PDF')->and(strlen($document))->toBeGreaterThan(1000);
 });
 
 test('partner quota counts only live pitches and conversion retains the same tenant', function () {
