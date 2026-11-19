@@ -181,6 +181,7 @@ const logout = () => {
                                     <template #trigger>
                                         <button
                                             type="button"
+                                            data-testid="account-menu"
                                             class="inline-flex items-center gap-2 rounded-lg px-1.5 py-1 text-sm text-shell-fg hover:bg-shell-fg/[.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
                                         >
                                             <span

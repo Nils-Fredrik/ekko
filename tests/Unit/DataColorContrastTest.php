@@ -82,6 +82,8 @@ test('data colors contrast with both theme backgrounds', function () {
         ->and($dark['--color-qr-quiet'])->toBe('#ffffff')
         ->and($light['--color-qr-quiet'])->toBe('#ffffff');
 
+    // CI runs npm run build before composer test. A local run needs that build first,
+    // because Tailwind can drop these tokens and the source file would not show it.
     $built = glob($root.'/public/build/assets/app-*.css') ?: [];
     expect($built)->not->toBeEmpty();
     usort($built, fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));

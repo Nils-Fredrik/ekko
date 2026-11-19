@@ -227,7 +227,9 @@
     }
 }
 
-/* Unlayered so these beat @tailwindcss/forms, which paints fields white from @layer base. */
+/* Components comes after the forms plugin in base, and before utilities, so a field
+   utility such as rounded-md or bg-* can still override these defaults. */
+@layer components {
 input:where(
     [type='text'],
     [type='email'],
@@ -284,6 +286,7 @@ input[type='radio']:not(:checked) {
 
 ::placeholder {
     color: color-mix(in srgb, var(--color-shell-muted) 80%, transparent);
+}
 }
 
 /* Touch screens zoom in on focus when a field is smaller than 16px. */
