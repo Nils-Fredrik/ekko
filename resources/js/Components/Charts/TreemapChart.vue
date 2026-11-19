@@ -5,6 +5,7 @@ import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
 import { formatValue, isLowSample, tooltipHtml } from './support/format.js';
+import { tableValue } from './support/lines.js';
 import { paletteColor, readableOn } from './support/palette.js';
 
 const props = defineProps({
@@ -94,7 +95,7 @@ const table = computed(() => ({
     rows: props.items.map((item) => ({
         key: item.key,
         label: item.label,
-        value: formatValue(item.value, props.kind),
+        value: tableValue(item, props.kind),
         share: formatValue(share(item), 'rate'),
     })),
 }));

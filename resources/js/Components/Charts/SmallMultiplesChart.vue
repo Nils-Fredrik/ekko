@@ -3,7 +3,7 @@
 // (docs/ui-forbedring.md 6, U05). Each panel is an EkkoChart; the table toggle and the
 // description cover all panels together.
 import { trans } from 'laravel-vue-i18n';
-import { computed, ref } from 'vue';
+import { computed, ref, useId } from 'vue';
 import ChartTable from './ChartTable.vue';
 import EkkoChart from './EkkoChart.vue';
 import { bucketMarkers } from './support/data.js';
@@ -37,6 +37,7 @@ const props = defineProps({
 const emit = defineEmits(['marker', 'select']);
 
 const showTable = ref(false);
+const descriptionId = `ekko-chart-${useId()}`;
 
 // Shared scale: from 0 to the highest value in any panel, rounded up.
 const max = computed(() => {
@@ -109,6 +110,25 @@ function optionFor(panel) {
     };
 }
 
+// One option function per panel, made again only when the panels change, so toggling the
+// table does not redraw every panel.
+const options = computed(() => Object.fromEntries(props.panels.map((panel) => [panel.key, optionFor(panel)])));
+
+function panelSummary(panel) {
+    const range = firstAndLast(panel.points);
+    if (!range) {
+        return trans('app.charts.describe.empty', { label: panel.label });
+    }
+
+    return trans('app.charts.describe.sparkline', {
+        label: panel.label,
+        from: formatValue(range.first.point.value, props.kind),
+        to: formatValue(range.last.point.value, props.kind),
+        change: formatChange(range.last.point.value - range.first.point.value, props.kind),
+        days: panel.points.length,
+    });
+}
+
 const table = computed(() => timeTable(props.categories, props.panels, props.kind, trans('app.charts.period')));
 
 const summary = computed(() => {
@@ -131,7 +151,7 @@ const summary = computed(() => {
 </script>
 
 <template>
-    <figure class="m-0" :aria-label="label">
+    <figure class="m-0" role="group" :aria-label="label" :aria-describedby="descriptionId">
         <div class="mb-2 flex justify-end">
             <button
                 type="button"
@@ -143,7 +163,7 @@ const summary = computed(() => {
                 {{ showTable ? $t('app.charts.show_chart') : $t('app.charts.show_table') }}
             </button>
         </div>
-        <p class="sr-only">{{ summary }}</p>
+        <p :id="descriptionId" class="sr-only">{{ summary }}</p>
         <div v-show="!showTable" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <div v-for="panel in panels" :key="panel.key">
                 <div class="flex items-baseline justify-between gap-2 text-xs">
@@ -154,7 +174,8 @@ const summary = computed(() => {
                     compact
                     :label="panel.label"
                     :height="panelHeight"
-                    :option="optionFor(panel)"
+                    :description="panelSummary(panel)"
+                    :option="options[panel.key]"
                     @marker="emit('marker', $event)"
                     @select="emit('select', { panel: panel.key, dataIndex: $event.dataIndex })"
                 />

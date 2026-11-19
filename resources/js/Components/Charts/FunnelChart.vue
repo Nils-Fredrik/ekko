@@ -71,7 +71,7 @@ function option({ palette }) {
                 barMaxWidth: 26,
                 data: props.steps.map((step, index) => ({
                     value: step.value,
-                    itemStyle: { color, opacity: 1 - index * 0.15 },
+                    itemStyle: { color, opacity: Math.max(0.4, 1 - index * 0.15) },
                 })),
                 label: {
                     show: true,

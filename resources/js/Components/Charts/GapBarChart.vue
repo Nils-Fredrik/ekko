@@ -5,7 +5,8 @@
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
-import { axisFormatter, formatChange, formatValue, isLowSample, tooltipHtml } from './support/format.js';
+import { axisFormatter, formatChange, isLowSample, tooltipHtml } from './support/format.js';
+import { tableValue } from './support/lines.js';
 
 const props = defineProps({
     label: { type: String, required: true },
@@ -94,8 +95,8 @@ const table = computed(() => ({
     rows: ordered.value.map((row) => ({
         key: row.key,
         label: row.label,
-        own: formatValue(row.own?.value ?? null, props.kind),
-        competitors: formatValue(row.competitors?.value ?? null, props.kind),
+        own: tableValue(row.own, props.kind),
+        competitors: tableValue(row.competitors, props.kind),
         gap: formatChange(gap(row), props.kind),
     })),
 }));

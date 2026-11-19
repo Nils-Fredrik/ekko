@@ -6,6 +6,7 @@ import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
 import { formatValue, isLowSample, tooltipHtml } from './support/format.js';
+import { tableValue } from './support/lines.js';
 
 const props = defineProps({
     label: { type: String, required: true },
@@ -27,7 +28,19 @@ const props = defineProps({
 const emit = defineEmits(['select']);
 
 const cellMap = computed(() => new Map(props.cells.map((cell) => [`${cell.row}|${cell.column}`, cell])));
-const height = computed(() => Math.max(props.rows.length, 1) * props.rowHeight + 48);
+// The y axis: a heading line for each topic group, then its prompts. Group headings have no cells.
+const lines = computed(() => {
+    const result = [];
+    props.rows.forEach((row, index) => {
+        if (row.group && row.group !== props.rows[index - 1]?.group) {
+            result.push({ heading: row.group });
+        }
+        result.push({ row });
+    });
+
+    return result;
+});
+const height = computed(() => Math.max(lines.value.length, 1) * props.rowHeight + 48);
 const scaleMax = computed(
     () => props.max ?? (props.kind === 'rate' ? 1 : Math.max(1, ...props.cells.map((cell) => cell.value ?? 0))),
 );
@@ -49,7 +62,10 @@ function stepColor(palette, value) {
 
 function option({ palette, width }) {
     const data = [];
-    props.rows.forEach((row, y) => {
+    lines.value.forEach(({ row }, y) => {
+        if (!row) {
+            return;
+        }
         props.columns.forEach((column, x) => {
             const cell = cellMap.value.get(`${row.key}|${column.key}`);
             if (!cell) {
@@ -65,13 +81,6 @@ function option({ palette, width }) {
             });
         });
     });
-    // Lines between topic groups.
-    const groupLines = [];
-    props.rows.forEach((row, index) => {
-        if (index > 0 && row.group !== props.rows[index - 1].group) {
-            groupLines.push({ yAxis: index - 0.5 });
-        }
-    });
 
     return {
         grid: { left: 8, right: 8, top: 32, bottom: 8, containLabel: true },
@@ -80,7 +89,7 @@ function option({ palette, width }) {
             confine: true,
             formatter: (params) => {
                 const [x, y] = params.value;
-                const row = props.rows[y];
+                const row = lines.value[y]?.row;
                 const column = props.columns[x];
                 const cell = cellMap.value.get(`${row.key}|${column.key}`);
 
@@ -115,9 +124,14 @@ function option({ palette, width }) {
         yAxis: {
             type: 'category',
             inverse: true,
-            data: props.rows.map((row) => short(row.label)),
+            data: lines.value.map((line) => (line.row ? short(line.row.label) : line.heading)),
             axisLine: { show: false },
-            axisLabel: { color: palette.text },
+            axisLabel: {
+                interval: 0,
+                color: palette.text,
+                formatter: (value, index) => (lines.value[index]?.heading ? `{group|${value}}` : value),
+                rich: { group: { color: palette.muted, fontWeight: 600, fontSize: 11 } },
+            },
         },
         series: [
             {
@@ -125,16 +139,6 @@ function option({ palette, width }) {
                 type: 'heatmap',
                 data,
                 emphasis: { itemStyle: { borderColor: palette.text, borderWidth: 2 } },
-                markLine:
-                    groupLines.length > 0
-                        ? {
-                              silent: true,
-                              symbol: 'none',
-                              label: { show: false },
-                              lineStyle: { color: palette.line, type: 'solid', width: 2 },
-                              data: groupLines,
-                          }
-                        : undefined,
             },
         ],
     };
@@ -145,7 +149,10 @@ function select(params) {
         return;
     }
     const [x, y] = params.value;
-    emit('select', { row: props.rows[y]?.key, column: props.columns[x]?.key });
+    const row = lines.value[y]?.row;
+    if (row) {
+        emit('select', { row: row.key, column: props.columns[x]?.key });
+    }
 }
 
 const table = computed(() => ({
@@ -157,7 +164,7 @@ const table = computed(() => ({
         const line = { key: row.key, row: row.group ? `${row.group} · ${row.label}` : row.label };
         props.columns.forEach((column) => {
             const cell = cellMap.value.get(`${row.key}|${column.key}`);
-            line[`c-${column.key}`] = formatValue(cell?.value ?? null, props.kind);
+            line[`c-${column.key}`] = tableValue(cell, props.kind);
         });
 
         return line;

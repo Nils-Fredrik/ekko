@@ -44,7 +44,7 @@ Flatetokens og datafarger etter 4.1–4.2 i tema-filen, for begge temaer. Alle `
 
 ## 5. Grafbibliotek
 
-Apache ECharts, importert modulvis fra `echarts/core` og tegnet som SVG. Bare `support/echarts.js` importerer ECharts, og den lastes med `import()` første gang en graf er nær skjermen. Vite legger biblioteket i en egen chunk (ca. 620 kB, 212 kB gzip), og sider uten grafer laster den ikke. `tests/Feature/Frontend/ChartBundleTest.php` sjekker byggemanifestet, og nettlesertesten `tests/Browser/charts.spec.mjs` sjekker nettverkskallene. Budsjettet i CI kommer i U15.
+Apache ECharts, importert modulvis fra `echarts/core` og tegnet som SVG. Begrunnelsen står i [ADR 0034](decisions/0034-echarts-grafbibliotek.md). Bare `support/echarts.js` importerer ECharts, og den lastes med `import()` første gang en graf er nær skjermen. Vite legger biblioteket i en egen chunk (ca. 620 kB, 212 kB gzip), og sider uten grafer laster den ikke. `tests/Feature/Frontend/ChartBundleTest.php` sjekker byggemanifestet, og nettlesertesten `tests/Browser/charts.spec.mjs` sjekker nettverkskallene. Budsjettet i CI kommer i U15.
 
 Alle grafer går gjennom `<EkkoChart>` i `resources/js/Components/Charts/`. Den eier:
 
@@ -52,7 +52,7 @@ Alle grafer går gjennom `<EkkoChart>` i `resources/js/Components/Charts/`. Den 
 - **Tooltip:** verdi, endring og n i alle grafer (`tooltipHtml` i `support/format.js`). Lav n står med ord i tooltipen.
 - **Lav n:** `low_sample` fra API-et, ellers n < 10. Linjer blir stiplet og dempet, stolper og celler dempet, stablede arealer får et dempet bånd.
 - **Markører:** `{ key, date, kind: 'model' | 'action', label, detail?, href? }`. En markør havner i siste bøtte som starter på eller før datoen, så den treffer riktig punkt i daglig, ukentlig og månedlig visning. Markører etter `until` utelates. Klikk gir hendelsen `marker` med markøren (T45).
-- **Tabellvisning og tekstbeskrivelse:** knappen «Vis som tabell» og en beskrivelse for skjermlesere (`aria-describedby`). Hver graftype lager beskrivelsen selv hvis siden ikke sender `description`.
+- **Tabellvisning og tekstbeskrivelse:** knappen «Vis som tabell» og en beskrivelse for skjermlesere (`aria-describedby`). Tabellen viser n ved hver andel. Hver graftype lager beskrivelsen selv hvis siden ikke sender `description`.
 - **Bevegelse:** 300 ms ved første tegning, ingen ved oppdatering eller med `prefers-reduced-motion`.
 - **Klikk:** hendelsen `select`.
 
@@ -66,7 +66,7 @@ Konkurrenter får farge etter `colorIndex` (fast plass i konkurrentlisten), ikke
 | Linjegraf mot konkurrenter, forrige periode og markører | `TrendLineChart` | `categories`, `series: [{ key, label, own?, colorIndex?, points }]`, `previous`, `markers`, `until` |
 | 100 % stablet areal (share of voice) | `StackedAreaChart normalized` | som over |
 | Små multipler per motor | `SmallMultiplesChart` | `categories`, `panels: [{ key, label, points }]`, `markers: { [panel]: [...] }` |
-| Heatmap tema × motor | `HeatmapChart` | `rows: [{ key, label, group }]`, `columns`, `cells: [{ row, column, value, n }]`; `select` gir `{ row, column }` |
+| Heatmap tema × motor (en overskriftslinje per tema) | `HeatmapChart` | `rows: [{ key, label, group }]`, `columns`, `cells: [{ row, column, value, n }]`; `select` gir `{ row, column }` |
 | Prikkrad 14 dager | `DotRowChart` | `points: [{ x, value, n }]` |
 | Rangeringsgraf topp 6 | `RankChart` | `series: [{ ..., points: [{ rank, n }] }]` |
 | Divergerende sentiment | `DivergingBarChart` | `rows: [{ key, label, negative, neutral, positive, n }]` |

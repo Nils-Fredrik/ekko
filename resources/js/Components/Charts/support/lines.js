@@ -1,3 +1,4 @@
+import { trans } from 'laravel-vue-i18n';
 import { splitLowSample } from './data.js';
 import { changeAt, formatDate, formatN, formatValue, isLowSample } from './format.js';
 
@@ -73,6 +74,17 @@ export function pointRows(series, index, kind, colorFor) {
     });
 }
 
+/** A table cell: the value with its n, and «low n» in words when n is too small (docs/spec.md 9). */
+export function tableValue(point, kind) {
+    const value = formatValue(point?.value ?? null, kind);
+    if (!Number.isFinite(point?.n)) {
+        return value;
+    }
+    const low = isLowSample(point) ? `, ${trans('app.charts.low_sample')}` : '';
+
+    return `${value} (${formatN(point.n)}${low})`;
+}
+
 /** Table view for time series: one row per bucket, one column per series. */
 export function timeTable(categories, series, kind, dateLabel) {
     return {
@@ -84,9 +96,7 @@ export function timeTable(categories, series, kind, dateLabel) {
             const row = { key: category, period: formatDate(category) };
             series.forEach((item) => {
                 const point = item.points[index];
-                row[`s-${item.key}`] = isLowSample(point)
-                    ? `${formatValue(point?.value, kind)} (${formatN(point?.n)})`
-                    : formatValue(point?.value, kind);
+                row[`s-${item.key}`] = tableValue(point, kind);
             });
 
             return row;

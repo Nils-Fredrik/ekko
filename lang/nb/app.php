@@ -410,7 +410,7 @@ return [
             'title' => 'Grafbibliotek',
             'intro' => 'Eksempler på alle graftypene med testdata. Siden finnes bare i utviklingsmodus.',
             'selected' => 'Valgt: :value',
-            'own' => 'Eget merke',
+            'own' => 'Egen merkevare',
             'competitor' => 'Konkurrent :letter',
             'sparkline' => 'KPI-minigraf',
             'trend' => 'Synlighet mot konkurrentene',

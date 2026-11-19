@@ -97,8 +97,8 @@ const table = computed(() => ({
             row[`s-${item.key}`] =
                 point?.rank == null
                     ? trans('app.charts.empty')
-                    : isLowSample(point)
-                      ? `${point.rank} (${formatN(point.n)})`
+                    : Number.isFinite(point.n)
+                      ? `${point.rank} (${formatN(point.n)}${isLowSample(point) ? `, ${trans('app.charts.low_sample')}` : ''})`
                       : String(point.rank);
         });
 

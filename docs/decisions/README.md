@@ -42,3 +42,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0030: Avgrenset worker-start og påkrevd SQL-connector](0030-avgrenset-worker-start.md)
 - [0032: Varig registrering av hendelsesstyrt behandlingsarbeid](0032-varig-hendelsesstyrt-arbeid.md)
 - [0033: Målrettet vekking med Cloud Tasks og reservekontroll](0033-malrettet-vekking-med-cloud-tasks.md)
+- [0034: ECharts som grafbibliotek](0034-echarts-grafbibliotek.md)
