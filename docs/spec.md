@@ -663,7 +663,7 @@ Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen
 - Kildene leser tallene via `MetricsService` (`reach`, `sourceGap`, `sourceGapDetail`, `breakdown`, `unknownBrands`, `unknownBrandDetail`, `botHits`). Et marked med færre enn 30 svar i vinduet vurderes ikke, og da teller heller ikke utløpet der. `crawler_access` vurderes bare for merkevarer med robotdata i vinduet og er på merkevarenivå (`market_id` tom). `owned_content` gjelder prompts med tema. `fact_correction` er en egen kilde som T48 registrerer i `ekko.actions.sources`.
 - `fingerprint` er sha256 av type, merkevare, marked og funnets nøkkel (domene, tema, navn, robot). Et åpent tiltak får ny evidens, effekt og prompts. Et utløpt tiltak åpnes igjen som `new`. `done` og `declined` står som brukeren satte dem.
 - Utløp gjelder bare `new` og `planned`. Tiltak som pågår, utløper ikke, fordi arbeidet kan være grunnen til at funnet forsvant.
-- Modellen skriver tekst uten tall; tallene vises fra `evidence` (evidenssetningen i `lang/*/action_items.php`). En tekst med tall som ikke er del av et navn, avvises, og maltekst beholdes. Et nytt tiltak har maltekst til modellen har formulert det. Kallet reserverer på Anthropic-kontoen før HTTP (ADR 0023), stoppes i redusert modus og bokføres i `usage_events` med `kind = actions`. Høyst `ekko.actions.max_formulations` kall per tenant og generering.
+- Modellen skriver tekst uten tall; tallene vises fra `evidence` (evidenssetningen i `lang/*/action_items.php`). En tekst med tall utenfor et navn modellen fikk, skrevet fullt ut, avvises, og maltekst beholdes. Modellen skriver på markedets språk (tenantens for merkevarenivå); malene finnes på nb, sv og en. Et nytt tiltak har maltekst til modellen har formulert det. Kallet reserverer på Anthropic-kontoen før HTTP (ADR 0023), stoppes i redusert modus og bokføres i `usage_events` med `kind = actions`. Høyst `ekko.actions.max_formulations` kall per tenant og generering.
 - Tilleggskolonner: `engine_keys` (motorer), `impact_score` (effekten bak nivået), `text_source` (template, model, user), `locale`, `unsupported_generations`, `last_generated_at`. `action_prompts` har også `tenant_id` (6). Egne tiltak kan mangle type.
 - Statusflyt for brukere i `ActionWorkflow`: `started_at` settes første gang tiltaket går til `in_progress`, `completed_at` når det går til `done`, og nullstilles hvis det åpnes igjen. Tenant-admin, partner-rådgiver og redaktør endrer tiltak; alle roller ser dem.
 
@@ -1473,7 +1473,7 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 `actions` og `action_prompts`, `ekko:generate-actions` med de fem tiltakstypene i 11.3, rangering, formulering med Claude Sonnet 5.5, statusflyt, utløp og lagring av datoer for tiltaksmarkører. `crawler_access` og `fact_correction` aktiveres når T22 og T48 er på plass.
 - Tallene i evidensen kommer fra databasen og er dekket av tester.
 - Samme tiltak gjenkjennes ved neste generering (`fingerprint`) og dupliseres ikke.
-- Eieren har besluttet at T43 kjøres med Opus 5.5 (Board #947). T22 er på plass, så `crawler_access` er aktiv. `fact_correction` kobles på av T48.
+- Eieren har besluttet at agenten som utfører T43, kjører med Opus 5.5 (Board #947). Formuleringsmodellen i produktet er fortsatt Claude Sonnet 5.5. T22 er på plass, så `crawler_access` er aktiv. `fact_correction` kobles på av T48.
 
 ---
 

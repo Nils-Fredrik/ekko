@@ -82,7 +82,7 @@ class GenerateTenantActions extends TenantJob
                     'description' => $text->description,
                     'steps' => $text->stepRows(),
                     'text_source' => 'model',
-                    'locale' => $action->market->language ?? $action->locale,
+                    'locale' => ActionPromptBuilder::languageTag($action),
                 ])->save();
             });
         }

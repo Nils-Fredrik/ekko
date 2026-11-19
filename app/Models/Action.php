@@ -125,14 +125,15 @@ class Action extends Model
     }
 
     /**
-     * The ranking of docs/spec.md 11.3: fact_correction first within the brand, then expected effect (level, then
-     * the score behind it), then the oldest first so the order is stable.
+     * The ranking of docs/spec.md 11.3, per brand: fact_correction first within the brand, then expected effect
+     * (level, then the score behind it), then the oldest first so the order is stable.
      *
      * @param  Builder<Action>  $query
      */
     public function scopeRanked(Builder $query): void
     {
-        $query->orderByRaw("CASE WHEN actions.type = 'fact_correction' THEN 0 ELSE 1 END")
+        $query->orderBy('actions.brand_id')
+            ->orderByRaw("CASE WHEN actions.type = 'fact_correction' THEN 0 ELSE 1 END")
             ->orderByDesc('actions.impact_level')
             ->orderByDesc('actions.impact_score')
             ->orderBy('actions.id');

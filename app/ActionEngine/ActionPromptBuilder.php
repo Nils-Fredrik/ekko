@@ -6,6 +6,7 @@ use App\ActionEngine\Writing\ActionTextRequest;
 use App\Models\Action;
 use App\Models\Brand;
 use App\Models\Prompt;
+use App\Models\Team;
 
 /**
  * The request that asks Claude Sonnet 5.5 to word one action (docs/spec.md 11.3). The model gets the evidence
@@ -22,7 +23,9 @@ final class ActionPromptBuilder
 
     public function build(Action $action, Brand $brand): ActionTextRequest
     {
-        $language = ActionLocale::languageName($action->locale);
+        // The brand's language is the market's (or the tenant's for a brand-level action), never the template locale.
+        $tag = self::languageTag($action);
+        $language = ActionLocale::languageName($tag);
         $promptTexts = Prompt::query()->whereIn('id', $action->prompts()->limit(5)->pluck('prompts.id'))
             ->orderBy('id')->pluck('text')->map(fn ($text): string => mb_substr((string) $text, 0, 300))->all();
         $topic = $action->topic?->name;
@@ -66,6 +69,12 @@ final class ActionPromptBuilder
             self::schema(),
             $names,
         );
+    }
+
+    /** The language tag the model writes the action in. */
+    public static function languageTag(Action $action): string
+    {
+        return ActionLocale::tag($action->market, Team::query()->find(current_tenant_id()));
     }
 
     /**

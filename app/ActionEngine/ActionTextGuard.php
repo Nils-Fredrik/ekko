@@ -6,8 +6,8 @@ use App\ActionEngine\Writing\ActionText;
 
 /**
  * Checks the model's JSON before it is stored (docs/spec.md 11.3: figures are never written by the model). The
- * text is refused when it is not the expected shape, too long, or contains a number that is not part of a name
- * the model was given (a domain, a brand, a topic, a prompt). A refused text leaves the template text in place.
+ * text is refused when it is not the expected shape, too long, or contains a number outside the names the model
+ * was given (a domain, a brand, a topic, a prompt), written in full. A refused text leaves the template text in place.
  */
 final class ActionTextGuard
 {
@@ -58,13 +58,16 @@ final class ActionTextGuard
      */
     private function onlyNamedNumbers(string $text, array $names): bool
     {
-        preg_match_all(self::NUMBER, $text, $matches);
-        if ($matches[0] === []) {
-            return true;
+        // Only a number inside a name the model was given, written as that name, is allowed: the names are taken
+        // out of the text first, longest first, and no number may be left.
+        usort($names, fn (string $a, string $b): int => mb_strlen($b) <=> mb_strlen($a));
+        foreach ($names as $name) {
+            if (mb_strlen(trim($name)) >= 3) {
+                $text = str_ireplace(trim($name), ' ', $text);
+            }
         }
-        preg_match_all(self::NUMBER, implode("\n", $names), $named);
 
-        return array_diff($matches[0], $named[0]) === [];
+        return preg_match(self::NUMBER, $text) !== 1;
     }
 
     private function clean(string $text): string

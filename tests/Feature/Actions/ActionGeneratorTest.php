@@ -8,6 +8,7 @@ use App\Enums\ActionStatus;
 use App\Enums\ActionType;
 use App\Models\Action;
 use App\Models\ActionGeneration;
+use App\Models\Brand;
 use App\Models\Market;
 use Carbon\CarbonImmutable;
 use Tests\Support\Actions\FakeActionSource;
@@ -180,6 +181,16 @@ test('fact_correction ranks first within the brand, then expected effect', funct
     expect($ranked->map(fn (Action $a) => $a->evidence['domain'])->all())->toBe(['founded', 'big.no', 'small.no'])
         ->and($ranked[0]->impact_level)->toBe(1)
         ->and($ranked[0]->title)->toBe('Rett feil opplysning: founded');
+});
+
+test('the ranking groups the actions per brand', function () {
+    $s = $this->source;
+    $s->candidates = [$s->candidate($this->w->market->id, 'a.no', perMonth: 1, share: 1)];
+    runGeneration($this->w, $s);
+    $other = Brand::factory()->create();
+    Action::factory()->create(['brand_id' => $other->id, 'type' => ActionType::FactCorrection, 'impact_level' => 5]);
+
+    expect(Action::query()->ranked()->pluck('brand_id')->all())->toBe([$this->w->brand->id, $other->id]);
 });
 
 test('a candidate of another type than its source is ignored', function () {
