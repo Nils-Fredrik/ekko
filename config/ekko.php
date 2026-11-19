@@ -1,5 +1,9 @@
 <?php
 
+use App\ActionEngine\Sources\CrawlerAccessSource;
+use App\ActionEngine\Sources\NewCompetitorSource;
+use App\ActionEngine\Sources\OwnedContentSource;
+use App\ActionEngine\Sources\SourceGapSource;
 use App\Work\Handlers\AggregationWorkHandler;
 use App\Work\Handlers\ExtractionWorkHandler;
 use App\Work\Handlers\UsageRollupWorkHandler;
@@ -225,6 +229,20 @@ return [
             'output_usd_per_mtok' => '10.00',
             'estimated_cost_usd' => '0.15',
         ],
+
+        /*
+        | Wording of actions (docs/spec.md 11.3, ADR 0034): Claude Sonnet 5.5 writes title, description and steps
+        | from the evidence. Prices are USD per million tokens; estimated_cost_usd is reserved on the Anthropic
+        | account before each call (ADR 0023).
+        */
+        'actions' => [
+            'model' => env('EKKO_ACTIONS_MODEL', 'claude-sonnet-5-5'),
+            'max_tokens' => 2000,
+            'effort' => 'low',
+            'input_usd_per_mtok' => '2.00',
+            'output_usd_per_mtok' => '10.00',
+            'estimated_cost_usd' => '0.03',
+        ],
     ],
 
     /*
@@ -279,6 +297,49 @@ return [
         'disk' => filled(env('EKKO_REPORTS_BUCKET')) ? 'reports' : 'local',
         // Chromium for spatie/laravel-pdf. The jobs image sets CHROME_PATH.
         'chrome_binary' => env('CHROME_PATH'),
+    ],
+
+    /*
+    | Actions (docs/spec.md 11.3, ADR 0034). ekko:generate-actions runs weekly; figures are read for the latest
+    | window_days tenant-local days before today. Thresholds can change without a code change.
+    */
+    'actions' => [
+        'window_days' => 30,
+        // Fewer answers than this in a market (or for the brand) and a source does not judge it, so nothing expires.
+        'min_answers' => 30,
+        // Expected effect per month (affected answers × competitor-only share) from which each level starts.
+        'impact_levels' => [2 => 2, 3 => 5, 4 => 15, 5 => 40],
+        // Open actions not supported by this many generations in a row expire.
+        'expire_after_generations' => 2,
+        // Model calls per tenant and generation; the rest keep the template text until the next generation.
+        'max_formulations' => 40,
+        // The sources that produce candidates, in order. T48 adds the fact_correction source here.
+        'sources' => [
+            SourceGapSource::class,
+            OwnedContentSource::class,
+            NewCompetitorSource::class,
+            CrawlerAccessSource::class,
+        ],
+        'source_gap' => [
+            'min_gap_responses' => 3,
+            'max_per_market' => 5,
+        ],
+        'owned_content' => [
+            'min_prompt_answers' => 3,
+            // A prompt has low visibility below this share.
+            'max_visibility' => 0.5,
+            'min_prompts' => 2,
+        ],
+        'new_competitor' => [
+            // As the alert (docs/spec.md 11.1): the brand's new_competitor rule threshold, else this (percent).
+            'window_days' => 7,
+            'default_threshold_percent' => 10,
+        ],
+        'crawler_access' => [
+            'window_days' => 14,
+            // Search bots that should fetch the brand's pages (keys of bot_logs.bots).
+            'bots' => ['oai_searchbot', 'perplexitybot', 'claude_searchbot'],
+        ],
     ],
 
     'bot_logs' => [

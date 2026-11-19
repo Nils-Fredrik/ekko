@@ -11,6 +11,8 @@ locals {
       exit "$result"
     SCRIPT
     ] }
+    # Weekly actions (docs/spec.md 11.3), before the weekly report.
+    actions         = { schedule = "0 5 * * 1", job = "task", args = ["php artisan ekko:generate-actions --sync"] }
     weekly_reports  = { schedule = "30 6 * * 1", job = "task", args = ["php artisan ekko:send-reports"] }
     monthly_reports = { schedule = "30 6 1 * *", job = "task", args = ["php artisan ekko:send-reports"] }
     # Tenants closed 30 days ago are deleted with their raw answers (T39-F6).

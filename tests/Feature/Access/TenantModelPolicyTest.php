@@ -69,6 +69,12 @@ function tenantModelRights(): array
         // Durable processing work (7.1, ADR 0032): system bookkeeping only.
         Models\WorkSignal::class => $system(POLICY_NO_ROLE),
 
+        // Actions (11.3, ADR 0034): seen by everyone, worked on by the roles that edit content. The prompts of an
+        // action are written with it; the weekly generation bookkeeping is the system's.
+        Models\Action::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
+        Models\ActionPrompt::class => $system(POLICY_EVERY_ROLE),
+        Models\ActionGeneration::class => $system(POLICY_NO_ROLE),
+
         // Usage (6.5): "se forbruk" is the admin's.
         Models\AnthropicBudgetPlan::class => $system(POLICY_ADMINS),
         Models\AnthropicInsightAllocation::class => $system(POLICY_ADMINS),

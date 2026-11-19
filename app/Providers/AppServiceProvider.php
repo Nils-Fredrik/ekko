@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\ActionEngine\Writing\ActionWriter;
+use App\ActionEngine\Writing\AnthropicActionWriter;
 use App\AnthropicBudget\Account;
 use App\AnthropicBudget\BudgetedExtractionClient;
 use App\AnthropicBudget\Estimator;
@@ -65,6 +67,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ExtractionClient::class, fn (): ExtractionClient => new BudgetedExtractionClient(AnthropicExtractionClient::fromConfig(), app(Account::class), app(Estimator::class)));
         // The wizard (ADR 0018): the model client is resolved lazily for the same reason.
         $this->app->bind(OnboardingModelClient::class, fn (): OnboardingModelClient => AnthropicOnboardingClient::fromConfig());
+        $this->app->bind(ActionWriter::class, fn (): ActionWriter => AnthropicActionWriter::fromConfig());
         $this->app->bind(HostResolver::class, DnsHostResolver::class);
         $this->app->bind(PageTransport::class, HttpPageTransport::class);
         // Durable work (ADR 0032): scoped, so the per-instance wake-up deduplication ends with each job or request.

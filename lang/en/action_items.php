@@ -1,0 +1,88 @@
+<?php
+
+// Actions (docs/spec.md 11.3, T43): types, statuses, impact levels, template texts and evidence sentences. The
+// figures in the placeholders come from the database. Every locale must have the same keys.
+
+return [
+    'types' => [
+        'source_gap' => 'Source gap',
+        'owned_content' => 'Own content',
+        'new_competitor' => 'New competitor',
+        'crawler_access' => 'Crawler access',
+        'fact_correction' => 'Fact correction',
+        'own' => 'Own action',
+    ],
+    'statuses' => [
+        'new' => 'New',
+        'planned' => 'Planned',
+        'in_progress' => 'In progress',
+        'done' => 'Done',
+        'declined' => 'Declined',
+        'expired' => 'Expired',
+    ],
+    'impact_levels' => [
+        1 => 'Very low',
+        2 => 'Low',
+        3 => 'Medium',
+        4 => 'High',
+        5 => 'Very high',
+    ],
+    'templates' => [
+        'source_gap' => [
+            'title' => 'Get covered on :domain',
+            'description' => 'AI services cite :domain when they name your competitors, but not you. Content about you there can get you into the same answers.',
+            'steps' => [
+                'See which pages on :domain are cited and what they are about.',
+                'Contact the editors or owner of :domain and suggest content that covers you.',
+                'Make sure you are listed with correct, current information where it fits.',
+            ],
+        ],
+        'owned_content' => [
+            'title' => 'Create your own pages on “:topic”',
+            'description' => 'You are rarely visible on the prompts about “:topic”, and AI services never cite your own pages there. Pages that answer the questions directly give the services something to cite.',
+            'steps' => [
+                'Go through the prompts about “:topic” and find the questions you do not answer today.',
+                'Write or update pages that answer them directly and concretely.',
+                'Link the pages from relevant places on the site and in the sitemap.',
+            ],
+        ],
+        'new_competitor' => [
+            'title' => 'Consider :name as a competitor',
+            'description' => ':name is often named in the answers in :market but is not registered as a competitor. As a registered competitor, :name is measured in share of voice and alerts.',
+            'steps' => [
+                'Look at the answers that name :name and judge whether you compete for the same customers.',
+                'Add :name as a competitor with aliases and domains if so.',
+            ],
+        ],
+        'crawler_access' => [
+            'title' => ':bot does not fetch your pages',
+            'description' => ':bot has not fetched any of your pages in the period, although other AI bots have. The service may then lack current content about you.',
+            'steps' => [
+                'Check that robots.txt does not block :bot.',
+                'Check that no firewall, CDN or bot protection stops :bot.',
+                'Make sure the sitemap is current and reachable.',
+            ],
+        ],
+        'fact_correction' => [
+            'title' => 'Correct a wrong statement: :fact',
+            'description' => 'AI answers state something that contradicts the facts you have registered. The source should be corrected so the answers become right.',
+            'steps' => [
+                'Find the page the answer relies on: :source.',
+                'Correct the page if it is your own, or ask the publisher to correct it.',
+            ],
+        ],
+    ],
+    'evidence' => [
+        'source_gap' => ':domain was cited in :gap_responses answers that named competitors and not you, in the last :days days. :competitor was named in :competitor_answers of them.',
+        'source_gap_without_competitor' => ':domain was cited in :gap_responses answers that named competitors and not you, in the last :days days.',
+        'owned_content' => 'No own pages are cited on :prompts_without of :prompts_total prompts about the topic “:topic”. Visibility there is :visibility %.',
+        'new_competitor' => ':name is named in :share % of the answers in :market in the last :days days but is not registered as a competitor.',
+        'crawler_access' => ':bot has not fetched any pages in the last :days days. Other AI bots made :other_hits requests in the same period.',
+        'fact_correction' => 'Answers to :prompts prompts state wrong information about :fact. The source is :source.',
+    ],
+    'command' => [
+        'queued' => 'Action generation queued for :tenants tenants.',
+        'done' => 'Actions generated for :tenants tenants.',
+        'failed' => 'Action generation failed for :failed of :tenants tenants (ids: :ids).',
+    ],
+];
