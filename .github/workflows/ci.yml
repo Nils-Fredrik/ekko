@@ -173,11 +173,10 @@ jobs:
                   compression-level: 0
                   if-no-files-found: error
             - name: Download archive to verify transfer before deployment
-              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              uses: ./.github/actions/download-verified-images
               with:
-                  artifact-ids: ${{ steps.images.outputs.artifact-id }}
+                  artifact-id: ${{ steps.images.outputs.artifact-id }}
                   path: ${{ runner.temp }}/restored-images
-                  merge-multiple: true
             - name: Verify restored image identities and runtime contents
               run: |
                   expected_web=$(docker image inspect ekko-context-check:ci --format '{{.Id}}')
@@ -223,11 +222,10 @@ jobs:
             - uses: google-github-actions/setup-gcloud@e427ad8a34f8676edf47cf7d7925499adf3eb74f # v2
             - run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
             - name: Download this run's verified images
-              uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+              uses: ./.github/actions/download-verified-images
               with:
-                  artifact-ids: ${{ needs.image.outputs.artifact-id }}
+                  artifact-id: ${{ needs.image.outputs.artifact-id }}
                   path: ${{ runner.temp }}/verified-images
-                  merge-multiple: true
             - name: Publish verified images without rebuilding
               run: |
                   cd "$RUNNER_TEMP/verified-images"
