@@ -41,3 +41,48 @@ Flatetokens og datafarger etter 4.1–4.2 i tema-filen, for begge temaer. Alle `
 
 - Ingen hvite flater i mørkt tema (nettlesertest av sidene en innlogget leser kan åpne, pluss innlogging).
 - Datafargene har kontrast på minst 3:1 mot bakgrunnen i begge temaer.
+
+## 5. Grafbibliotek
+
+Apache ECharts, importert modulvis fra `echarts/core` og tegnet som SVG. Begrunnelsen står i [ADR 0035](decisions/0035-echarts-grafbibliotek.md). Bare `support/echarts.js` importerer ECharts, og den lastes med `import()` første gang en graf er nær skjermen. Vite legger biblioteket i en egen chunk (ca. 620 kB, 212 kB gzip), og sider uten grafer laster den ikke. `tests/Feature/Frontend/ChartBundleTest.php` sjekker byggemanifestet, og nettlesertesten `tests/Browser/charts.spec.mjs` sjekker nettverkskallene. Budsjettet i CI kommer i U15.
+
+Alle grafer går gjennom `<EkkoChart>` i `resources/js/Components/Charts/`. Den eier:
+
+- **Tema:** bygget fra tokenene i 4.1–4.2 (`support/palette.js`) og byttet med `setTheme` når `data-theme` endres, uten ny lasting.
+- **Tooltip:** verdi, endring og n i alle grafer (`tooltipHtml` i `support/format.js`). Lav n står med ord i tooltipen.
+- **Lav n:** `low_sample` fra API-et, ellers n < 10. Linjer blir stiplet og dempet, stolper og celler dempet, stablede arealer får et dempet bånd.
+- **Markører:** `{ key, date, kind: 'model' | 'action', label, detail?, href? }`. En markør havner i siste bøtte som starter på eller før datoen, så den treffer riktig punkt i daglig, ukentlig og månedlig visning. Markører etter `until` utelates. Klikk gir hendelsen `marker` med markøren (T45).
+- **Tabellvisning og tekstbeskrivelse:** knappen «Vis som tabell» og en beskrivelse for skjermlesere (`aria-describedby`). Tabellen viser n ved hver andel. Hver graftype lager beskrivelsen selv hvis siden ikke sender `description`.
+- **Bevegelse:** 300 ms ved første tegning, ingen ved oppdatering eller med `prefers-reduced-motion`.
+- **Klikk:** hendelsen `select`.
+
+Konkurrenter får farge etter `colorIndex` (fast plass i konkurrentlisten), ikke etter rekkefølgen i grafen, så de har samme farge på alle sider.
+
+## 6. Grafkatalog
+
+| Graf | Komponent | Data |
+|---|---|---|
+| KPI-minigraf | `SparklineChart` | `points: [{ x, value, n, low_sample }]` |
+| Linjegraf mot konkurrenter, forrige periode og markører | `TrendLineChart` | `categories`, `series: [{ key, label, own?, colorIndex?, points }]`, `previous`, `markers`, `until` |
+| 100 % stablet areal (share of voice) | `StackedAreaChart normalized` | som over |
+| Små multipler per motor | `SmallMultiplesChart` | `categories`, `panels: [{ key, label, points }]`, `markers: { [panel]: [...] }` |
+| Heatmap tema × motor (en overskriftslinje per tema) | `HeatmapChart` | `rows: [{ key, label, group }]`, `columns`, `cells: [{ row, column, value, n }]`; `select` gir `{ row, column }` |
+| Prikkrad 14 dager | `DotRowChart` | `points: [{ x, value, n }]` |
+| Rangeringsgraf topp 6 | `RankChart` | `series: [{ ..., points: [{ rank, n }] }]` |
+| Divergerende sentiment | `DivergingBarChart` | `rows: [{ key, label, negative, neutral, positive, n }]` |
+| Kilder etter eierskap | `RankedBarChart` | `bars: [{ key, label, value, n, group: own \| competitor \| third_party }]` |
+| Kildegap | `GapBarChart` | `rows: [{ key, label, own: { value, n }, competitors: { value, n } }]` |
+| Treemap etter kildetype | `TreemapChart` | `items: [{ key, label, value, color? }]` |
+| Henting per AI-robot | `StackedAreaChart` | `kind="count"` |
+| AI-trafikk | `TrendLineChart` | `kind="count"` |
+| Trakt hentet → sitert → besøk | `FunnelChart` | `steps: [{ key, label, value, description }]` |
+
+`kind` er `rate` (andel 0–1, endring i prosentpoeng), `count` eller `number`. Eksempelsiden `/dev/charts` (`routes/dev.php`) viser alle graftypene med testdata i begge temaer. Ruten registreres bare i `local` og `testing`.
+
+## U02 – `<EkkoChart>` og grafbibliotek
+
+ECharts fra `echarts/core` med SVG-tegning, ett tema bygget fra tokens som byttes ved temabytte, felles tooltip, lav-n-stil, markør-API, tabellvisning, tekstbeskrivelse og asynkron lasting. Én komponent per graftype i kapittel 6, med eksempelside i utviklingsmodus.
+
+- Temabytte endrer grafene uten ny lasting.
+- Grafbiblioteket lastes ikke på sider uten grafer.
+- `TrendChart` og `VoiceChart` er erstattet og Chart.js fjernet når U05–U10 er ferdige.
