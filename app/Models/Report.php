@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property CarbonInterface $period_start
  * @property CarbonInterface $period_end
  * @property string|null $pdf_uri
+ * @property array<string, mixed>|null $action_section
  * @property list<string>|null $sent_to
  * @property CarbonInterface|null $sent_at
  */
@@ -30,6 +31,7 @@ class Report extends Model
         'period_start',
         'period_end',
         'pdf_uri',
+        'action_section',
         'sent_to',
         'sent_at',
     ];
@@ -46,6 +48,7 @@ class Report extends Model
         return [
             'period_start' => 'date',
             'period_end' => 'date',
+            'action_section' => 'array',
             'sent_to' => 'array',
             'sent_at' => 'datetime',
         ];

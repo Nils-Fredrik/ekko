@@ -22,6 +22,40 @@ final class ReportActions
     public function __construct(private readonly MetricsService $metrics) {}
 
     /**
+     * The section stored with the report. A report written before that column existed has none, and is not filled
+     * from today's actions.
+     *
+     * @param  array<string, mixed>|null  $stored
+     * @return array{
+     *     title: string,
+     *     open_title: string,
+     *     done_title: string,
+     *     empty_open: string,
+     *     empty_done: string,
+     *     change_label: string,
+     *     open: list<array{title: string, impact: string, evidence: string}>,
+     *     completed: list<array{title: string, impact: string, evidence: string, change: string}>
+     * }
+     */
+    public function published(?array $stored): array
+    {
+        if (is_array($stored) && is_array($stored['open'] ?? null) && is_array($stored['completed'] ?? null) && is_string($stored['title'] ?? null)) {
+            return [
+                'title' => $stored['title'],
+                'open_title' => is_string($stored['open_title'] ?? null) ? $stored['open_title'] : '',
+                'done_title' => is_string($stored['done_title'] ?? null) ? $stored['done_title'] : '',
+                'empty_open' => is_string($stored['empty_open'] ?? null) ? $stored['empty_open'] : '',
+                'empty_done' => is_string($stored['empty_done'] ?? null) ? $stored['empty_done'] : '',
+                'change_label' => is_string($stored['change_label'] ?? null) ? $stored['change_label'] : '',
+                'open' => array_values($stored['open']),
+                'completed' => array_values($stored['completed']),
+            ];
+        }
+
+        return $this->empty();
+    }
+
+    /**
      * @return array{
      *     title: string,
      *     open_title: string,
@@ -58,6 +92,32 @@ final class ReportActions
                 ...$this->row($action),
                 'change' => $this->change($action, $to),
             ])->all(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     title: string,
+     *     open_title: string,
+     *     done_title: string,
+     *     empty_open: string,
+     *     empty_done: string,
+     *     change_label: string,
+     *     open: list<array{title: string, impact: string, evidence: string}>,
+     *     completed: list<array{title: string, impact: string, evidence: string, change: string}>
+     * }
+     */
+    private function empty(): array
+    {
+        return [
+            'title' => __('reports.actions'),
+            'open_title' => __('reports.actions_open'),
+            'done_title' => __('reports.actions_done'),
+            'empty_open' => __('reports.actions_empty_open'),
+            'empty_done' => __('reports.actions_empty_done'),
+            'change_label' => __('reports.actions_change'),
+            'open' => [],
+            'completed' => [],
         ];
     }
 

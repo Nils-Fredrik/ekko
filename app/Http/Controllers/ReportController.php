@@ -93,11 +93,7 @@ class ReportController extends Controller
         $previous = app()->getLocale();
         app()->setLocale($schedule->locale);
         try {
-            $section = $actions->section(
-                $schedule->brand_id,
-                $report->period_start->toDateString(),
-                $report->period_end->toDateString(),
-            );
+            $section = $actions->published($report->action_section);
         } finally {
             app()->setLocale($previous);
         }

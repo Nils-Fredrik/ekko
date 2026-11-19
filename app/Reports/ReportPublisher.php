@@ -123,11 +123,14 @@ final class ReportPublisher
         ]);
     }
 
-    public function record(DueReport $due, string $path): Report
+    /**
+     * @param  array<string, mixed>  $actions  the section drawn in this PDF, kept so the web page shows the same report
+     */
+    public function record(DueReport $due, string $path, array $actions): Report
     {
         $existing = $this->find($due);
         if ($existing instanceof Report) {
-            $existing->forceFill(['pdf_uri' => $path])->save();
+            $existing->forceFill(['pdf_uri' => $path, 'action_section' => $actions])->save();
 
             return $existing;
         }
@@ -136,6 +139,7 @@ final class ReportPublisher
             'period_start' => $due->from,
             'period_end' => $due->to,
             'pdf_uri' => $path,
+            'action_section' => $actions,
         ]);
     }
 

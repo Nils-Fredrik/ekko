@@ -1477,7 +1477,7 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 - Eieren har besluttet at agenten som utfører T43, kjører med Opus 5.5 (Board #947). Formuleringsmodellen i produktet er fortsatt Claude Sonnet 5.5. T22 er på plass, så `crawler_access` er aktiv. `fact_correction` kobles på av T48.
 
 ### T44 – Tiltak: grensesnitt og rapportseksjon
-Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning med evidens, konkurrentevidens, berørte prompts og steg som kan hukes av, samt egne tiltak. Status endres fra listen og detaljen. Rapportseksjonen i 11.3 (3–5 åpne, pluss fullførte i perioden med utvikling i synlighet) ligger i PDF-en og på nettversjonen av rapporten, som komponenten `ReportSection` så U13 kan gjenbruke den.
+Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning med evidens, konkurrentevidens, berørte prompts og steg som kan hukes av, samt egne tiltak. Status endres fra listen og detaljen. Rapportseksjonen i 11.3 (3–5 åpne, pluss fullførte i perioden med utvikling i synlighet) ligger i PDF-en og på nettversjonen av rapporten, som komponenten `ReportSection` så U13 kan gjenbruke den. Nettversjonen viser seksjonen som ble lagret da PDF-en ble skrevet (`reports.action_section`), så en senere endring av tiltakene ikke skriver om en gammel rapport.
 - Status kan endres fra listen og detaljvisningen.
 - Rapporten viser 3–5 åpne tiltak og fullførte tiltak med utvikling.
 

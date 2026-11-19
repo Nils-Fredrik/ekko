@@ -4,6 +4,8 @@ use App\ActionEngine\ActionTemplates;
 use App\Enums\ActionStatus;
 use App\Enums\ActionType;
 use App\Models\Action;
+use App\Models\AggDaily;
+use App\Models\Market;
 use App\Models\Report;
 use App\Models\ReportSchedule;
 use App\Models\Team;
@@ -192,10 +194,19 @@ test('the report section keeps the top open actions and the visibility change of
         ->not->toContain('Åpent 1')
         ->not->toContain('Fullført utenfor');
 
+    $section = app(ReportActions::class)->section($this->world->brand->id, '2026-10-01', '2026-10-31');
     $report = Report::factory()->create([
         'report_schedule_id' => $schedule->id,
         'period_start' => '2026-10-01',
         'period_end' => '2026-10-31',
+        'action_section' => $section,
+    ]);
+    Action::factory()->create([
+        'brand_id' => $this->world->brand->id,
+        'title' => 'Etter rapporten',
+        'impact_level' => 5,
+        'impact_score' => 100,
+        'status' => ActionStatus::New,
     ]);
     $this->actingAs($this->owner)
         ->get(route('reports.show', $report))
@@ -203,7 +214,65 @@ test('the report section keeps the top open actions and the visibility change of
         ->assertInertia(fn ($page) => $page
             ->component('Reports/Show')
             ->has('actions.open', 5)
-            ->where('actions.completed.0.title', 'Fullført i perioden'));
+            ->where('actions.completed.0.title', 'Fullført i perioden')
+            ->where('actions.open', fn (mixed $open): bool => collect($open)->pluck('title')->doesntContain('Etter rapporten')));
+
+    $unstored = Report::factory()->create([
+        'report_schedule_id' => $schedule->id,
+        'period_start' => '2026-09-01',
+        'period_end' => '2026-09-30',
+    ]);
+    $this->get(route('reports.show', $unstored))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('actions.open', 0)->has('actions.completed', 0));
+});
+
+test('the visibility change uses the completion day, the same number of days before, and the action market', function () {
+    $other = Market::factory()->for($this->world->brand)->create();
+    $row = function (string $date, int $mentioned, int $marketId): void {
+        AggDaily::factory()->create([
+            'market_id' => $marketId,
+            'brand_id' => $this->world->brand->id,
+            'engine_key' => $this->world->engine->key,
+            'prompt_id' => $this->world->p1->id,
+            'date' => $date,
+            'responses' => 10,
+            'brand_mentioned' => $mentioned,
+        ]);
+    };
+    $row('2026-10-15', 8, $this->world->market->id);
+    $row('2026-10-14', 5, $this->world->market->id);
+    $row('2026-10-14', 0, $other->id);
+    $row('2026-10-13', 0, $this->world->market->id);
+    AggDaily::query()->where('date', '2026-10-13')->update(['responses' => 100]);
+
+    Action::factory()->create([
+        'brand_id' => $this->world->brand->id,
+        'market_id' => $this->world->market->id,
+        'title' => 'Målt',
+        'status' => ActionStatus::Done,
+        'completed_at' => '2026-10-15 12:00:00',
+    ]);
+    Action::factory()->create([
+        'brand_id' => $this->world->brand->id,
+        'market_id' => $this->world->market->id,
+        'title' => 'Uten data',
+        'status' => ActionStatus::Done,
+        'completed_at' => '2026-01-05 12:00:00',
+    ]);
+
+    app()->setLocale('nb');
+    $measured = collect(app(ReportActions::class)->section($this->world->brand->id, '2026-10-01', '2026-10-15')['completed'])
+        ->firstWhere('title', 'Målt');
+    $missing = collect(app(ReportActions::class)->section($this->world->brand->id, '2026-01-01', '2026-01-05')['completed'])
+        ->firstWhere('title', 'Uten data');
+    app()->setLocale('en');
+    $english = collect(app(ReportActions::class)->section($this->world->brand->id, '2026-10-01', '2026-10-15')['completed'])
+        ->firstWhere('title', 'Målt');
+
+    expect($measured['change'] ?? null)->toBe('+30,0 pp')
+        ->and($english['change'] ?? null)->toBe('+30.0 pp')
+        ->and($missing['change'] ?? null)->toBe('–');
 });
 
 test('a completion just after local midnight belongs to that local day', function () {

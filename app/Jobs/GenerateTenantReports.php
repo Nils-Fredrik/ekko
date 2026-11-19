@@ -88,7 +88,8 @@ class GenerateTenantReports extends TenantJob
                 /** @var array{path: string, data: array<string, mixed>} $document */
                 $document = $rls->run([$this->tenantId], fn (): array => $publisher->document($tenant, $item, $text));
                 $publisher->write($document['path'], $document['data'], $item->locale);
-                $rls->run([$this->tenantId], fn () => $publisher->record($item, $document['path']));
+                $actions = $document['data']['actions'] ?? null;
+                $rls->run([$this->tenantId], fn () => $publisher->record($item, $document['path'], is_array($actions) ? $actions : []));
             } catch (Throwable $e) {
                 report($e);
                 $failed = true;
