@@ -90,7 +90,7 @@ final class DailyAggregator
                     ->groupBy('response_id');
                 $citations = Citation::query()
                     ->whereIn('response_id', $ids)
-                    ->get(['response_id', 'domain', 'ownership'])
+                    ->get(['response_id', 'domain', 'ownership', 'source_type'])
                     ->groupBy('response_id');
 
                 foreach ($chunk as $response) {
@@ -132,6 +132,10 @@ final class DailyAggregator
             'responses' => 0, 'brand_mentioned' => 0, 'brand_recommended' => 0, 'sum_position' => 0, 'count_position' => 0,
             'list_responses' => 0, 'first_place' => 0, 'sentiment_milli' => 0, 'count_sentiment' => 0, 'own_cited' => 0,
             'competitor_only_responses' => 0, 'competitor_mentions' => [],
+            'sentiment_distribution' => [
+                'own' => ['negative' => 0, 'neutral' => 0, 'positive' => 0],
+                'competitors' => [],
+            ],
         ];
 
         $row['responses']++;
@@ -150,7 +154,22 @@ final class DailyAggregator
             if ($mention->sentiment !== null) {
                 $row['sentiment_milli'] += (int) round(((float) $mention->sentiment) * 1000);
                 $row['count_sentiment']++;
+                $sentiment = (float) $mention->sentiment;
+                $bucket = $sentiment < 0 ? 'negative' : ($sentiment > 0 ? 'positive' : 'neutral');
+                $row['sentiment_distribution']['own'][$bucket]++;
             }
+        }
+        // Only competitors belonging to this brand are included; unknown
+        // mentions and known entities from another brand do not contribute.
+        foreach ($mentions as $mention) {
+            $id = (int) $mention->entity_id;
+            if ($mention->entity_type !== 'competitor' || ($competitorBrand[$id] ?? null) !== $brandId || $mention->sentiment === null) {
+                continue;
+            }
+            $sentiment = (float) $mention->sentiment;
+            $bucket = $sentiment < 0 ? 'negative' : ($sentiment > 0 ? 'positive' : 'neutral');
+            $row['sentiment_distribution']['competitors'][$id] ??= ['negative' => 0, 'neutral' => 0, 'positive' => 0];
+            $row['sentiment_distribution']['competitors'][$id][$bucket]++;
         }
         $row['own_cited'] += $citations->contains(fn (Citation $c) => $c->ownership === 'own') ? 1 : 0;
         $row['competitor_only_responses'] += $competitorOnly ? 1 : 0;
@@ -164,8 +183,16 @@ final class DailyAggregator
             $sourceRow = $source[$sourceKey] ?? [
                 'brand_id' => $brandId, 'market_id' => $marketId, 'engine_key' => $response->engine_key, 'domain' => (string) $domain,
                 'citations' => 0, 'responses_with_domain' => 0, 'gap_responses' => 0,
+                'citation_distribution' => [],
             ];
             $sourceRow['citations'] += $domainCitations->count();
+            foreach ($domainCitations as $citation) {
+                // Keep unknown source types separate from the explicit 'other'
+                // category. A domain may have several types or owners.
+                $ownership = (string) $citation->ownership;
+                $type = $citation->source_type ?? 'unknown';
+                $sourceRow['citation_distribution'][$ownership][$type] = ($sourceRow['citation_distribution'][$ownership][$type] ?? 0) + 1;
+            }
             $sourceRow['responses_with_domain']++;
             // A gap: the response names competitors but not the brand, and the domain is not the brand's own.
             $sourceRow['gap_responses'] += $competitorOnly && ! $domainCitations->contains(fn (Citation $c) => $c->ownership === 'own') ? 1 : 0;
@@ -192,6 +219,19 @@ final class DailyAggregator
             if (array_key_exists('competitor_mentions', $row)) {
                 ksort($row['competitor_mentions']);
                 $row['competitor_mentions'] = json_encode((object) $row['competitor_mentions'], JSON_THROW_ON_ERROR);
+            }
+            if (array_key_exists('sentiment_distribution', $row)) {
+                ksort($row['sentiment_distribution']['competitors']);
+                $row['sentiment_distribution']['competitors'] = (object) $row['sentiment_distribution']['competitors'];
+                $row['sentiment_distribution'] = json_encode($row['sentiment_distribution'], JSON_THROW_ON_ERROR);
+            }
+            if (array_key_exists('citation_distribution', $row)) {
+                ksort($row['citation_distribution']);
+                foreach ($row['citation_distribution'] as &$types) {
+                    ksort($types);
+                }
+                unset($types);
+                $row['citation_distribution'] = json_encode($row['citation_distribution'], JSON_THROW_ON_ERROR);
             }
             $records[] = [...$row, 'date' => $date, 'created_at' => $now, 'updated_at' => $now];
         }

@@ -44,3 +44,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0033: Målrettet vekking med Cloud Tasks og reservekontroll](0033-malrettet-vekking-med-cloud-tasks.md)
 - [0034: Tiltaksmotor: kilder, gjenkjenning, utløp og formulering](0034-tiltaksmotor.md)
 - [0035: ECharts som grafbibliotek](0035-echarts-grafbibliotek.md)
+- [0036: Fordelinger i dagsaggregatene for grafdata](0036-grafdata-fordelinger.md)

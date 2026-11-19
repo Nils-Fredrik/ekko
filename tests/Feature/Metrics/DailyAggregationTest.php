@@ -107,6 +107,48 @@ test('agg_source_daily counts citations, answers with the domain and gap answers
         ->and([$rows['own.example']->citations, $rows['own.example']->responses_with_domain, $rows['own.example']->gap_responses])->toBe([1, 1, 0]);
 });
 
+test('chart distributions count known entity sentiments and every citation category without mixing entities', function () {
+    [$w, $r] = aggregationDay();
+    $r['r1']->mentions()->where('entity_type', 'competitor')->where('entity_id', $w->c1->id)->update(['sentiment' => -0.9]);
+    $r['r2']->mentions()->where('entity_type', 'brand')->update(['sentiment' => 0]);
+    $r['r3']->mentions()->where('entity_type', 'competitor')->where('entity_id', $w->c1->id)->update(['sentiment' => 0.4]);
+    $r['r3']->mentions()->where('entity_type', 'competitor')->where('entity_id', $w->c2->id)->update(['sentiment' => 0]);
+    $r['r1']->mentions()->where('entity_type', 'competitor')->where('entity_id', '!=', $w->c1->id)->update(['sentiment' => 0.9]);
+    $r['r1']->citations()->where('domain', 'review.example')->update(['ownership' => 'own', 'source_type' => 'news']);
+    $r['r3']->citations()->where('domain', 'review.example')->update(['source_type' => null]);
+
+    aggregateDay();
+    $distribution = AggDaily::query()->sole()->sentiment_distribution;
+    expect($distribution['own'])->toEqual(['negative' => 0, 'neutral' => 1, 'positive' => 1])
+        ->and($distribution['competitors'][$w->c1->id])->toEqual(['negative' => 1, 'neutral' => 0, 'positive' => 1])
+        ->and($distribution['competitors'][$w->c2->id])->toEqual(['negative' => 0, 'neutral' => 1, 'positive' => 0])
+        ->and(count($distribution['competitors']))->toBe(2)
+        ->and(AggSourceDaily::query()->where('domain', 'review.example')->sole()->citation_distribution)
+        ->toEqual(['own' => ['news' => 1], 'third_party' => ['review' => 2, 'unknown' => 1]]);
+
+    // A repeat calculation must retain the same categorization and counts.
+    aggregateDay();
+    expect(AggDaily::query()->sole()->sentiment_distribution)->toBe($distribution)
+        ->and(AggSourceDaily::query()->where('domain', 'review.example')->sole()->citation_distribution)
+        ->toEqual(['own' => ['news' => 1], 'third_party' => ['review' => 2, 'unknown' => 1]]);
+});
+
+test('historical aggregate distributions are unknown until their day is recomputed', function () {
+    $w = MetricsWorld::create();
+    $dimensions = ['brand_id' => $w->brand->id, 'market_id' => $w->market->id, 'engine_key' => $w->engine->key, 'date' => OSLO_DAY];
+    $daily = AggDaily::factory()->create([...$dimensions, 'prompt_id' => $w->p1->id]);
+    $source = AggSourceDaily::factory()->create([...$dimensions, 'domain' => 'review.example']);
+    expect($daily->fresh()->sentiment_distribution)->toBeNull()
+        ->and($source->fresh()->citation_distribution)->toBeNull();
+
+    $w->answer($w->p1, '2026-11-10T09:00:00Z', ['brand' => ['sent' => 0], 'citations' => [['review.example', 'third_party']]]);
+    aggregateDay();
+
+    expect($daily->fresh()->sentiment_distribution)->toEqual([
+        'own' => ['negative' => 0, 'neutral' => 1, 'positive' => 0], 'competitors' => [],
+    ])->and($source->fresh()->citation_distribution)->toEqual(['third_party' => ['review' => 1]]);
+});
+
 test('a day with no answers gives no rows', function () {
     MetricsWorld::create();
 
