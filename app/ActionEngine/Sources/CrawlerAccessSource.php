@@ -15,7 +15,7 @@ use App\Models\BotHitDaily;
 /**
  * crawler_access (docs/spec.md 10.1 and 11.3): an AI search bot that has not fetched the brand's pages in the
  * latest ekko.actions.crawler_access.window_days days, while the brand's logs show other AI bots in the
- * generation window (so the logs are flowing). Brand-level: the action has no market. Without bot data for the
+ * same window (so the logs are flowing). Brand-level: the action has no market. Without bot data for the
  * brand (no ClickHouse integration or upload, or nothing synced) the source does not judge the brand.
  */
 final readonly class CrawlerAccessSource implements ActionSource
@@ -32,17 +32,16 @@ final readonly class CrawlerAccessSource implements ActionSource
         $brand = $context->brand;
         $windowDays = (int) config('ekko.actions.window_days');
         $days = (int) config('ekko.actions.crawler_access.window_days');
-        [$logFrom, $to] = $context->window(max($windowDays, $days));
-        [$from] = $context->window($days);
-
-        $logs = $this->metrics->botHits(new MetricsFilter($brand->id, $logFrom, $to));
-        if (array_sum(array_column($logs, 'hits')) === 0) {
-            return new SourceOutcome([], []);
-        }
+        [$from, $to] = $context->window($days);
 
         $recent = [];
         foreach ($this->metrics->botHits(new MetricsFilter($brand->id, $from, $to)) as $row) {
             $recent[$row['bot']] = $row['hits'];
+        }
+        // Only when other AI bots fetched the pages in the same window do the logs flow; a stopped sync or upload
+        // is not a bot that does not fetch.
+        if (array_sum($recent) === 0) {
+            return new SourceOutcome([], []);
         }
         $labels = array_flip((array) config('ekko.bot_logs.bots'));
         // The whole brand's answers: a bot that does not fetch the pages affects every market.

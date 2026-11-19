@@ -242,6 +242,8 @@ return [
             'input_usd_per_mtok' => '2.00',
             'output_usd_per_mtok' => '10.00',
             'estimated_cost_usd' => '0.03',
+            // One call may take this long; with ekko.actions.word_seconds the job stays within the worker timeout.
+            'timeout_seconds' => 60,
         ],
     ],
 
@@ -313,6 +315,10 @@ return [
         'expire_after_generations' => 2,
         // Model calls per tenant and generation; the rest keep the template text until the next generation.
         'max_formulations' => 40,
+        // Time per tenant and run for model calls, started before this many seconds have passed (worker timeout
+        // 420 s, one call up to anthropic.actions.timeout_seconds). The command also sets a deadline for all.
+        'word_seconds' => 300,
+        'command_word_seconds' => 2700,
         // The sources that produce candidates, in order. T48 adds the fact_correction source here.
         'sources' => [
             SourceGapSource::class,

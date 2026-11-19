@@ -124,6 +124,27 @@ test('a gap that falls outside the largest per market still supports its action'
         ->and(Action::query()->count())->toBe(2);
 });
 
+test('a smaller gap that is still supported resets the expiry count', function () {
+    $w = $this->w;
+    config(['ekko.actions.source_gap.max_per_market' => 1, 'ekko.actions.source_gap.min_gap_responses' => 2]);
+    brandAnswers($w, $w->p2, '2026-11-01', 30);
+    $gap = fn (string $domain, int $count, string $day) => collect(range(1, $count))->each(fn () => $w->answer($w->p1, "{$day} 10:00:00", [
+        'competitors' => [$w->c1->id => 1], 'citations' => [[$domain, 'third_party']],
+    ]));
+    $gap('a.no', 3, '2026-11-02');
+    aggregateDays('2026-11-01', '2026-11-02');
+    generateActions($w);
+    $first = Action::query()->sole();
+    $first->forceFill(['unsupported_generations' => 1])->save();
+
+    $gap('b.no', 6, '2026-11-17');
+    $this->travelTo(CarbonImmutable::parse('2026-11-23 08:00:00', 'Europe/Oslo'));
+    aggregateDays('2026-11-17');
+    generateActions($w);
+
+    expect($first->refresh()->unsupported_generations)->toBe(0)->and($first->status)->toBe(ActionStatus::New);
+});
+
 test('a source gap below the minimum, or a market with too few answers, gives no action', function () {
     $w = $this->w;
     brandAnswers($w, $w->p2, '2026-11-10', 30);
@@ -236,6 +257,17 @@ test('a search bot without hits while other bots fetch the pages becomes a brand
         ->and($action->evidence['period'])->toEqual(['from' => '2026-11-02', 'to' => '2026-11-15', 'days' => 14])
         ->and(ActionTemplates::evidenceSentence($action, 'nb'))
         ->toBe('OAI-SearchBot har ikke hentet noen sider de siste 14 dagene. Andre AI-roboter gjorde 52 forespørsler i samme periode.');
+});
+
+test('when the logs stopped more than 14 days ago the crawler source does not judge the brand', function () {
+    $w = $this->w;
+    $w->brand->forceFill(['primary_domain' => 'fjordkaffe.no'])->save();
+    BotHitDaily::factory()->create(['brand_id' => $w->brand->id, 'bot' => 'gptbot', 'date' => '2026-10-25', 'hits' => 40]);
+    BotHitDaily::factory()->create(['brand_id' => $w->brand->id, 'bot' => 'oai_searchbot', 'date' => '2026-10-25', 'hits' => 4]);
+
+    generateActions($w);
+
+    expect(actionsOf(ActionType::CrawlerAccess))->toBe([]);
 });
 
 test('without bot data the crawler source does not judge the brand', function () {

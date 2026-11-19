@@ -15,14 +15,22 @@ use Illuminate\Support\Facades\Log;
 /**
  * The weekly action generation of one tenant (docs/spec.md 11.3, ADR 0034). Each brand is generated in its own
  * transaction under row-level security; then the new actions are worded by the model one at a time, outside any
- * transaction (a model call can take many seconds), at most ekko.actions.max_formulations per run. An action the
+ * transaction (a model call can take many seconds), at most ekko.actions.max_formulations per run and no call
+ * started after ekko.actions.word_seconds (or the command's deadline), so the job stays within the worker and
+ * Cloud Run task timeouts. An action the
  * model could not word keeps its template text and is tried again at the next generation.
  *
  * Like EvaluateTenantAlerts it overrides middleware() and sets row-level security itself.
  */
 class GenerateTenantActions extends TenantJob
 {
-    public function __construct(int $tenantId, public readonly bool $force = false)
+    /** A paid call is never repeated by a retry; what is not worded waits for the next generation. */
+    public int $tries = 1;
+
+    /**
+     * @param  int|null  $wordUntil  Unix time after which no model call is started (the command's deadline)
+     */
+    public function __construct(int $tenantId, public readonly bool $force = false, public readonly ?int $wordUntil = null)
     {
         parent::__construct($tenantId);
     }
@@ -56,7 +64,15 @@ class GenerateTenantActions extends TenantJob
         if (! $formulator->available()) {
             return;
         }
+        $deadline = time() + max(0, (int) config('ekko.actions.word_seconds'));
+        if ($this->wordUntil !== null) {
+            $deadline = min($deadline, $this->wordUntil);
+        }
         foreach (array_slice(array_values(array_unique($toWord)), 0, max(0, (int) config('ekko.actions.max_formulations'))) as $actionId) {
+            if (time() >= $deadline) {
+                Log::info('Action wording stopped at the time limit.', ['tenant' => $this->tenantId]);
+                break;
+            }
             $request = $rls->run([$this->tenantId], function () use ($prompts, $actionId) {
                 $action = Action::query()->with(['brand', 'market', 'topic'])->find($actionId);
 

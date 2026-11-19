@@ -83,8 +83,17 @@ final class ActionGenerator
                 }
             }
 
-            foreach ($outcome->alsoSupported as $supported) {
-                $seen[ActionCandidate::fingerprintOf($source->type(), $brand->id, $supported['market_id'], $supported['subject'])] = true;
+            $supported = [];
+            foreach ($outcome->alsoSupported as $finding) {
+                $fingerprint = ActionCandidate::fingerprintOf($source->type(), $brand->id, $finding['market_id'], $finding['subject']);
+                $seen[$fingerprint] = true;
+                $supported[] = $fingerprint;
+            }
+            if ($supported !== []) {
+                // Supported again: expiry needs two unsupported generations in a row. The evidence is left as it was.
+                Action::query()->whereIn('fingerprint', $supported)->where('unsupported_generations', '>', 0)
+                    ->whereIn('status', [ActionStatus::New->value, ActionStatus::Planned->value, ActionStatus::InProgress->value])
+                    ->update(['unsupported_generations' => 0]);
             }
             if ($counts) {
                 $expired += $this->countUnsupported($brand, $source, $outcome, array_keys($seen));

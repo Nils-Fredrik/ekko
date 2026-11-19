@@ -33,7 +33,7 @@ final class AnthropicActionWriter implements ActionWriter
 
         return new self(new Client(
             apiKey: $key,
-            requestOptions: ['maxRetries' => 0, ...($transporter === null ? [] : ['transporter' => $transporter])],
+            requestOptions: ['maxRetries' => 0, 'timeout' => (float) config('ekko.anthropic.actions.timeout_seconds'), ...($transporter === null ? [] : ['transporter' => $transporter])],
         ));
     }
 

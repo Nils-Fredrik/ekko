@@ -102,6 +102,8 @@ test('the guard accepts digits only inside a name written in full and refuses in
         ->and($guard->parse(FakeActionWriter::json('Øk med 20 %', 'x', ['y']), $names))->toBeNull()
         ->and($guard->parse(FakeActionWriter::json('Tittel', 'Nå 20 kunder.', ['y']), $names))->toBeNull()
         ->and($guard->parse(FakeActionWriter::json('Tittel', 'Shopify 2', ['y']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Få 5x flere svar', 'x', ['y']), $names))->toBeNull()
+        ->and($guard->parse(FakeActionWriter::json('Tittel', 'Før Q4.', ['Innen 14d.']), $names))->toBeNull()
         ->and($guard->parse(FakeActionWriter::json('Tittel', 'Siden 2019.', ['y']), $names))->toBeNull()
         ->and($guard->parse(FakeActionWriter::json('Tittel', 'x', ['Vent 2 uker.']), $names))->toBeNull()
         ->and($guard->parse(FakeActionWriter::json(str_repeat('x', 121), 'x', ['y']), $names))->toBeNull()
@@ -116,6 +118,12 @@ test('a market in a language without templates gets the template in English and 
 
     expect($this->writer->requests[0]->system)->toContain('Write in Danish')
         ->and(Action::query()->sole()->locale)->toBe('da');
+});
+
+test('no model call starts after the deadline; the action keeps the template', function () {
+    dispatch_sync(new GenerateTenantActions($this->w->tenant->id, wordUntil: time() - 1));
+
+    expect($this->writer->requests)->toBe([])->and(Action::query()->sole()->text_source)->toBe('template');
 });
 
 test('a long language tag is stored with the model text', function () {

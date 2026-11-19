@@ -31,8 +31,10 @@ class GenerateActions extends Command
             ->pluck('id');
 
         $failed = [];
+        // All tenants run in one Cloud Run task in sync mode: no model call starts after this deadline.
+        $wordUntil = $this->option('sync') ? time() + (int) config('ekko.actions.command_word_seconds') : null;
         foreach ($tenants as $tenantId) {
-            $job = new GenerateTenantActions((int) $tenantId, (bool) $this->option('force'));
+            $job = new GenerateTenantActions((int) $tenantId, (bool) $this->option('force'), $wordUntil);
             if (! $this->option('sync')) {
                 dispatch($job);
 

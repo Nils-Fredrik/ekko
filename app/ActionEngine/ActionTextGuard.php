@@ -11,8 +11,6 @@ use App\ActionEngine\Writing\ActionText;
  */
 final class ActionTextGuard
 {
-    private const NUMBER = '/(?<![\p{L}\p{N}])\p{N}+(?:[.,:]\p{N}+)*(?![\p{L}\p{N}])/u';
-
     /**
      * @param  list<string>  $names
      */
@@ -67,7 +65,8 @@ final class ActionTextGuard
             }
         }
 
-        return preg_match(self::NUMBER, $text) !== 1;
+        // Any digit left, also one next to letters ("5x", "Q4", "14d"), is a figure the model wrote.
+        return preg_match('/\p{N}/u', $text) !== 1;
     }
 
     private function clean(string $text): string
