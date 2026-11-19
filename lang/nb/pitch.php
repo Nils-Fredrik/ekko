@@ -10,6 +10,7 @@ return [
     'plan' => 'Pakke',
     'convert' => 'Konverter til kunde',
     'report' => 'Pitch-rapport',
+    'download_pdf' => 'Last ned PDF',
     'visibility' => 'Synlighet mot konkurrenter',
     'sources' => 'Viktigste kilder',
     'metric' => ':name: :value (n=:n)',

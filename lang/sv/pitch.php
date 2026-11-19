@@ -10,6 +10,7 @@ return [
     'plan' => 'Abonnemang',
     'convert' => 'Konvertera till kund',
     'report' => 'Pitchrapport',
+    'download_pdf' => 'Ladda ner PDF',
     'visibility' => 'Synlighet jämfört med konkurrenter',
     'sources' => 'Viktigaste källor',
     'metric' => ':name: :value (n=:n)',

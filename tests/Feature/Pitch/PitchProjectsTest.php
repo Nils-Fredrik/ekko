@@ -6,7 +6,9 @@ use App\Models\Team;
 use App\Models\User;
 use App\Pitch\PitchProjects;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Spatie\LaravelPdf\Facades\Pdf;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Support\Metrics\MetricsWorld;
 
@@ -15,13 +17,15 @@ test('the pitch report uses its historical date range and the three highest rank
     $world = MetricsWorld::create('UTC');
     $world->tenant->forceFill(['kind' => 'pitch', 'created_at' => now()->subDays(3), 'pitch_expires_at' => now()->subDay()])->save();
     foreach (range(1, 10) as $index) {
-        $world->answer($world->p1, '2026-11-18T10:00:00Z', [
+        $answer = $world->answer($world->p1, '2026-11-18T10:00:00Z', [
             'brand' => $index <= 5 ? [] : null,
             'competitors' => $index <= 3 ? [$world->c1->id => 1] : [],
             'citations' => $index <= 4 ? [['example.test', 'third_party']] : [],
         ]);
+        $answer->run->forceFill(['created_at' => '2026-11-18T09:00:00Z'])->save();
     }
-    $world->answer($world->p1, '2026-11-20T10:00:00Z', ['brand' => []]);
+    $answer = $world->answer($world->p1, '2026-11-20T10:00:00Z', ['brand' => []]);
+    $answer->run->forceFill(['created_at' => '2026-11-20T09:00:00Z'])->save();
     foreach ([10, 30, 20, 40] as $score) {
         Action::factory()->for($world->brand)->create(['title' => 'Action '.$score, 'impact_score' => $score]);
     }
@@ -38,8 +42,10 @@ test('the pitch report uses its historical date range and the three highest rank
         ->where('actions.open.0.title', 'Action 40')->where('actions.open.1.title', 'Action 30')
         ->where('actions.open.2.title', 'Action 20')->has('actions.open', 3));
 
-    $world->answer($world->p1, '2026-11-18T18:00:00Z', ['brand' => []]);
-    $world->answer($world->p1, '2026-11-19T10:00:00Z', ['brand' => []]);
+    $answer = $world->answer($world->p1, '2026-11-18T18:00:00Z', ['brand' => []]);
+    $answer->run->forceFill(['created_at' => '2026-11-18T17:00:00Z'])->save();
+    $answer = $world->answer($world->p1, '2026-11-19T10:00:00Z', ['brand' => []]);
+    $answer->run->forceFill(['created_at' => '2026-11-19T09:00:00Z'])->save();
     $world->tenant->forceFill(['kind' => 'customer', 'pitch_converted_at' => now()->subDays(2)])->save();
     $this->get($url)->assertOk()->assertInertia(fn ($page) => $page
         ->where('to', '2026-11-18')->where('visibility.value', 0.5)->where('visibility.n', 10));
@@ -57,14 +63,41 @@ test('a converted pitch report separates answers on the same local day at the co
         'pitch_expires_at' => CarbonImmutable::parse('2026-11-25T22:30:00Z'),
         'pitch_converted_at' => CarbonImmutable::parse('2026-11-18T23:30:00Z'),
     ])->save();
-    $world->answer($world->p1, '2026-11-18T23:29:00Z', ['brand' => []]);
-    $world->answer($world->p1, '2026-11-18T23:31:00Z');
+    $before = $world->answer($world->p1, '2026-11-18T23:29:00Z', ['brand' => []]);
+    $before->run->forceFill(['created_at' => '2026-11-18T23:28:00Z'])->save();
+    $after = $world->answer($world->p1, '2026-11-18T23:31:00Z');
+    $after->run->forceFill(['created_at' => '2026-11-18T23:30:30Z'])->save();
+    // This pitch run returned after conversion, but was created before it.
+    $late = $world->answer($world->p1, '2026-11-18T23:32:00Z', ['brand' => []]);
+    $late->run->forceFill(['created_at' => '2026-11-18T23:29:00Z'])->save();
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
 
     $this->actingAs($owner)->get(route('pitches.report', $world->brand))->assertOk()->assertInertia(fn ($page) => $page
         ->where('from', '2026-11-18')->where('to', '2026-11-19')
-        ->where('visibility.value', 1)->where('visibility.n', 1));
+        ->where('visibility.value', 1)->where('visibility.n', 2));
+});
+
+test('a pitch PDF is generated from scoped report data and saved privately for download', function () {
+    $world = MetricsWorld::create('UTC');
+    $world->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $disk = config()->string('ekko.reports.disk');
+    Storage::fake($disk);
+    $pdf = Pdf::fake();
+
+    $response = $this->actingAs($owner)->get(route('pitches.report.pdf', $world->brand))->assertOk()->assertHeader('content-type', 'application/pdf');
+    expect($response->streamedContent())->toStartWith('%PDF');
+    $pdf->assertViewIs('pitch.pdf');
+    $pdf->assertViewHas('brand', 'Fjordkaffe');
+    $files = Storage::disk($disk)->files('reports/'.$world->tenant->id);
+    expect($files)->toHaveCount(1)->and($files[0])->toStartWith('reports/'.$world->tenant->id.'/pitch-');
+    expect(Storage::disk($disk)->getVisibility($files[0]))->toBe('private');
+
+    $other = Team::factory()->tenant()->create();
+    $other->owner->switchTeam($other);
+    $this->actingAs($other->owner)->get(route('pitches.report.pdf', $world->brand))->assertNotFound();
 });
 
 test('partner quota counts only live pitches and conversion retains the same tenant', function () {

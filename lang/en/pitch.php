@@ -10,6 +10,7 @@ return [
     'plan' => 'Plan',
     'convert' => 'Convert to customer',
     'report' => 'Pitch report',
+    'download_pdf' => 'Download PDF',
     'visibility' => 'Visibility versus competitors',
     'sources' => 'Top sources',
     'metric' => ':name: :value (n=:n)',

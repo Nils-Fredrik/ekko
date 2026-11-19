@@ -65,7 +65,7 @@ final class DailyAggregator
     /**
      * @return array{0: array<string, array<string, mixed>>, 1: array<string, array<string, mixed>>}
      */
-    public function compute(CarbonImmutable $start, CarbonImmutable $end): array
+    public function compute(CarbonImmutable $start, CarbonImmutable $end, ?CarbonImmutable $runCreatedBefore = null): array
     {
         // competitor id => brand id: a response only counts the competitors of its own brand.
         $competitorBrand = Competitor::query()->pluck('brand_id', 'id')->all();
@@ -80,6 +80,7 @@ final class DailyAggregator
             ->where('runs.status', 'extracted')
             ->where('responses.collected_at', '>=', $start)
             ->where('responses.collected_at', '<', $end)
+            ->when($runCreatedBefore !== null, fn ($query) => $query->where('runs.created_at', '<', $runCreatedBefore))
             ->select(['responses.id', 'responses.engine_key', 'responses.answer_type', 'runs.prompt_id', 'prompts.market_id', 'markets.brand_id'])
             ->chunkById(self::CHUNK, function (Collection $chunk) use (&$daily, &$source, $competitorBrand): void {
                 $ids = $chunk->pluck('id')->all();

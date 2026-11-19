@@ -285,6 +285,19 @@ return [
             return ['params' => ['brand' => $id]];
         },
     ),
+    'pitches.report.pdf' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => Brand::factory()->create()->id);
+
+            return ['params' => ['brand' => $id]];
+        },
+        own: function (Scenario $s) {
+            $s->tenantA->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+            $id = app(TenantContext::class)->run($s->tenantA->id, fn () => Brand::factory()->create()->id);
+
+            return ['params' => ['brand' => $id]];
+        },
+    ),
     'brands.index' => RouteAccess::user(),
     'brands.show' => RouteAccess::tenant(
         foreign: function (Scenario $s) {

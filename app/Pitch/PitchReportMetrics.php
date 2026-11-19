@@ -14,9 +14,9 @@ final class PitchReportMetrics
     public function __construct(private DailyAggregator $aggregator) {}
 
     /** @return array{visibility: array{value: float|null, n: int, low_sample: bool}, competitors: list<array{name: string, visibility: array{value: float|null, n: int, low_sample: bool}}>, sources: list<array{domain: string, citations: int}>} */
-    public function forWindow(Brand $brand, CarbonImmutable $start, CarbonImmutable $end): array
+    public function forWindow(Brand $brand, CarbonImmutable $start, CarbonImmutable $end, CarbonImmutable $runCreatedBefore): array
     {
-        [$daily, $sources] = $this->aggregator->compute($start, $end);
+        [$daily, $sources] = $this->aggregator->compute($start, $end, $runCreatedBefore);
         $daily = array_filter($daily, fn (array $row): bool => $row['brand_id'] === $brand->id);
         $sources = array_filter($sources, fn (array $row): bool => $row['brand_id'] === $brand->id);
         $responses = array_sum(array_column($daily, 'responses'));

@@ -4,6 +4,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 
 defineProps({
     brand: String,
+    brandId: Number,
     from: String,
     to: String,
     visibility: Object,
@@ -27,6 +28,7 @@ function percent(value) {
             <h2 class="text-xl font-medium">{{ brand }} · {{ $t('pitch.report') }}</h2>
         </template>
         <div class="mx-auto max-w-3xl space-y-6 px-4 py-8">
+            <a :href="route('pitches.report.pdf', brandId)" class="text-sm underline">{{ $t('pitch.download_pdf') }}</a>
             <p>{{ $t('app.workspace.period_range', { start: from, end: to }) }}</p>
             <section>
                 <h3>{{ $t('pitch.visibility') }}</h3>

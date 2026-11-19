@@ -89,6 +89,7 @@ Route::middleware([
     Route::post('/admin/pitches', [PitchController::class, 'adminStore'])->name('admin.pitches.store');
     Route::post('/pitches/{team}/convert', [PitchController::class, 'convert'])->name('pitches.convert');
     Route::get('/brands/{brand}/pitch-report', PitchReportController::class)->name('pitches.report');
+    Route::get('/brands/{brand}/pitch-report/pdf', [PitchReportController::class, 'download'])->name('pitches.report.pdf');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}/settings', [BrandSettingsController::class, 'show'])->name('brands.settings');
     Route::put('/brands/{brand}/settings', [BrandSettingsController::class, 'update'])->name('brands.settings.update');
