@@ -169,6 +169,27 @@ test('actions in progress, done, declined or created by a user never expire, and
         ->and($own->refresh()->status)->toBe(ActionStatus::Planned);
 });
 
+test('a started action moved back to planned does not expire (T43-F2)', function () {
+    $s = $this->source;
+    $s->candidates = [$s->candidate($this->w->market->id, 'a.no'), $s->candidate($this->w->market->id, 'b.no')];
+    runGeneration($this->w, $s);
+    $started = Action::query()->where('evidence->domain', 'a.no')->sole();
+    $workflow = app(ActionWorkflow::class);
+    $workflow->transition($started, ActionStatus::InProgress);
+    $workflow->transition($started->refresh(), ActionStatus::Planned);
+    expect($started->refresh()->status)->toBe(ActionStatus::Planned)->and($started->started_at)->not->toBeNull();
+    Action::query()->where('evidence->domain', 'b.no')->update(['status' => 'planned']);
+
+    $s->candidates = [];
+    foreach ([1, 2, 3] as $week) {
+        nextWeek();
+        runGeneration($this->w, $s);
+    }
+
+    expect($started->refresh()->status)->toBe(ActionStatus::Planned)
+        ->and(Action::query()->where('evidence->domain', 'b.no')->sole()->status)->toBe(ActionStatus::Expired);
+});
+
 test('fact_correction ranks first within the brand, then expected effect', function () {
     $s = $this->source;
     $s->candidates = [$s->candidate($this->w->market->id, 'big.no', perMonth: 100, share: 1), $s->candidate($this->w->market->id, 'small.no', perMonth: 2, share: 1)];
