@@ -25,7 +25,7 @@ final class SharedReportController extends Controller
         ];
         $token = $request->bearerToken();
         if (! ctype_digit($tenant) || (int) $tenant < 1 || (string) (int) $tenant !== $tenant || preg_match('/\A[a-f0-9]{32}\z/', $selector) !== 1 || ($request->header('Authorization') !== null && (! is_string($token) || preg_match('/\A[a-f0-9]{64}\z/', $token) !== 1))) {
-            return response('Not Found', 404, $headers);
+            return $this->missing($headers);
         }
 
         // The random selector identifies link state without revealing its separate secret.
@@ -36,21 +36,22 @@ final class SharedReportController extends Controller
                 $query->where('token_hash', hash('sha256', $token))->lockForUpdate();
             }
             $link = $query->first();
+            $locale = $link instanceof ReportLink ? $this->publicationLocale($link) : null;
             if (! $link instanceof ReportLink || $link->revoked_at !== null || $link->expires_at->isPast()) {
-                return response('Not Found', 404, $headers);
+                return $this->missing($headers, $locale);
             }
             $team = Team::query()->find((int) $tenant);
             if ($team === null || $team->status === TenantStatus::Closed) {
-                return response('Not Found', 404, $headers);
+                return $this->missing($headers, $locale);
             }
             if ($request->header('Authorization') === null) {
-                return response()->view('reports.shared-bootstrap', [], 200, $headers + [
+                return $this->localized($locale, fn (): Response => response()->view('reports.shared-bootstrap', [], 200, $headers + [
                     'Content-Security-Policy' => "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
-                ]);
+                ]));
             }
             $report = $link->report()->with('reportSchedule.brand')->first();
             if ($report === null) {
-                return response('Not Found', 404, $headers);
+                return $this->missing($headers, $locale);
             }
             $schedule = $report->reportSchedule;
             $data = $report->web_snapshot;
@@ -80,5 +81,42 @@ final class SharedReportController extends Controller
                 app()->setLocale($previous);
             }
         }));
+    }
+
+    /**
+     * @param  callable(): Response  $render
+     */
+    private function localized(?string $locale, callable $render): Response
+    {
+        $previous = app()->getLocale();
+        if (is_string($locale) && $locale !== '') {
+            app()->setLocale($locale);
+        }
+        try {
+            return $render();
+        } finally {
+            app()->setLocale($previous);
+        }
+    }
+
+    /** @param  array<string, string>  $headers */
+    private function missing(array $headers, ?string $locale = null): Response
+    {
+        return $this->localized($locale, fn (): Response => response()->view('reports.shared-missing', [], 404, $headers));
+    }
+
+    private function publicationLocale(ReportLink $link): ?string
+    {
+        $report = $link->report()->with('reportSchedule')->first();
+        if ($report === null) {
+            return null;
+        }
+        $saved = is_array($report->web_snapshot) ? ($report->web_snapshot['locale'] ?? null) : null;
+        if (is_string($saved) && $saved !== '') {
+            return $saved;
+        }
+        $scheduleLocale = $report->reportSchedule->locale ?? null;
+
+        return is_string($scheduleLocale) && $scheduleLocale !== '' ? $scheduleLocale : null;
     }
 }

@@ -39,6 +39,7 @@ test('shared report token is only returned once, scoped to one tenant and report
 
     Auth::forgetGuards();
     $this->get($endpoint)->assertOk()->assertHeader('Referrer-Policy', 'no-referrer')->assertHeader('X-Robots-Tag', 'noindex, nofollow, noarchive')->assertDontSee($token)
+        ->assertSee('<title>Rapport</title>', false)
         ->assertHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
     $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()->assertSee('Private insight for this report')
         ->assertDontSee('Another report must remain private')
@@ -52,7 +53,7 @@ test('shared report token is only returned once, scoped to one tenant and report
         ->and(ReportLinkView::query()->where('report_link_id', $id)->count())->toBe(1);
 
     $this->actingAs($owner)->deleteJson(route('reports.links.destroy', [$report, $id]))->assertOk();
-    $this->flushHeaders()->get($endpoint)->assertNotFound();
+    $this->flushHeaders()->get($endpoint)->assertNotFound()->assertSee('Rapporten finnes ikke eller lenken er utløpt.', false);
     $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertNotFound();
     app(TenantContext::class)->set($world->tenant->id);
     expect(ReportLinkView::query()->where('report_link_id', $id)->count())->toBe(1);
@@ -153,6 +154,7 @@ test('a shared report keeps its publication language after the schedule language
     $endpoint = route('reports.shared', ['tenant' => $world->tenant->id, 'selector' => $link->public_id]);
     $schedule->update(['locale' => 'nb']);
     app()->setLocale('nb');
+    $this->get($endpoint)->assertOk()->assertSee('<title>Report</title>', false);
     $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()
         ->assertSee('<html lang="en"', false)
         ->assertSee('Key figures')
