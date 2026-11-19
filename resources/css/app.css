@@ -95,28 +95,6 @@
     --color-shell-muted: #c4b6a8;
     --color-shell-accent: #ffb6c3;
 
-    /* Data colors (docs/ui-forbedring.md 4.2). Same marks in both themes, except the
-       sequential scale, which runs from the shell surface to primary. */
-    --data-own: #e84a38;
-    --data-cat-1: #c45c48;
-    --data-cat-2: #906056;
-    --data-cat-3: #9a6840;
-    --data-cat-4: #a35a68;
-    --data-cat-5: #7d6248;
-    --data-cat-6: #b56a4e;
-    --data-positive: #4a7c59;
-    --data-negative: #a8382f;
-    --data-neutral: #8a7568;
-    --data-marker-model: #a85e2e;
-    --data-marker-action: #c46b7a;
-    --data-seq-0: #0b0909;
-    --data-seq-1: #301411;
-    --data-seq-2: #551f19;
-    --data-seq-3: #7a2a20;
-    --data-seq-4: #9e3428;
-    --data-seq-5: #c33f30;
-    --data-seq-6: #e84a38;
-
     --color-success: #4a7c59;
     --color-warning: #c97b3e;
     --color-error: #a8382f;
@@ -182,8 +160,29 @@
     --shell-scheme: light;
 }
 
+/* Outside @theme. Tailwind drops unused theme variables, and the charts read these
+   from computed style rather than from a utility class. */
 :root {
     --shell-scheme: dark;
+    --data-own: #e84a38;
+    --data-cat-1: #c45c48;
+    --data-cat-2: #906056;
+    --data-cat-3: #9a6840;
+    --data-cat-4: #a35a68;
+    --data-cat-5: #7d6248;
+    --data-cat-6: #b56a4e;
+    --data-positive: #4a7c59;
+    --data-negative: #a8382f;
+    --data-neutral: #8a7568;
+    --data-marker-model: #a85e2e;
+    --data-marker-action: #c46b7a;
+    --data-seq-0: #0b0909;
+    --data-seq-1: #301411;
+    --data-seq-2: #551f19;
+    --data-seq-3: #7a2a20;
+    --data-seq-4: #9e3428;
+    --data-seq-5: #c33f30;
+    --data-seq-6: #e84a38;
 }
 
 @layer base {

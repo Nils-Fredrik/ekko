@@ -23,7 +23,7 @@ Merkevaremerket er et svart glyf. I mørkt tema inverteres det, så flisen kan f
 
 ## 4.2 Datafarger
 
-Fargene ligger i tema-filen som egne tokens, med verdier for mørkt og lyst tema. Merkene under er like i begge temaer og har minst 3:1 mot skall- og surface-bakgrunnen.
+Fargene ligger i tema-filen som egne tokens, med verdier for mørkt og lyst tema. De står på `:root`, ikke i `@theme`, fordi diagrammene leser dem fra beregnet stil og Tailwind ellers fjerner ubrukte temavariabler. Merkene under er like i begge temaer og har minst 3:1 mot skall- og surface-bakgrunnen.
 
 | Token | Bruk |
 |---|---|

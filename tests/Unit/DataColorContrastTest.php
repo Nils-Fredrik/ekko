@@ -43,7 +43,8 @@ function contrastRatio(string $foreground, string $background): float
 
 test('data colors contrast with both theme backgrounds', function () {
     $css = (string) file_get_contents(dirname(__DIR__, 2).'/resources/css/app.css');
-    $dark = themeColorVariables($css, '@theme');
+    $root = dirname(__DIR__, 2);
+    $dark = array_merge(themeColorVariables($css, '@theme'), themeColorVariables($css, ":root {\n"));
     $light = array_merge($dark, themeColorVariables($css, ":root[data-theme='light']"));
     $marks = [
         '--data-own',
@@ -80,6 +81,15 @@ test('data colors contrast with both theme backgrounds', function () {
         ->and(relativeLuminance($light['--color-gray-100']))->toBeGreaterThan(0.7)
         ->and($dark['--color-qr-quiet'])->toBe('#ffffff')
         ->and($light['--color-qr-quiet'])->toBe('#ffffff');
+
+    $built = glob($root.'/public/build/assets/app-*.css') ?: [];
+    expect($built)->not->toBeEmpty();
+    usort($built, fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
+    $compiled = (string) file_get_contents($built[0]);
+    expect($compiled)->toContain('--data-seq-1:#301411')
+        ->and($compiled)->toContain('--data-seq-5:#c33f30')
+        ->and($compiled)->toContain('--data-own:#e84a38')
+        ->and($compiled)->toContain('--data-cat-6:#b56a4e');
 });
 
 test('components do not hardcode white surfaces or ink text', function () {
