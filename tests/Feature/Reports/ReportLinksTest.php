@@ -4,6 +4,7 @@ use App\Models\Report;
 use App\Models\ReportLink;
 use App\Models\ReportLinkView;
 use App\Models\ReportSchedule;
+use App\Reports\DueReport;
 use App\Reports\ReportPublisher;
 use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Auth;
@@ -79,4 +80,13 @@ test('link lifetime is validated before a link is created', function () {
     $this->postJson(route('reports.links.store', $report), ['days' => 3651])->assertUnprocessable();
     app(TenantContext::class)->set($world->tenant->id);
     expect(ReportLink::query()->count())->toBe(0);
+});
+
+test('the published report retains its immutable web snapshot when recorded', function () {
+    $world = MetricsWorld::create();
+    $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id]);
+    $due = new DueReport($schedule->id, $world->brand->id, 'weekly', 'nb', ['report@example.test'], '2026-10-01', '2026-10-07', []);
+    $snapshot = app(ReportPublisher::class)->viewData($world->tenant, $schedule, $due->from, $due->to, 'Recorded insight');
+    $report = app(ReportPublisher::class)->record($due, 'reports/'.$world->tenant->id.'/report.pdf', $snapshot['actions'], $snapshot);
+    expect($report->fresh()->web_snapshot['insight'])->toBe('Recorded insight');
 });
