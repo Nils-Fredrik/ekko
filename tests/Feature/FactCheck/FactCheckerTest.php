@@ -261,6 +261,17 @@ test('an error about one request does not block the answers after it', function 
     expect($this->judge->requests)->toHaveCount(2);
 });
 
+test('an unknown outcome stops the run: the answer is marked judged and the next answers wait', function () {
+    factAnswer($this->w);
+    factAnswer($this->w);
+    $this->judge->failure = new FactJudgeFailed('timeout', known: false);
+
+    runFactCheck($this->w);
+
+    expect($this->judge->requests)->toHaveCount(1)->and(Response::query()->whereNull('facts_checked_at')->count())->toBe(1)
+        ->and(UsageEvent::query()->count())->toBe(0);
+});
+
 test('an error about the account stops the run, so the next answers are not tried now', function () {
     factAnswer($this->w);
     factAnswer($this->w);

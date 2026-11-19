@@ -97,6 +97,11 @@ final class FactChecker
                 return self::DONE;
             }
             $this->store($tenantId, $item, $outcome instanceof FactJudgeResult ? $outcome : null);
+            if ($outcome === 'unknown') {
+                // The outcome of the call is unknown (timeout, 5xx, 529): the service may be down, and each further
+                // call could be billed without a trace. This answer is marked judged; the rest wait for the next run.
+                return self::DONE;
+            }
         }
 
         return $more ? self::MORE : self::DONE;
@@ -169,7 +174,11 @@ final class FactChecker
 
             // An error about the account or the service stops the run and the answer waits. An error about this
             // request only would repeat for it, so that answer is marked judged and the run goes on.
-            return $failure->known && $failure->accountWide ? 'stop' : null;
+            if (! $failure->known) {
+                return 'unknown';
+            }
+
+            return $failure->accountWide ? 'stop' : null;
         }
 
         if ($configured) {

@@ -11,6 +11,7 @@ use App\Models\BrandFact;
 use App\Models\Citation;
 use App\Models\Claim;
 use App\Models\Response;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -41,8 +42,8 @@ final readonly class FactCorrectionSource implements ActionSource
         $days = (int) config('ekko.actions.window_days');
         // The window is whole local days, so its edges are the local midnights, as instants.
         [$fromDate, $toDate] = $context->window($days);
-        $from = $context->today->subDays($days)->utc();
-        $to = $context->today->utc();
+        $from = CarbonImmutable::parse($fromDate, $context->today->getTimezone())->startOfDay()->utc();
+        $to = CarbonImmutable::parse($toDate, $context->today->getTimezone())->addDay()->startOfDay()->utc();
         $inWindow = fn (Builder $query) => $query->where('collected_at', '>=', $from)->where('collected_at', '<', $to)
             ->whereHas('run', fn (Builder $run) => $run->where('status', 'extracted'));
 

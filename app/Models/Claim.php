@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * A claim about the brand in one answer, judged against one active fact (docs/spec.md 11.6, ADR 0036). Written by
- * the extraction (ExtractionWriter), never by a user. source_citation_ids are the citations of the same answer that
+ * the fact check (FactChecker), never by a user. source_citation_ids are the citations of the same answer that
  * the model says repeat the claim; they are only set for contradicted claims.
  *
  * @property int $id
