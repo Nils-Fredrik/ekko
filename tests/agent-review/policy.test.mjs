@@ -28,6 +28,10 @@ test('review routing includes both reviewers for sensitive changes', () => {
         codex: true,
     });
     assert.throws(() => requiredReviewers('Test', ['README.md'], paths));
+    // UI work packages use their own U number (docs/ui-forbedring.md).
+    assert.deepEqual(requiredReviewers('[Claude Code] U02 – Test', ['README.md'], paths), { claude: false, codex: true });
+    assert.deepEqual(requiredReviewers('[Cursor] U05-F1 – Test', ['README.md'], paths), { claude: true, codex: false });
+    assert.throws(() => requiredReviewers('[Cursor] X05 – Test', ['README.md'], paths));
     assert.throws(() => requiredReviewers('[Codex] T42 – Test', [], paths));
 });
 

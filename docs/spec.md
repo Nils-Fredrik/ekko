@@ -1098,7 +1098,7 @@ Hvis en nyere modell i samme familie blir tilgjengelig, brukes den. Modellvalget
 - **Kilde for krav:** spesifikasjonen ligger i repoet som `docs/spec.md`. `AGENTS.md` i rotmappen har de felles reglene, og `CLAUDE.md` importerer `AGENTS.md`, Codex leser `AGENTS.md` direkte, og Cursor har en regel i `.cursor/rules/ekko.mdc` som peker til `AGENTS.md` og `docs/spec.md`.
 - **Referanse:** agentene henter mønstre fra Varde-repoet (layout, Dockerfile, i18n, MCP-oppsett) heller enn å finne opp egne. Varde er kun lesing: ingen endringer, commits, grener eller PR-er der.
 - **Tilgang:** agentenes GitHub-integrasjoner (Claude Code, Codex og Cursor) har skrivetilgang til `ekko` og lesetilgang til `varde`.
-- **Én oppgave = én gren = én PR.** Grennavn er `t<nr>-<kort-beskrivelse>`, f.eks. `t12-chatgpt-api-adapter`. PR-tittelen starter med agentens merkelapp og oppgavenummeret, f.eks. «[Codex] T12 – Adapter chatgpt_api». Review-workflowen (19.5) bruker merkelappen til å velge reviewer.
+- **Én oppgave = én gren = én PR.** Grennavn er `t<nr>-<kort-beskrivelse>`, f.eks. `t12-chatgpt-api-adapter`. PR-tittelen starter med agentens merkelapp og oppgavenummeret, f.eks. «[Codex] T12 – Adapter chatgpt_api». Arbeidspakkene for UI-forbedring bruker U-nummeret fra `docs/ui-forbedring.md` på samme måte: grenen `u05-<kort-beskrivelse>` og tittelen «[Cursor] U05 – Merkevare-dashboard». Oppfølginger får `-F<n>`, f.eks. «T42-F3» eller «U05-F1». Review-workflowen (19.5) bruker merkelappen til å velge reviewer.
 - **PR-beskrivelse:**
   - Board-oppgavenummer
   - hva som er gjort
@@ -1204,7 +1204,7 @@ Agentene jobber aldri i samme mappe. Hver agentøkt som kjører lokalt, har sin 
 Opprettes med `git worktree add ../ekko-claude origin/main` (tilsvarende for de andre). Kjører en agent flere økter samtidig, får hver økt sin egen worktree (`ekko-claude-2` osv.).
 
 **Regler per worktree:**
-- Ny oppgave starter alltid fra oppdatert `origin/main` på en ny gren (`git fetch` og `git switch -c t<nr>-… origin/main`).
+- Ny oppgave starter alltid fra oppdatert `origin/main` på en ny gren (`git fetch` og `git switch -c t<nr>-… origin/main`, eller `u<nr>-…` for UI-arbeidspakker).
 - Egen `.env` med egen database på den felles lokale Postgres-serveren (`ekko_claude`, `ekko_cursor`, `ekko_codex`), slik at migreringer og testdata ikke kolliderer.
 - Egne porter for `php artisan serve` og Vite:
 
