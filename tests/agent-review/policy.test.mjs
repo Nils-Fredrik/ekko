@@ -23,6 +23,7 @@ test('review routing includes both reviewers for sensitive changes', () => {
         codex: true,
     });
     assert.deepEqual(requiredReviewers('[Cursor] T02 – Test', ['infra/main.tf'], paths), { claude: true, codex: true });
+    assert.deepEqual(requiredReviewers('[Cursor] U01 – Test', ['README.md'], paths), { claude: true, codex: false });
     assert.deepEqual(requiredReviewers('[Codex] T42 – Test', ['app/Tenancy/.hidden/config'], paths), {
         claude: true,
         codex: true,
