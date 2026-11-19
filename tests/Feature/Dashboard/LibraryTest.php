@@ -133,6 +133,21 @@ test('an unknown brand that recurs can be added as a competitor in one click', f
         ->assertInertia(fn ($page) => $page->where('suggestions', []));
 });
 
+test('a pitch cannot add a fourth competitor, but a converted customer can', function () {
+    $world = MetricsWorld::create();
+    $world->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)->post(route('brands.competitors.store', $world->brand), ['name' => 'Third'])->assertRedirect()->assertSessionHasNoErrors();
+    $this->post(route('brands.competitors.store', $world->brand), ['name' => 'Fourth'])->assertSessionHasErrors('name');
+    expect($world->brand->competitors()->count())->toBe(3);
+
+    $world->tenant->forceFill(['kind' => 'customer'])->save();
+    $this->post(route('brands.competitors.store', $world->brand), ['name' => 'Fourth'])->assertRedirect()->assertSessionHasNoErrors();
+    expect($world->brand->competitors()->count())->toBe(4);
+});
+
 test('prompts can be edited, exported and imported, and a reader cannot change them', function () {
     $world = MetricsWorld::create();
     $owner = $world->tenant->owner;

@@ -76,6 +76,21 @@ test('a new action is worded by the model in the market language and the call is
         ->and(DB::table('anthropic_credit_spend')->where('entry', $usage->anthropic_operation)->value('cost_usd'))->toBe('0.00540000');
 });
 
+test('action usage keeps its pitch classification when conversion happens during the call', function () {
+    $this->w->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    $writer = Mockery::mock(ActionWriter::class);
+    $writer->shouldReceive('write')->once()->andReturnUsing(function () {
+        $this->w->tenant->forceFill(['kind' => 'customer', 'pitch_converted_at' => now()])->save();
+
+        return new ActionWriterResult(FakeActionWriter::json('Tittel', 'Beskrivelse', ['Steg en', 'Steg to']), 1200, 300);
+    });
+    app()->instance(ActionWriter::class, $writer);
+
+    generateTenant($this->w);
+
+    expect(UsageEvent::query()->sole()->getAttribute('project_kind'))->toBe('pitch');
+});
+
 test('each call writes one structured log line with internal IDs and no text (T43-F1)', function () {
     Log::spy();
 

@@ -53,7 +53,7 @@ final class TenantController extends Controller
         Gate::authorize('create', Team::class);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_pitch_plan', false)],
+            'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where(fn ($query) => $query->where('is_pitch_plan', false))],
             'partner_team_id' => ['nullable', 'integer', 'exists:teams,id'],
         ]);
         $this->guardPartner($data['partner_team_id'] ?? null, null);
@@ -86,7 +86,10 @@ final class TenantController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_pitch_plan', false)],
+            // A pitch keeps its internal plan until it goes through the conversion flow.
+            'plan_id' => ['required', 'integer', $team->kind === 'pitch'
+                ? Rule::in([$team->plan_id])
+                : Rule::exists('plans', 'id')->where(fn ($query) => $query->where('is_pitch_plan', false))],
             'partner_team_id' => ['nullable', 'integer', 'exists:teams,id'],
             'status' => ['required', Rule::enum(TenantStatus::class)],
             'monthly_call_quota_override' => ['nullable', 'integer', 'min:0'],

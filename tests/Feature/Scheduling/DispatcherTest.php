@@ -59,6 +59,17 @@ test('an expired pitch plans no new runs while an active pitch still runs', func
     app(TenantContext::class)->run($active->id, fn () => app(TenantRls::class)->run([$active->id], fn () => expect(Run::query()->count())->toBe(1)));
 });
 
+test('a pitch does not schedule an engine switched off for its market', function () {
+    $now = CarbonImmutable::now('UTC');
+    $engine = dispatchEngine();
+    $pitch = dispatchTenant($engine, 1);
+    $pitch->forceFill(['kind' => 'pitch', 'pitch_expires_at' => $now->addDays(7)])->save();
+    app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => MarketEngine::query()->update(['frequency' => 'off'])));
+
+    expect(app(Dispatcher::class)->dispatch($now))->toBe(0);
+    app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], fn () => expect(Run::query()->count())->toBe(0)));
+});
+
 test('a queued pitch run cannot start provider work after the pitch expires', function () {
     $now = CarbonImmutable::now('UTC');
     $this->travelTo($now);

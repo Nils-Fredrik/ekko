@@ -136,7 +136,8 @@ function act() {
                     </label>
                     <label class="text-sm">
                         {{ $t('admin.tenants.plan') }}
-                        <select v-model="editing[tenant.id].plan_id" required :class="field">
+                        <input v-if="tenant.kind === 'pitch'" :value="tenant.plan" readonly :class="field">
+                        <select v-else v-model="editing[tenant.id].plan_id" required :class="field">
                             <option v-for="plan in plans" :key="plan.id" :value="plan.id">{{ plan.name }}</option>
                         </select>
                     </label>

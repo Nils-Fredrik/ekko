@@ -38,4 +38,8 @@ test('an unrelated advisor cannot create or convert a pitch for another partner'
     $projects = app(PitchProjects::class);
     $now = CarbonImmutable::now('UTC');
     expect(fn () => $projects->create($advisor, $partner, 'No', $now))->toThrow(HttpException::class);
+    $admin = User::factory()->platformAdmin()->create();
+    $pitch = $projects->create($admin, $partner, 'Protected pitch', $now);
+    expect(fn () => $projects->convert($advisor, $pitch, $now))->toThrow(HttpException::class);
+    expect($pitch->fresh()->kind)->toBe('pitch');
 });

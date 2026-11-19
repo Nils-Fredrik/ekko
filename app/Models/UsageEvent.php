@@ -24,6 +24,8 @@ class UsageEvent extends Model
 
     private ?CarbonImmutable $projectOriginAt = null;
 
+    private ?string $projectOriginKind = null;
+
     /**
      * Preserve the project type at operation start when an asynchronous result is billed later.
      *
@@ -38,12 +40,22 @@ class UsageEvent extends Model
         return $event;
     }
 
+    /** @param array<string, mixed> $attributes */
+    public static function recordForProject(array $attributes, string $kind): self
+    {
+        $event = new self($attributes);
+        $event->projectOriginKind = $kind;
+        $event->save();
+
+        return $event;
+    }
+
     protected static function booted(): void
     {
         static::creating(function (UsageEvent $event): void {
             $team = Team::query()->findOrFail(app(TenantContext::class)->require());
-            $projectKind = $team->kind;
-            if ($projectKind !== 'pitch' && $team->pitch_converted_at !== null) {
+            $projectKind = $event->projectOriginKind ?? $team->kind;
+            if ($event->projectOriginKind === null && $projectKind !== 'pitch' && $team->pitch_converted_at !== null) {
                 // A collected run can be booked after conversion; use its creation time to retain provenance.
                 $started = $event->projectOriginAt ?? ($event->run_id === null ? $event->occurred_at : Run::query()->whereKey($event->run_id)->value('created_at'));
                 if ($started !== null && CarbonImmutable::parse($started)->lessThan($team->pitch_converted_at)) {

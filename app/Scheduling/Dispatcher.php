@@ -155,7 +155,7 @@ final class Dispatcher
                     }
                     $ranks = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
                     $frequency = $ranks[$setting->frequency] <= $ranks[$plan->maxFrequencyForEngine($key)] ? $setting->frequency : $plan->maxFrequencyForEngine($key);
-                    if ($tenant->kind === 'pitch' && $plan->maxFrequencyForEngine($key) === 'daily') {
+                    if ($tenant->kind === 'pitch' && $frequency !== 'off' && $plan->maxFrequencyForEngine($key) === 'daily') {
                         $frequency = 'daily';
                     }
                     $platformClaude = $budget->configured() && in_array($key, ['claude_haiku', 'claude_sonnet'], true) && $this->keys->forEngine($tenant, $setting->engine) === null;

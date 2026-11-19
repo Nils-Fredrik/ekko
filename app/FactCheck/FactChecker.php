@@ -13,6 +13,7 @@ use App\Models\BrandFact;
 use App\Models\Citation;
 use App\Models\Claim;
 use App\Models\Response;
+use App\Models\Team;
 use App\Models\UsageEvent;
 use App\Tenancy\Rls\TenantRls;
 use Carbon\CarbonImmutable;
@@ -92,11 +93,12 @@ final class FactChecker
             if (CarbonImmutable::now()->getTimestamp() >= $deadline) {
                 return self::MORE;
             }
+            $projectKind = Team::query()->findOrFail($tenantId)->kind;
             $outcome = $this->call($tenantId, $item['request']);
             if ($outcome === 'stop') {
                 return self::DONE;
             }
-            $this->store($tenantId, $item, $outcome instanceof FactJudgeResult ? $outcome : null);
+            $this->store($tenantId, $item, $outcome instanceof FactJudgeResult ? $outcome : null, $projectKind);
             if ($outcome === 'unknown') {
                 // The outcome of the call is unknown (timeout, 5xx, 529): the service may be down, and each further
                 // call could be billed without a trace. This answer is marked judged; the rest wait for the next run.
@@ -196,7 +198,7 @@ final class FactChecker
      *
      * @param  array{id: int, brand_id: int, text: string, facts: array<int, string>, request: FactCheckRequest}  $item
      */
-    private function store(int $tenantId, array $item, ?FactJudgeResult $result): void
+    private function store(int $tenantId, array $item, ?FactJudgeResult $result, string $projectKind): void
     {
         $claims = [];
         if ($result !== null) {
@@ -207,9 +209,9 @@ final class FactChecker
             $claims = $this->assembler->assemble($item['text'], $parsed ?? [], array_keys($item['facts']));
         }
 
-        $this->rls->run([$tenantId], function () use ($item, $result, $claims): void {
+        $this->rls->run([$tenantId], function () use ($item, $result, $claims, $projectKind): void {
             if ($result !== null) {
-                UsageEvent::query()->create([
+                UsageEvent::recordForProject([
                     'kind' => 'factcheck',
                     'engine_key' => null,
                     'occurred_at' => CarbonImmutable::now('UTC'),
@@ -220,7 +222,7 @@ final class FactChecker
                     'cost_usd' => $this->cost->of($result->inputTokens, $result->outputTokens),
                     'billed_to' => 'platform',
                     'anthropic_operation' => $result->operation,
-                ]);
+                ], $projectKind);
             }
             // A fact removed, switched off or reworded while the call ran gets no claim: the verdict was given on the
             // text in the request. The rows are locked, so an edit cannot slip in between this check and the insert
