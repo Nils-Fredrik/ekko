@@ -1,0 +1,34 @@
+# 0038 – Innsiktstekst på dashboardene
+
+- **Status:** Foreslått
+- **Dato:** 2026-11-19
+- **Board:** `task:95` / U12. Bygger på [ADR 0034](0034-tiltaksmotor.md) (tallvakt og formulering) og [ADR 0023](0023-anthropic-kredittplan.md) (Anthropic-kreditter). Eierbeslutning på Board #1014: innsiktskallene teller mot tenantens kvote.
+
+## Kontekst
+
+Oversikten (7.1) og merkevaredashboardet (7.2) skal ha en kort tekst om hva som har endret seg. Kravet er at ingen tall i teksten avviker fra tallene på siden. Samme side kan dessuten ha endret seg siden teksten ble skrevet: nye svar kommer inn gjennom dagen.
+
+## Beslutning
+
+**Tall fra databasen, aldri fra modellen.** `InsightFigureBuilder` leser tallene med de samme `MetricsService`-kallene som sidene bruker: nøkkeltall (synlighet, share of voice, anbefalingsrate, siteringsrate, gjennomsnittsposisjon), de største bevegelsene per motor, konkurrent og prompt (høyst `ekko.insights.max_movements` hver), modellbytter i perioden og fullførte tiltak. Modellen får funnene med retning (`up`, `down`, `unchanged`) og navn på plassholdere, ikke tallene, og returnerer `{ "text": "…{visibility_change}…" }`. `InsightTextGuard` avviser teksten hvis den bruker en plassholder modellen ikke fikk, er for lang (320 tegn for en merkevare, 480 for oversikten), eller har et siffer eller en klammer igjen etter at plassholderne og navnene modellen fikk (merkevare, motor, konkurrent, prompt, modell) er tatt ut, lengste navn først. Som i ADR 0034 fanges ikke tall skrevet med ord; prompten forbyr dem.
+
+**Tallene settes inn ved visning.** Det som lagres er malteksten og retningene da den ble skrevet. `InsightService` leser tallene på nytt hver gang teksten vises og fyller plassholderne med `InsightFormatter`, i samme avrunding som kortene (én desimal, endring i prosentpoeng regnet fra de uavrundede verdiene). Teksten vises derfor alltid med sidens tall, også om nye svar har kommet inn senere samme døgn. Er et tall borte, eller en endring har snudd retning siden teksten ble skrevet, vises ingen tekst; den skrives ikke om før neste døgn.
+
+**Lav n.** En verdi med færre enn `ekko.insights.min_n` (10) svar er ikke et funn. En endring tas bare med når begge periodene har minst så mange. Uten minst ett pålitelig nøkkeltall (merkevare) eller en pålitelig bevegelse (oversikt) gjøres ikke noe kall.
+
+**Lagring.** `insights`: én rad per tenant, filternøkkel og lokalt døgn (unik). Nøkkelen er en hash av omfang (merkevare eller oversikt), merkevare, periode, marked, motor, tema, intensjon og språk (nb, sv eller en, brukerens språk). Raden har status `written` eller `unavailable` med årsak. Radene er tenanteide med radbeskyttelse. Teksten lages ikke ved hver sidevisning: første visning med et nytt filter eller et nytt døgn lager den, resten leser raden. En lås per nøkkel hindrer to samtidige kall. Propen er utsatt i egen gruppe, så grafene ikke venter på modellen.
+
+**Budsjett og kvote.** Før kallet reserveres `ekko.anthropic.insight.estimated_cost_usd` på Anthropic-kontoen uten å være tillatt i redusert modus (ADR 0023); da lages ingen tekst. Kjent svar gjøres opp med `settleKnown` og bokføres i `usage_events` med `kind = insight`, `billed_to = platform`, `calls = 1`. `insight` står ikke i `ekko.usage.platform_paid_kinds`, så kallet teller i tenantens kallkvote og budsjett (Board #1014). Er tenantens kvote brukt opp (100 %), gjøres ikke kallet. Høyst `ekko.insights.max_per_tenant_per_day` (40) kall per tenant og døgn. Kjent avslag frigjør reservasjonen; ukjent utfall beholder den (ADR 0023). «Credit balance is too low» setter kredittstopp. Modell-ID, tokengrenser og priser ligger i `ekko.anthropic.insight` (modell-ID kan settes med `EKKO_INSIGHT_MODEL`). Kallet bruker samme klient som tiltaksformuleringen (`AnthropicActionWriter` med innstillingene `insight`), uten automatisk retry.
+
+**Feil og redusert modus.** Ingen innsiktslinje i stedet for en feilmelding. Årsakene `reduced`, `quota`, `cap` og kjent leverandørfeil (`failed`) prøves på nytt tidligst etter `ekko.insights.retry_after_minutes` (60). En avvist tekst (`refused`) og et ukjent utfall (`unknown`) prøves ikke på nytt samme døgn, siden de kan være fakturert.
+
+**Logg.** Hvert kallforsøk gir én linje, «Insight call.», med tenant, merkevare, omfang, operasjon, utfall (`written`, `refused`, `failed`, `unknown`, `not_reserved`, `not_called`), forbrukshendelse, tokens og kostnad, aldri tekst.
+
+**Grensesnitt.** `Brands/Show` og `Home` har den utsatte propen `insight` (`null` eller `{ text, label, generated_on }`), og `Components/Dashboard/InsightLine.vue` viser den. Sidene bestemmer plasseringen. Oversikten bruker sidens periode (i dag 28 dager mot de 28 foregående); endres den til 7 dager, følger teksten med.
+
+## Konsekvenser
+
+- Kostnad per tekst: om lag 1 500 tokens inn og 120 ut, omtrent 0,004 dollar med dagens priser. Taket er 40 tekster per tenant og døgn.
+- Hver visning leser tallene på nytt (dashboard for perioden og den forrige, konkurrenter, prompts), som er de samme spørringene som siden. Teksten er utsatt, så første svar blir ikke tregere.
+- U13 (rapportens forside) kan kalle `InsightService::forBrand` med rapportperioden og få samme tekst og tallkontroll.
+- Det finnes ingen egen tildeling for denne teksten i nivå 2-planleggingen (12.5): den bruker reservasjon og redusert modus, som tiltaksformuleringen. Skal den fordeles som tillegg etter prognosen, må `ekko:anthropic-budget` få en egen post.

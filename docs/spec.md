@@ -290,7 +290,7 @@ Sentimentfordeling og kildetype/eierskap lagres separat i dagsaggregatene for gr
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf, actions, factcheck), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
+| `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf, actions, factcheck, insight), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
 | `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `byok_cost_usd`, `byok_budget_usd`, `quota_alerted_threshold`, `status` (ok, warning, capped) |
 | `alert_rules` | `tenant_id`, `brand_id`, `type`, `threshold`, `channels` (jsonb), `is_active` |
 | `alerts` | `tenant_id`, `alert_rule_id`, `subject`, `triggered_at`, `payload` (jsonb), `digest_date`, `deliveries` (jsonb, kvittering per kanal), `delivered_at`, `acknowledged_by`, `acknowledged_at` |
@@ -857,10 +857,10 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | Komponent | Innhold |
 |---|---|
 | `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google» |
-| `Pages/Home.vue` | Oversikt for valgt tenant: nøkkeltall per merkevare, siste varsler, neste planlagte kjøringer, forbruk mot kvote |
+| `Pages/Home.vue` | Oversikt for valgt tenant: innsiktslinje på tvers av merkevarer, nøkkeltall per merkevare, siste varsler, neste planlagte kjøringer, forbruk mot kvote |
 | `Pages/Partner/Index.vue` | For partner-rådgivere: alle kunde-tenants med synlighet, endring og varsler i én tabell |
 | `Pages/Brands/Index.vue` | Merkevarer med status og markeder |
-| `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
+| `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), innsiktslinje, nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
 | `Pages/Brands/Prompts.vue` | Prompt-tabell med resultater per prompt (synlighet, posisjon, stabilitet per motor), inline redigering, aktivering/deaktivering, import og eksport (CSV) |
 | `Pages/Brands/PromptShow.vue` | Ett prompt: alle svar over tid per motor, svartekst med uthevede nevnelser, kildeliste, råsvar-lenke |
 | `Pages/Brands/Competitors.vue` | Konkurrenter, alias og domener, samt foreslåtte ukjente merkevarer |
@@ -878,6 +878,8 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | `Pages/Admin/Engines.vue` | Motorer, modell-ID, priser, aktivering, helsestatus |
 | `Pages/Admin/Usage.vue` | Forbruk og kostnad for alle tenants, eksport av fakturagrunnlag |
 | `Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue` | OAuth-samtykke og oversikt over tilkoblede MCP-klienter (som i Varde) |
+
+**Innsiktslinjen (U12, ADR 0038).** Oversikten og merkevaredashboardet har en kort tekst om hva som har endret seg, skrevet av Claude Sonnet 5.5 (modell-ID i `ekko.anthropic.insight.model`). Modellen får strukturerte endringstall (nøkkeltall, største bevegelser per motor, prompt og konkurrent, modellbytter og fullførte tiltak) som retninger og plassholdere, aldri tallene, og skriver en tekst med plassholdere. Koden fyller dem inn fra databasen hver gang teksten vises, så teksten viser alltid samme tall som siden. Teksten lagres per tenant, merkevare (eller oversikt), filterkombinasjon, språk og lokalt døgn (`insights`) og lages ikke på nytt ved sidevisning. En endring med færre enn `ekko.insights.min_n` svar i en av periodene omtales ikke som funn. Kallet reserverer på Anthropic-kontoen (12.5), hoppes over i redusert modus, bokføres som `kind = insight` og teller mot tenantens kallkvote (eierbeslutning, Board #1014); det gir én logglinje med interne ID-er. Faller teksten bort (redusert modus, kvote, feil eller avvist tekst), vises ingen innsiktslinje i stedet for en feilmelding. Propen `insight` er `null` eller `{ text, label, generated_on }` og vises med `Components/Dashboard/InsightLine.vue`.
 | `Pages/API/Index.vue` | API-tokens (Jetstream) |
 | `Pages/Profile/Show.vue` | Profil, passord, 2FA, språk, tema |
 
