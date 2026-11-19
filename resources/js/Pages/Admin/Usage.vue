@@ -48,7 +48,14 @@ function usd(value) {
                             <td class="p-2 text-right tabular-nums">{{ tenant.calls }}</td>
                             <td class="p-2 text-right tabular-nums">{{ usd(tenant.cost_usd) }}</td>
                             <td class="p-2 text-right tabular-nums">{{ usd(tenant.byok_cost_usd) }}</td>
-                            <td class="p-2 text-right tabular-nums">{{ usd(tenant.platform_paid_cost_usd) }}</td>
+                            <td class="p-2 text-right tabular-nums">
+                                {{
+                                    $t('admin.usage.platform_paid_cell', {
+                                        cost: usd(tenant.platform_paid_cost_usd),
+                                        calls: tenant.platform_paid_calls,
+                                    })
+                                }}
+                            </td>
                         </tr>
                     </tbody>
                 </table>
