@@ -179,7 +179,7 @@ final class OnboardingRunner
     private function logUsage(Analysis $analysis, OnboardingModelResult $result): void
     {
         // Billed whether or not the reply was usable (docs/spec.md 12.2). Platform key, so billed to the platform.
-        $this->rls->run([$analysis->tenantId], fn () => UsageEvent::query()->create([
+        $this->rls->run([$analysis->tenantId], fn () => UsageEvent::recordAtOrigin([
             'kind' => 'onboarding',
             'engine_key' => null,
             'occurred_at' => CarbonImmutable::now('UTC'),
@@ -189,7 +189,7 @@ final class OnboardingRunner
             'search_calls' => 0,
             'cost_usd' => $this->cost->of($result->inputTokens, $result->outputTokens),
             'billed_to' => 'platform',
-        ]));
+        ], $analysis->startedAt === null ? null : CarbonImmutable::parse($analysis->startedAt)));
     }
 
     /**

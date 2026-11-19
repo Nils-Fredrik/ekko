@@ -4,12 +4,8 @@ import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 
-const props = defineProps({
-    admin: Boolean,
-    partners: { type: Array, default: () => [] },
-    plans: { type: Array, default: () => [] },
-});
-const form = useForm({ name: '', partner_team_id: props.partners[0]?.id ?? '', plan_id: props.plans[0]?.id ?? '' });
+const props = defineProps({ admin: Boolean, partners: { type: Array, default: () => [] } });
+const form = useForm({ name: '', partner_team_id: props.partners[0]?.id ?? '' });
 function submit() {
     form.post(route(props.admin ? 'admin.pitches.store' : 'partner.pitches.store'), {
         preserveScroll: true,
@@ -30,11 +26,6 @@ function submit() {
                 <option v-for="partner in partners" :key="partner.id" :value="partner.id">{{ partner.name }}</option>
             </select>
             <InputError :message="form.errors.partner_team_id" />
-            <label class="block text-sm" for="pitch-plan">{{ $t('pitch.plan') }}</label>
-            <select id="pitch-plan" v-model="form.plan_id" required>
-                <option v-for="plan in plans" :key="plan.id" :value="plan.id">{{ plan.name }}</option>
-            </select>
-            <InputError :message="form.errors.plan_id" />
         </template>
         <div>
             <PrimaryButton :disabled="form.processing">{{ $t('pitch.create') }}</PrimaryButton>

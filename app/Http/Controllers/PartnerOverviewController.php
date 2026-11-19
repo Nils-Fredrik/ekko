@@ -59,8 +59,6 @@ class PartnerOverviewController extends Controller
                 return [
                     'id' => $client->id,
                     'name' => $client->name,
-                    'kind' => $client->kind,
-                    'pitch_expires_at' => $client->pitch_expires_at?->toIso8601String(),
                     'visibility' => $this->average($current),
                     'previous_visibility' => $this->average($previous),
                     'alerts' => Alert::query()

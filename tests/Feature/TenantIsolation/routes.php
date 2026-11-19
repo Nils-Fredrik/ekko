@@ -148,9 +148,8 @@ return [
     'admin.tenants.index' => RouteAccess::platformAdmin(),
     'admin.pitches.store' => RouteAccess::platformAdmin(own: function () {
         $partner = Team::factory()->tenant()->create();
-        $plan = Plan::factory()->create();
 
-        return ['data' => ['name' => 'Pitch test', 'partner_team_id' => $partner->id, 'plan_id' => $plan->id]];
+        return ['data' => ['name' => 'Pitch test', 'partner_team_id' => $partner->id]];
     }),
     'admin.tenants.store' => RouteAccess::platformAdmin(own: fn () => ['data' => [
         'name' => 'Isolasjon',
@@ -266,7 +265,11 @@ return [
     )->withoutForeignCheck('Uses the current partner only; cross-partner authorization is covered by PitchProjectsTest.'),
     'pitches.convert' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['team' => Team::factory()->clientOf($s->tenantB)->create(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->id]],
-        own: fn (Scenario $s) => ['params' => ['team' => Team::factory()->clientOf($s->tenantA)->create(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->id]],
+        own: function (Scenario $s) {
+            $s->tenantA->forceFill(['plan_id' => Plan::factory()->create()->id])->save();
+
+            return ['params' => ['team' => Team::factory()->clientOf($s->tenantA)->create(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->id]];
+        },
         deniedRoles: ['owner', 'admin', 'editor', 'reader'],
     ),
     'pitches.report' => RouteAccess::tenant(

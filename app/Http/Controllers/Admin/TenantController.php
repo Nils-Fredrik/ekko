@@ -40,7 +40,7 @@ final class TenantController extends Controller
                 'partner' => $team->partner->name ?? null,
                 'monthly_call_quota_override' => $team->monthly_call_quota_override,
             ]),
-            'plans' => Plan::query()->orderBy('name')->get(['id', 'name']),
+            'plans' => Plan::query()->where('is_pitch_plan', false)->orderBy('name')->get(['id', 'name']),
             'partners' => Team::query()->where('personal_team', false)->whereNull('partner_team_id')->where('status', '<>', TenantStatus::Closed->value)->orderBy('name')->get(['id', 'name']),
             'statuses' => array_column(TenantStatus::cases(), 'value'),
         ]);
@@ -53,7 +53,7 @@ final class TenantController extends Controller
         Gate::authorize('create', Team::class);
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'plan_id' => ['required', 'integer', 'exists:plans,id'],
+            'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_pitch_plan', false)],
             'partner_team_id' => ['nullable', 'integer', 'exists:teams,id'],
         ]);
         $this->guardPartner($data['partner_team_id'] ?? null, null);
@@ -86,7 +86,7 @@ final class TenantController extends Controller
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'plan_id' => ['required', 'integer', 'exists:plans,id'],
+            'plan_id' => ['required', 'integer', Rule::exists('plans', 'id')->where('is_pitch_plan', false)],
             'partner_team_id' => ['nullable', 'integer', 'exists:teams,id'],
             'status' => ['required', Rule::enum(TenantStatus::class)],
             'monthly_call_quota_override' => ['nullable', 'integer', 'min:0'],

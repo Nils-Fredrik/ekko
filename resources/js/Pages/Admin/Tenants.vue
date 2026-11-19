@@ -80,7 +80,7 @@ function act() {
         <div class="mx-auto max-w-7xl space-y-6 px-4 py-10 sm:px-6 lg:px-8">
             <AdminNav />
             <p class="text-sm text-shell-muted">{{ $t('admin.tenants.intro') }}</p>
-            <PitchCreateForm :admin="true" :partners="partners" :plans="plans" />
+            <PitchCreateForm :admin="true" :partners="partners" />
             <form
                 class="space-y-3 rounded-2xl border border-line bg-shell-panel p-6 text-shell-text"
                 @submit.prevent="create"

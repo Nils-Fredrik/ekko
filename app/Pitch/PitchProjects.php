@@ -20,13 +20,13 @@ final class PitchProjects
 
     public function __construct(private readonly TenantAccess $access) {}
 
-    public function create(User $actor, Team $partner, string $name, Plan $plan, CarbonImmutable $at): Team
+    public function create(User $actor, Team $partner, string $name, CarbonImmutable $at): Team
     {
-        return DB::transaction(function () use ($actor, $partner, $name, $plan, $at): Team {
+        return DB::transaction(function () use ($actor, $partner, $name, $at): Team {
             $partner = Team::query()->lockForUpdate()->findOrFail($partner->id);
             abort_unless($actor->is_platform_admin || $this->access->advisesPartner($actor, $partner), 403);
             abort_if($partner->personal_team || $partner->partner_team_id !== null || $partner->status !== TenantStatus::Active, 422);
-            abort_unless($actor->is_platform_admin || $partner->plan_id === $plan->id, 403);
+            $plan = Plan::query()->where('is_pitch_plan', true)->sole();
             $count = Team::query()->where('partner_team_id', $partner->id)->where('kind', 'pitch')
                 ->where('status', TenantStatus::Active->value)->where('pitch_expires_at', '>', $at)->count();
             if ($count >= self::PARTNER_LIMIT) {
@@ -58,8 +58,12 @@ final class PitchProjects
             $partner = $pitch->partner_team_id === null ? null : Team::query()->find($pitch->partner_team_id);
             abort_unless($actor->is_platform_admin || ($partner !== null && $this->access->advisesPartner($actor, $partner)), 403);
             abort_unless($pitch->kind === 'pitch' && $pitch->status !== TenantStatus::Closed, 422);
+            $plan = $partner?->plan;
+            if (! $plan instanceof Plan || $plan->is_pitch_plan) {
+                throw ValidationException::withMessages(['pitch' => __('pitch.no_customer_plan')]);
+            }
             // Only metadata changes. Brand, market, prompts, runs, reports and usage retain the same tenant ID.
-            $pitch->forceFill(['kind' => 'customer', 'pitch_converted_at' => $at])->save();
+            $pitch->forceFill(['kind' => 'customer', 'plan_id' => $plan->id, 'pitch_converted_at' => $at])->save();
 
             return $pitch;
         });

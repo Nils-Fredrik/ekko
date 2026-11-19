@@ -16,6 +16,7 @@ return [
     'limit' => 'A partner can have at most three active pitch projects.',
     'name_required' => 'Enter a name for the pitch project.',
     'no_plan' => 'The partner needs a plan before a pitch project can be created.',
+    'no_customer_plan' => 'The partner needs a customer plan before the project can be converted.',
     'expired' => 'The pitch project has expired.',
     'limits' => 'A pitch can have at most 25 prompts and three competitors.',
     'plan_unavailable' => 'The plan must allow 25 prompts and all active pitch engines daily.',

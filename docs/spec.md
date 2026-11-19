@@ -627,6 +627,8 @@ Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like 
 
 ### 11.3 Tiltak
 
+Pitch-rapporter bruker de tre høyest rangerte åpne tiltakene. Oppsett, separat forbruk og konvertering er beskrevet i [pitch-spesifikasjonen](pitch.md) (T47).
+
 Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen bak. Tiltakene genereres ukentlig per merkevare og marked av `ekko:generate-actions`, og vises i grensesnittet, i rapportene, i API-et og i MCP.
 
 **Kilder til tiltak:**
@@ -666,16 +668,6 @@ Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen
 - Modellen skriver tekst uten tall; tallene vises fra `evidence` (evidenssetningen i `lang/*/action_items.php`). En tekst med tall utenfor et navn modellen fikk, skrevet fullt ut, avvises, og maltekst beholdes. Modellen skriver på markedets språk (tenantens for merkevarenivå); malene finnes på nb, sv og en. Et nytt tiltak har maltekst til modellen har formulert det. Kallet reserverer på Anthropic-kontoen før HTTP (ADR 0023), stoppes i redusert modus og bokføres i `usage_events` med `kind = actions` og `billed_to = platform`. Plattformen betaler kallene (eierbeslutning, Board #996): de trekkes ikke fra tenantens kallkvote eller budsjett, gir ikke kvotevarsler og kommer ikke på fakturagrunnlaget, men vises per tenant i `Admin/Usage.vue` og er med i prognosen for Anthropic-potten (12.2, 12.5). Hvert kall gir én strukturert logglinje med interne ID-er (tenant, tiltak, operasjon, forbrukshendelse), utfall, tokens og kostnad, aldri tekst. Høyst `ekko.actions.max_formulations` kall per tenant og generering, og ingen nye kall etter `ekko.actions.word_seconds` per tenant eller kommandoens samlede frist.
 - Tilleggskolonner: `engine_keys` (motorer), `impact_score` (effekten bak nivået), `text_source` (template, model, user), `locale` (språktaggen teksten står på, inntil 35 tegn), `unsupported_generations`, `last_generated_at`. `action_prompts` har også `tenant_id` (6). Egne tiltak kan mangle type.
 - Statusflyt for brukere i `ActionWorkflow`: `started_at` settes første gang tiltaket går til `in_progress`, `completed_at` når det går til `done`, og nullstilles hvis det åpnes igjen. Tenant-admin, partner-rådgiver og redaktør endrer tiltak; alle roller ser dem.
-
----
-
-### 11.5 Pitch-rapport
-
-En pitch-rapport viser et prospekts AI-synlighet før et salgsmøte, uten at prospektet er kunde. Plattformadmin og partner-rådgivere kan opprette et pitch-prosjekt for domene, marked og inntil tre konkurrenter. Veiviseren foreslår 25 prompts som kan redigeres før start. Promptene kjøres daglig i sju dager på de aktive API-motorene ChatGPT, Gemini og Claude Haiku. Prosjektet stopper etter sju dager.
-
-En partner kan ha inntil tre aktive pitch-prosjekter samtidig. Forbruket vises separat og er merket i fakturagrunnlaget. Rapporten oppdateres med nyeste tall og viser synlighet mot konkurrenter, viktige kilder og de tre høyest rangerte åpne tiltakene. Konvertering til ordinær tenant beholder historikken.
-
-Datamodellen har `teams.kind` (`customer`, `pitch`), `teams.pitch_expires_at`, `teams.pitch_converted_at` og `usage_events.project_kind`. Konvertering endrer ikke tenant-ID. En forbrukshendelse for en kjøring som startet før konverteringen beholder pitch-klassifiseringen også når bokføringen skjer senere.
 
 ---
 
@@ -1488,20 +1480,18 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 - Samme tiltak gjenkjennes ved neste generering (`fingerprint`) og dupliseres ikke.
 - Eieren har besluttet at agenten som utfører T43, kjører med Opus 5.5 (Board #947). Formuleringsmodellen i produktet er fortsatt Claude Sonnet 5.5. T22 er på plass, så `crawler_access` er aktiv. `fact_correction` kobles på av T48.
 
+### T47 – Pitch-prosjekter og pitch-rapport
+
+Opprettelse fra partner- og adminsidene, pitch-veiviser med 25 prompts, sju dagers kjøring, egen partnerkvote, kort rapport og konvertering til ordinær tenant. Se [pitch-spesifikasjonen](pitch.md).
+
+- Prosjektet stopper automatisk etter sju dager, inkludert arbeid som lå i kø ved utløpet.
+- Konvertering beholder all historikk.
+- Pitch-forbruk vises separat i forbruk og fakturagrunnlag, også etter konvertering.
+
 ### T44 – Tiltak: grensesnitt og rapportseksjon
 Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning med evidens, konkurrentevidens, berørte prompts og steg som kan hukes av, samt egne tiltak. Status endres fra listen og detaljen. Rapportseksjonen i 11.3 (3–5 åpne, pluss fullførte i perioden med utvikling i synlighet) ligger i PDF-en og på nettversjonen av rapporten, som komponenten `ReportSection` så U13 kan gjenbruke den. Nettversjonen viser seksjonen som ble lagret da PDF-en ble skrevet (`reports.action_section`), så en senere endring av tiltakene ikke skriver om en gammel rapport.
 - Status kan endres fra listen og detaljvisningen.
 - Rapporten viser 3–5 åpne tiltak og fullførte tiltak med utvikling.
-
----
-
-### T47 – Pitch-prosjekter og pitch-rapport
-
-Opprettelse fra partner- og adminsidene, pitch-veiviser, sju dagers kjøring med egen partnerkvote, kort rapport og konvertering til ordinær tenant.
-
-- Pitch-prosjektet stopper automatisk etter sju dager, også for arbeid som lå i kø ved utløpet.
-- Konvertering beholder all historikk.
-- Pitch-forbruk vises separat i forbruk og fakturagrunnlag, også etter konvertering.
 
 ---
 

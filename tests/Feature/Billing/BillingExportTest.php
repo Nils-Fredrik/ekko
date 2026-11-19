@@ -91,6 +91,18 @@ test('a pitch run booked after conversion keeps its original billing category', 
     }));
 });
 
+test('a late non-run provider call uses its trusted operation start time', function () {
+    $tenant = Team::factory()->tenant()->create(['kind' => 'pitch', 'pitch_expires_at' => '2026-10-25T00:00:00Z']);
+    $tenant->forceFill(['kind' => 'customer', 'pitch_converted_at' => '2026-10-21T00:00:00Z'])->save();
+    app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], function (): void {
+        $event = UsageEvent::recordAtOrigin([
+            'kind' => 'onboarding', 'occurred_at' => '2026-10-22T00:00:00Z', 'cost_usd' => '1.00',
+            'billed_to' => 'platform', 'calls' => 1,
+        ], CarbonImmutable::parse('2026-10-20T00:00:00Z'));
+        expect($event->project_kind)->toBe('pitch');
+    }));
+});
+
 test('missing markup is visible in preview and blocks CSV until an admin explicitly sets it', function () {
     $admin = User::factory()->platformAdmin()->create();
     $tenant = Team::factory()->tenant()->create();

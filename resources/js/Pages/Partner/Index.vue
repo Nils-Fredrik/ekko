@@ -68,11 +68,14 @@ function formatChange(current, previous) {
                         <tr v-for="client in clients" :key="client.id" class="border-b border-line last:border-0">
                             <td class="px-4 py-3">
                                 {{ client.name }}
-                                <span v-if="client.kind === 'pitch'" class="block text-xs text-shell-muted">
+                                <span
+                                    v-if="page.props.pitchProjects.includes(client.id)"
+                                    class="block text-xs text-shell-muted"
+                                >
                                     {{ $t('pitch.kind_pitch') }}
                                 </span>
                                 <button
-                                    v-if="client.kind === 'pitch'"
+                                    v-if="page.props.pitchProjects.includes(client.id)"
                                     type="button"
                                     class="text-sm text-primary"
                                     :disabled="convert.processing"

@@ -17,17 +17,17 @@ test('partner quota counts only live pitches and conversion retains the same ten
     $projects = app(PitchProjects::class);
     $now = CarbonImmutable::parse('2026-11-19 12:00:00 UTC');
 
-    $first = $projects->create($advisor, $partner, 'Prospect 1', $plan, $now);
-    $projects->create($advisor, $partner, 'Prospect 2', $plan, $now);
-    $projects->create($advisor, $partner, 'Prospect 3', $plan, $now);
+    $first = $projects->create($advisor, $partner, 'Prospect 1', $now);
+    $projects->create($advisor, $partner, 'Prospect 2', $now);
+    $projects->create($advisor, $partner, 'Prospect 3', $now);
     expect($first->mayCollectAt($now->addDays(7)->subSecond()))->toBeTrue()
         ->and($first->mayCollectAt($now->addDays(7)))->toBeFalse();
-    expect(fn () => $projects->create($advisor, $partner, 'Fourth', $plan, $now))
+    expect(fn () => $projects->create($advisor, $partner, 'Fourth', $now))
         ->toThrow(ValidationException::class);
     $converted = $projects->convert($advisor, $first, $now->addDay());
-    expect($converted->id)->toBe($first->id)->and($converted->kind)->toBe('customer')
+    expect($converted->id)->toBe($first->id)->and($converted->kind)->toBe('customer')->and($converted->plan_id)->toBe($plan->id)
         ->and($converted->mayCollectAt($now->addDays(8)))->toBeTrue();
-    expect($projects->create($advisor, $partner, 'Fourth', $plan, $now->addDay())->kind)->toBe('pitch');
+    expect($projects->create($advisor, $partner, 'Fourth', $now->addDay())->kind)->toBe('pitch');
 });
 
 test('an unrelated advisor cannot create or convert a pitch for another partner', function () {
@@ -35,8 +35,7 @@ test('an unrelated advisor cannot create or convert a pitch for another partner'
     $other = Team::factory()->tenant()->create();
     $advisor = User::factory()->create();
     $other->users()->attach($advisor, ['role' => 'partner_advisor']);
-    $plan = Plan::factory()->create();
     $projects = app(PitchProjects::class);
     $now = CarbonImmutable::now('UTC');
-    expect(fn () => $projects->create($advisor, $partner, 'No', $plan, $now))->toThrow(HttpException::class);
+    expect(fn () => $projects->create($advisor, $partner, 'No', $now))->toThrow(HttpException::class);
 });

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Plan;
 use App\Models\Team;
 use App\Models\User;
 use App\Pitch\PitchProjects;
@@ -11,7 +10,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\ValidationException;
 
 final class PitchController extends Controller
 {
@@ -21,11 +19,7 @@ final class PitchController extends Controller
         $partner = $actor?->currentTeam;
         abort_unless($actor instanceof User && $partner instanceof Team && $access->advisesPartner($actor, $partner), 403);
         $data = $request->validate(['name' => ['required', 'string', 'max:255']]);
-        $plan = $partner->plan;
-        if (! $plan instanceof Plan) {
-            throw ValidationException::withMessages(['pitch' => __('pitch.no_plan')]);
-        }
-        $projects->create($actor, $partner, $data['name'], $plan, CarbonImmutable::now('UTC'));
+        $projects->create($actor, $partner, $data['name'], CarbonImmutable::now('UTC'));
 
         return back(303);
     }
@@ -37,9 +31,8 @@ final class PitchController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'partner_team_id' => ['required', 'integer', 'exists:teams,id'],
-            'plan_id' => ['required', 'integer', 'exists:plans,id'],
         ]);
-        $projects->create($actor, Team::query()->findOrFail($data['partner_team_id']), $data['name'], Plan::query()->findOrFail($data['plan_id']), CarbonImmutable::now('UTC'));
+        $projects->create($actor, Team::query()->findOrFail($data['partner_team_id']), $data['name'], CarbonImmutable::now('UTC'));
 
         return back(303);
     }

@@ -16,6 +16,7 @@ return [
     'limit' => 'Partneren kan ha inntil tre aktive pitch-prosjekter.',
     'name_required' => 'Oppgi et navn på pitch-prosjektet.',
     'no_plan' => 'Partneren må ha en pakke før et pitch-prosjekt kan opprettes.',
+    'no_customer_plan' => 'Partneren må ha en ordinær pakke før prosjektet kan konverteres.',
     'expired' => 'Pitch-prosjektet er utløpt.',
     'limits' => 'En pitch kan ha inntil 25 prompts og tre konkurrenter.',
     'plan_unavailable' => 'Pakken må tillate 25 prompts og alle aktive pitch-motorer daglig.',

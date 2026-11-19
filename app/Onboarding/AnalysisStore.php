@@ -44,7 +44,7 @@ final class AnalysisStore
      */
     public function create(int $tenantId, int $userId, string $kind, array $input): Analysis
     {
-        $analysis = new Analysis((string) Str::uuid(), $tenantId, $userId, $kind, $input);
+        $analysis = new Analysis((string) Str::uuid(), $tenantId, $userId, $kind, $input, startedAt: now('UTC')->toIso8601String());
         $this->save($analysis);
 
         $pending = $this->pendingList($tenantId);

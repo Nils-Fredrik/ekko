@@ -16,6 +16,7 @@ return [
     'limit' => 'En partner kan ha högst tre aktiva pitchprojekt.',
     'name_required' => 'Ange ett namn för pitchprojektet.',
     'no_plan' => 'Partnern behöver ett abonnemang innan ett pitchprojekt kan skapas.',
+    'no_customer_plan' => 'Partnern behöver ett kundabonnemang innan projektet kan konverteras.',
     'expired' => 'Pitchprojektet har löpt ut.',
     'limits' => 'En pitch kan ha högst 25 prompts och tre konkurrenter.',
     'plan_unavailable' => 'Abonnemanget måste tillåta 25 prompts och alla aktiva pitchmotorer dagligen.',

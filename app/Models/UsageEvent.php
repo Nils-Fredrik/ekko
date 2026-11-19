@@ -22,6 +22,22 @@ class UsageEvent extends Model
     /** @use HasFactory<UsageEventFactory> */
     use HasFactory;
 
+    private ?CarbonImmutable $projectOriginAt = null;
+
+    /**
+     * Preserve the project type at operation start when an asynchronous result is billed later.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public static function recordAtOrigin(array $attributes, ?CarbonImmutable $at): self
+    {
+        $event = new self($attributes);
+        $event->projectOriginAt = $at;
+        $event->save();
+
+        return $event;
+    }
+
     protected static function booted(): void
     {
         static::creating(function (UsageEvent $event): void {
@@ -29,7 +45,7 @@ class UsageEvent extends Model
             $projectKind = $team->kind;
             if ($projectKind !== 'pitch' && $team->pitch_converted_at !== null) {
                 // A collected run can be booked after conversion; use its creation time to retain provenance.
-                $started = $event->run_id === null ? $event->occurred_at : Run::query()->whereKey($event->run_id)->value('created_at');
+                $started = $event->projectOriginAt ?? ($event->run_id === null ? $event->occurred_at : Run::query()->whereKey($event->run_id)->value('created_at'));
                 if ($started !== null && CarbonImmutable::parse($started)->lessThan($team->pitch_converted_at)) {
                     $projectKind = 'pitch';
                 }
