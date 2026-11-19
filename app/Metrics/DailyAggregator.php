@@ -65,7 +65,7 @@ final class DailyAggregator
     /**
      * @return array{0: array<string, array<string, mixed>>, 1: array<string, array<string, mixed>>}
      */
-    private function compute(CarbonImmutable $start, CarbonImmutable $end): array
+    public function compute(CarbonImmutable $start, CarbonImmutable $end): array
     {
         // competitor id => brand id: a response only counts the competitors of its own brand.
         $competitorBrand = Competitor::query()->pluck('brand_id', 'id')->all();

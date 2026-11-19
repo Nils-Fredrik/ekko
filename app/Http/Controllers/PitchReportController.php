@@ -2,10 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Metrics\MetricsFilter;
-use App\Metrics\MetricsService;
 use App\Models\Brand;
 use App\Models\Team;
+use App\Pitch\PitchReportMetrics;
 use App\Reports\ReportActions;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
@@ -14,18 +13,19 @@ use Inertia\Response;
 
 final class PitchReportController extends Controller
 {
-    public function __invoke(Brand $brand, MetricsService $metrics, ReportActions $actions): Response
+    public function __invoke(Brand $brand, PitchReportMetrics $metrics, ReportActions $actions): Response
     {
         Gate::authorize('view', $brand);
         $team = Team::query()->findOrFail(current_tenant_id());
         abort_unless($team->pitch_expires_at !== null, 404);
-        $from = CarbonImmutable::parse($team->created_at)->setTimezone($team->timezone)->toDateString();
-        $today = CarbonImmutable::now($team->timezone)->toDateString();
-        $to = min($today, $team->pitch_expires_at->setTimezone($team->timezone)->toDateString());
+        $start = CarbonImmutable::parse($team->created_at)->utc();
+        $end = CarbonImmutable::now('UTC')->min($team->pitch_expires_at);
         if ($team->pitch_converted_at !== null) {
-            $to = min($to, $team->pitch_converted_at->setTimezone($team->timezone)->toDateString());
+            $end = $end->min($team->pitch_converted_at);
         }
-        $filter = new MetricsFilter($brand->id, $from, $to);
+        $from = $start->setTimezone($team->timezone)->toDateString();
+        $to = $end->setTimezone($team->timezone)->toDateString();
+        $summary = $metrics->forWindow($brand, $start, $end);
         $section = $actions->section($brand->id, $from, $to);
         $section['open'] = array_slice($section['open'], 0, 3);
         $section['completed'] = [];
@@ -34,11 +34,7 @@ final class PitchReportController extends Controller
             'brand' => $brand->name,
             'from' => $from,
             'to' => $to,
-            'visibility' => $metrics->visibility($filter)->toArray(),
-            'competitors' => array_map(fn (array $row): array => [
-                'name' => $row['name'], 'visibility' => $row['visibility']->toArray(),
-            ], $metrics->competitorComparison($filter)),
-            'sources' => $metrics->sourceShare($filter, 10),
+            ...$summary,
             'actions' => $section,
         ]);
     }
