@@ -42,6 +42,12 @@ Flatetokens og datafarger etter 4.1–4.2 i tema-filen, for begge temaer. Alle `
 - Ingen hvite flater i mørkt tema (nettlesertest av sidene en innlogget leser kan åpne, pluss innlogging).
 - Datafargene har kontrast på minst 3:1 mot bakgrunnen i begge temaer.
 
+## 4.4 Bevegelse, lasting og tomme tilstander
+
+Grafer tegnes inn på 300 ms ved første visning. Nytt filter eller temabytte tegner dem på nytt uten animasjon. `prefers-reduced-motion` slår av både inntoning og skjelettpulsen. `<EkkoChart>` eier den samme bevegelsen (kapittel 5). Chart.js-grafene følger regelen til U05–U10 har erstattet dem.
+
+Skjelettet har samme form som kortene og grafen, og vises mens en ny side lastes. Tomme tilstander forklarer hvorfor det er tomt og hva som skjer videre, med lenke til veiviser eller innstillinger der det er relevant. Tidspunktet for neste kjøring er ikke hardkodet: målingen skjer etter midnatt, og tallene vises dagen etter.
+
 ## 5. Grafbibliotek
 
 Apache ECharts, importert modulvis fra `echarts/core` og tegnet som SVG. Begrunnelsen står i [ADR 0035](decisions/0035-echarts-grafbibliotek.md). Bare `support/echarts.js` importerer ECharts, og den lastes med `import()` første gang en graf er nær skjermen. Vite legger biblioteket i en egen chunk (ca. 620 kB, 212 kB gzip), og sider uten grafer laster den ikke. `tests/Feature/Frontend/ChartBundleTest.php` sjekker byggemanifestet, og nettlesertesten `tests/Browser/charts.spec.mjs` sjekker nettverkskallene. Budsjettet i CI kommer i U15.
@@ -86,3 +92,16 @@ ECharts fra `echarts/core` med SVG-tegning, ett tema bygget fra tokens som bytte
 - Temabytte endrer grafene uten ny lasting.
 - Grafbiblioteket lastes ikke på sider uten grafer.
 - `TrendChart` og `VoiceChart` er erstattet og Chart.js fjernet når U05–U10 er ferdige.
+
+## 7.9 Kommandopalett
+
+`⌘K` / `Ctrl+K`, eller knappen Søk, åpner søk på tvers av merkevarer, prompter, konkurrenter og sider, og hurtigvalg for å bytte tenant og lage rapport. Treffene kommer fra tenanten i forespørselen. Tiltak er ikke en modell ennå, så den gruppen kommer med T43.
+
+Paletten bruker Headless UI.
+
+## U14 – Kommandopalett, skjelett og tomme tilstander
+
+Kommandopalett etter 7.9, skjelettvisning for kort og grafer, tomme tilstander etter 4.4 og bevegelse som respekterer `prefers-reduced-motion`.
+
+- Alle sider i applayouten har skjelett under sidelasting og forklarende tomtilstand der listen eller grafen kan være tom.
+- Søket returnerer bare data fra tenanten brukeren har tilgang til.

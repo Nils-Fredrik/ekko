@@ -1,6 +1,7 @@
 <script setup>
 import { Chart } from 'chart.js/auto';
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { chartAnimation, chartIntroPending, markChartIntro } from '@/chartMotion';
 import { onThemeChange } from '@/theme';
 
 const competitors = ['--data-cat-1', '--data-cat-2', '--data-cat-3', '--data-cat-4', '--data-cat-5', '--data-cat-6'];
@@ -42,7 +43,7 @@ function render() {
             ],
         },
         options: {
-            animation: false,
+            animation: chartAnimation(chartIntroPending('voice')),
             indexAxis: 'y',
             plugins: { legend: { display: false }, tooltip: { enabled: false } },
             scales: {
@@ -63,6 +64,7 @@ function render() {
             },
         },
     });
+    markChartIntro('voice');
 }
 
 onMounted(() => {

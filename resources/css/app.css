@@ -314,3 +314,20 @@ input[type='radio']:not(:checked) {
 [x-cloak] {
     display: none;
 }
+
+.ekko-skeleton {
+    background: var(--color-shell-surface);
+    animation: ekko-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ekko-pulse {
+    50% {
+        opacity: 0.55;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ekko-skeleton {
+        animation: none;
+    }
+}

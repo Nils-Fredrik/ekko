@@ -2,6 +2,7 @@
 import { useDateTime } from '@/Composables/useDateTime';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm } from '@inertiajs/vue3';
 
@@ -90,7 +91,11 @@ function add() {
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
             <section class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.schedules') }}</h3>
-                <p v-if="rows.length === 0">{{ $t('app.workspace.no_schedules') }}</p>
+                <EmptyState
+                    v-if="rows.length === 0"
+                    :title="$t('app.empty.schedules_title')"
+                    :body="$t('app.empty.schedules_body')"
+                />
                 <form
                     v-for="row in rows"
                     :key="row.id"
@@ -161,7 +166,11 @@ function add() {
 
             <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.history') }}</h3>
-                <p v-if="reports.length === 0">{{ $t('app.workspace.no_reports') }}</p>
+                <EmptyState
+                    v-if="reports.length === 0"
+                    :title="$t('app.empty.reports_title')"
+                    :body="$t('app.empty.reports_body')"
+                />
                 <article
                     v-for="report in reports"
                     :key="report.id"

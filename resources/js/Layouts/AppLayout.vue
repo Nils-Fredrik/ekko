@@ -1,10 +1,12 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { ChevronUpDownIcon } from '@heroicons/vue/20/solid';
 import ActingAsBanner from '@/Components/ActingAsBanner.vue';
 import Banner from '@/Components/Banner.vue';
+import CommandPalette from '@/Components/CommandPalette.vue';
+import PageSkeleton from '@/Components/UI/PageSkeleton.vue';
 import BottomSheet from '@/Components/UI/BottomSheet.vue';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
@@ -18,6 +20,30 @@ defineProps({
 
 const page = usePage();
 const menuOpen = ref(false);
+const navigating = ref(false);
+let stopNavigationStart;
+let stopNavigationFinish;
+
+onMounted(() => {
+    stopNavigationStart = router.on('start', (event) => {
+        const visit = event.detail.visit;
+        if (String(visit.method).toLowerCase() !== 'get') {
+            return;
+        }
+        const next = new URL(String(visit.url), window.location.origin);
+        if (next.pathname !== window.location.pathname) {
+            navigating.value = true;
+        }
+    });
+    stopNavigationFinish = router.on('finish', () => {
+        navigating.value = false;
+    });
+});
+
+onBeforeUnmount(() => {
+    stopNavigationStart?.();
+    stopNavigationFinish?.();
+});
 const { locale, locales, setLocale } = useLocale();
 
 const user = computed(() => page.props.auth.user);
@@ -114,6 +140,8 @@ const logout = () => {
                                 </NavLink>
                             </div>
                         </div>
+
+                        <CommandPalette class="ms-auto" />
 
                         <div class="hidden sm:ms-6 sm:flex sm:items-center">
                             <div
@@ -537,7 +565,10 @@ const logout = () => {
             </header>
 
             <main>
-                <slot />
+                <PageSkeleton v-if="navigating" />
+                <div v-show="!navigating">
+                    <slot />
+                </div>
             </main>
         </div>
     </div>

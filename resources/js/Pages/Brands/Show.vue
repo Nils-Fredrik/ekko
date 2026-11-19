@@ -4,6 +4,7 @@ import BottomSheet from '@/Components/UI/BottomSheet.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
 import TrendChart from '@/Components/Dashboard/TrendChart.vue';
 import VoiceChart from '@/Components/Dashboard/VoiceChart.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -179,18 +180,26 @@ function shareText(share) {
 
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="text-sm font-medium">{{ $t('app.dashboard.trend') }}</h3>
-                    <p v-if="series.length === 0" class="mt-4 text-sm text-shell-muted">
-                        {{ $t('app.dashboard.no_trend') }}
-                    </p>
+                    <EmptyState
+                        v-if="series.length === 0"
+                        class="mt-4"
+                        :title="$t('app.empty.trend_title')"
+                        :body="$t('app.empty.trend_body')"
+                        :href="route('brands.settings', brand.id)"
+                        :link="$t('app.empty.settings_link')"
+                    />
                     <TrendChart v-else class="mt-4" :points="series" />
                 </section>
 
                 <section class="grid gap-4 lg:grid-cols-2">
                     <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                         <h3 class="text-sm font-medium">{{ $t('app.dashboard.voice') }}</h3>
-                        <p v-if="voice.every((part) => !part.mentions)" class="mt-4 text-sm text-shell-muted">
-                            {{ $t('app.dashboard.no_voice') }}
-                        </p>
+                        <EmptyState
+                            v-if="voice.every((part) => !part.mentions)"
+                            class="mt-4"
+                            :title="$t('app.empty.voice_title')"
+                            :body="$t('app.empty.voice_body')"
+                        />
                         <template v-else>
                             <VoiceChart class="mt-4" :parts="voice" />
                             <ul class="mt-3 flex flex-col gap-1 text-xs text-shell-muted">
@@ -203,9 +212,12 @@ function shareText(share) {
                     </div>
                     <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                         <h3 class="text-sm font-medium">{{ $t('app.dashboard.engines') }}</h3>
-                        <p v-if="engines.length === 0" class="mt-4 text-sm text-shell-muted">
-                            {{ $t('app.dashboard.no_engines') }}
-                        </p>
+                        <EmptyState
+                            v-if="engines.length === 0"
+                            class="mt-4"
+                            :title="$t('app.empty.engines_title')"
+                            :body="$t('app.empty.engines_body')"
+                        />
                         <ul v-else class="mt-4 flex flex-col gap-3">
                             <li v-for="item in engines" :key="item.key">
                                 <p class="text-sm">{{ item.name }}</p>
@@ -217,9 +229,12 @@ function shareText(share) {
 
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="text-sm font-medium">{{ $t('app.dashboard.model_changes') }}</h3>
-                    <p v-if="modelChanges.length === 0" class="mt-3 text-sm text-shell-muted">
-                        {{ $t('app.dashboard.no_model_changes') }}
-                    </p>
+                    <EmptyState
+                        v-if="modelChanges.length === 0"
+                        class="mt-3"
+                        :title="$t('app.empty.changes_title')"
+                        :body="$t('app.empty.changes_body')"
+                    />
                     <ul v-else class="mt-3 flex flex-col gap-2 text-sm">
                         <li v-for="change in modelChanges" :key="`${change.engine_key}-${change.changed_on}`">
                             {{

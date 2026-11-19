@@ -1,6 +1,9 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Link } from '@inertiajs/vue3';
+import EmptyState from '@/Components/UI/EmptyState.vue';
+import { Link, usePage } from '@inertiajs/vue3';
+
+const page = usePage();
 
 defineProps({
     brands: { type: Array, required: true },
@@ -15,7 +18,13 @@ defineProps({
 
         <div class="py-8">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                <p v-if="brands.length === 0" class="text-sm text-shell-muted">{{ $t('app.dashboard.no_brands') }}</p>
+                <EmptyState
+                    v-if="brands.length === 0"
+                    :title="$t('app.empty.brands_title')"
+                    :body="$t('app.empty.brands_body')"
+                    :href="page.props.canOnboard ? route('onboarding.wizard') : ''"
+                    :link="page.props.canOnboard ? $t('app.empty.wizard_link') : ''"
+                />
                 <div v-else class="overflow-hidden rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <table class="w-full text-left text-sm">
                         <thead class="border-b border-line text-xs text-shell-muted">

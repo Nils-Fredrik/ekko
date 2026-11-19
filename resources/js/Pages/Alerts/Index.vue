@@ -1,6 +1,7 @@
 <script setup>
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -63,7 +64,11 @@ const editable = props.rules.map((rule) => ({
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
             <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.nav.alerts') }}</h3>
-                <p v-if="alerts.length === 0">{{ $t('app.workspace.no_alerts') }}</p>
+                <EmptyState
+                    v-if="alerts.length === 0"
+                    :title="$t('app.empty.alerts_title')"
+                    :body="$t('app.empty.alerts_body')"
+                />
                 <article
                     v-for="alert in alerts"
                     :key="alert.id"
@@ -85,7 +90,11 @@ const editable = props.rules.map((rule) => ({
 
             <section class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.rules') }}</h3>
-                <p v-if="editable.length === 0">{{ $t('app.workspace.no_rules') }}</p>
+                <EmptyState
+                    v-if="editable.length === 0"
+                    :title="$t('app.empty.rules_title')"
+                    :body="$t('app.empty.rules_body')"
+                />
                 <form
                     v-for="rule in editable"
                     :key="rule.id"
