@@ -48,6 +48,8 @@ return [
     'actions_empty_open' => 'Inga öppna åtgärder.',
     'actions_empty_done' => 'Inga åtgärder blev klara i perioden.',
     'empty_value' => '–',
+    'sample_size' => 'Antal svar',
+    'low_sample' => 'Litet urval',
     'sample' => 'n :n',
     'logo' => 'Logotyp',
     'logo_saved' => 'En logotyp är sparad.',

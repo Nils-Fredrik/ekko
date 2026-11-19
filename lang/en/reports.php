@@ -48,6 +48,8 @@ return [
     'actions_empty_open' => 'No open actions.',
     'actions_empty_done' => 'No actions were completed in the period.',
     'empty_value' => '–',
+    'sample_size' => 'Responses',
+    'low_sample' => 'Small sample',
     'sample' => 'n :n',
     'logo' => 'Logo',
     'logo_saved' => 'A logo is saved.',

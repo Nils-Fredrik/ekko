@@ -15,7 +15,13 @@
             if ($day < 0 || $day > $days) {
                 continue;
             }
-            $points[$day] = ['x' => 40 + 520 * $day / max(1, $days), 'y' => 10 + 160 * (1 - (float) $value), 'date' => $date->toDateString(), 'value' => (float) $value];
+            $n = data_get($item, 'visibility.n');
+            $n = is_numeric($n) && $n >= 0 ? (int) $n : null;
+            $points[$day] = [
+                'x' => 40 + 520 * $day / max(1, $days), 'y' => 10 + 160 * (1 - (float) $value),
+                'date' => $date->toDateString(), 'value' => (float) $value, 'n' => $n,
+                'low' => (bool) data_get($item, 'visibility.low_sample', false) || ($n !== null && $n < 10),
+            ];
         }
         ksort($points);
     }
@@ -33,11 +39,23 @@
             @php $previous = null; @endphp
             @foreach ($points as $day => $point)
                 @if ($previous !== null && $day === $previous['day'] + 1)
-                    <line x1="{{ $previous['x'] }}" y1="{{ $previous['y'] }}" x2="{{ $point['x'] }}" y2="{{ $point['y'] }}" stroke="#b62b1b" stroke-width="2" />
+                    <line x1="{{ $previous['x'] }}" y1="{{ $previous['y'] }}" x2="{{ $point['x'] }}" y2="{{ $point['y'] }}" stroke="{{ $previous['low'] || $point['low'] ? '#a8a29e' : '#b62b1b' }}" stroke-width="2" />
                 @endif
-                <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="3" fill="#b62b1b"><title>{{ $point['date'] }} · {{ round($point['value'] * 100, 1) }}%</title></circle>
+                <circle cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="3" fill="{{ $point['low'] ? '#a8a29e' : '#b62b1b' }}"><title>{{ $point['date'] }} · {{ round($point['value'] * 100, 1) }}%</title></circle>
                 @php $previous = ['day' => $day, ...$point]; @endphp
             @endforeach
         </svg>
+        <table data-testid="pdf-trend-values">
+            <thead><tr><th>{{ __('reports.changed_on') }}</th><th>{{ __('reports.visibility') }}</th><th>{{ __('reports.sample_size') }}</th></tr></thead>
+            <tbody>
+                @foreach ($points as $point)
+                    <tr @class(['low' => $point['low']])>
+                        <td>{{ $point['date'] }}</td>
+                        <td>{{ round($point['value'] * 100, 1) }}%</td>
+                        <td>{{ $point['n'] ?? __('reports.empty_value') }}@if ($point['low']) · {{ __('reports.low_sample') }}@endif</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
     </section>
 @endif

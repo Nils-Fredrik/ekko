@@ -48,6 +48,8 @@ return [
     'actions_empty_open' => 'Ingen åpne tiltak.',
     'actions_empty_done' => 'Ingen tiltak ble fullført i perioden.',
     'empty_value' => '–',
+    'sample_size' => 'Antall svar',
+    'low_sample' => 'Lite utvalg',
     'sample' => 'n :n',
     'logo' => 'Logo',
     'logo_saved' => 'En logo er lagret.',

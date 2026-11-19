@@ -114,15 +114,25 @@ test('the PDF renders the published trend and preserves gaps', function () {
     $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id]);
     $data = app(ReportPublisher::class)->viewData($world->tenant, $schedule, '2026-10-01', '2026-10-03', null);
     $data['trend'] = [
-        ['period' => '2026-10-01', 'visibility' => ['value' => 0.4]],
-        ['period' => '2026-10-03', 'visibility' => ['value' => 0.6]],
+        ['period' => '2026-10-01', 'visibility' => ['value' => 0.4, 'n' => 4, 'low_sample' => true]],
+        ['period' => '2026-10-03', 'visibility' => ['value' => 0.6, 'n' => 20, 'low_sample' => false]],
     ];
+    app()->setLocale('en');
     $html = view('reports.pdf', $data)->render();
+    $dom = new DOMDocument;
+    @$dom->loadHTML($html);
+    $xpath = new DOMXPath($dom);
+    $rows = $xpath->query('//*[@data-testid="pdf-trend-values"]/tbody/tr');
+    expect($rows->length)->toBe(2)
+        ->and(trim($rows->item(0)->textContent))->toContain('2026-10-01', '40%', '4', 'Small sample')
+        ->and($rows->item(0)->getAttribute('class'))->toContain('low')
+        ->and(trim($rows->item(1)->textContent))->toContain('2026-10-03', '60%', '20')
+        ->and($rows->item(1)->getAttribute('class'))->not->toContain('low');
     expect($html)->toContain('data-testid="pdf-report-trend"')
         ->toContain('2026-10-01 · 40%')
         ->toContain('2026-10-03 · 60%')
         ->not->toContain('stroke="#b62b1b" stroke-width="2"');
 
-    $data['trend'][] = ['period' => '2026-10-02', 'visibility' => ['value' => 0.5]];
+    $data['trend'][] = ['period' => '2026-10-02', 'visibility' => ['value' => 0.5, 'n' => 30, 'low_sample' => false]];
     expect(view('reports.pdf', $data)->render())->toContain('stroke="#b62b1b" stroke-width="2"');
 });
