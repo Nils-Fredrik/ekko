@@ -13,8 +13,10 @@ use App\Models\Brand;
 use App\Models\Insight;
 use App\Models\Team;
 use App\Models\UsageEvent;
+use App\Models\UsageMonthly;
 use App\Tenancy\TenantContext;
 use App\Usage\MonthlyUsage;
+use Brick\Math\BigDecimal;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -122,6 +124,13 @@ final readonly class InsightService
         return $row->status === Insight::WRITTEN ? $this->render($row, $data, $locale) : null;
     }
 
+    /** Calls or the platform budget used up: the insight is billed to the platform, so a BYOK limit does not stop it. */
+    private function platformCapped(UsageMonthly $usage): bool
+    {
+        return ($usage->quota_calls !== null && $usage->calls >= $usage->quota_calls)
+            || ($usage->budget_usd !== null && BigDecimal::of($usage->cost_usd)->isGreaterThanOrEqualTo($usage->budget_usd));
+    }
+
     private function mayRetry(Insight $row): bool
     {
         return in_array($row->reason, self::RETRYABLE, true)
@@ -158,7 +167,7 @@ final readonly class InsightService
             return $store(Insight::UNAVAILABLE, 'cap');
         }
         $tenant = Team::query()->findOrFail($tenantId);
-        if ($this->usage->threshold($this->usage->snapshot($tenant, CarbonImmutable::now('UTC'))) === 100) {
+        if ($this->platformCapped($this->usage->snapshot($tenant, CarbonImmutable::now('UTC')))) {
             Log::info('Insight call.', $log + ['outcome' => 'not_called', 'reason' => 'quota']);
 
             return $store(Insight::UNAVAILABLE, 'quota');
@@ -232,6 +241,7 @@ final readonly class InsightService
     private function render(Insight $row, InsightFigures $data, string $locale): ?array
     {
         $template = (string) $row->template;
+        // A name with braces in it (a prompt text) can hide the text; that is harmless, so it is not handled.
         preg_match_all('/\{([a-z0-9_]+)\}/', $template, $found);
         foreach (array_unique($found[1]) as $placeholder) {
             $figure = $data->figures[$placeholder] ?? null;
@@ -239,6 +249,14 @@ final readonly class InsightService
             if ($figure === null
                 || (isset($row->directions[$placeholder]) && $row->directions[$placeholder] !== $figure->direction)
                 || (isset($row->entities[$placeholder]) && $row->entities[$placeholder] !== $figure->entity)) {
+                return null;
+            }
+        }
+
+        // Every direction recorded when the text was written must still hold, also for findings it only names.
+        $current = $data->directions();
+        foreach ($row->directions as $key => $direction) {
+            if (str_starts_with((string) $key, 'finding:') && ($current[$key] ?? null) !== $direction) {
                 return null;
             }
         }

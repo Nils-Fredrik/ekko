@@ -62,7 +62,7 @@ final class InsightFigureBuilder
             }
             $anchored = $anchored || $key === 'visibility';
             $figures[$key.'_now'] = InsightFigure::percent((float) $current->value);
-            $finding = ['topic' => $key, 'placeholders' => ['now' => $key.'_now']];
+            $finding = ['id' => $key, 'topic' => $key, 'placeholders' => ['now' => $key.'_now']];
             $this->change($figures, $finding, $key.'_change', $current, $before['summary']->{$property});
             $findings[] = $finding;
         }
@@ -213,7 +213,7 @@ final class InsightFigureBuilder
         foreach ($movers as $index => $mover) {
             $prefix = $type.'_'.($index + 1);
             $entity = $type.':'.$mover['key'];
-            $finding = ['topic' => $type.'_visibility', 'name' => $mover['label'], 'direction' => $this->direction($mover['change'])];
+            $finding = ['id' => $entity, 'topic' => $type.'_visibility', 'name' => $mover['label'], 'direction' => $this->direction($mover['change'])];
             if ($show !== self::NONE) {
                 $figures[$prefix.'_now'] = InsightFigure::percent((float) $mover['now']->value, $entity);
                 $finding['placeholders'] = ['now' => $prefix.'_now'];

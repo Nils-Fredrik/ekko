@@ -392,3 +392,14 @@ test('a movement placeholder keeps pointing at the engine the text names; if the
 
     expect(brandInsight($this, $this->w))->toBeNull()->and($this->writer->requests)->toHaveCount(1);
 });
+
+test('the text is hidden when the direction of a finding it names turns, even without a change placeholder', function () {
+    $this->writer->reply = FakeInsightWriter::json('Motoren falt til {engine_1_now}.');
+    expect(brandInsight($this, $this->w))->not->toBeNull();
+
+    // Engine 2 (the first mover, down) now rises above its earlier level, and is still the biggest mover.
+    AggDaily::query()->where('engine_key', $this->engine2->key)->where('date', '2026-11-10')->update(['brand_mentioned' => 29, 'brand_recommended' => 1, 'sum_position' => 1, 'count_position' => 1, 'own_cited' => 1]);
+    Cache::flush();
+
+    expect(brandInsight($this, $this->w))->toBeNull()->and($this->writer->requests)->toHaveCount(1);
+});

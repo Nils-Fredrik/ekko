@@ -37,7 +37,7 @@ final class InsightPromptBuilder
             'scope' => $scope,
             'period_days' => $days,
             'comparison' => "the {$days} days before the period",
-            'findings' => $figures->findings,
+            'findings' => array_map(fn (array $finding): array => array_diff_key($finding, ['id' => true]), $figures->findings),
         ];
 
         return new ActionTextRequest(

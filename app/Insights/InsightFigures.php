@@ -21,11 +21,20 @@ final readonly class InsightFigures
     ) {}
 
     /**
-     * @return array<string, int>
+     * The direction of every change the text may describe: of each figure (placeholder => -1, 0 or 1) and of each
+     * finding that has a direction (`finding:<id>` => up, down or unchanged), so the text can be hidden when
+     * one of them turns, also for a finding the text only names (an engine, a competitor, a prompt).
+     *
+     * @return array<string, int|string>
      */
     public function directions(): array
     {
         $directions = [];
+        foreach ($this->findings as $finding) {
+            if (isset($finding['id'], $finding['direction'])) {
+                $directions['finding:'.$finding['id']] = $finding['direction'];
+            }
+        }
         foreach ($this->figures as $key => $figure) {
             if ($figure->direction !== null) {
                 $directions[$key] = $figure->direction;

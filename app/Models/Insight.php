@@ -24,7 +24,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $status
  * @property string|null $reason
  * @property string|null $template
- * @property array<string, int> $directions
+ * @property array<string, int|string> $directions
  * @property array<string, string> $entities
  * @property string|null $model
  * @property int|null $usage_event_id
