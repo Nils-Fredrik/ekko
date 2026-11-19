@@ -53,7 +53,8 @@ En tom time gir derfor én web-forespørsel og ingen jobbstart. `ekko:work:recov
 
 - `ekko-tasks`: egen tjenestekonto uten roller. Den beviser bare at oppgaven kom fra Ekkos kø. Har `run.invoker` på `ekko-web`, som trengs bare hvis offentlig tilgang slås av.
 - `roles/cloudtasks.enqueuer` på køen `ekko-work` (ikke prosjektet) for `web`, `worker` og `task`, som registrerer arbeid. `dispatch` registrerer ikke arbeid og får ingenting.
-- `roles/iam.serviceAccountUser` på kontoen `ekko-tasks` (ikke prosjektet) for de samme tre, som kreves for å lage oppgaver med OIDC-token for den. Cloud Tasks-tjenesteagenten får samme rolle på kontoen for å utstede tokenet ved levering.
+- `roles/iam.serviceAccountUser` på kontoen `ekko-tasks` (ikke prosjektet) for de samme tre, som gir `actAs` og kreves for å lage oppgaver med OIDC-token for den (`work_tasks_act_as` i `infra/terraform/work.tf`).
+- `roles/iam.serviceAccountUser` på kontoen `ekko-tasks` også for Cloud Tasks-tjenesteagenten (`work_tasks_agent`). Rollen gir `actAs`, ikke `iam.serviceAccounts.getOpenIdToken`; selve tokenutstedelsen ved levering dekkes normalt av agentrollen `roles/cloudtasks.serviceAgent`. Bindingen er derfor trolig overflødig, men beholdes til den er testet på trinnet `ready` (eierbeslutning, Board #945).
 - Kjeden fra ADR 0030 er uendret: web kan bare starte `ekko-wake` uten overrides, bare `dispatch` kan starte `ekko-worker`, og `ekko-tasks` kan ingenting i Cloud Run utover å kalle web.
 
 ### Varig utrullingstrinn
