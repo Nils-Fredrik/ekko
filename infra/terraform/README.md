@@ -44,7 +44,14 @@ ever contain a secret value.
    Google OAuth client secret, Anthropic, OpenAI and Gemini keys. Microsoft,
    Perplexity and DataForSEO are not mounted or granted to runtime identities.
    Their existing empty secret containers are retained.
-5. Copy `production.tfvars.example` to ignored `production.auto.tfvars` and keep
+5. For the first bootstrap, copy `production.tfvars.example` to ignored
+   `production.auto.tfvars`. After bootstrap the authoritative copy lives in the
+   state bucket (`gs://ekko-514612-tfstate/ekko/production/production.auto.tfvars`,
+   private and versioned): run `scripts/terraform-vars.sh pull` before every
+   plan and `scripts/terraform-vars.sh push` after an approved apply that
+   changed a value. Push is refused if someone else pushed since your pull, and
+   if a variable name looks like a secret (a heuristic: it cannot see
+   secrets in values, so keep secrets in Secret Manager only). Never plan from an old local copy. Keep
    `enable_https = true` in every production plan after bootstrap. Run plan/apply
    with workloads disabled first to reserve the IP and request DNS authorization.
    `terraform output -json production_dns_records` gives the exact A and CNAME

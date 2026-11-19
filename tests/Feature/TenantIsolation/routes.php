@@ -233,6 +233,8 @@ return [
     // No resource id. The query searches the signed-in tenant only. CommandPaletteTest checks
     // that a name from tenant B never comes back, and the leak scan checks the empty query.
     'palette.search' => RouteAccess::user(),
+    // Chart examples with fixed test data (U02). Registered only in local and testing (routes/dev.php).
+    'dev.charts' => RouteAccess::user(),
     // No resource id. A partner advisor sees only clients of the current partner tenant.
     // PartnerOverviewTest checks that another partner's client never appears.
     'partner.index' => RouteAccess::user(),

@@ -115,18 +115,23 @@ async function search() {
         return;
     }
 
-    controller = new AbortController();
+    const current = new AbortController();
+    controller = current;
     try {
         const response = await fetch(`${route('palette.search')}?q=${encodeURIComponent(needle)}`, {
             headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-            signal: controller.signal,
+            signal: current.signal,
         });
-        if (!response.ok) {
+        if (!response.ok || current.signal.aborted || !open.value) {
             return;
         }
-        results.value = await response.json();
+        const payload = await response.json();
+        if (current.signal.aborted || !open.value) {
+            return;
+        }
+        results.value = payload;
     } catch (error) {
-        if (error.name !== 'AbortError') {
+        if (error.name !== 'AbortError' && open.value) {
             results.value = { brands: [], prompts: [], competitors: [] };
         }
     }
@@ -149,6 +154,8 @@ function choose(item) {
 
 watch(open, (isOpen) => {
     if (!isOpen) {
+        clearTimeout(timer);
+        controller?.abort();
         query.value = '';
         results.value = { brands: [], prompts: [], competitors: [] };
     }
