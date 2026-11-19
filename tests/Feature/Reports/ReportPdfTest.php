@@ -104,6 +104,7 @@ test('a monthly report pdf is stored and mailed once, with the insight allocatio
     $pdf = Storage::disk(config()->string('ekko.reports.disk'))->get($report->pdf_uri);
     expect($pdf)->toStartWith('%PDF')
         ->and($report->sent_at)->not->toBeNull()
+        ->and($report->web_snapshot['insight'])->toBe('Synligheten holder seg.')
         ->and(AnthropicInsightAllocation::query()->whereDate('cycle_start', '2026-11-01')->sole()->consumed_at)->not->toBeNull()
         ->and(AnthropicInsightAllocation::query()->whereDate('cycle_start', '2026-10-01')->sole()->consumed_at)->toBeNull()
         ->and(UsageEvent::query()->where('kind', 'pdf')->sole()->only(['input_tokens', 'output_tokens']))->toBe(['input_tokens' => 100, 'output_tokens' => 40])

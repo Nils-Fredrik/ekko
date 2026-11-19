@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'trend' => 'Synlighet over tid',
+    'reconstructed' => 'Denne nettversjonen er rekonstruert fra tilgjengelige data. Den opprinnelige PDF-en kan avvike.',
+    'share' => ['title' => 'Del rapport', 'once' => 'Kopier lenken nå. Den kan ikke vises igjen senere.', 'days' => 'Gyldig i antall dager', 'create' => 'Opprett lenke', 'url' => 'Delbar lenke', 'expiry' => 'Utløper :date · :views visninger', 'revoke' => 'Trekk tilbake', 'revoked' => 'Tilbaketrukket', 'failed' => 'Kunne ikke oppdatere lenken. Prøv igjen.', 'loading' => 'Laster rapport …', 'not_found' => 'Rapporten finnes ikke eller lenken er utløpt.', 'page' => 'Rapport', 'points' => 'Vis målepunkter'],
     'title' => 'Rapport for :brand',
     'period' => ':from – :to',
     'summary' => 'Nøkkeltall (:responses svar)',
@@ -45,6 +48,8 @@ return [
     'actions_empty_open' => 'Ingen åpne tiltak.',
     'actions_empty_done' => 'Ingen tiltak ble fullført i perioden.',
     'empty_value' => '–',
+    'sample_size' => 'Antall svar',
+    'low_sample' => 'Lite utvalg',
     'sample' => 'n :n',
     'logo' => 'Logo',
     'logo_saved' => 'En logo er lagret.',

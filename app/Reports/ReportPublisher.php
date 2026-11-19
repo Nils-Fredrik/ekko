@@ -80,7 +80,8 @@ final class ReportPublisher
     {
         $schedule = ReportSchedule::query()->with('brand')->findOrFail($due->scheduleId);
         $previous = app()->getLocale();
-        app()->setLocale($schedule->locale);
+        // Freeze the language selected when the due report was queued, even if its schedule changes mid-run.
+        app()->setLocale($due->locale);
         try {
             return [
                 'path' => 'reports/'.$tenant->id.'/'.$schedule->id.'-'.$due->from.'.pdf',
@@ -125,12 +126,13 @@ final class ReportPublisher
 
     /**
      * @param  array<string, mixed>  $actions  the section drawn in this PDF, kept so the web page shows the same report
+     * @param  array<string, mixed>|null  $snapshot
      */
-    public function record(DueReport $due, string $path, array $actions): Report
+    public function record(DueReport $due, string $path, array $actions, ?array $snapshot = null): Report
     {
         $existing = $this->find($due);
         if ($existing instanceof Report) {
-            $existing->forceFill(['pdf_uri' => $path, 'action_section' => $actions])->save();
+            $existing->forceFill(['pdf_uri' => $path, 'action_section' => $actions, 'web_snapshot' => $snapshot])->save();
 
             return $existing;
         }
@@ -140,6 +142,7 @@ final class ReportPublisher
             'period_end' => $due->to,
             'pdf_uri' => $path,
             'action_section' => $actions,
+            'web_snapshot' => $snapshot,
         ]);
     }
 
@@ -192,6 +195,8 @@ final class ReportPublisher
         $then = $this->metrics->summary($previous);
 
         return [
+            // Labels and formatted values below are generated in the current locale.
+            'locale' => app()->getLocale(),
             'brand' => $schedule->brand->name,
             'from' => $from,
             'to' => $to,
@@ -207,6 +212,12 @@ final class ReportPublisher
                 $this->headline('reports.sentiment', $now->sentiment, $then->sentiment, false),
             ],
             'responses' => $now->responses,
+            // Keep the raw daily metrics alongside the PDF data so a future interactive
+            // rendering does not silently recompute a historical report from newer aggregates.
+            'trend' => array_map(fn (array $point): array => [
+                'period' => $point['period'],
+                ...$point['summary']->toArray(),
+            ], $this->metrics->series($current)),
             'engines' => $this->engines($current),
             'prompts' => $this->prompts($current, $previous),
             'competitors' => $this->competitors($current),

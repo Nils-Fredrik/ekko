@@ -76,9 +76,10 @@ Graftypene sender `select` når brukeren klikker et element. Nyttelasten lages a
 | `GapBarChart` | `{ key }` | raden (kilden) |
 | `TreemapChart` | `{ key }` | flisen |
 | `HeatmapChart` | `{ key, column }` | raden (prompten); `column` er kolonnen (motoren) |
+| `TrendLineChart` | `{ key, category }` | serien; `category` er bøttedatoen til punktet som ble klikket |
 | `SmallMultiplesChart` | `{ key, category }` | panelet (motoren); `category` er bøttedatoen til punktet som ble klikket |
 
-Felter uten verdi utelates. `TrendLineChart`, `StackedAreaChart`, `RankChart`, `SparklineChart`, `DotRowChart` og `FunnelChart` sender ikke `select`; tidsgrafene sender `marker` ved klikk på en markør. `<EkkoChart>` selv sender de rå ECharts-parameterne, og bare graftypene lytter på dem.
+Felter uten verdi utelates. `TrendLineChart` sender kun valg for punkter med data i en gjeldende serie, ikke for forrige periode eller markører. `StackedAreaChart`, `RankChart`, `SparklineChart`, `DotRowChart` og `FunnelChart` sender ikke `select`; tidsgrafene sender `marker` ved klikk på en markør. `<EkkoChart>` selv sender de rå ECharts-parameterne, og bare graftypene lytter på dem.
 
 Den første versjonen sendte `{ row }` (`DivergingBarChart`), `{ row, column }` (`HeatmapChart`) og `{ panel, dataIndex }` (`SmallMultiplesChart`). Disse feltene sendes fortsatt ved siden av `key`, så sider som er skrevet mot dem virker, men ny kode leser `key`. Aliasene fjernes når U04–U10 er ferdige.
 

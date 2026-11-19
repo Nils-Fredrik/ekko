@@ -84,10 +84,24 @@ test('data colors contrast with both theme backgrounds', function () {
 
     // CI runs npm run build before composer test. A local run needs that build first,
     // because Tailwind can drop these tokens and the source file would not show it.
-    $built = glob($root.'/public/build/assets/app-*.css') ?: [];
-    expect($built)->not->toBeEmpty();
-    usort($built, fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
-    $compiled = (string) file_get_contents($built[0]);
+    $manifest = json_decode((string) file_get_contents($root.'/public/build/manifest.json'), true, flags: JSON_THROW_ON_ERROR);
+    $pending = ['resources/js/app.js'];
+    $visited = [];
+    $compiled = '';
+    while ($pending !== []) {
+        $entry = array_pop($pending);
+        if (isset($visited[$entry])) {
+            continue;
+        }
+        $visited[$entry] = true;
+        expect($manifest)->toHaveKey($entry);
+        foreach ($manifest[$entry]['css'] ?? [] as $cssFile) {
+            $path = $root.'/public/build/'.$cssFile;
+            expect(is_file($path))->toBeTrue();
+            $compiled .= (string) file_get_contents($path);
+        }
+        array_push($pending, ...($manifest[$entry]['imports'] ?? []));
+    }
     expect($compiled)->toContain('--data-seq-1:#301411')
         ->and($compiled)->toContain('--data-seq-5:#c33f30')
         ->and($compiled)->toContain('--data-own:#e84a38')
