@@ -10,7 +10,11 @@ const props = defineProps({
 });
 
 function changeStatus(value) {
-    router.patch(route('brands.actions.update', [props.brand.id, props.action.id]), { status: value }, { preserveScroll: true });
+    router.patch(
+        route('brands.actions.update', [props.brand.id, props.action.id]),
+        { status: value },
+        { preserveScroll: true },
+    );
 }
 
 function toggle(index, done) {
@@ -39,7 +43,7 @@ function toggle(index, done) {
                         <p class="mt-1 text-xs text-shell-muted">
                             {{ $t(`action_items.types.${action.type}`) }}
                             · {{ $t(`action_items.impact_levels.${action.impact}`) }}
-                            <template v-if="action.topic"> · {{ action.topic }}</template>
+                            <template v-if="action.topic">· {{ action.topic }}</template>
                             · {{ action.market || $t('action_items.ui.no_market') }}
                         </p>
                     </div>
@@ -77,7 +81,10 @@ function toggle(index, done) {
                     <h4 class="text-sm font-medium">{{ $t('action_items.ui.prompts') }}</h4>
                     <ul class="mt-1 space-y-1 text-sm">
                         <li v-for="prompt in action.prompts" :key="prompt.id">
-                            <Link :href="route('brands.prompts.show', [brand.id, prompt.id])" class="text-primary no-underline">
+                            <Link
+                                :href="route('brands.prompts.show', [brand.id, prompt.id])"
+                                class="text-primary no-underline"
+                            >
                                 {{ prompt.text }}
                             </Link>
                         </li>
