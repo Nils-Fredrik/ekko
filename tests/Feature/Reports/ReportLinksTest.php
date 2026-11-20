@@ -135,6 +135,11 @@ test('the PDF renders the published trend and preserves gaps', function () {
         ->toContain('2026-10-01 · 40%')
         ->toContain('2026-10-03 · 60%')
         ->not->toContain('stroke="#b62b1b" stroke-width="2"');
+    expect(view('reports.pdf', [...$data, 'shared' => true])->render())
+        ->toContain('data-testid="pdf-report-trend"')
+        ->toContain('shared-report-chart-data')
+        ->toContain('id="report-cover"')
+        ->toContain('id="report-development"');
 
     $data['trend'][] = ['period' => '2026-10-02', 'visibility' => ['value' => 0.5, 'n' => 30, 'low_sample' => false]];
     expect(view('reports.pdf', $data)->render())->toContain('stroke="#b62b1b" stroke-width="2"');
