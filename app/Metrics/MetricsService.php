@@ -33,6 +33,7 @@ final class MetricsService
 {
     use ChartDistributionMetrics;
     use ChartTrafficMetrics;
+    use SourcePageMetrics;
 
     /** Grain names for {@see series()}. */
     public const GRAINS = ['day', 'week', 'month'];
