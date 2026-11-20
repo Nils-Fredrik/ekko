@@ -104,6 +104,15 @@ Den første versjonen sendte `{ row }` (`DivergingBarChart`), `{ row, column }` 
 
 `kind` er `rate` (andel 0–1, endring i prosentpoeng), `count` eller `number`. Eksempelsiden `/dev/charts` (`routes/dev.php`) viser alle graftypene med testdata i begge temaer. Ruten registreres bare i `local` og `testing`.
 
+## 7.5 Kilder
+
+`Brands/Sources.vue`, med data fra `App\Dashboard\SourcePage` som utsatt prop (`chartData`, cachet i `GraphCache`).
+
+- **Rangert kildeliste:** de 20 mest siterte domenene etter andel av svarene (`sourceShare`), farget og merket etter eierskap: egen = `--data-own`, konkurrent = konkurrentens `--data-cat`-farge etter fast plass (aktive konkurrenter sortert på navn), tredjepart = `--data-neutral`. Eierskapet følger merkevarens og konkurrentenes domener slik de er satt opp nå (`DomainOwnership`), så samme domene har samme farge på alle sider. Under grafen står domenene som liste med eierskap i tekst.
+- **Kildegap:** de ti største gapene (`sourceGap`). Grafen sammenligner hvor ofte domenet siteres i svar som nevner konkurrenter og ikke merkevaren (n = alle slike svar), med hvor ofte det siteres i svar som nevner merkevaren (n = alle svar som nevner merkevaren). Begge tellingene kommer fra de uttrukne svarene i perioden (`MetricsService::sourceGapComparison`), med samme regel som aggregatoren: et domene sitert som eget teller aldri som gap. Hvert gap lenker til `source_gap`-tiltaket for domenet (T43): et åpent tiltak først, ellers et fullført eller avvist, aldri et utløpt. Med markedsfilter gjelder bare tiltakene i markedet.
+- **Treemap etter kildetype:** siteringer per kildetype fra `citation_distribution` (ADR 0037). Er fordelingen ikke beregnet for alle dager i perioden, vises en forklaring i stedet for en ufullstendig graf. Klikk på en type viser bare domenene av den typen i listen.
+- **Klikk på et domene** (stolpe, gap eller listeelement) laster svarene som siterer det med en delvis Inertia-forespørsel (`?domain=`, prop `citing`): de 20 nyeste uttrukne svarene for merkevaren i perioden og filteret, med prompt, motor, marked, om merkevaren er nevnt og de siterte URL-ene.
+
 ## 9. Ytelse
 
 Dashboardets første HTTP-svar har et mål om p95 under 800 ms, også med ett års data. Tunge grafdata sendes som utsatte Inertia-props og caches per tenant, filterkombinasjon og lokal dag. Isolasjon og tilgangskontroll gjelder også de utsatte forespørslene. Tidsbegrenset cache må samtidig ivareta oppdateringsmålet i `docs/spec.md` kapittel 9.
@@ -121,7 +130,7 @@ ECharts fra `echarts/core` med SVG-tegning, ett tema bygget fra tokens som bytte
 
 - Temabytte endrer grafene uten ny lasting.
 - Grafbiblioteket lastes ikke på sider uten grafer.
-- `TrendChart` og `VoiceChart` er erstattet og Chart.js fjernet når U05–U10 er ferdige.
+- `VoiceChart` er fjernet i U05. `TrendChart` står igjen på promptsiden, og Chart.js fjernes sammen med den når den siden er bygget om.
 
 ## 7.9 Kommandopalett
 
@@ -143,3 +152,20 @@ Kort oppsummering per merkevare og periode (7.2, under filterlinjen) og på tver
 - Ingen tall i teksten avviker fra tallene på siden (automatisk test). Bare tall siden viser får plassholder.
 - Propen `insight` på `Brands/Show` og `Home` er utsatt (gruppen `insight`) og er `null` eller `{ text, label, generated_on }`. `<InsightLine :insight="insight" />` viser den og tegner ingenting for `null`.
 - Faller generering bort (redusert modus, kvote eller feil), vises ingen innsiktslinje.
+
+## U05 – Merkevare-dashboard
+
+Merkevaresiden svarer på om noe har endret seg, og hvilken motor som driver endringen, uten å scrolle på 1440×900. Tallene er periodens tall fra `MetricsService`, med n ved siden av prosenten (`docs/spec.md` kapittel 9).
+
+- Fire primære kort med endring og minigraf: synlighet, share of voice, snittposisjon (lavere er bedre) og sitering. Sekundært: anbefaling, førsteplass og sentiment.
+- Setningen om ledende motor nevner bare en motor med n ≥ 10, og viser den motorens periodesynlighet og n. Finnes ingen slik motor, vises setningen ikke.
+- Småmultipler per motor viser periodens synlighet og n i hodet, samme tall som innsiktsteksten. Lav n er dempet. Tekstbeskrivelsen bruker periodeverdien, ikke endringen fra første til siste bøtte.
+- Trend med egen serie, konkurrenter i fast farge, stiplet forrige periode justert etter offset, og markører for modellbytte og tiltak gjennom periodens slutt.
+- Share of voice som normalisert areal. Sentiment som diverging bar. Rader med n = 0 tegnes ikke. Mangler fordelingen, står det at sentimenttallene mangler.
+- De tre høyest rangerte åpne tiltakene, med lenke til listen og fra markøren til tiltaket.
+
+Avvik fra rekkefølgen i oppgaven:
+
+- Motorsammenligningen står over trenden, så begge svarene får plass på første skjerm.
+- Modellbytter er markører på trenden og motorpanelet, ikke en egen liste.
+- Innsiktslinjen ligger også på oversikten, så `ekko.insights.enabled` kan være på. U10 eier fortsatt ombyggingen av oversikten.

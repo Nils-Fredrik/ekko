@@ -26,7 +26,7 @@ Oversikten (7.1) og merkevaredashboardet (7.2) skal ha en kort tekst om hva som 
 
 **Logg.** Hvert kallforsøk gir én linje, «Insight call.», med tenant, merkevare, omfang, operasjon, utfall (`written`, `refused`, `failed`, `unknown`, `not_reserved`, `not_called`), forbrukshendelse, tokens og kostnad, aldri tekst.
 
-**Av som standard.** Den utsatte propen hentes ved hver sidevisning, også om siden ikke viser den. Teksten er derfor skrudd av (`ekko.insights.enabled`, `EKKO_INSIGHTS_ENABLED`, standard av) til U05 og U10 har plassert `InsightLine` på sidene; da settes standarden til på. Propen er `null` mens den er av.
+**På som standard.** Den utsatte propen hentes ved hver sidevisning, så den var av til sidene viste teksten. U05 plasserer `InsightLine` på merkevaresiden og oversikten, og standarden er derfor på (`ekko.insights.enabled`, `EKKO_INSIGHTS_ENABLED`). Propen er `null` mens den er av.
 
 **Grensesnitt.** `Brands/Show` og `Home` har den utsatte propen `insight` (`null` eller `{ text, label, generated_on }`), og `Components/Dashboard/InsightLine.vue` viser den. Sidene bestemmer plasseringen. Oversikten bruker sidens periode (i dag 28 dager mot de 28 foregående); endres den til 7 dager, følger teksten med.
 
