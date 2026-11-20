@@ -11,7 +11,12 @@ defineProps({
 </script>
 
 <template>
-    <div class="overflow-x-auto">
+    <div
+        role="region"
+        :aria-label="caption"
+        tabindex="0"
+        class="overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
         <table class="w-full text-left text-sm">
             <caption class="sr-only">{{ caption }}</caption>
             <thead class="text-xs text-shell-muted">
