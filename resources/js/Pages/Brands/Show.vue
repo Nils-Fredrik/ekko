@@ -4,6 +4,7 @@ import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
 import SmallMultiplesChart from '@/Components/Charts/SmallMultiplesChart.vue';
 import StackedAreaChart from '@/Components/Charts/StackedAreaChart.vue';
 import TrendLineChart from '@/Components/Charts/TrendLineChart.vue';
+import { alignByOffset, periodBuckets } from '@/Components/Charts/support/data.js';
 import InsightLine from '@/Components/Dashboard/InsightLine.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
@@ -85,7 +86,11 @@ function point(metric) {
     };
 }
 
-const categories = computed(() => (props.chartData?.series ?? []).map((row) => row.period));
+const grain = computed(() => props.period.grain ?? 'day');
+
+const categories = computed(() =>
+    props.chartData ? periodBuckets(props.period.from, props.period.to, grain.value) : [],
+);
 
 function aligned(rows, pick) {
     const byPeriod = new Map((rows ?? []).map((row) => [row.period, pick(row)]));
@@ -154,10 +159,18 @@ const trendSeries = computed(() => {
     return [own, ...competitors];
 });
 
-const previousTrend = computed(() => ({
-    label: trans('app.charts.previous_period'),
-    points: (props.chartData?.previous ?? []).map((row) => point(row.metrics?.visibility)),
-}));
+const previousTrend = computed(() => {
+    const buckets = periodBuckets(props.period.previous_from, props.period.previous_to, grain.value);
+    const byPeriod = new Map(
+        (props.chartData?.previous ?? []).map((row) => [row.period, point(row.metrics?.visibility)]),
+    );
+    const values = buckets.map((bucket) => byPeriod.get(bucket) ?? point(null));
+
+    return {
+        label: trans('app.charts.previous_period'),
+        points: alignByOffset(categories.value, buckets, values, point(null)),
+    };
+});
 
 const markers = computed(() => [...props.modelChanges.map(modelMarker), ...(props.chartData?.action_markers ?? [])]);
 
@@ -386,7 +399,7 @@ function openMarker(marker) {
                         :categories="categories"
                         :panels="panels"
                         :markers="panelMarkers"
-                        :until="categories.at(-1)"
+                        :until="period.to"
                         :panel-height="72"
                         @marker="openMarker"
                     />
@@ -429,7 +442,7 @@ function openMarker(marker) {
                         :series="trendSeries"
                         :previous="previousTrend"
                         :markers="markers"
-                        :until="categories.at(-1)"
+                        :until="period.to"
                         :height="180"
                         @marker="openMarker"
                     />
@@ -451,7 +464,7 @@ function openMarker(marker) {
                             :label="$t('app.dashboard.voice')"
                             :categories="categories"
                             :series="shareSeries"
-                            :until="categories.at(-1)"
+                            :until="period.to"
                             :height="200"
                         />
                     </div>

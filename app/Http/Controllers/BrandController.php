@@ -87,6 +87,7 @@ class BrandController extends Controller
                 'to' => $period->to,
                 'previous_from' => $period->previousFrom,
                 'previous_to' => $period->previousTo,
+                'grain' => $grain,
             ],
             'filters' => [
                 'market' => $selection['marketIds'][0] ?? null,

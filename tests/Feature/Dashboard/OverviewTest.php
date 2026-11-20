@@ -104,6 +104,7 @@ test('the brand dashboard follows the engine filter and shows a model change', f
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Brands/Show')
+            ->where('period.grain', 'day')
             ->where('summary.visibility.value', 0.5)
             ->where('summary.visibility.n', 20)
             ->where('modelChanges.0.to_model', 'model-next')
