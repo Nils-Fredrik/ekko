@@ -6,6 +6,7 @@ return [
     'nav' => 'Claude',
 
     'errors' => [
+        'invalid_state' => 'The change is not allowed in the current state.',
         'reconnect' => 'Connect Ekko again in Claude.',
         'read_only' => 'The connection is read only. Connect again and allow changes to use this tool.',
         'unknown_tenant' => 'Unknown tenant, or a tenant you have no access to. See whoami.',
@@ -87,6 +88,13 @@ return [
     ],
 
     'summaries' => [
+        'list_actions' => 'Actions for the brand.',
+        'update_action' => 'Action saved.',
+        'get_fact_check' => 'Facts and assessed claims.',
+        'get_report' => 'Saved report.',
+        'create_report_link' => 'Shareable report link created.',
+        'create_pitch' => 'Pitch project created. Complete setup in the wizard.',
+
         'whoami' => ':name has access to :count tenants through Claude.',
         'list_brands' => ':count brands.',
         'get_visibility' => ':brand :from–:to: visibility :visibility (n = :n).',
