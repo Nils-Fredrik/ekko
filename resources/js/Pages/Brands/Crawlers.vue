@@ -73,13 +73,18 @@ const botSeries = computed(() => {
         byBucket.get(row.period).set(row.bot, row.hits);
     }
     const own = new Set(shownBots.value);
-    // A bucket without any robot row has no log data: null, not zero. A robot missing from a bucket that has data
-    // fetched nothing then.
+    // The log stores no row for a day without robot hits, so a bucket between the first and last bucket with log data
+    // counts as zero; an isolated day would otherwise not be drawn. Outside that span the chart stays empty.
+    const withData = categories.value.filter((bucket) => byBucket.has(bucket));
+    const first = withData[0];
+    const last = withData[withData.length - 1];
     const values = (pick) =>
         categories.value.map((bucket) => {
-            const hits = byBucket.get(bucket);
+            if (first === undefined || bucket < first || bucket > last) {
+                return point(null);
+            }
 
-            return hits ? point(pick(hits)) : point(null);
+            return point(pick(byBucket.get(bucket) ?? new Map()));
         });
     const series = shownBots.value.map((bot, index) => ({
         key: bot,

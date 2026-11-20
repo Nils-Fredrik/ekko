@@ -215,7 +215,7 @@ return [
         'funnel_empty_title' => 'No figures for the period',
         'funnel_empty_body' => 'The funnel appears when there are robot hits, answers or AI traffic in the period. Connect a robot log and GA4 under integrations.',
         'robots' => 'Fetches per AI robot',
-        'robots_help' => 'Requests per robot over time, stacked. Days without a log are left empty.',
+        'robots_help' => 'Requests per robot over time, stacked. Before the first and after the last day with a log, the chart is empty.',
         'other_bots' => 'Other robots',
         'traffic' => 'AI traffic',
         'traffic_help' => 'Sessions from AI services in GA4. The dashed line is the comparison period.',

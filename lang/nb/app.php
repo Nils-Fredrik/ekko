@@ -215,7 +215,7 @@ return [
         'funnel_empty_title' => 'Ingen tall for perioden',
         'funnel_empty_body' => 'Trakten vises når det finnes robottreff, svar eller AI-trafikk i perioden. Koble til robotlogg og GA4 i integrasjonene.',
         'robots' => 'Henting per AI-robot',
-        'robots_help' => 'Forespørsler per robot over tid, stablet. Dager uten logg står tomme.',
+        'robots_help' => 'Forespørsler per robot over tid, stablet. Før første og etter siste dag med logg står grafen tom.',
         'other_bots' => 'Andre roboter',
         'traffic' => 'AI-trafikk',
         'traffic_help' => 'Økter fra AI-tjenester i GA4. Den stiplede linjen er sammenligningsperioden.',
