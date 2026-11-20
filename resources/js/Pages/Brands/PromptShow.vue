@@ -79,6 +79,14 @@ function changeKey(change) {
 
     return '';
 }
+
+function dayLabel(day) {
+    if (day.answers.length === 0) {
+        return 'app.library.day_empty';
+    }
+
+    return day.mentioned ? 'app.library.day_mentioned' : 'app.library.day_silent';
+}
 </script>
 
 <template>
@@ -120,7 +128,7 @@ function changeKey(change) {
                                 v-for="day in group.days"
                                 :key="day.date"
                                 type="button"
-                                class="size-4 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                class="size-6 rounded-full border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                 :class="
                                     day.mentioned
                                         ? 'border-primary bg-primary'
@@ -132,7 +140,7 @@ function changeKey(change) {
                                 :aria-pressed="
                                     selected?.key === group.key && selected?.date === day.date ? 'true' : 'false'
                                 "
-                                :aria-label="day.date"
+                                :aria-label="$t(dayLabel(day), { date: day.date })"
                                 @click="selected = { key: group.key, date: day.date }"
                             />
                         </div>

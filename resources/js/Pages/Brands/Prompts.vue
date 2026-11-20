@@ -84,43 +84,72 @@ function metricPoint(metric) {
     };
 }
 
-function sparkline(promptId) {
+const sparklineByPrompt = computed(() => {
     const range = props.chartData?.sparkline;
+    const result = new Map();
     if (!range?.from || !range?.to) {
-        return [];
+        return result;
     }
-    const byDay = new Map(
-        (props.chartData?.sparklines ?? [])
-            .filter((row) => row.prompt_id === promptId)
-            .map((row) => [row.period, row.visibility]),
-    );
-
-    return periodBuckets(range.from, range.to).map((day) => ({ x: day, ...metricPoint(byDay.get(day)) }));
-}
-
-function dots(promptId) {
-    if (!props.period?.to || !props.chartData) {
-        return [];
-    }
-    const byDay = new Map();
-    for (const row of props.chartData.stability ?? []) {
-        if (row.prompt_id !== promptId) {
-            continue;
+    const byPrompt = new Map();
+    for (const row of props.chartData?.sparklines ?? []) {
+        if (!byPrompt.has(row.prompt_id)) {
+            byPrompt.set(row.prompt_id, new Map());
         }
+        byPrompt.get(row.prompt_id).set(row.period, row.visibility);
+    }
+    const days = periodBuckets(range.from, range.to);
+    for (const prompt of props.prompts) {
+        const byDay = byPrompt.get(prompt.id) ?? new Map();
+        result.set(
+            prompt.id,
+            days.map((day) => ({ x: day, ...metricPoint(byDay.get(day)) })),
+        );
+    }
+
+    return result;
+});
+
+const dotsByPrompt = computed(() => {
+    const result = new Map();
+    if (!props.period?.to || !props.chartData) {
+        return result;
+    }
+    const byPrompt = new Map();
+    for (const row of props.chartData.stability ?? []) {
+        if (!byPrompt.has(row.prompt_id)) {
+            byPrompt.set(row.prompt_id, new Map());
+        }
+        const byDay = byPrompt.get(row.prompt_id);
         const current = byDay.get(row.period) ?? { mentioned: false, n: 0 };
         current.n += row.n ?? 0;
         current.mentioned = current.mentioned || row.value === 1;
         byDay.set(row.period, current);
     }
+    const days = periodBuckets(isoShift(props.period.to, -13), props.period.to);
+    for (const prompt of props.prompts) {
+        const byDay = byPrompt.get(prompt.id) ?? new Map();
+        result.set(
+            prompt.id,
+            days.map((day) => {
+                const point = byDay.get(day);
+                if (!point || point.n === 0) {
+                    return { x: day, value: null, n: 0, low_sample: true };
+                }
 
-    return periodBuckets(isoShift(props.period.to, -13), props.period.to).map((day) => {
-        const row = byDay.get(day);
-        if (!row || row.n === 0) {
-            return { x: day, value: null, n: 0, low_sample: true };
-        }
+                return { x: day, value: point.mentioned ? 1 : 0, n: point.n, low_sample: point.n < 10 };
+            }),
+        );
+    }
 
-        return { x: day, value: row.mentioned ? 1 : 0, n: row.n, low_sample: row.n < 10 };
-    });
+    return result;
+});
+
+function sparkline(promptId) {
+    return sparklineByPrompt.value.get(promptId) ?? [];
+}
+
+function dots(promptId) {
+    return dotsByPrompt.value.get(promptId) ?? [];
 }
 
 function hasSparkline(promptId) {
@@ -273,7 +302,7 @@ function importCsv(event) {
                         {{ $t('app.library.charts_loading') }}
                     </p>
                     <div
-                        v-show="view === 'table'"
+                        v-if="view === 'table'"
                         class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text"
                     >
                         <table class="w-full text-left text-sm">

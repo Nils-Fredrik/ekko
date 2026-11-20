@@ -111,7 +111,7 @@ class BrandPromptController extends Controller
             'importResult' => session('prompt_import'),
             'personalData' => (bool) session('personal_data'),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
-                'brand.prompts.u11', $filter, $period->timezone, function () use ($brand, $metrics, $filter, $dotsFilter, $period, $selection): array {
+                'brand.prompts.u06', $filter, $period->timezone, function () use ($brand, $metrics, $filter, $dotsFilter, $period, $selection): array {
                     $sparkFrom = CarbonImmutable::parse($period->to)->subDays(27)->toDateString();
                     $sparkFilter = new MetricsFilter($filter->brandId, $sparkFrom, $period->to, ...$selection);
                     $heatmap = $metrics->visibilityByPromptEngine($filter);
