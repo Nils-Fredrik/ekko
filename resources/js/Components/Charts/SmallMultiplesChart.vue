@@ -12,6 +12,7 @@ import {
     changeAt,
     formatChange,
     formatDate,
+    formatN,
     formatValue,
     isLowSample,
     tooltipHtml,
@@ -72,6 +73,15 @@ function shownValue(panel) {
     const range = firstAndLast(panel.points);
 
     return range ? formatValue(range.last.point.value, props.kind) : trans('app.charts.empty');
+}
+
+// The period figure and its sample belong together (docs/spec.md 9). Bucket tooltips keep their own n.
+function headlineSample(panel) {
+    if (!panel.headline || typeof panel.headline !== 'object' || panel.headline.n == null) {
+        return '';
+    }
+
+    return formatN(panel.headline.n);
 }
 
 function optionFor(panel) {
@@ -155,6 +165,13 @@ const summary = computed(() => {
     }
     const parts = props.panels
         .map((panel) => {
+            // A period headline is a different measure from the first-to-last bucket change, so the
+            // description quotes only the period figure and its sample.
+            if (panel.headline && typeof panel.headline === 'object') {
+                const sample = headlineSample(panel);
+
+                return `${panel.label} ${shownValue(panel)}${sample ? ` ${sample}` : ''}`;
+            }
             const range = firstAndLast(panel.points);
             if (!range) {
                 return `${panel.label} ${trans('app.charts.empty')}`;
@@ -188,6 +205,7 @@ const summary = computed(() => {
                     <span class="font-medium">{{ panel.label }}</span>
                     <span class="tabular-nums text-shell-muted" :class="panel.headline?.low_sample ? 'opacity-40' : ''">
                         {{ shownValue(panel) }}
+                        <template v-if="headlineSample(panel)">{{ headlineSample(panel) }}</template>
                     </span>
                 </div>
                 <EkkoChart

@@ -5,6 +5,8 @@ import SmallMultiplesChart from '@/Components/Charts/SmallMultiplesChart.vue';
 import StackedAreaChart from '@/Components/Charts/StackedAreaChart.vue';
 import TrendLineChart from '@/Components/Charts/TrendLineChart.vue';
 import { alignByOffset, periodBuckets } from '@/Components/Charts/support/data.js';
+import { formatValue } from '@/Components/Charts/support/format.js';
+import { pickLeadingEngine } from './leadingEngine.js';
 import InsightLine from '@/Components/Dashboard/InsightLine.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
@@ -120,12 +122,7 @@ const engineName = computed(() => {
     return (key) => names.get(key) ?? key;
 });
 
-const leadingEngine = computed(
-    () =>
-        [...props.engines]
-            .filter((item) => item.visibility?.value != null)
-            .sort((left, right) => right.visibility.value - left.visibility.value)[0] ?? null,
-);
+const leadingEngine = computed(() => pickLeadingEngine(props.engines));
 
 const competitorIndex = computed(() => {
     const ids = [];
@@ -259,20 +256,22 @@ const sentimentRows = computed(() => {
         }
     }
 
-    return sentiment.rows.map((row) => {
-        const n = row.n || row.negative + row.neutral + row.positive;
-        const share = (count) => (n ? count / n : 0);
+    return sentiment.rows
+        .filter((row) => (row.n || row.negative + row.neutral + row.positive) > 0)
+        .map((row) => {
+            const n = row.n || row.negative + row.neutral + row.positive;
+            const share = (count) => (n ? count / n : 0);
 
-        return {
-            key: row.key,
-            label: names.get(row.key) ?? row.key,
-            negative: share(row.negative),
-            neutral: share(row.neutral),
-            positive: share(row.positive),
-            n,
-            low_sample: row.low_sample,
-        };
-    });
+            return {
+                key: row.key,
+                label: names.get(row.key) ?? row.key,
+                negative: share(row.negative),
+                neutral: share(row.neutral),
+                positive: share(row.positive),
+                n,
+                low_sample: row.low_sample,
+            };
+        });
 });
 
 function openMarker(marker) {
@@ -397,6 +396,10 @@ function openMarker(marker) {
                 </section>
                 <p v-if="leadingEngine" class="text-sm text-shell-text" data-testid="leading-engine">
                     {{ $t('app.dashboard.leading_engine', { engine: leadingEngine.name }) }}
+                    <span class="ms-2 tabular-nums text-shell-muted">
+                        {{ formatValue(leadingEngine.visibility.value, 'rate') }}
+                        {{ $t('app.dashboard.n', { n: leadingEngine.visibility.n }) }}
+                    </span>
                 </p>
 
                 <section>

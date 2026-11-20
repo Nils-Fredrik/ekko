@@ -14,7 +14,7 @@ Spesifikasjonen valgte Chart.js (`docs/spec.md` 4 og 14.1). Appen har to grafer 
 - Biblioteket lastes med `import()` første gang en graf nærmer seg skjermen. Vite legger det i en egen chunk, og sider uten grafer laster det ikke. `tests/Feature/Frontend/ChartBundleTest.php` stopper statiske importer av ECharts.
 - Alle grafer går gjennom `<EkkoChart>`, som eier tema, tooltip, lav-n-stil, markører, tabellvisning, tekstbeskrivelse og lasting. Det finnes én komponent per graftype i `resources/js/Components/Charts/`.
 - Temaet bygges fra tokenene i `resources/css/app.css` og byttes med `setTheme` når `data-theme` endres.
-- Chart.js står igjen til `TrendChart` og `VoiceChart` er erstattet i U05–U10, og fjernes da sammen med dem.
+- `VoiceChart` er fjernet i U05. Chart.js står igjen til `TrendChart` på promptsiden er erstattet, og fjernes da sammen med den.
 
 ## Konsekvenser
 
