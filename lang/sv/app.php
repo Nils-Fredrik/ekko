@@ -481,8 +481,8 @@ return [
     ],
     'competitors' => [
         'ranking' => 'Rangordning över tid',
-        'ranking_day' => 'Placering per dag bland varumärket och de aktiva konkurrenterna, efter synlighet. Topp 6 visas.',
-        'ranking_week' => 'Placering per vecka bland varumärket och de aktiva konkurrenterna, efter synlighet. Topp 6 visas.',
+        'ranking_day' => 'Placering per dag bland varumärket och de aktiva konkurrenterna, efter synlighet. Visar de sex bäst placerade i perioden och varumärket.',
+        'ranking_week' => 'Placering per vecka bland varumärket och de aktiva konkurrenterna, efter synlighet. Visar de sex bäst placerade i perioden och varumärket.',
         'no_ranking' => 'Inga svar i perioden att rangordna.',
         'table' => 'Varumärket mot konkurrenterna',
         'brand' => 'Varumärke',

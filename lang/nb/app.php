@@ -481,8 +481,8 @@ return [
     ],
     'competitors' => [
         'ranking' => 'Rangering over tid',
-        'ranking_day' => 'Plass per dag blant merkevaren og de aktive konkurrentene, etter synlighet. Topp 6 vises.',
-        'ranking_week' => 'Plass per uke blant merkevaren og de aktive konkurrentene, etter synlighet. Topp 6 vises.',
+        'ranking_day' => 'Plass per dag blant merkevaren og de aktive konkurrentene, etter synlighet. Viser de seks best plasserte i perioden og merkevaren.',
+        'ranking_week' => 'Plass per uke blant merkevaren og de aktive konkurrentene, etter synlighet. Viser de seks best plasserte i perioden og merkevaren.',
         'no_ranking' => 'Ingen svar i perioden å rangere.',
         'table' => 'Merkevaren mot konkurrentene',
         'brand' => 'Merkevare',

@@ -481,8 +481,8 @@ return [
     ],
     'competitors' => [
         'ranking' => 'Rank over time',
-        'ranking_day' => 'Place per day among the brand and the active competitors, by visibility. Top 6 shown.',
-        'ranking_week' => 'Place per week among the brand and the active competitors, by visibility. Top 6 shown.',
+        'ranking_day' => 'Place per day among the brand and the active competitors, by visibility. Shows the six best placed in the period and the brand.',
+        'ranking_week' => 'Place per week among the brand and the active competitors, by visibility. Shows the six best placed in the period and the brand.',
         'no_ranking' => 'No answers in the period to rank.',
         'table' => 'The brand against its competitors',
         'brand' => 'Brand',

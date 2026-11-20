@@ -115,6 +115,12 @@ const rankSeries = computed(() => {
 
 const hasRanking = computed(() => rankSeries.value.some((item) => item.points.some((point) => point.rank != null)));
 
+// TOP limits how many series are drawn, not the ranks shown: the brand, a selected competitor or a series that
+// falls below sixth place on a day keeps its line, so the axis reaches the lowest rank among the drawn series.
+const rankRange = computed(() =>
+    Math.max(TOP, ...rankSeries.value.flatMap((item) => item.points.map((point) => point.rank ?? 0))),
+);
+
 const sentimentRows = computed(() =>
     tableRows.value
         .filter((row) => row.sentiment?.n > 0)
@@ -216,7 +222,7 @@ function add(suggestion) {
                             :label="$t('app.competitors.ranking')"
                             :categories="categories"
                             :series="rankSeries"
-                            :top="TOP"
+                            :top="rankRange"
                             :height="280"
                         />
                     </section>
