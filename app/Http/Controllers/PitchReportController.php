@@ -98,8 +98,20 @@ final class PitchReportController extends Controller
             : '#e84a38';
         /** @var array{value: float|null, n: int, low_sample: bool} $visibility */
         $visibility = $data['visibility'];
-        /** @var list<array{name: string, visibility: array{value: float|null, n: int, low_sample: bool}}> $competitors */
+        /** @var list<array{name: string, mentions: int, visibility: array{value: float|null, n: int, low_sample: bool}}> $competitors */
         $competitors = $data['competitors'];
+        $rows = [[
+            'name' => (string) $data['brand'],
+            'mentions' => (int) $data['mentions'],
+            'visibility' => $metric($visibility),
+        ]];
+        foreach ($competitors as $row) {
+            $rows[] = [
+                'name' => $row['name'],
+                'mentions' => $row['mentions'],
+                'visibility' => $metric($row['visibility']),
+            ];
+        }
 
         return [
             ...$data,
@@ -113,12 +125,7 @@ final class PitchReportController extends Controller
                 'low' => $visibility['low_sample'],
                 'change' => '',
             ]],
-            'competitors' => array_map(fn (array $row): array => [
-                'name' => $row['name'],
-                'mentions' => 0,
-                'visibility' => $metric($row['visibility']),
-                'share_of_voice' => $metric($row['visibility']),
-            ], $competitors),
+            'competitors' => $rows,
         ];
     }
 }

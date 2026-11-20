@@ -6,10 +6,7 @@
         <meta name="robots" content="noindex, nofollow, noarchive">
         <meta name="referrer" content="no-referrer">
     @endif
-    <title>{{ __('reports.title', ['brand' => $brand]) }}</title>
-    @if (($shared ?? false) && ! empty($trend))
-        @vite('resources/js/shared-report.js')
-    @endif
+    <title>{{ ($short ?? false) ? $brand.' · '.__('pitch.report') : __('reports.title', ['brand' => $brand]) }}</title>
     @php
         $reportColor = \App\Reports\ReadableColor::against($profile['color'], '#ffffff');
     @endphp
@@ -43,7 +40,7 @@
             <p>{{ $profile['name'] }}</p>
         @endif
         <h1>{{ $brand }}</h1>
-        <p>{{ __('reports.period', ['from' => $from, 'to' => $to]) }}</p>
+        <p>@if ($short ?? false){{ __('pitch.report') }} · @endif{{ __('reports.period', ['from' => $from, 'to' => $to]) }}</p>
     </header>
     <main>
         @if ($reconstructed ?? false)
@@ -95,10 +92,17 @@
         @endunless
 
         <section class="report-section" id="report-competitors">
-            <h2>{{ __('reports.competitors') }}</h2>
+            <h2>{{ ($short ?? false) ? __('pitch.visibility') : __('reports.competitors') }}</h2>
             @include('reports.partials.lines', ['series' => $competitor_series ?? ['periods' => [], 'lines' => []], 'label' => __('reports.competitors')])
-            @include('reports.partials.bars', ['name' => 'competitors', 'label' => __('reports.competitors'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['name'], 'value' => $row['share_of_voice']['ratio'] ?? $row['visibility']['ratio'] ?? null, 'low' => $row['share_of_voice']['low'] ?? $row['visibility']['low'] ?? false], $competitors)])
-            @include('reports.partials.table', ['columns' => [__('reports.competitor'), __('reports.mentions'), __('reports.visibility'), __('reports.share_of_voice')], 'rows' => array_map(fn ($row) => [$row['name'], $row['mentions'], $row['visibility'], $row['share_of_voice']], $competitors)])
+            @php
+                $competitorRate = ($short ?? false) ? 'visibility' : 'share_of_voice';
+            @endphp
+            @include('reports.partials.bars', ['name' => 'competitors', 'label' => ($short ?? false) ? __('pitch.visibility') : __('reports.competitors'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['name'], 'value' => $row[$competitorRate]['ratio'] ?? null, 'low' => $row[$competitorRate]['low'] ?? false], $competitors)])
+            @if ($short ?? false)
+                @include('reports.partials.table', ['columns' => [__('reports.competitor'), __('reports.mentions'), __('reports.visibility')], 'rows' => array_map(fn ($row) => [$row['name'], $row['mentions'], $row['visibility']], $competitors)])
+            @else
+                @include('reports.partials.table', ['columns' => [__('reports.competitor'), __('reports.mentions'), __('reports.visibility'), __('reports.share_of_voice')], 'rows' => array_map(fn ($row) => [$row['name'], $row['mentions'], $row['visibility'], $row['share_of_voice']], $competitors)])
+            @endif
         </section>
 
         @unless ($short ?? false)
@@ -133,6 +137,7 @@
         @empty
             <p class="muted">{{ $actions['empty_open'] }}</p>
         @endforelse
+        @unless ($short ?? false)
         <h3>{{ $actions['done_title'] }}</h3>
         @forelse ($actions['completed'] as $action)
             <p><strong>{{ $action['title'] }}</strong> · {{ $action['impact'] }}</p>
@@ -143,6 +148,7 @@
         @empty
             <p class="muted">{{ $actions['empty_done'] }}</p>
         @endforelse
+        @endunless
         </section>
 
         @unless ($short ?? false)

@@ -1,6 +1,11 @@
 <?php
 
+use App\Models\AggDaily;
+use App\Models\Engine;
+use App\Models\ReportSchedule;
 use App\Reports\ReadableColor;
+use App\Reports\ReportPublisher;
+use Tests\Support\Metrics\MetricsWorld;
 
 test('the shared report darkens a brand color that is too light on white', function () {
     $html = reportHtml('#e84a38');
@@ -76,6 +81,41 @@ test('section bars are the same markup on the web page and in the pdf', function
         ->toContain('data-testid="report-bars-sources"')
         ->and($shared)->toContain('data-testid="report-bars-engines"')
         ->toContain('data-testid="report-bars-sources"');
+});
+
+test('report charts keep sample size, rank and distinguishable engine names', function () {
+    $world = MetricsWorld::create();
+    $world->engine->forceFill(['key' => 'chatgpt_api', 'family' => 'chatgpt'])->save();
+    $web = Engine::factory()->create(['key' => 'chatgpt_ui', 'family' => 'chatgpt']);
+    $world->p1->forceFill(['text' => 'Who leads the category?'])->save();
+    $base = ['market_id' => $world->market->id, 'prompt_id' => $world->p1->id];
+    AggDaily::factory()->create([...$base, 'engine_key' => 'chatgpt_api', 'date' => '2026-11-02', 'responses' => 4, 'brand_mentioned' => 1,
+        'competitor_mentions' => [$world->c1->id => 2]]);
+    AggDaily::factory()->create([...$base, 'engine_key' => 'chatgpt_ui', 'date' => '2026-11-02', 'responses' => 10, 'brand_mentioned' => 5,
+        'competitor_mentions' => [$world->c1->id => 1]]);
+    AggDaily::factory()->create([...$base, 'engine_key' => 'chatgpt_api', 'date' => '2026-11-03', 'responses' => 2, 'brand_mentioned' => 0,
+        'competitor_mentions' => [$world->c1->id => 1]]);
+    $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id]);
+    app()->setLocale('nb');
+
+    $data = app(ReportPublisher::class)->viewData($world->tenant, $schedule, '2026-11-01', '2026-11-08', null);
+    $html = view('reports.pdf', $data)->render();
+    $shared = view('reports.pdf', [...$data, 'shared' => true])->render();
+    $brand = collect($data['competitor_series']['lines'])->firstWhere('own', true);
+    $heatmap = collect($data['heatmap']['rows'])->firstWhere('prompt', 'Who leads the category?');
+    $cells = array_combine($data['heatmap']['engines'], $heatmap['cells']);
+
+    expect($data['heatmap']['engines'])->toBe(['ChatGPT API', 'ChatGPT'])
+        ->and($cells['ChatGPT API']['text'])->toBe('16,7 % n 6')
+        ->and($cells['ChatGPT API']['low'])->toBeTrue()
+        ->and($cells['ChatGPT']['text'])->toBe('50,0 % n 10')
+        ->and($cells['ChatGPT']['low'])->toBeFalse()
+        ->and($brand['ranks'])->toBe([1, 2])
+        ->and($brand['lows'])->toBe([false, true])
+        ->and($data['funnel'])->toHaveCount(3)
+        ->and($html)->toContain('16,7 % n 6')->toContain('data-low-sample')
+        ->and($shared)->toContain('16,7 % n 6')->toContain('data-low-sample')
+        ->and($shared)->not->toContain('shared-report.js');
 });
 
 test('a brand color that already clears AA is rendered unchanged', function () {

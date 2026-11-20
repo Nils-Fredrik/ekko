@@ -11,6 +11,7 @@
         @foreach ($lines as $index => $line)
             @php
                 $commands = [];
+                $markers = [];
                 foreach ($line['points'] as $point => $value) {
                     if (! is_numeric($value)) {
                         continue;
@@ -18,12 +19,18 @@
                     $x = 40 + 520 * $point / max(1, $count - 1);
                     $y = 10 + 140 * (1 - max(0, min(1, (float) $value)));
                     $commands[] = round($x, 1).','.round($y, 1);
+                    if ($line['lows'][$point] ?? false) {
+                        $markers[] = [round($x, 1), round($y, 1)];
+                    }
                 }
                 $color = ($line['own'] ?? false) ? '#b62b1b' : $colors[$index % count($colors)];
             @endphp
             @if ($commands !== [])
                 <polyline fill="none" stroke="{{ $color }}" stroke-width="2" points="{{ implode(' ', $commands) }}" />
             @endif
+            @foreach ($markers as $marker)
+                <circle data-low-sample cx="{{ $marker[0] }}" cy="{{ $marker[1] }}" r="3" fill="#a8a29e" />
+            @endforeach
             <text x="{{ 40 + ($index * 90) }}" y="172" font-size="10" fill="{{ $color }}">{{ \Illuminate\Support\Str::limit((string) $line['name'], 14) }}</text>
         @endforeach
     </svg>

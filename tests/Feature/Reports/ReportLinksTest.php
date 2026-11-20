@@ -45,7 +45,7 @@ test('shared report token is only returned once, scoped to one tenant and report
         ->assertHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
     $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()->assertSee('Private insight for this report')
         ->assertDontSee('Another report must remain private')
-        ->assertSee('shared-report-chart-data')->assertSee('2026-10-03')
+        ->assertSee('shared-report-chart-data')->assertDontSee('shared-report.js', false)->assertSee('2026-10-03')
         ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('Referrer-Policy', 'no-referrer');
     $this->withHeader('Authorization', 'Bearer '.$token)->get($otherEndpoint)->assertNotFound();
     $other = MetricsWorld::create();

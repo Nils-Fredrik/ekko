@@ -66,10 +66,25 @@ test('the pitch report uses its historical date range and the three highest rank
         ->component('Pitch/Report')
         ->where('from', '2026-11-17')->where('to', '2026-11-19')
         ->where('visibility.value', 0.5)->where('visibility.n', 10)
-        ->where('competitors.0.name', 'Nordlys')->where('competitors.0.visibility.value', 0.3)
+        ->where('mentions', 5)
+        ->where('competitors.0.name', 'Nordlys')->where('competitors.0.mentions', 3)
+        ->where('competitors.0.visibility.value', 0.3)
+        ->where('competitors.1.mentions', 0)
         ->where('sources.0.domain', 'example.test')->where('sources.0.citations', 4)
         ->where('actions.open.0.title', 'Action 40')->where('actions.open.1.title', 'Action 30')
         ->where('actions.open.2.title', 'Action 20')->has('actions.open', 3));
+    $pdf = Pdf::fake();
+    Storage::fake(config()->string('ekko.reports.disk'));
+    $this->get(route('pitches.report.pdf', $world->brand))->assertOk()->streamedContent();
+    $pdf->assertSee(__('pitch.report'), false);
+    $pdf->assertSee('Fjordkaffe', false);
+    $pdf->assertSee('>5<', false);
+    $pdf->assertSee('50,0 % n 10', false);
+    $pdf->assertSee('Nordlys', false);
+    $pdf->assertSee('>3<', false);
+    $pdf->assertSee('30,0 % n 10', false);
+    $pdf->assertDontSee(__('reports.share_of_voice'), false);
+    $pdf->assertDontSee(__('reports.actions_empty_done'), false);
 
     $answer = $world->answer($world->p1, '2026-11-18T18:00:00Z', ['brand' => []]);
     $answer->run->forceFill(['created_at' => '2026-11-18T17:00:00Z'])->save();

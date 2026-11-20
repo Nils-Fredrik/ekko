@@ -264,7 +264,7 @@ Felles filterlinje etter 7.8. Filterendringer henter kun data, og kopiert URL gj
 
 ## U13 – Rapportdesign
 
-Delt rapport og PDF er samme Blade-mal. Forsiden, utviklingen, motorer, konkurrenter med share of voice og rang, promptvarmekart, kilder, tiltak, robottrakt og modellvedlegg skrives ut i A4. Pitch-PDF-en er kortformen av samme mal. Grafene er SVG, så nett og PDF viser samme figurer.
+Delt rapport og PDF er samme Blade-mal. Forsiden, utviklingen, motorer, konkurrenter med share of voice og rang, promptvarmekart, kilder, tiltak, robottrakt og modellvedlegg skrives ut i A4. Pitch-PDF-en er kortformen av samme mal. Grafene er SVG, så nett og PDF viser samme figurer. Den delte siden monterer ikke TrendLineChart.
 
 ## U15 – Visuell regresjon, ytelsesbudsjett og tilgjengelighet
 

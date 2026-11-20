@@ -264,7 +264,7 @@ final class ReportPublisher
     }
 
     /**
-     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, points: list<float|null>, ranks: list<int|null>}>}
+     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, points: list<float|null>, lows: list<bool>, ranks: list<int|null>}>}
      */
     private function competitorSeries(MetricsFilter $filter, string $brand): array
     {
@@ -277,10 +277,12 @@ final class ReportPublisher
                     'name' => $id === 'brand' ? $brand : (string) $entity['name'],
                     'own' => $id === 'brand',
                     'points' => [],
+                    'lows' => [],
                     'ranks' => [],
                     'latest' => $entity['share_of_voice']['value'],
                 ];
                 $lines[$id]['points'][] = $entity['share_of_voice']['value'];
+                $lines[$id]['lows'][] = (bool) $entity['share_of_voice']['low_sample'];
                 $lines[$id]['ranks'][] = $entity['rank'];
                 $lines[$id]['latest'] = $entity['share_of_voice']['value'];
             }
@@ -301,7 +303,7 @@ final class ReportPublisher
     }
 
     /**
-     * @return array{engines: list<string>, rows: list<array{prompt: string, cells: list<float|null>}>}
+     * @return array{engines: list<string>, rows: list<array{prompt: string, cells: list<array{text: string, low: bool, value: float|null}>}>}
      */
     private function heatmap(MetricsFilter $filter): array
     {
@@ -314,7 +316,7 @@ final class ReportPublisher
         $promptIds = array_slice(array_map(intval(...), array_keys($totals)), 0, 20);
         $grid = [];
         foreach ($cells as $cell) {
-            $grid[$cell['prompt_id']][$cell['engine_key']] = $cell['visibility']['value'];
+            $grid[$cell['prompt_id']][$cell['engine_key']] = $cell['visibility'];
         }
         $engines = [];
         foreach ($promptIds as $id) {
@@ -324,13 +326,22 @@ final class ReportPublisher
         }
         $engines = array_keys($engines);
         sort($engines);
+        $labels = DashboardLabels::engines($engines);
         $names = Prompt::query()->whereIn('id', $promptIds)->pluck('text', 'id');
 
         return [
-            'engines' => $engines,
+            'engines' => array_map(fn (string $engine): string => $labels[$engine], $engines),
             'rows' => array_map(fn (int $id): array => [
                 'prompt' => (string) ($names[$id] ?? $id),
-                'cells' => array_map(fn (string $engine): ?float => $grid[$id][$engine] ?? null, $engines),
+                'cells' => array_map(function (string $engine) use ($grid, $id): array {
+                    $visibility = $grid[$id][$engine] ?? null;
+                    if (! is_array($visibility)) {
+                        return ['text' => __('reports.empty_value'), 'low' => true, 'value' => null];
+                    }
+                    $sample = $this->sample(new Metric($visibility['value'], $visibility['n']), true);
+
+                    return ['text' => $sample['text'], 'low' => $sample['low'], 'value' => $sample['ratio']];
+                }, $engines),
             ], $promptIds),
         ];
     }
