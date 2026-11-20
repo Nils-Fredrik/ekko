@@ -182,6 +182,16 @@ set. If a job is changed manually (for example after a partial deployment, see
 the runbook), tag its digest with
 `gcloud artifacts docker tags add <image>@<digest> <image>:live`.
 
+CI has repository-scoped writer access plus the `ekkoCiArtifactTags` custom
+role with only `artifactregistry.tags.delete`, also bound only on `ekko`.
+`gcloud artifacts docker tags add` deletes an existing tag before recreating
+it; writer alone cannot move `live`. The additional role does not permit
+deleting images or repositories. When repairing an existing installation,
+review a targeted plan for `google_project_iam_custom_role.ci_artifact_tags`
+and `google_artifact_registry_repository_iam_member.ci_artifact_tags`, then
+rerun the failed main deployment. Do not bypass the merge queue's requirement
+for a successful main deployment.
+
 ### Dry run
 
 `artifact_cleanup_dry_run` defaults to `true`, so the policies only log what
