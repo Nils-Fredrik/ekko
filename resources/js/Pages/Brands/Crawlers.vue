@@ -23,8 +23,14 @@ defineProps({
                 <BrandNav :brand-id="brand.id" />
                 <PeriodFilters :brand-id="brand.id" route-name="brands.crawlers" />
 
-                <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
-                    <h3 class="px-4 pt-4 text-sm font-medium">{{ $t('app.library.bots') }}</h3>
+                <section
+                    tabindex="0"
+                    aria-labelledby="crawler-bots-heading"
+                    class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                    <h3 id="crawler-bots-heading" class="px-4 pt-4 text-sm font-medium">
+                        {{ $t('app.library.bots') }}
+                    </h3>
                     <EmptyState
                         v-if="bots.length === 0"
                         class="m-4"
@@ -47,8 +53,14 @@ defineProps({
                     </table>
                 </section>
 
-                <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
-                    <h3 class="px-4 pt-4 text-sm font-medium">{{ $t('app.library.traffic') }}</h3>
+                <section
+                    tabindex="0"
+                    aria-labelledby="crawler-traffic-heading"
+                    class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                    <h3 id="crawler-traffic-heading" class="px-4 pt-4 text-sm font-medium">
+                        {{ $t('app.library.traffic') }}
+                    </h3>
                     <EmptyState
                         v-if="traffic.length === 0"
                         class="m-4"
