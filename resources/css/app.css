@@ -163,6 +163,10 @@
 /* Outside @theme. Tailwind drops unused theme variables, and the charts read these
    from computed style rather than from a utility class. */
 :root {
+    /* Text on the dark shell. The success and error marks are below 4.5:1 there.
+       Kept outside @theme so Tailwind cannot drop the variables. */
+    --color-success-text: #5d8a6a;
+    --color-error-text: #bd6861;
     --shell-scheme: dark;
     --data-own: #e84a38;
     --data-cat-1: #a8805a;
@@ -348,9 +352,9 @@ input[type='radio']:not(:checked) {
 
 /* The success and error marks are below 4.5:1 as text on the dark shell. */
 :root:not([data-theme='light']) .text-success {
-    color: #5d8a6a;
+    color: var(--color-success-text);
 }
 
 :root:not([data-theme='light']) .text-error {
-    color: #bd6861;
+    color: var(--color-error-text);
 }

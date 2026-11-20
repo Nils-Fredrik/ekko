@@ -1147,7 +1147,7 @@ T36 implementerer policyene i `infra/terraform/monitoring.tf`. `ekko:monitor-hea
 
 **UI-kvalitet (U15):** Låst Linux/Chromium og syntetiske data brukes til versjonerte referansebilder. Nye Inertia-sider må inn i sideregisteret. Visuelle avvik, kritiske axe-funn og overskredne bundlebudsjetter stopper CI. Rapporten viser også endringer i referansebildene mot PR-ens basecommit. Se [ADR 0040](decisions/0040-visuell-regresjon-i-ci.md) og [UI-kvalitet](ui-quality.md).
 
-**Tilgjengelighet (U01-F1):** U15s serious-funn for tekstkontrast og robotsidens rullefelt er rettet med eksisterende tokens: hvit tekst ligger på `--color-primary-deep`, lys primærtekst bruker samme token, og suksess- og feiltekst i mørkt tema er lysnet til 4,5:1. Robotsidens tabeller kan fokuseres og rulles med tastatur. Full manuell WCAG 2.2 AA-sertifisering er fortsatt ikke gjort.
+**Tilgjengelighet (U01-F1):** U15s 544 serious-funn er borte i CI 44783234593: 168 sidevarianter, 0 axe-funn. Hvit tekst ligger på `--color-primary-deep`, lys primærtekst bruker samme token, og suksess- og feiltekst i mørkt tema bruker `--color-success-text` og `--color-error-text` (4,5:1 på mørkt skall). Robotsidens tabeller kan fokuseres og rulles med tastatur. Full manuell WCAG 2.2 AA-sertifisering er fortsatt ikke gjort.
 
 **Generelle krav til kode:**
 - Larastan nivå 6 uten unntak i ny kode.
