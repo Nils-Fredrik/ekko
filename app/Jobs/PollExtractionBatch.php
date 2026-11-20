@@ -11,6 +11,7 @@ use App\Extraction\ExtractionRunner;
 use App\Extraction\ExtractionWriter;
 use App\Models\ExtractionJob;
 use App\Models\Response;
+use App\Models\Team;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -133,6 +134,7 @@ class PollExtractionBatch extends TenantJob
             $job->provider_batch_id,
             array_map(fn (int $id): string => 'r'.$id, $responses->keys()->all()),
             $requestFor,
+            fn (): bool => Team::query()->findOrFail($this->tenantId)->mayStartProjectWorkAt(CarbonImmutable::now('UTC')),
         );
 
         foreach ($attempts as $customId => $attempt) {

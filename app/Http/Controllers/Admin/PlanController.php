@@ -19,7 +19,7 @@ final class PlanController extends Controller
         Gate::authorize('viewAny', Plan::class);
 
         return Inertia::render('Admin/Plans', [
-            'plans' => Plan::query()->orderBy('name')->get(),
+            'plans' => Plan::query()->where('is_pitch_plan', false)->orderBy('name')->get(),
             'engines' => Engine::query()->orderBy('key')->get(['key']),
             'frequencies' => ['daily', 'weekly', 'monthly'],
         ]);
@@ -36,6 +36,7 @@ final class PlanController extends Controller
     public function update(Request $request, Plan $plan): RedirectResponse
     {
         Gate::authorize('update', $plan);
+        abort_if($plan->is_pitch_plan, 404);
         $plan->update($this->validated($request));
 
         return back(303);

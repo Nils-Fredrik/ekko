@@ -76,6 +76,40 @@ test('a new action is worded by the model in the market language and the call is
         ->and(DB::table('anthropic_credit_spend')->where('entry', $usage->anthropic_operation)->value('cost_usd'))->toBe('0.00540000');
 });
 
+test('action usage keeps its pitch classification when conversion happens during the call', function () {
+    $this->w->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    $writer = Mockery::mock(ActionWriter::class);
+    $writer->shouldReceive('write')->once()->andReturnUsing(function () {
+        $this->w->tenant->forceFill(['kind' => 'customer', 'pitch_converted_at' => now()])->save();
+
+        return new ActionWriterResult(FakeActionWriter::json('Tittel', 'Beskrivelse', ['Steg en', 'Steg to']), 1200, 300);
+    });
+    app()->instance(ActionWriter::class, $writer);
+
+    generateTenant($this->w);
+
+    expect(UsageEvent::query()->sole()->getAttribute('project_kind'))->toBe('pitch');
+});
+
+test('queued action generation does not run for an expired pitch', function () {
+    $this->w->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()])->save();
+
+    generateTenant($this->w);
+
+    expect(Action::query()->count())->toBe(0)->and($this->writer->requests)->toBeEmpty();
+});
+
+test('a daily pitch refresh updates findings during the week without paid wording calls', function () {
+    $this->w->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    dispatch_sync(new GenerateTenantActions($this->w->tenant->id, force: true));
+    $first = Action::query()->sole()->impact_score;
+    $this->source->candidates = [$this->source->candidate($this->w->market->id, 'branschsajt.se', perMonth: 40, share: 1)];
+    dispatch_sync(new GenerateTenantActions($this->w->tenant->id, force: true));
+
+    expect(Action::query()->count())->toBe(1)->and(Action::query()->sole()->impact_score)->not->toBe($first)
+        ->and($this->writer->requests)->toBeEmpty();
+});
+
 test('each call writes one structured log line with internal IDs and no text (T43-F1)', function () {
     Log::spy();
 

@@ -15,5 +15,7 @@ final class FactJudgeResult
         public readonly ?string $failure = null,
         /** The Anthropic budget operation the call was reserved under; set by FactChecker. */
         public ?string $operation = null,
+        /** Project type when the call started. */
+        public ?string $projectKind = null,
     ) {}
 }

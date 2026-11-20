@@ -3,6 +3,7 @@
 use App\AnthropicBudget\Account;
 use App\Engines\EnginePricing;
 use App\Engines\EngineResult;
+use App\Jobs\GenerateTenantReports;
 use App\Mail\ReportMail;
 use App\Models\AnthropicInsightAllocation;
 use App\Models\Engine;
@@ -36,6 +37,19 @@ use League\Flysystem\UnableToWriteFile;
 use Spatie\LaravelPdf\Facades\Pdf;
 use Spatie\LaravelPdf\FakePdfBuilder;
 use Tests\Support\Metrics\MetricsWorld;
+
+test('a queued scheduled report does not start after pitch expiry', function () {
+    $world = MetricsWorld::create('UTC');
+    $world->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()])->save();
+    Http::preventStrayRequests();
+    Mail::fake();
+
+    dispatch_sync(new GenerateTenantReports($world->tenant->id));
+
+    Http::assertNothingSent();
+    Mail::assertNothingOutgoing();
+    expect(Report::query()->count())->toBe(0);
+});
 
 test('a monthly report pdf is stored and mailed once, with the insight allocation consumed once', function () {
     Storage::fake(config()->string('ekko.reports.disk'));

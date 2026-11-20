@@ -629,7 +629,11 @@ Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like 
 - **Språk:** rapportens `locale`, uavhengig av mottakers brukerinnstilling.
 - **Lagring og utsending:** PDF-en lagres på disken `ekko.reports.disk` (standard `local`) under `reports/{tenant}/` og sendes som vedlegg. T32 skriver til samme disk og prefiks. Bøtten `ekko-reports` settes som den disken når den finnes. Grensesnittet har nedlastingslenke.
 
+**Pitchrapport (T47):** Den korte pitchrapporten har privat PDF-nedlasting og lagrer siste PDF per merkevare. Den er foreløpig ikke koblet til ordinær rapportliste, versjonert rapporthistorikk, planlagt e-postutsending eller rapportplanens profil- og språkvalg. Det er ikke avklart om alle kravene i 11.2 også skal gjelde pitchrapporter; dette er et åpent avvik, ikke en besluttet endring av kravene.
+
 ### 11.3 Tiltak
+
+Pitch-rapporter bruker de tre høyest rangerte åpne tiltakene. Oppsett, separat forbruk og konvertering er beskrevet i [pitch-spesifikasjonen](pitch.md) (T47).
 
 Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen bak. Tiltakene genereres ukentlig per merkevare og marked av `ekko:generate-actions`, og vises i grensesnittet, i rapportene, i API-et og i MCP.
 
@@ -1515,6 +1519,16 @@ Den opprinnelige kryssreview-leveransen er lukket som task:42. Utvidelsen «[Cod
 - Tallene i evidensen kommer fra databasen og er dekket av tester.
 - Samme tiltak gjenkjennes ved neste generering (`fingerprint`) og dupliseres ikke.
 - Eieren har besluttet at agenten som utfører T43, kjører med Opus 5.5 (Board #947). Formuleringsmodellen i produktet er fortsatt Claude Sonnet 5.5. T22 er på plass, så `crawler_access` er aktiv. `fact_correction` kobles på av T48.
+
+### T47 – Pitch-prosjekter og pitch-rapport
+
+Opprettelse fra partner- og adminsidene, pitch-veiviser med 25 prompts, sju dagers kjøring, egen partnerkvote, kort rapport og konvertering til ordinær tenant. Se [pitch-spesifikasjonen](pitch.md).
+
+- Prosjektet stopper nye kjøringer etter sju dager. Kjøringer som allerede er sendt til leverandøren, og uttrekk av svar fra kjøringer opprettet før utløp, fullføres selv om svaret kommer senere. Kølagte kjøringer som ikke er sendt, stoppes.
+- Tiltak for et aktivt pitch-prosjekt genereres daglig, så rapporten kan vise de tre høyest rangerte åpne tiltakene i løpet av de sju dagene.
+- Konvertering beholder all historikk.
+- Pitch-PDF-en lagres privat, men inngår foreløpig ikke i ordinær rapportliste eller e-postutsending. Forholdet til kravene i 11.2 må avklares.
+- Pitch-forbruk vises separat i forbruk og fakturagrunnlag, også etter konvertering.
 
 ### T48 – Faktasjekk: fakta, påstander og vurdering
 `brand_facts` og `claims`, forslag til fakta fra nettsiden i veiviseren, påstandsuttrekk og vurdering i uttrekket (Claude Haiku 5.5) og kobling til kilder etter 11.6. Oppretter `fact_correction`-tiltak via T43.

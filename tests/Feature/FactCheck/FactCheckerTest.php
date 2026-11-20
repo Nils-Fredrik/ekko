@@ -101,6 +101,28 @@ test('an extracted answer is judged against the facts of its brand, validated, s
         ->and(DB::table('anthropic_credit_spend')->where('entry', $usage->anthropic_operation)->value('cost_usd'))->toBe('0.00300000');
 });
 
+test('fact check usage keeps its pitch classification when conversion happens during the call', function () {
+    $this->w->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+    factAnswer($this->w);
+    $judge = new FakeFactJudge(function (string $id): array {
+        $this->w->tenant->forceFill(['kind' => 'customer', 'pitch_converted_at' => now()])->save();
+
+        return FakeFactJudge::entry([]);
+    });
+    app()->instance(FactJudge::class, $judge);
+
+    expect(runFactCheck($this->w))->toBe('done');
+    expect(UsageEvent::query()->sole()->getAttribute('project_kind'))->toBe('pitch');
+});
+
+test('queued fact checking does not call the model after pitch expiry', function () {
+    $this->w->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()])->save();
+    factAnswer($this->w);
+
+    expect(runFactCheck($this->w))->toBe('done');
+    expect($this->judge->requests)->toBeEmpty()->and(UsageEvent::query()->count())->toBe(0);
+});
+
 test('the model and its prices come from configuration, so Opus can replace Sonnet without a code change', function () {
     config(['ekko.anthropic.factcheck.model' => 'claude-opus-test', 'ekko.anthropic.factcheck.input_usd_per_mtok' => '15.00', 'ekko.anthropic.factcheck.output_usd_per_mtok' => '75.00']);
     factAnswer($this->w);

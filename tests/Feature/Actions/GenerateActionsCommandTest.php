@@ -50,3 +50,30 @@ test('a second run the same week is skipped unless forced', function () {
     $this->artisan('ekko:generate-actions', ['--sync' => true, '--force' => true, '--tenant' => [$a->tenant->id]])->assertSuccessful();
     expect(Action::query()->count())->toBe(3)->and(Action::query()->first()->evidence['other_bot_hits'])->toBe(42);
 });
+
+test('an active pitch is refreshed daily and an expired pitch is left alone', function () {
+    $pitch = MetricsWorld::create();
+    $pitch->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(3)])->save();
+    BotHitDaily::factory()->create(['brand_id' => $pitch->brand->id, 'bot' => 'gptbot', 'date' => '2026-11-14', 'hits' => 40]);
+    $expired = MetricsWorld::create();
+    $expired->tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->subMinute()])->save();
+    BotHitDaily::factory()->create(['brand_id' => $expired->brand->id, 'bot' => 'gptbot', 'date' => '2026-11-14', 'hits' => 40]);
+    $customer = MetricsWorld::create();
+    BotHitDaily::factory()->create(['brand_id' => $customer->brand->id, 'bot' => 'gptbot', 'date' => '2026-11-14', 'hits' => 40]);
+
+    $this->artisan('ekko:generate-actions', ['--pitches' => true, '--sync' => true])->assertSuccessful();
+
+    $context = app(TenantContext::class);
+    $context->set($pitch->tenant->id);
+    expect(Action::query()->where('type', ActionType::CrawlerAccess->value)->count())->toBe(3);
+    $context->set($expired->tenant->id);
+    expect(Action::query()->count())->toBe(0);
+    $context->set($customer->tenant->id);
+    expect(Action::query()->count())->toBe(0);
+
+    $context->set($pitch->tenant->id);
+    BotHitDaily::factory()->create(['brand_id' => $pitch->brand->id, 'bot' => 'gptbot', 'date' => '2026-11-15', 'hits' => 2]);
+    $this->artisan('ekko:generate-actions', ['--pitches' => true, '--sync' => true])->assertSuccessful();
+    $context->set($pitch->tenant->id);
+    expect(Action::query()->first()->evidence['other_bot_hits'])->toBe(42);
+});

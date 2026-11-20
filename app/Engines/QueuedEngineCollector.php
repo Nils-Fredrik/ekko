@@ -84,6 +84,16 @@ final class QueuedEngineCollector
 
                     return;
                 }
+                $tenant = Team::query()->findOrFail($tenantId);
+                if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt(CarbonImmutable::now('UTC'))) {
+                    // No paid resubmission after expiry; give the original task the normal two-attempt window.
+                    if ($run->provider_submitted_at?->addHours(12)->isFuture()) {
+                        $this->wait($runId);
+
+                        return;
+                    }
+                    throw new EngineCallFailed('provider_task_timeout');
+                }
                 if ($run->provider_submissions >= 2) {
                     throw new EngineCallFailed('provider_task_timeout');
                 }
@@ -95,6 +105,9 @@ final class QueuedEngineCollector
                     throw new EngineCallFailed('engine_disabled');
                 }
                 $at = CarbonImmutable::now('UTC');
+                if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt($at)) {
+                    throw new EngineCallFailed('pitch_expired');
+                }
                 // A resubmission uses the same provider account as the original task, even after key rotation. Only a
                 // tenant's own key (BYOK) is stored on the run; a null key means the platform account, read from config
                 // at each call, so the platform credentials never land in the runs table (T39-F10).

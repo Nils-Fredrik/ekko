@@ -43,6 +43,9 @@ final class OnboardingRunner
 
     public function brand(Analysis $analysis): void
     {
+        if (! $this->mayStart($analysis)) {
+            return;
+        }
         /** @var array{name: string, primary_domain: string, country: string, language: string} $input */
         $input = $analysis->input;
 
@@ -57,13 +60,25 @@ final class OnboardingRunner
         $analysis->pages = array_map(fn (SitePage $page): string => $page->url, $pages);
 
         $this->advance($analysis, Analysis::ANALYSING);
-        $request = $this->prompts->brand($input['name'], $input['primary_domain'], $input['country'], $input['language'], $pages);
+        $pitch = Team::query()->whereKey($analysis->tenantId)->value('kind') === 'pitch';
+        $request = $this->prompts->brand($input['name'], $input['primary_domain'], $input['country'], $input['language'], $pages, $pitch);
 
-        $this->finish($analysis, $request, fn (string $json): ?array => $this->parser->parseBrand($json, $input['name'], $input['primary_domain']));
+        $this->finish($analysis, $request, function (string $json) use ($input, $pitch): ?array {
+            $result = $this->parser->parseBrand($json, $input['name'], $input['primary_domain']);
+            if ($pitch && $result !== null) {
+                $result['proposal']['prompts'] = array_slice($result['proposal']['prompts'], 0, 25);
+                $result['proposal']['competitors'] = array_slice($result['proposal']['competitors'], 0, 3);
+            }
+
+            return $result;
+        });
     }
 
     public function market(Analysis $analysis): void
     {
+        if (! $this->mayStart($analysis)) {
+            return;
+        }
         /** @var array{brand_id: int, country: string, language: string} $input */
         $input = $analysis->input;
 
@@ -95,6 +110,9 @@ final class OnboardingRunner
      */
     private function finish(Analysis $analysis, OnboardingRequest $request, callable $parse): void
     {
+        if (! $this->mayStart($analysis)) {
+            return;
+        }
         try {
             // Resolved here, not injected: without ANTHROPIC_API_KEY the container cannot build the client.
             $result = app(OnboardingModelClient::class)->suggest($request);
@@ -123,6 +141,16 @@ final class OnboardingRunner
         $analysis->proposal = $parsed['proposal'];
         $analysis->warnings = $parsed['warnings'];
         $this->advance($analysis, Analysis::READY);
+    }
+
+    private function mayStart(Analysis $analysis): bool
+    {
+        if (Team::query()->findOrFail($analysis->tenantId)->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            return true;
+        }
+        $this->fail($analysis, 'pitch_expired');
+
+        return false;
     }
 
     /**
@@ -170,7 +198,7 @@ final class OnboardingRunner
     private function logUsage(Analysis $analysis, OnboardingModelResult $result): void
     {
         // Billed whether or not the reply was usable (docs/spec.md 12.2). Platform key, so billed to the platform.
-        $this->rls->run([$analysis->tenantId], fn () => UsageEvent::query()->create([
+        $this->rls->run([$analysis->tenantId], fn () => UsageEvent::recordAtOrigin([
             'kind' => 'onboarding',
             'engine_key' => null,
             'occurred_at' => CarbonImmutable::now('UTC'),
@@ -180,7 +208,7 @@ final class OnboardingRunner
             'search_calls' => 0,
             'cost_usd' => $this->cost->of($result->inputTokens, $result->outputTokens),
             'billed_to' => 'platform',
-        ]));
+        ], $analysis->startedAt === null ? null : CarbonImmutable::parse($analysis->startedAt)));
     }
 
     /**

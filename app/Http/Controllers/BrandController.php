@@ -12,6 +12,7 @@ use App\Models\Action;
 use App\Models\Brand;
 use App\Models\MarketEngine;
 use App\Models\Prompt;
+use App\Models\Team;
 use App\Onboarding\Analysis;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -74,6 +75,7 @@ class BrandController extends Controller
 
         return Inertia::render('Brands/Show', [
             'canCreateMarket' => Gate::allows('createMarketAnalysis', Analysis::class),
+            'hasPitchReport' => Team::query()->whereKey(current_tenant_id())->whereNotNull('pitch_expires_at')->exists(),
             'brand' => [
                 'id' => $brand->id,
                 'name' => $brand->name,

@@ -9,6 +9,7 @@ use App\ActionEngine\Writing\ActionWriterFailed;
 use App\ActionEngine\Writing\AnthropicActionWriter;
 use App\AnthropicBudget\Account;
 use App\AnthropicBudget\Money;
+use App\Models\Team;
 use App\Models\UsageEvent;
 use App\Tenancy\Rls\TenantRls;
 use Carbon\CarbonImmutable;
@@ -43,6 +44,10 @@ final readonly class ActionFormulator
             return null;
         }
 
+        $project = Team::query()->findOrFail($tenantId);
+        if (! $project->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            return null;
+        }
         $configured = app(Account::class)->configured();
         $operation = 'actions:'.Str::uuid()->toString();
         $log = ['tenant' => $tenantId, 'action' => $actionId, 'operation' => $operation];
@@ -52,6 +57,15 @@ final readonly class ActionFormulator
             return null;
         }
 
+        $project = Team::query()->findOrFail($tenantId);
+        if (! $project->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            if ($configured) {
+                Account::independent()->settle($operation);
+            }
+
+            return null;
+        }
+        $projectKind = $project->kind;
         try {
             // Resolved here: without ANTHROPIC_API_KEY the container cannot build the client.
             $result = app(ActionWriter::class)->write($request);
@@ -73,7 +87,7 @@ final readonly class ActionFormulator
             // Durable before the tenant's booking: a rollback there cannot release a known provider cost.
             Account::independent()->settleKnown($operation, $cost);
         }
-        $usage = $this->rls->run([$tenantId], fn () => UsageEvent::query()->create([
+        $usage = $this->rls->run([$tenantId], fn () => UsageEvent::recordForProject([
             'kind' => 'actions',
             'engine_key' => null,
             'occurred_at' => CarbonImmutable::now('UTC'),
@@ -84,7 +98,7 @@ final readonly class ActionFormulator
             'cost_usd' => $cost,
             'billed_to' => 'platform',
             'anthropic_operation' => $operation,
-        ]));
+        ], $projectKind));
 
         $text = $result->text === null ? null : $this->guard->parse($result->text, $request->names);
         Log::info('Action wording call.', $log + [

@@ -69,6 +69,15 @@ final class AuditLog
         $this->record($tenant, 'tenant.created', $by, null, ['name' => $tenant->name]);
     }
 
+    public function pitchConverted(User $by, Team $tenant, ?int $previousPlanId): void
+    {
+        $this->record($tenant, 'pitch.converted', $by, null, [
+            'from' => ['kind' => 'pitch', 'plan_id' => $previousPlanId],
+            'to' => ['kind' => 'customer', 'plan_id' => $tenant->plan_id],
+            'partner_team_id' => $tenant->partner_team_id,
+        ]);
+    }
+
     public function tenantRenamed(User $by, Team $tenant, string $from): void
     {
         $this->record($tenant, 'tenant.renamed', $by, null, ['from' => $from, 'to' => $tenant->name]);

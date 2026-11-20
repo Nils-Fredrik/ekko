@@ -161,6 +161,11 @@ foreach (['brands', 'alerts', 'usage'] as $resource) {
 
 return [
     'admin.tenants.index' => RouteAccess::platformAdmin(),
+    'admin.pitches.store' => RouteAccess::platformAdmin(own: function () {
+        $partner = Team::factory()->tenant()->create();
+
+        return ['data' => ['name' => 'Pitch test', 'partner_team_id' => $partner->id]];
+    }),
     'admin.tenants.store' => RouteAccess::platformAdmin(own: fn () => ['data' => [
         'name' => 'Isolasjon',
         'plan_id' => Plan::factory()->create()->id,
@@ -265,6 +270,49 @@ return [
     // No resource id. A partner advisor sees only clients of the current partner tenant.
     // PartnerOverviewTest checks that another partner's client never appears.
     'partner.index' => RouteAccess::user(),
+    'partner.pitches.store' => RouteAccess::user(
+        own: function (Scenario $s) {
+            $s->tenantA->forceFill(['plan_id' => Plan::factory()->create()->id])->save();
+
+            return ['data' => ['name' => 'Pitch test']];
+        },
+        deniedRoles: ['owner', 'admin', 'editor', 'reader'],
+    )->withoutForeignCheck('Uses the current partner only; cross-partner authorization is covered by PitchProjectsTest.'),
+    'pitches.convert' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['team' => Team::factory()->clientOf($s->tenantB)->create(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->id]],
+        own: function (Scenario $s) {
+            $s->tenantA->forceFill(['plan_id' => Plan::factory()->create()->id])->save();
+
+            return ['params' => ['team' => Team::factory()->clientOf($s->tenantA)->create(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->id]];
+        },
+        deniedRoles: ['owner', 'admin', 'editor', 'reader'],
+    ),
+    'pitches.report' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => Brand::factory()->create()->id);
+
+            return ['params' => ['brand' => $id]];
+        },
+        own: function (Scenario $s) {
+            $s->tenantA->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+            $id = app(TenantContext::class)->run($s->tenantA->id, fn () => Brand::factory()->create()->id);
+
+            return ['params' => ['brand' => $id]];
+        },
+    ),
+    'pitches.report.pdf' => RouteAccess::tenant(
+        foreign: function (Scenario $s) {
+            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => Brand::factory()->create()->id);
+
+            return ['params' => ['brand' => $id]];
+        },
+        own: function (Scenario $s) {
+            $s->tenantA->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->save();
+            $id = app(TenantContext::class)->run($s->tenantA->id, fn () => Brand::factory()->create()->id);
+
+            return ['params' => ['brand' => $id]];
+        },
+    ),
     'brands.index' => RouteAccess::user(),
     'brands.show' => RouteAccess::tenant(
         foreign: function (Scenario $s) {

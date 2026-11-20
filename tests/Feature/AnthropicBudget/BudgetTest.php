@@ -1,6 +1,7 @@
 <?php
 
 use App\AnthropicBudget\Account;
+use App\AnthropicBudget\Estimator;
 use App\AnthropicBudget\Money;
 use App\AnthropicBudget\Planner;
 use App\Engines\Adapters\ClaudeHaikuAdapter;
@@ -37,6 +38,33 @@ function inAnthropicTenant(Team $tenant, callable $callback): mixed
 beforeEach(function () {
     config(['ekko.anthropic.monthly_pool_usd' => '100', 'ekko.anthropic.cycle_start_day' => 15]);
     $this->travelTo(CarbonImmutable::parse('2026-11-20T12:00:00Z'));
+});
+
+test('the forecast stops scheduling a pitch at its expiry while retaining past spend', function () {
+    $now = CarbonImmutable::parse('2026-11-20T12:00:00Z');
+    $engine = Engine::factory()->create(['key' => 'claude_haiku', 'provider' => 'anthropic', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create(['valid_from' => $now->subYear(), 'price_per_call_usd' => '0.02']);
+    $plan = Plan::query()->where('is_pitch_plan', true)->sole();
+    $tenant = Team::factory()->tenant()->withPlan($plan)->create([
+        'kind' => 'pitch', 'pitch_expires_at' => $now->addDays(2), 'timezone' => 'UTC',
+    ]);
+    inAnthropicTenant($tenant, function () use ($engine) {
+        $market = Market::factory()->create(['is_active' => true]);
+        $market->brand->update(['status' => 'active']);
+        MarketEngine::factory()->for($market)->for($engine)->create(['frequency' => 'weekly', 'repetitions' => 1]);
+        Prompt::factory()->for($market)->create(['is_active' => true]);
+    });
+    $account = app(Account::class);
+    $account->settleKnown('pitch-past-spend', '1.00000000');
+    $estimator = app(Estimator::class);
+    $baseline = 2 * ($estimator->engine('claude_haiku', $now) + $estimator->extraction(3000, true, 800));
+    app(Planner::class)->plan($now);
+    expect($account->summary()['forecast']['forecast_usd'])
+        ->toBe(Money::usd(Money::units('1') + $baseline + intdiv($baseline + 9, 10)));
+
+    $this->travelTo($now->addDays(2));
+    app(Planner::class)->plan($now->addDays(2));
+    expect($account->summary()['forecast']['forecast_usd'])->toBe('1.00000000');
 });
 
 test('account includes platform extraction and onboarding, excludes BYOK and survives tenant deletion', function () {

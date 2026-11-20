@@ -1,0 +1,25 @@
+<?php
+
+return [
+    'kind_customer' => 'Customer',
+    'kind_pitch' => 'Pitch',
+    'usage_by_kind' => 'Usage by project type',
+    'create' => 'Create pitch project',
+    'name' => 'Project name',
+    'partner' => 'Partner',
+    'plan' => 'Plan',
+    'convert' => 'Convert to customer',
+    'report' => 'Pitch report',
+    'download_pdf' => 'Download PDF',
+    'reduced_quality' => ':n answers lack model extraction and use automatic matching only. The figures may be incomplete.',
+    'visibility' => 'Visibility versus competitors',
+    'sources' => 'Top sources',
+    'metric' => ':name: :value (n=:n)',
+    'limit' => 'A partner can have at most three active pitch projects.',
+    'name_required' => 'Enter a name for the pitch project.',
+    'no_plan' => 'The partner needs a plan before a pitch project can be created.',
+    'no_customer_plan' => 'The partner needs a customer plan before the project can be converted.',
+    'expired' => 'The pitch project has expired.',
+    'limits' => 'A pitch can have at most 25 prompts and three competitors.',
+    'plan_unavailable' => 'The plan must allow 25 prompts and all active pitch engines daily.',
+];

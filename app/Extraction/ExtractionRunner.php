@@ -38,7 +38,7 @@ final class ExtractionRunner
      * @param  Closure(string): ?ExtractionRequest  $requestFor  rebuilds a request for the retry
      * @return array<string, ExtractionAttempt> by custom id
      */
-    public function collect(string $batchId, array $customIds, Closure $requestFor): array
+    public function collect(string $batchId, array $customIds, Closure $requestFor, ?Closure $mayRetry = null): array
     {
         $wanted = array_fill_keys($customIds, true);
         $results = [];
@@ -61,6 +61,11 @@ final class ExtractionRunner
                 continue;
             }
 
+            if ($mayRetry !== null && ! $mayRetry()) {
+                $attempts[$customId] = new ExtractionAttempt($customId, null, $first['outcomes'], false);
+
+                continue;
+            }
             Log::info('Extraction batch result unusable, retrying once.', ['custom_id' => $customId, 'error_type' => ($first['outcomes'][0] ?? null)?->errorType]);
             $attempts[$customId] = $this->retry($customId, $first['outcomes'], $requestFor);
         }

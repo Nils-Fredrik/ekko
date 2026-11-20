@@ -28,9 +28,14 @@ Rules for prompts:
 PROMPT;
 
     /** @param  list<SitePage>  $pages */
-    public function brand(string $brandName, string $domain, string $country, string $language, array $pages): OnboardingRequest
+    public function brand(string $brandName, string $domain, string $country, string $language, array $pages, bool $pitch = false): OnboardingRequest
     {
         $max = (array) config('ekko.wizard.suggestions');
+        if ($pitch) {
+            $max['max_competitors'] = 3;
+            $max['max_prompts'] = 25;
+        }
+        $minCompetitors = $pitch ? 0 : 5;
 
         $system = <<<PROMPT
 You help set up monitoring of how a brand appears in AI search answers. From the brand's own web pages, propose the starting configuration. Reply with JSON that matches the required schema and nothing else.
@@ -45,7 +50,7 @@ The user message has these parts:
 Rules for the output:
 - industry and category: the industry and the product or service category of the business, in English, short.
 - name_variants: other ways people write or say the brand name (abbreviations, spelling variants, with or without a legal suffix, domain-style spelling). Not the exact name already given. At most {$max['max_name_variants']}.
-- competitors: between 5 and {$max['max_competitors']} real competitors in this market, each with its own primary domain written as a bare host name such as example.no. Only companies you are confident exist. Never the brand itself.
+- competitors: between {$minCompetitors} and {$max['max_competitors']} real competitors in this market, each with its own primary domain written as a bare host name such as example.no. Only companies you are confident exist. Never the brand itself.
 - topics: between 5 and {$max['max_topics']} topics that cover what customers ask about. name is written in the market language. cross_market_key is a stable identifier in English lowercase letters, digits and underscores, so the same topic in another market gets the same key.
 - prompts: {$max['max_prompts']} prompts. Each belongs to one topic through cross_market_key, which must be one of the keys in topics. Exactly {$max['max_core_prompts']} of them have is_core true.
 - facts: up to {$max['max_facts']} short, checkable facts about the brand that the pages state plainly, such as the year it was founded, where its offices or shops are, which services or products it offers, or what they cost. One fact per entry, written as a complete sentence in the market language. Only what the pages say: never guess, never add facts from memory, no email addresses or phone numbers. An empty list when the pages state nothing checkable.

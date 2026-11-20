@@ -43,6 +43,7 @@ final class Analysis
         public array $pages = [],
         public array $warnings = [],
         public ?string $error = null,
+        public readonly ?string $startedAt = null,
     ) {}
 
     /** @return array<string, mixed> */
@@ -59,6 +60,7 @@ final class Analysis
             'pages' => $this->pages,
             'warnings' => $this->warnings,
             'error' => $this->error,
+            'started_at' => $this->startedAt,
         ];
     }
 
@@ -76,6 +78,7 @@ final class Analysis
             $data['pages'],
             $data['warnings'],
             $data['error'],
+            $data['started_at'] ?? null,
         );
     }
 

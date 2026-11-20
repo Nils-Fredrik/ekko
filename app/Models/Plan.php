@@ -89,6 +89,7 @@ class Plan extends Model
             'max_repetitions' => 'integer',
             'monthly_call_quota' => 'integer',
             'monthly_budget_usd' => 'decimal:2',
+            'is_pitch_plan' => 'boolean',
         ];
     }
 }
