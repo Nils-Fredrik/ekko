@@ -24,4 +24,6 @@ Gruppering velges og lagres bare på merkevareoversikten, som viser tidsserier. 
 
 ## Konsekvenser
 
+Merkevaredashboardets databaseavhengige props evalueres først etter at Inertia har valgt hvilke props svaret trenger (U11-F1, task:115). Nøkkeltall, dagserie, stemmeandel og motorer deler én lokalt mellomlagret dashboardberegning per svar. Dette er ikke en ny cache mellom forespørsler: neste svar leser ferske tall. Innsikt beholder sin egen beregning av gjeldende og tidligere periode (ADR 0038); grafene beholder eksisterende GraphCache. Autorisasjon og filtervalidering kjøres også ved delvise forespørsler.
+
 Filterendringer henter utsatte grafdata i samme delvise svar. Innsiktsteksten hentes i en separat forespørsel etter at grafene er oppdatert, slik at modellkall ikke forsinker tallene (ADR 0038). Tidligere innsiktstekst tømmes og gamle forespørsler avbrytes ved neste filterskifte. Full navigasjon mellom analysesider er fortsatt vanlig Inertia-navigasjon. Historiske innsiktstekster med gammel cacheidentitet blir ikke gjenbrukt for et annet vindu. Ingen eksterne modellkall gjøres i nettlesertestene.
