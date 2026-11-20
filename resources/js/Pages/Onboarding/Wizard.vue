@@ -48,6 +48,7 @@ const form = useForm({
     competitors: [],
     topics: [],
     prompts: [],
+    facts: [],
     engines: [],
     clickhouse_host: '',
     clickhouse_database: '',
@@ -62,7 +63,7 @@ const form = useForm({
 const coreCount = computed(() => draft.value.prompts.filter((prompt) => prompt.priority === 'core').length);
 
 function emptyDraft() {
-    return { industry: '', category: '', name_variants: [], competitors: [], topics: [], prompts: [] };
+    return { industry: '', category: '', name_variants: [], competitors: [], topics: [], prompts: [], facts: [] };
 }
 
 function stop() {
@@ -134,6 +135,8 @@ function fill(payload) {
         competitors: (proposal.competitors ?? []).map((row) => ({ ...row })),
         topics: (props.brand?.topics ?? proposal.topics ?? []).map((row) => ({ ...row })),
         prompts: (proposal.prompts ?? []).map((row) => ({ ...row })),
+        // Proposed facts are only saved when the user approves them (docs/spec.md 11.6).
+        facts: (proposal.facts ?? []).map((text) => ({ text, approved: false })),
     };
     step.value = 'edit';
 }
@@ -162,6 +165,19 @@ function failureMessage(payload) {
         payload?.error?.message ||
         trans('onboarding.ui.failed')
     );
+}
+
+// The draft index of each fact sent with confirm, so an error on facts.N lands on the right row.
+const sentFacts = ref([]);
+
+function factError(index) {
+    const sent = sentFacts.value.indexOf(index);
+
+    return sent === -1 ? '' : form.errors[`facts.${sent}`];
+}
+
+function addFact() {
+    draft.value.facts.push({ text: '', approved: true });
 }
 
 function addTopic() {
@@ -229,6 +245,10 @@ function confirm() {
     form.competitors = draft.value.competitors;
     form.topics = props.brand ? [] : draft.value.topics;
     form.prompts = draft.value.prompts;
+    sentFacts.value = props.brand
+        ? []
+        : draft.value.facts.flatMap((fact, index) => (fact.approved && fact.text.trim() !== '' ? [index] : []));
+    form.facts = sentFacts.value.map((index) => draft.value.facts[index].text.trim());
     form.engines = setup.value
         .filter((engine) => engine.enabled)
         .map((engine) => ({
@@ -366,6 +386,32 @@ function confirm() {
                 <button v-if="!brand" type="button" class="text-sm" @click="addTopic">
                     {{ $t('onboarding.ui.add_topic') }}
                 </button>
+                <div v-if="!brand" data-testid="wizard-facts">
+                    <h3 class="text-sm font-medium">{{ $t('onboarding.ui.facts') }}</h3>
+                    <p class="mt-1 text-xs text-shell-muted">{{ $t('onboarding.ui.facts_intro') }}</p>
+                    <div v-for="(fact, index) in draft.facts" :key="index" class="mt-2">
+                        <div class="flex items-center gap-2">
+                            <label class="flex shrink-0 items-center gap-2 text-sm">
+                                <input v-model="fact.approved" type="checkbox" />
+                                {{ $t('onboarding.ui.approve_fact') }}
+                            </label>
+                            <input
+                                v-model="fact.text"
+                                :aria-label="$t('onboarding.ui.fact')"
+                                maxlength="300"
+                                :class="field"
+                                class="w-full"
+                            />
+                            <button type="button" class="text-sm" @click="draft.facts.splice(index, 1)">
+                                {{ $t('onboarding.ui.remove') }}
+                            </button>
+                        </div>
+                        <InputError :message="factError(index)" />
+                    </div>
+                    <button type="button" class="mt-2 text-sm" @click="addFact">
+                        {{ $t('onboarding.ui.add_fact') }}
+                    </button>
+                </div>
                 <div>
                     <h3 class="text-sm font-medium">{{ $t('onboarding.ui.prompts') }}</h3>
                     <div
