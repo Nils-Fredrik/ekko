@@ -40,11 +40,11 @@ Første U15-kjøring hadde 0 kritiske funn etter retting av skjemanavn. Den rapp
 
 | Måling | Grense i byte | Utgangspunkt ved U15 |
 |---|---:|---:|
-| App og statiske importer + største språkmodul | 160 000 | 148 384 |
-| Største første sidelasting + app og språk | 285 000 | 267 260 |
+| App og statiske importer + største språkmodul | 160 000 | 148 882 |
+| Største første sidelasting + app og språk | 285 000 | 267 751 |
 | ECharts-chunk | 240 000 | 211 419 |
-| Alle JavaScript-chunker | 700 000 | 637 714 |
+| Alle JavaScript-chunker | 700 000 | 642 306 |
 
-Grensene gir omtrent 7–15 % rom fra dagens bygg og ligger i `tests/Browser/visual/budgets.json`. Overskridelse eller manglende måling stopper CI. En budsjettendring skal begrunnes i PR-en; den skal ikke være en automatisk reaksjon på røde tester. Eksisterende kontroll mot eager-lasting av ECharts og grensen for ukomprimert grafbibliotek gjelder fortsatt.
+Grensene gir omtrent 6–15 % rom fra dagens bygg og ligger i `tests/Browser/visual/budgets.json`. Overskridelse eller manglende måling stopper CI. En budsjettendring skal begrunnes i PR-en; den skal ikke være en automatisk reaksjon på røde tester. Eksisterende kontroll mot eager-lasting av ECharts og grensen for ukomprimert grafbibliotek gjelder fortsatt.
 
 Bundlebudsjettet erstatter ikke målingene av p95 HTTP-responstid eller LCP på representative enheter og nettverk. Disse ytelsesmålene gjelder fortsatt; den deterministiske bildesuiten er ikke et produksjonsytelsesbevis.
