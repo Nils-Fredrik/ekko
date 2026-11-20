@@ -50,6 +50,9 @@
             <p>{{ __('reports.reconstructed') }}</p>
         @endif
         <section class="report-section" id="report-cover">
+            @if (! empty($reduced_quality))
+                <p>{{ __('pitch.reduced_quality', ['n' => $reduced_quality]) }}</p>
+            @endif
             @if ($insight)
                 <h2>{{ __('reports.insight') }}</h2>
                 <p>{{ $insight }}</p>
@@ -70,7 +73,7 @@
             </table>
         </section>
 
-        @if (! empty($trend))
+        @if (! ($short ?? false) && ! empty($trend))
             <section class="report-section" id="report-development">
                 @include('reports.partials.pdf-trend')
                 @if ($shared ?? false)
@@ -83,34 +86,40 @@
             </section>
         @endif
 
+        @unless ($short ?? false)
         <section class="report-section" id="report-engines">
             <h2>{{ __('reports.engines') }}</h2>
             @include('reports.partials.bars', ['name' => 'engines', 'label' => __('reports.engines'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['engine'], 'value' => $row['visibility']['ratio'] ?? null, 'low' => $row['visibility']['low'] ?? false], $engines)])
             @include('reports.partials.table', ['columns' => [__('reports.engine'), __('reports.visibility'), __('reports.share_of_voice')], 'rows' => array_map(fn ($row) => [$row['engine'], $row['visibility'], $row['share_of_voice']], $engines)])
         </section>
+        @endunless
 
         <section class="report-section" id="report-competitors">
             <h2>{{ __('reports.competitors') }}</h2>
             @include('reports.partials.lines', ['series' => $competitor_series ?? ['periods' => [], 'lines' => []], 'label' => __('reports.competitors')])
-            @include('reports.partials.bars', ['name' => 'competitors', 'label' => __('reports.competitors'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['name'], 'value' => $row['share_of_voice']['ratio'] ?? null, 'low' => $row['share_of_voice']['low'] ?? false], $competitors)])
+            @include('reports.partials.bars', ['name' => 'competitors', 'label' => __('reports.competitors'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['name'], 'value' => $row['share_of_voice']['ratio'] ?? $row['visibility']['ratio'] ?? null, 'low' => $row['share_of_voice']['low'] ?? $row['visibility']['low'] ?? false], $competitors)])
             @include('reports.partials.table', ['columns' => [__('reports.competitor'), __('reports.mentions'), __('reports.visibility'), __('reports.share_of_voice')], 'rows' => array_map(fn ($row) => [$row['name'], $row['mentions'], $row['visibility'], $row['share_of_voice']], $competitors)])
         </section>
 
+        @unless ($short ?? false)
         <section class="report-section" id="report-prompts">
             <h2>{{ __('reports.prompts') }}</h2>
             @include('reports.partials.heatmap', ['heatmap' => $heatmap ?? ['engines' => [], 'rows' => []], 'label' => __('reports.prompts')])
             @include('reports.partials.bars', ['name' => 'prompts', 'label' => __('reports.prompts'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['prompt'], 'value' => $row['visibility']['ratio'] ?? null, 'low' => $row['visibility']['low'] ?? false], $prompts)])
             @include('reports.partials.table', ['columns' => [__('reports.prompt'), __('reports.visibility'), __('reports.change')], 'rows' => array_map(fn ($row) => [$row['prompt'], $row['visibility'], $row['change']], $prompts)])
         </section>
+        @endunless
 
         <section class="report-section" id="report-sources">
             <h2>{{ __('reports.sources') }}</h2>
             @include('reports.partials.bars', ['name' => 'sources', 'label' => __('reports.sources'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['domain'], 'value' => $row['citations'], 'low' => false], $sources)])
             @include('reports.partials.table', ['columns' => [__('reports.domain'), __('reports.citations')], 'rows' => array_map(fn ($row) => [$row['domain'], $row['citations']], $sources)])
 
+            @unless ($short ?? false)
             <h2>{{ __('reports.gaps') }}</h2>
             @include('reports.partials.bars', ['name' => 'gaps', 'label' => __('reports.gaps'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['domain'], 'value' => $row['gap_responses'], 'low' => false], $gaps)])
             @include('reports.partials.table', ['columns' => [__('reports.domain'), __('reports.gap')], 'rows' => array_map(fn ($row) => [$row['domain'], $row['gap_responses']], $gaps)])
+            @endunless
         </section>
 
         <section class="report-section" id="report-actions">
@@ -136,6 +145,7 @@
         @endforelse
         </section>
 
+        @unless ($short ?? false)
         <section class="report-section" id="report-robots">
             <h2>{{ __('app.crawlers.funnel') }}</h2>
             @include('reports.partials.bars', ['name' => 'funnel', 'label' => __('app.crawlers.funnel'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['label'], 'value' => $row['value'], 'low' => $row['low'] ?? false], $funnel ?? [])])
@@ -152,6 +162,7 @@
             <h2>{{ __('reports.models') }}</h2>
             @include('reports.partials.table', ['columns' => [__('reports.engine'), __('reports.changed_on'), __('reports.from_model'), __('reports.to_model')], 'rows' => array_map(fn ($row) => [$row['engine'], $row['on'], $row['from'], $row['to']], $models)])
         </section>
+        @endunless
     </main>
 </body>
 </html>

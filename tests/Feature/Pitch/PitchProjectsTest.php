@@ -124,9 +124,12 @@ test('a pitch PDF is generated from scoped report data and saved privately for d
 
     $response = $this->actingAs($owner)->get(route('pitches.report.pdf', $world->brand))->assertOk()->assertHeader('content-type', 'application/pdf');
     expect($response->streamedContent())->toStartWith('%PDF');
-    $pdf->assertViewIs('pitch.pdf');
+    $pdf->assertViewIs('reports.pdf');
+    $pdf->assertViewHas('short', true);
     $pdf->assertViewHas('brand', 'Fjordkaffe');
     $pdf->assertViewHas('reduced_quality', 1);
+    $pdf->assertSee('id="report-cover"', false);
+    $pdf->assertDontSee('id="report-engines"', false);
     $pdf->assertSee(__('pitch.reduced_quality', ['n' => 1]));
     $files = Storage::disk($disk)->files('reports/'.$world->tenant->id);
     expect($files)->toBe(['reports/'.$world->tenant->id.'/pitch-'.$world->brand->id.'.pdf']);

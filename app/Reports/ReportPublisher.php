@@ -264,7 +264,7 @@ final class ReportPublisher
     }
 
     /**
-     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, points: list<float|null>}>}
+     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, points: list<float|null>, ranks: list<int|null>}>}
      */
     private function competitorSeries(MetricsFilter $filter, string $brand): array
     {
@@ -277,9 +277,11 @@ final class ReportPublisher
                     'name' => $id === 'brand' ? $brand : (string) $entity['name'],
                     'own' => $id === 'brand',
                     'points' => [],
+                    'ranks' => [],
                     'latest' => $entity['share_of_voice']['value'],
                 ];
                 $lines[$id]['points'][] = $entity['share_of_voice']['value'];
+                $lines[$id]['ranks'][] = $entity['rank'];
                 $lines[$id]['latest'] = $entity['share_of_voice']['value'];
             }
         }

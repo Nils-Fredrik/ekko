@@ -262,6 +262,10 @@ Alle merkevarens analysesider bruker `PeriodFilters`: oversikt, promptliste/-det
 
 Felles filterlinje etter 7.8. Filterendringer henter kun data, og kopiert URL gjenskaper filtertilstanden. Lagrede visninger ligger i `saved_views` med tenant-RLS og brukeravgrensning. Datovalidering, tidsbøtter, cacheavgrensning, tenant-/brukerisolasjon, deling og mobilflyt testes. Se [ADR 0041](decisions/0041-analysefiltre-og-lagrede-visninger.md).
 
+## U13 – Rapportdesign
+
+Delt rapport og PDF er samme Blade-mal. Forsiden, utviklingen, motorer, konkurrenter med share of voice og rang, promptvarmekart, kilder, tiltak, robottrakt og modellvedlegg skrives ut i A4. Pitch-PDF-en er kortformen av samme mal. Grafene er SVG, så nett og PDF viser samme figurer.
+
 ## U15 – Visuell regresjon, ytelsesbudsjett og tilgjengelighet
 
 Alle aktive sider har skjermbilder og axe-kontroll i lys/mørk modus og desktop/mobil. Referansene tas med låst Linux/Chromium og faste syntetiske data. CI stopper ved visuelle avvik, kritiske axe-funn og overskridelser av gzip-budsjetter for app, første sidelasting, ECharts og samlet JavaScript. HTML-rapporten viser sidebilder, feil og referanseendringer mot PR-ens basecommit. Sideregisteret må oppdateres når nye sider legges til.

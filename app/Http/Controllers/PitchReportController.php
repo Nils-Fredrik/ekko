@@ -24,7 +24,7 @@ final class PitchReportController extends Controller
 
     public function download(Brand $brand, PitchReportMetrics $metrics, ReportActions $actions): StreamedResponse
     {
-        $data = $this->data($brand, $metrics, $actions);
+        $data = $this->pdfData($this->data($brand, $metrics, $actions), Team::query()->findOrFail(current_tenant_id()));
         $path = 'reports/'.current_tenant_id().'/pitch-'.$brand->id.'.pdf';
         $locale = app()->getLocale();
 
@@ -33,7 +33,7 @@ final class PitchReportController extends Controller
             $previous = app()->getLocale();
             app()->setLocale($locale);
             try {
-                $bytes = Pdf::view('pitch.pdf', $data)->format('a4')->generatePdfContent();
+                $bytes = Pdf::view('reports.pdf', $data)->format('a4')->generatePdfContent();
                 if (! Storage::disk(config()->string('ekko.reports.disk'))->put($path, $bytes, 'private')) {
                     throw new RuntimeException('Could not store the pitch report PDF.');
                 }
@@ -72,6 +72,53 @@ final class PitchReportController extends Controller
             'to' => $to,
             ...$summary,
             'actions' => $section,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function pdfData(array $data, Team $team): array
+    {
+        $metric = function (array $value): array {
+            $shown = $value['value'] === null
+                ? '–'
+                : number_format((float) $value['value'] * 100, 1, app()->getLocale() === 'en' ? '.' : ',', ' ').' %';
+
+            return [
+                'text' => $shown.' '.__('reports.sample', ['n' => $value['n']]),
+                'low' => (bool) $value['low_sample'],
+                'ratio' => $value['value'],
+            ];
+        };
+        $branding = is_array($team->branding) ? $team->branding : [];
+        $color = is_string($branding['primary'] ?? null) && preg_match('/\A#[0-9a-fA-F]{6}\z/', $branding['primary']) === 1
+            ? $branding['primary']
+            : '#e84a38';
+        /** @var array{value: float|null, n: int, low_sample: bool} $visibility */
+        $visibility = $data['visibility'];
+        /** @var list<array{name: string, visibility: array{value: float|null, n: int, low_sample: bool}}> $competitors */
+        $competitors = $data['competitors'];
+
+        return [
+            ...$data,
+            'short' => true,
+            'profile' => ['name' => $team->name, 'color' => $color, 'logo' => null],
+            'insight' => null,
+            'responses' => $visibility['n'],
+            'headlines' => [[
+                'label' => __('pitch.visibility'),
+                'value' => $metric($visibility)['text'],
+                'low' => $visibility['low_sample'],
+                'change' => '',
+            ]],
+            'competitors' => array_map(fn (array $row): array => [
+                'name' => $row['name'],
+                'mentions' => 0,
+                'visibility' => $metric($row['visibility']),
+                'share_of_voice' => $metric($row['visibility']),
+            ], $competitors),
         ];
     }
 }

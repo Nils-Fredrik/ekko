@@ -49,7 +49,7 @@ test('section bars are the same markup on the web page and in the pdf', function
     $charts = [
         'competitor_series' => [
             'periods' => ['2026-10-01', '2026-10-02'],
-            'lines' => [['name' => 'Northwind', 'own' => true, 'points' => [0.2, 0.4]]],
+            'lines' => [['name' => 'Northwind', 'own' => true, 'points' => [0.2, 0.4], 'ranks' => [1, 2]]],
         ],
         'heatmap' => [
             'engines' => ['chatgpt'],
@@ -65,6 +65,8 @@ test('section bars are the same markup on the web page and in the pdf', function
     $shared = view('reports.pdf', [...$base, ...$charts, 'shared' => true])->render();
 
     expect($pdf)->toContain('data-testid="report-competitor-lines"')
+        ->toContain('data-testid="report-competitor-ranks"')
+        ->toContain('points="40,10 560,150"')
         ->toContain('data-testid="report-prompt-heatmap"')
         ->toContain('data-testid="report-bars-funnel"')
         ->and($shared)->toContain('data-testid="report-competitor-lines"')
