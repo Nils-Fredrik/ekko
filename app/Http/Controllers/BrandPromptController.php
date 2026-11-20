@@ -111,11 +111,24 @@ class BrandPromptController extends Controller
             'importResult' => session('prompt_import'),
             'personalData' => (bool) session('personal_data'),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
-                'brand.prompts.u11', $filter, $period->timezone, fn (): array => [
-                    'topics' => AnalysisFilters::topicBars($brand, $metrics, $filter),
-                    'heatmap' => $metrics->visibilityByPromptEngine($filter),
-                    'stability' => $metrics->stabilityDots($dotsFilter),
-                ],
+                'brand.prompts.u06', $filter, $period->timezone, function () use ($brand, $metrics, $filter, $dotsFilter, $period, $selection): array {
+                    $sparkFrom = CarbonImmutable::parse($period->to)->subDays(27)->toDateString();
+                    $sparkFilter = new MetricsFilter($filter->brandId, $sparkFrom, $period->to, ...$selection);
+                    $heatmap = $metrics->visibilityByPromptEngine($filter);
+                    $labels = DashboardLabels::engines(array_values(array_unique(array_column($heatmap, 'engine_key'))));
+
+                    return [
+                        'topics' => AnalysisFilters::topicBars($brand, $metrics, $filter),
+                        'heatmap' => $heatmap,
+                        'engines' => array_map(
+                            fn (string $key): array => ['key' => $key, 'name' => $labels[$key] ?? DashboardLabels::engine($key)],
+                            array_keys($labels),
+                        ),
+                        'sparklines' => $metrics->visibilityByPromptSeries($sparkFilter),
+                        'sparkline' => ['from' => $sparkFrom, 'to' => $period->to],
+                        'stability' => $metrics->stabilityDots($dotsFilter),
+                    ];
+                },
             )),
         ]);
     }
@@ -191,7 +204,7 @@ class BrandPromptController extends Controller
         ]);
     }
 
-    public function show(Request $request, Brand $brand, Prompt $prompt, MetricsService $metrics): InertiaResponse
+    public function show(Request $request, Brand $brand, Prompt $prompt): InertiaResponse
     {
         BrandPage::authorizeView($brand);
         $prompt = $this->promptOf($brand, $prompt);
@@ -204,30 +217,73 @@ class BrandPromptController extends Controller
         $query = Response::query()
             ->whereHas('run', fn ($run) => $run->where('prompt_id', $prompt->id))
             ->whereBetween('collected_at', [$from, $to])
-            ->when($filter->engineKeys !== [], fn ($q) => $q->whereIn('engine_key', $filter->engineKeys))
+            ->when($filter->engineKeys !== [], fn ($q) => $q->whereIn('engine_key', $filter->engineKeys));
+        $total = (clone $query)->count();
+        $presence = (clone $query)
+            ->select(['responses.id', 'responses.engine_key', 'responses.collected_at'])
+            ->withExists([
+                'mentions as brand_mentioned' => fn ($mentions) => $mentions
+                    ->where('entity_type', 'brand')
+                    ->where('entity_id', $brand->id),
+            ])
+            ->orderByDesc('collected_at')
+            ->get();
+        $labels = DashboardLabels::engines($presence->pluck('engine_key')->unique()->values()->all());
+        $groups = [];
+        foreach ($presence as $row) {
+            $key = (string) $row->engine_key;
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'key' => $key,
+                    'engine' => $labels[$key] ?? DashboardLabels::engine($key),
+                    'answers' => [],
+                    'days' => [],
+                ];
+            }
+            $collected = $row->collected_at;
+            $date = $collected instanceof CarbonInterface ? $collected->copy()->timezone($period->timezone)->toDateString() : '';
+            if ($date === '') {
+                continue;
+            }
+            if (! isset($groups[$key]['days'][$date])) {
+                $groups[$key]['days'][$date] = ['date' => $date, 'mentioned' => false, 'n' => 0];
+            }
+            $groups[$key]['days'][$date]['n']++;
+            $groups[$key]['days'][$date]['mentioned'] = $groups[$key]['days'][$date]['mentioned'] || (bool) $row->getAttribute('brand_mentioned');
+        }
+        foreach ($groups as $key => $group) {
+            $groups[$key]['days'] = array_values($group['days']);
+        }
+
+        $responses = (clone $query)
             ->with([
                 'mentions' => fn ($mentions) => $mentions->orderBy('first_char_offset')->orderBy('id'),
                 'citations',
             ])
-            ->orderByDesc('collected_at');
-        $total = (clone $query)->count();
-        $responses = $query->limit(100)->get();
-        $labels = DashboardLabels::engines($responses->pluck('engine_key')->unique()->values()->all());
+            ->orderByDesc('collected_at')
+            ->limit(100)
+            ->get();
 
         $caseFold = $this->caseFold($brand);
-        $groups = [];
         foreach ($responses as $response) {
             $key = $response->engine_key;
             if (! isset($groups[$key])) {
                 $groups[$key] = [
+                    'key' => $key,
                     'engine' => $labels[$key] ?? DashboardLabels::engine($key),
                     'answers' => [],
+                    'days' => [],
                 ];
             }
             $collected = $response->collected_at;
+            $groups[$key]['key'] = $key;
             $groups[$key]['answers'][] = [
                 'id' => $response->id,
                 'collected_at' => $collected instanceof CarbonInterface ? $collected->toIso8601String() : '',
+                'date' => $collected instanceof CarbonInterface ? $collected->copy()->timezone($period->timezone)->toDateString() : '',
+                'mentioned' => $response->mentions->contains(
+                    fn ($mention): bool => $mention->entity_type === 'brand' && (int) $mention->entity_id === (int) $brand->id,
+                ),
                 'segments' => AnswerSegments::from((string) $response->answer_text, $response->mentions, $caseFold),
                 'citations' => $response->citations->map(fn ($citation): array => [
                     'domain' => (string) $citation->domain,
@@ -236,6 +292,10 @@ class BrandPromptController extends Controller
                 ])->all(),
                 'raw' => route('brands.responses.raw', [$brand, $response]),
             ];
+        }
+
+        foreach ($groups as $key => $group) {
+            $groups[$key]['answers'] = $this->withMentionChange($group['answers']);
         }
 
         return Inertia::render('Brands/PromptShow', [
@@ -251,14 +311,31 @@ class BrandPromptController extends Controller
             ],
             'period' => $period->toArray(),
             'analysisFilters' => AnalysisFilters::payload($brand, 'brands.prompts.show', $viewQuery),
-            'series' => array_map(fn (array $point): array => [
-                'period' => $point['period'],
-                'visibility' => $point['summary']->visibility->toArray(),
-            ], $metrics->series($filter)),
             'engines' => array_values($groups),
             'truncated' => $total > 100,
             'shown' => $responses->count(),
         ]);
+    }
+
+    /**
+     * Oldest answer first, so each change is against the previous answer of the same engine.
+     *
+     * @param  list<array<string, mixed>>  $answers
+     * @return list<array<string, mixed>>
+     */
+    private function withMentionChange(array $answers): array
+    {
+        $chronological = array_reverse($answers);
+        $previous = null;
+        foreach ($chronological as $index => $answer) {
+            $mentioned = (bool) $answer['mentioned'];
+            $chronological[$index]['change'] = $previous === null
+                ? null
+                : ($mentioned === $previous ? 'same' : ($mentioned ? 'gained' : 'lost'));
+            $previous = $mentioned;
+        }
+
+        return array_reverse($chronological);
     }
 
     /**
@@ -268,7 +345,7 @@ class BrandPromptController extends Controller
      */
     private function caseFold(Brand $brand): array
     {
-        $brand->loadMissing(['aliases', 'competitors.aliases']);
+        $brand->loadMissing('aliases');
         $keys = [];
 
         foreach ($brand->aliases as $alias) {
@@ -281,7 +358,7 @@ class BrandPromptController extends Controller
             }
         }
 
-        foreach ($brand->competitors as $competitor) {
+        foreach ($brand->competitors()->withTrashed()->with('aliases')->get() as $competitor) {
             foreach ($competitor->aliases as $alias) {
                 if ($alias->match_mode !== 'case_insensitive') {
                     continue;

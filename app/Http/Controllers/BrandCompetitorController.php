@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Dashboard\AnalysisFilters;
 use App\Dashboard\BrandPage;
+use App\Dashboard\CompetitorPage;
 use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
-use App\Metrics\MetricsService;
 use App\Models\Brand;
 use App\Models\Competitor;
 use App\Models\Team;
@@ -15,18 +15,18 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Competitors, their aliases and domains, and unknown brands that can be added in one click
+ * Competitors: their rank over time, visibility, change, rank and sentiment against the brand (U07,
+ * docs/ui-forbedring.md 7.4), their aliases and domains, and unknown brands that can be added in one click
  * (docs/spec.md 14.2, T27).
  */
 class BrandCompetitorController extends Controller
 {
-    public function index(Request $request, Brand $brand, MetricsService $metrics): Response
+    public function index(Request $request, Brand $brand, CompetitorPage $page): Response
     {
         BrandPage::authorizeView($brand);
         $brand->load('markets');
@@ -34,21 +34,28 @@ class BrandCompetitorController extends Controller
         $period = DashboardPeriod::fromInput($query);
         $selection = AnalysisFilters::selection($query);
         $marketIds = $selection['marketIds'];
-        $grain = $request->validate(['grain' => ['sometimes', Rule::in(MetricsService::GRAINS)]])['grain'] ?? 'day';
+        $grain = CompetitorPage::grain($period);
         $filter = $period->filter($brand->id, ...$selection);
+        $previous = $period->filter($brand->id, ...$selection, previous: true);
 
+        $colorIndex = 0;
         $competitors = Competitor::query()
             ->where('brand_id', $brand->id)
             ->with(['aliases', 'domains'])
             ->orderBy('name')
+            ->orderBy('id')
             ->get()
-            ->map(fn (Competitor $competitor): array => [
-                'id' => $competitor->id,
-                'name' => $competitor->name,
-                'is_active' => $competitor->is_active,
-                'aliases' => $competitor->aliases->pluck('alias')->all(),
-                'domains' => $competitor->domains->pluck('domain')->all(),
-            ])->all();
+            ->map(function (Competitor $competitor) use (&$colorIndex): array {
+                return [
+                    'id' => $competitor->id,
+                    'name' => $competitor->name,
+                    'is_active' => $competitor->is_active,
+                    // The fixed color position: active competitors sorted by name (docs/ui-forbedring.md 5).
+                    'color_index' => $competitor->is_active ? $colorIndex++ : null,
+                    'aliases' => $competitor->aliases->pluck('alias')->all(),
+                    'domains' => $competitor->domains->pluck('domain')->all(),
+                ];
+            })->all();
 
         return Inertia::render('Brands/Competitors', [
             'brand' => BrandPage::payload($brand),
@@ -60,10 +67,9 @@ class BrandCompetitorController extends Controller
             'suggestions' => UnknownBrands::suggestions($brand, $period, $marketIds, $filter),
             'canManage' => Gate::allows('create', Competitor::class),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
-                'brand.competitors.'.$grain, $filter, $period->timezone, fn (): array => [
-                    'series' => $metrics->competitorVisibilitySeries($filter, $grain),
-                    'sentiment' => $metrics->sentimentDistribution($filter),
-                ],
+                'brand.competitors.u07.'.$grain.'.'.$period->comparison, $filter, $period->timezone,
+                fn (): array => $page->chartData($filter, $previous, $grain),
+                competitorIds: $brand->competitors->modelKeys(),
             )),
         ]);
     }
@@ -101,5 +107,14 @@ class BrandCompetitorController extends Controller
         });
 
         return back();
+    }
+
+    public function destroy(Brand $brand, string $competitor): RedirectResponse
+    {
+        $record = $brand->competitors()->lockForUpdate()->findOrFail($competitor);
+        Gate::authorize('delete', $record);
+        $record->delete();
+
+        return back(fallback: route('brands.competitors.index', $brand));
     }
 }

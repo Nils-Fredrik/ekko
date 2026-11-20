@@ -24,9 +24,10 @@ final class GraphCache
      * @template TValue of array
      *
      * @param  Closure(): TValue  $calculate
+     * @param  list<int|string>  $competitorIds  Current roster for charts that depend on it.
      * @return TValue
      */
-    public function remember(string $graph, MetricsFilter $filter, string $timezone, Closure $calculate): array
+    public function remember(string $graph, MetricsFilter $filter, string $timezone, Closure $calculate, array $competitorIds = []): array
     {
         if (preg_match('/^[a-z][a-z0-9_.-]{0,63}$/', $graph) !== 1) {
             throw new InvalidArgumentException('Invalid graph cache namespace.');
@@ -45,6 +46,7 @@ final class GraphCache
             'intent' => self::sorted($filter->intents),
             'funnel' => self::sorted($filter->funnelStages),
             'prompt' => self::sorted($filter->promptIds),
+            'competitors' => self::sorted($competitorIds),
             'timezone' => $timezone,
             'locale' => app()->getLocale(),
             'day' => CarbonImmutable::now($timezone)->toDateString(),

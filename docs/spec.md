@@ -122,7 +122,7 @@ Stakken følger Varde. Agentene har lesetilgang til Varde-repoet (https://github
 | Ruting i frontend | Ziggy |
 | Ikoner | Heroicons for Vue |
 | Oversettelser | `laravel-vue-i18n` med PHP-språkfiler (`nb`, `sv`, `en`) |
-| Grafer | Apache ECharts fra `echarts/core` med SVG-tegning, lastet asynkront og fargesatt fra designtokens, gjennom `<EkkoChart>` ([ADR 0035](decisions/0035-echarts-grafbibliotek.md), `docs/ui-forbedring.md` kapittel 5–6). Chart.js står igjen til `TrendChart` på promptsiden er erstattet |
+| Grafer | Apache ECharts fra `echarts/core` med SVG-tegning, lastet asynkront og fargesatt fra designtokens, gjennom `<EkkoChart>` ([ADR 0035](decisions/0035-echarts-grafbibliotek.md), `docs/ui-forbedring.md` kapittel 5–6) |
 | Database | PostgreSQL 16 |
 | Kø og cache | Laravel `database`-driver |
 | MCP | `laravel/mcp` med egen OAuth 2.1-server og Sanctum-nøkler, samme mønster som Varde (`Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`). Passport kan ikke brukes sammen med Sanctum på samme `User` ([ADR 0016](decisions/0016-mcp-server-og-oauth.md)) |
@@ -250,7 +250,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `brands` | `tenant_id`, `name`, `slug`, `primary_domain`, `status` |
 | `brand_aliases` | `brand_id`, `alias`, `match_mode` (exact_word, case_insensitive, regex) |
 | `brand_domains` | `brand_id`, `domain`, `include_subdomains` |
-| `competitors` | `tenant_id`, `brand_id`, `name`, `is_active` |
+| `competitors` | `tenant_id`, `brand_id`, `name`, `is_active`, `deleted_at` (logisk sletting) |
 | `competitor_aliases` | `competitor_id`, `alias`, `match_mode` |
 | `competitor_domains` | `competitor_id`, `domain` |
 | `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active` |
@@ -879,7 +879,7 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), innsiktslinje, nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
 | `Pages/Brands/Prompts.vue` | Prompt-tabell med resultater per prompt (synlighet, posisjon, stabilitet per motor), inline redigering, aktivering/deaktivering, import og eksport (CSV) |
 | `Pages/Brands/PromptShow.vue` | Ett prompt: alle svar over tid per motor, svartekst med uthevede nevnelser, kildeliste, råsvar-lenke |
-| `Pages/Brands/Competitors.vue` | Konkurrenter, alias og domener, samt foreslåtte ukjente merkevarer |
+| `Pages/Brands/Competitors.vue` | Rangering over tid, konkurrenttabell med synlighet, endring, plass og sentiment, foreslåtte ukjente merkevarer, samt alias og domener (`docs/ui-forbedring.md` 7.4) |
 | `Pages/Brands/Sources.vue` | Siterte domener, kildeandel, kildegap mot konkurrenter |
 | `Pages/Brands/Crawlers.vue` | AI-robottreff og AI-trafikk |
 | `Pages/Brands/Actions.vue`, `Pages/Brands/ActionShow.vue` | Tiltaksliste med filtre, detalj, egne tiltak og status (11.3, T44) |
@@ -1462,6 +1462,7 @@ Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kap
 `Brands/Prompts.vue`, `PromptShow.vue`, `Competitors.vue`, `Sources.vue` og `Crawlers.vue`, inkludert CSV-import og -eksport av prompts.
 - Nevnelser er uthevet i svartekst.
 - Forslag om ukjente merkevarer kan legges til som konkurrent med ett klikk.
+- Brukere som kan redigere konkurrenter, kan velge «Slett» i konkurrentlisten og bekrefte slettingen i en dialog som viser navnet (T27-F1). `DELETE /brands/{brand}/competitors/{competitor}` fjerner konkurrenten fra merkevarens oppsett, sammenligninger og fremtidig gjenkjenning. Tidligere svar, nevnelser og sitater beholder koblingen til konkurrenten, også ved ny aggregering. Slettingen registreres i revisjonsloggen.
 
 ### T28 – Innstillinger, varsler, rapporter, forbruk, team
 `Brands/Settings.vue`, `Alerts/Index.vue`, `Reports/Index.vue`, `Usage/Index.vue` og utvidelser i `Teams/Show.vue` (Slack, rapportprofil, egne nøkler).

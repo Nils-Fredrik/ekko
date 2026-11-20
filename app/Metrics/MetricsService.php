@@ -249,6 +249,23 @@ final class MetricsService
     }
 
     /**
+     * Daily visibility per prompt, for the table sparklines. Days without answers are omitted.
+     *
+     * @return list<array{prompt_id: int, period: string, visibility: array{value: float|null, n: int, low_sample: bool}}>
+     */
+    public function visibilityByPromptSeries(MetricsFilter $filter): array
+    {
+        return $this->dailyQuery($filter)->toBase()
+            ->selectRaw('agg_daily.prompt_id, agg_daily.date as period, sum(agg_daily.responses) as responses, sum(agg_daily.brand_mentioned) as mentioned')
+            ->groupBy('agg_daily.prompt_id', 'agg_daily.date')->orderBy('agg_daily.prompt_id')->orderBy('agg_daily.date')
+            ->get()->map(fn (object $row): array => [
+                'prompt_id' => (int) $row->prompt_id,
+                'period' => substr((string) $row->period, 0, 10),
+                'visibility' => (new Metric(Formulas::ratio($row->mentioned, $row->responses), (int) $row->responses))->toArray(),
+            ])->all();
+    }
+
+    /**
      * Visibility series for the small multiples, keeping the underlying n for every period and engine.
      *
      * @return list<array{period: string, engine_key: string, visibility: array{value: float|null, n: int, low_sample: bool}}>
@@ -789,6 +806,7 @@ final class MetricsService
             ->where('mentions.entity_type', 'competitor')
             ->where('competitors.brand_id', $filter->brandId)
             ->where('competitors.is_active', true)
+            ->whereNull('competitors.deleted_at')
             ->whereIn('mentions.response_id', $gapIds)
             ->toBase()
             ->selectRaw('competitors.id as competitor_id, competitors.name, count(distinct mentions.response_id) as answers')

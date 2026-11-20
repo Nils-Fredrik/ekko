@@ -118,6 +118,7 @@ Route::middleware([
     Route::get('/brands/{brand}/responses/{response}/raw', [BrandPromptController::class, 'raw'])->name('brands.responses.raw');
     Route::get('/brands/{brand}/competitors', [BrandCompetitorController::class, 'index'])->name('brands.competitors.index');
     Route::post('/brands/{brand}/competitors', [BrandCompetitorController::class, 'store'])->name('brands.competitors.store');
+    Route::delete('/brands/{brand}/competitors/{competitor}', [BrandCompetitorController::class, 'destroy'])->whereNumber('competitor')->name('brands.competitors.destroy');
     Route::get('/brands/{brand}/sources', BrandSourceController::class)->name('brands.sources');
     Route::get('/brands/{brand}/crawlers', BrandCrawlerController::class)->name('brands.crawlers');
     Route::get('/brands/{brand}/facts', [BrandFactController::class, 'index'])->name('brands.facts.index');

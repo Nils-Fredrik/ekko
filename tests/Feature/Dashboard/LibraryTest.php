@@ -1,6 +1,10 @@
 <?php
 
+use App\Detection\DetectionCatalog;
 use App\Engines\RawResponseStore;
+use App\Metrics\DailyAggregator;
+use App\Metrics\MetricsFilter;
+use App\Metrics\MetricsService;
 use App\Models\AggDaily;
 use App\Models\AggSourceDaily;
 use App\Models\AiReferralDaily;
@@ -9,7 +13,9 @@ use App\Models\Brand;
 use App\Models\Competitor;
 use App\Models\CompetitorAlias;
 use App\Models\CompetitorDomain;
+use App\Models\Engine;
 use App\Models\Market;
+use App\Models\MarketEngine;
 use App\Models\Mention;
 use App\Models\Plan;
 use App\Models\Prompt;
@@ -96,6 +102,69 @@ test('a prompt shows highlighted mentions, sources and a raw answer', function (
         ->assertSee('Kaffebønna');
 });
 
+test('the prompt timeline records the mention change and can open one engine', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-20 12:00:00', 'Europe/Oslo'));
+    $world = MetricsWorld::create();
+    $other = Engine::factory()->create();
+    MarketEngine::factory()->create(['market_id' => $world->market->id, 'engine_key' => $world->engine->key]);
+    MarketEngine::factory()->create(['market_id' => $world->market->id, 'engine_key' => $other->key]);
+    $world->answer($world->p1, '2026-11-18T10:00:00Z');
+    $world->answer($world->p1, '2026-11-19T10:00:00Z', ['brand' => ['pos' => 1]]);
+    $world->answer($world->p1, '2026-11-19T11:00:00Z', ['engine' => $other, 'brand' => ['pos' => 1]]);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)->get(route('brands.prompts.show', [$world->brand, $world->p1]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('engines', function ($engines) use ($world) {
+                $own = collect($engines)->firstWhere('key', $world->engine->key);
+                expect($own['answers'][0]['mentioned'])->toBeTrue()
+                    ->and($own['answers'][0]['change'])->toBe('gained')
+                    ->and($own['answers'][1]['mentioned'])->toBeFalse()
+                    ->and($own['answers'][1]['change'])->toBeNull()
+                    ->and($engines)->toHaveCount(2);
+
+                return true;
+            }));
+
+    $this->get(route('brands.prompts.show', [$world->brand, $world->p1]).'?engine='.$other->key)
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('engines', 1)
+            ->where('engines.0.key', $other->key)
+            ->where('engines.0.answers.0.mentioned', true)
+            ->where('engines.0.answers.0.change', null));
+});
+
+test('days outside the loaded answers stay marked when the prompt has more than 100 answers', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-20 12:00:00', 'Europe/Oslo'));
+    $world = MetricsWorld::create();
+    $old = $world->answer($world->p1, '2026-11-01T10:00:00Z', ['brand' => ['pos' => 1]]);
+    foreach (range(1, 100) as $ignored) {
+        $world->answer($world->p1, '2026-11-19T10:00:00Z');
+    }
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)->get(route('brands.prompts.show', [$world->brand, $world->p1]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('truncated', true)
+            ->where('shown', 100)
+            ->where('engines.0.days', function ($days) {
+                $oldDay = collect($days)->firstWhere('date', '2026-11-01');
+                $loaded = collect($days)->firstWhere('date', '2026-11-19');
+                expect($oldDay['mentioned'])->toBeTrue()
+                    ->and($oldDay['n'])->toBe(1)
+                    ->and($loaded['mentioned'])->toBeFalse()
+                    ->and($loaded['n'])->toBe(100);
+
+                return true;
+            })
+            ->where('engines.0.answers', fn ($answers) => collect($answers)->pluck('id')->doesntContain($old->id)));
+});
+
 test('an unknown brand that recurs can be added as a competitor in one click', function () {
     $world = MetricsWorld::create();
     foreach ([1, 2] as $ignored) {
@@ -146,6 +215,64 @@ test('a pitch cannot add a fourth competitor, but a converted customer can', fun
     $world->tenant->forceFill(['kind' => 'customer'])->save();
     $this->post(route('brands.competitors.store', $world->brand), ['name' => 'Fourth'])->assertRedirect()->assertSessionHasNoErrors();
     expect($world->brand->competitors()->count())->toBe(4);
+});
+
+test('an editor can delete only a competitor of the selected brand', function () {
+    $world = MetricsWorld::create();
+    $editor = User::factory()->create();
+    $world->tenant->users()->attach($editor, ['role' => 'editor']);
+    $editor->switchTeam($world->tenant);
+    $otherBrand = Brand::factory()->create();
+    $url = route('brands.competitors.destroy', [$world->brand, $world->c1]);
+    $index = route('brands.competitors.index', $world->brand);
+
+    $this->actingAs($editor)->delete(route('brands.competitors.destroy', [$otherBrand, $world->c1]))->assertNotFound();
+    $this->from($index)->delete($url)->assertRedirect($index);
+    $this->delete($url)->assertNotFound();
+    $this->get($index.'?competitor='.$world->c1->id)->assertInertia(fn ($page) => $page
+        ->has('competitors', 1)->where('competitors.0.id', $world->c2->id)
+        ->missing('filters.competitor'));
+    expect($world->c1->activitiesAsSubject()->where('event', 'deleted')->where('causer_id', $editor->id)->count())->toBe(1);
+});
+
+test('deleting a competitor stops new detection and preserves historical measurements', function () {
+    $world = MetricsWorld::create();
+    $competitor = $world->c1;
+    $domain = 'nordlys.example.test';
+    CompetitorAlias::factory()->for($competitor)->create(['alias' => $competitor->name]);
+    CompetitorDomain::factory()->for($competitor)->create(['domain' => $domain]);
+    $response = $world->answer($world->p1, '2026-11-10T10:00:00Z', [
+        'competitors' => [$competitor->id => 1],
+        'citations' => [[$domain, 'competitor']],
+    ]);
+    $response->citations()->update(['competitor_id' => $competitor->id]);
+    $response->mentions()->update(['sentiment' => 0.8]);
+
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $index = route('brands.competitors.index', [$world->brand, 'from' => '2026-11-10', 'to' => '2026-11-10']);
+    app(DailyAggregator::class)->aggregate('2026-11-10');
+    $this->actingAs($owner)->get($index)->assertInertia(fn ($page) => $page->loadDeferredProps(fn ($data) => $data
+        ->where('chartData.ranking.0.entities', fn ($entities) => collect($entities)->pluck('name')->contains($competitor->name))));
+    $this->delete(route('brands.competitors.destroy', [$world->brand, $competitor]))->assertRedirect();
+    $this->get($index)->assertInertia(fn ($page) => $page->loadDeferredProps(fn ($data) => $data
+        ->where('chartData.ranking.0.entities', fn ($entities) => collect($entities)->pluck('name')->doesntContain($competitor->name))));
+
+    $catalog = DetectionCatalog::load();
+    expect($catalog->aliases)->toBeEmpty()
+        ->and($catalog->domains->classify($domain)['ownership'])->toBe('third_party')
+        ->and($response->citations()->sole()->competitor->id)->toBe($competitor->id);
+    app(DailyAggregator::class)->aggregate('2026-11-10');
+    expect(AggDaily::query()->sole()->competitor_mentions)->toEqual([$competitor->id => 1]);
+
+    $metrics = app(MetricsService::class);
+    $filter = new MetricsFilter($world->brand->id, '2026-11-10', '2026-11-10');
+    expect($metrics->sourceGapDetail($filter, $domain)['competitors'])->toBeEmpty()
+        ->and(collect($metrics->sentimentDistribution($filter)['rows'])->pluck('key'))->not->toContain('competitor:'.$competitor->id);
+
+    $this->post(route('brands.competitors.store', $world->brand), ['name' => $competitor->name])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    expect($world->brand->competitors()->where('name', $competitor->name)->sole()->id)->not->toBe($competitor->id);
 });
 
 test('prompts can be edited, exported and imported, and a reader cannot change them', function () {

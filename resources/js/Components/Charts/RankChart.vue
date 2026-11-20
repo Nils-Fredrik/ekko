@@ -27,8 +27,39 @@ function rankPoints(item) {
     }));
 }
 
+// The end label sits on the final drawn point of each series: on the solid line, or on the dashed low-n line when
+// the final point has low n (the solid line leaves such a point out). Series that end on the same point (a shared
+// rank on the same day) would print their labels on top of each other, so the first of them carries all the names.
+function endLabels() {
+    const groups = new Map();
+    const ends = props.series.map((item) => {
+        const points = rankPoints(item);
+        let last = points.length - 1;
+        while (last >= 0 && points[last]?.value == null) {
+            last -= 1;
+        }
+        if (last < 0) {
+            return null;
+        }
+        const key = `${last}:${points[last].value}`;
+        if (!groups.has(key)) {
+            groups.set(key, []);
+        }
+        groups.get(key).push(item.label);
+
+        return { key, low: isLowSample(points[last]) };
+    });
+
+    return ends.map((end, index) =>
+        end !== null && ends.findIndex((other) => other?.key === end.key) === index
+            ? { text: groups.get(end.key).join(', '), low: end.low }
+            : null,
+    );
+}
+
 function option({ palette }) {
     const color = colorFor(palette);
+    const labels = endLabels();
     const series = props.series.flatMap((item, index) =>
         lineSeries({
             id: `r-${item.key}`,
@@ -39,13 +70,21 @@ function option({ palette }) {
             z: item.own ? 10 : 2,
             extra: { showSymbol: true, symbolSize: item.own ? 9 : 7 },
         }).map((line) =>
-            line.id.endsWith('-low')
+            line.id.endsWith('-low') !== Boolean(labels[index]?.low)
                 ? line
                 : {
                       ...line,
                       // A function, not the name as a string: ECharts treats a string formatter as a
                       // template and would replace {a}, {b}, {c} or {@…} in a brand name.
-                      endLabel: { show: true, formatter: () => item.label, color: palette.text, fontSize: 11 },
+                      endLabel: {
+                          show: labels[index] !== null,
+                          formatter: () => labels[index]?.text ?? '',
+                          color: palette.text,
+                          fontSize: 11,
+                          // Inside the grid's right margin: long or combined names wrap instead of being cut off.
+                          width: 88,
+                          overflow: 'break',
+                      },
                   },
         ),
     );
