@@ -19,6 +19,9 @@ use Illuminate\Support\Facades\Gate;
 /** Portfolio graphs are computed in the client tenant, after permission checks on every request. */
 final class PartnerGraphs
 {
+    /** The portfolio period in days, ending today in each client's time zone. */
+    public const DAYS = 28;
+
     public function __construct(
         private readonly TenantContext $context,
         private readonly TenantRls $rls,
@@ -55,7 +58,7 @@ final class PartnerGraphs
     /** @return array<string, mixed> */
     private function client(Team $client): array
     {
-        $period = DashboardPeriod::endingToday(28, $client->timezone);
+        $period = DashboardPeriod::endingToday(self::DAYS, $client->timezone);
         $days = [];
         $current = [];
         $previous = [];
@@ -77,7 +80,7 @@ final class PartnerGraphs
 
         $points = [];
         $date = CarbonImmutable::parse($period->from, $period->timezone);
-        for ($i = 0; $i < 28; $i++, $date = $date->addDay()) {
+        for ($i = 0; $i < self::DAYS; $i++, $date = $date->addDay()) {
             $key = $date->toDateString();
             $points[] = ['x' => $key, ...$this->average($days[$key] ?? [])];
         }
