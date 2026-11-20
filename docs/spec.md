@@ -1149,6 +1149,8 @@ T36 implementerer policyene i `infra/terraform/monitoring.tf`. `ekko:monitor-hea
 
 **Tilgjengelighet (U01-F1):** U15s 544 serious-funn er borte i CI 44783234593: 168 sidevarianter, 0 axe-funn. Hvit tekst ligger på `--color-primary-deep`, lys primærtekst bruker samme token, og suksess- og feiltekst i mørkt tema bruker `--color-success-text` og `--color-error-text` (4,5:1 på mørkt skall). Robotsidens tabeller kan fokuseres og rulles med tastatur. Full manuell WCAG 2.2 AA-sertifisering er fortsatt ikke gjort.
 
+**Gjenværende kontrastavvik:** `--color-success` (`#4a7c59`) som tekst på lyst skall `#f5ede4` er 4,20:1. Tonede statusmerker i lyst tema er også under 4,5:1: `text-primary` på `bg-primary/15` er 4,31:1 mot hvit flate, og `text-success` på `bg-success/15` er 4,01:1. De var ikke blant U15-funnene, fordi fiksturene ikke viser disse tilstandene. De er registrert på task:112.
+
 **Generelle krav til kode:**
 - Larastan nivå 6 uten unntak i ny kode.
 - Ingen N+1-spørringer på dashboard-sidene, kontrollert med `preventLazyLoading` i testmiljøet.

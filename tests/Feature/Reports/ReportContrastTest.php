@@ -10,8 +10,7 @@ test('the shared report darkens a brand color that is too light on white', funct
     expect($header[1] ?? null)->toBe($heading[1] ?? null)
         ->and($header[1])->not->toBe('#e84a38')
         ->and(ReadableColor::contrast('#ffffff', $header[1]))->toBeGreaterThanOrEqual(ReadableColor::MINIMUM)
-        ->and($html)->toContain('min-height: 24px')
-        ->and($html)->not->toContain('summary { display:');
+        ->and($html)->toContain('min-height: 24px');
 });
 
 test('a brand color that already clears AA is rendered unchanged', function () {

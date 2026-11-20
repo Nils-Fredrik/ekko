@@ -26,7 +26,7 @@ test('the dark text tokens in the theme clear AA on the dark shell', function ()
         ->and(ReadableColor::contrast($error[1], '#15100f'))->toBeGreaterThanOrEqual(4.5);
 });
 
-test('the theme tokens used for text clear AA on the surfaces they sit on', function () {
+test('theme text tokens clear AA except the registered light success gap', function () {
     $css = file_get_contents(dirname(__DIR__, 2).'/resources/css/app.css');
     $token = function (string $name) use ($css): string {
         preg_match('/'.$name.':\s*(#[0-9a-f]{6})/', $css, $match);
@@ -34,9 +34,12 @@ test('the theme tokens used for text clear AA on the surfaces they sit on', func
         return $match[1];
     };
 
+    $success = $token('--color-success');
+
     expect(ReadableColor::contrast('#ffffff', $token('--color-primary-deep')))->toBeGreaterThanOrEqual(4.5)
         ->and(ReadableColor::contrast($token('--color-primary-deep'), '#ffffff'))->toBeGreaterThanOrEqual(4.5)
         ->and(ReadableColor::contrast($token('--color-primary-deep'), '#f5ede4'))->toBeGreaterThanOrEqual(4.5)
-        ->and(ReadableColor::contrast($token('--color-success'), '#ffffff'))->toBeGreaterThanOrEqual(4.5)
+        ->and(ReadableColor::contrast($success, '#ffffff'))->toBeGreaterThanOrEqual(4.5)
+        ->and(ReadableColor::contrast($success, '#f5ede4'))->toBeLessThan(4.5)
         ->and(ReadableColor::contrast($token('--color-error'), '#ffffff'))->toBeGreaterThanOrEqual(4.5);
 });
