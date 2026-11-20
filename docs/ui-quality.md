@@ -38,19 +38,19 @@ Før opptak venter testen på at Vue er montert og alle utsatte Inertia-props er
 
 axe kjører WCAG 2 A/AA, 2.1 AA og 2.2 AA-regler på alle scenarioer i begge temaer og skjermstørrelser. Alle kritiske funn blokkerer, uten regelunntak. Øvrige funn bevares i rapporten for oppfølging. En grønn automatisk kontroll er ikke en full WCAG 2.2 AA-sertifisering: tastaturflyt, skjermleseropplevelse og tilstander som åpne dialoger må fortsatt vurderes. Eksisterende funksjonstester for temabytte og grafenes tabellalternativer beholdes.
 
-Første U15-kjøring hadde 0 kritiske funn etter retting av skjemanavn. Den rapporterte 458 `serious` node-funn over de 160 variantene (135 unike kombinasjoner av side, regel og mål): tekstkontrast og et ikke-tastaturfokuserbart rullefelt på robotsiden. Disse følges opp i [U01-F1 / Board task:112](https://board.maksimer.com/b/vn4w66vc/work?task=112).
+Første U15-kjøring, før fakta- og pitchsidene ble lagt til, hadde 0 kritiske funn etter retting av skjemanavn. Den rapporterte 458 `serious` node-funn over de 160 variantene (135 unike kombinasjoner av side, regel og mål): tekstkontrast og et ikke-tastaturfokuserbart rullefelt på robotsiden. Disse følges opp i [U01-F1 / Board task:112](https://board.maksimer.com/b/vn4w66vc/work?task=112).
 
 ## JavaScript-budsjetter
 
 `npm run test:budget` leser Vite-manifestet etter bygg. Størrelsene er gzip nivå 9, uten dobbelttelling av delte moduler. Det største språksettet (JSON og genererte PHP-oversettelser) inngår i førstegangsbudsjettet, mens grafer fortsatt må lastes asynkront.
 
-| Måling                                        | Grense i byte | Utgangspunkt ved U15 |
+| Måling                                        | Grense i byte | Etter T49, T45 og U11 |
 | --------------------------------------------- | ------------: | -------------------: |
-| App og statiske importer + største språkmodul |       160 000 |              148 960 |
-| Største første sidelasting + app og språk     |       285 000 |              259 413 |
+| App og statiske importer + største språkmodul |       160 000 |              150 570 |
+| Største første sidelasting + app og språk     |       285 000 |              266 086 |
 | ECharts-chunk                                 |       240 000 |              211 419 |
-| Alle JavaScript-chunker                       |       700 000 |              645 152 |
+| Alle JavaScript-chunker                       |       700 000 |              662 058 |
 
-Grensene gir omtrent 6–15 % rom fra dagens bygg og ligger i `tests/Browser/visual/budgets.json`. Overskridelse eller manglende måling stopper CI. En budsjettendring skal begrunnes i PR-en; den skal ikke være en automatisk reaksjon på røde tester. Eksisterende kontroll mot eager-lasting av ECharts og grensen for ukomprimert grafbibliotek gjelder fortsatt.
+Grensene ligger i `tests/Browser/visual/budgets.json`. Overskridelse eller manglende måling stopper CI. En budsjettendring skal begrunnes i PR-en; den skal ikke være en automatisk reaksjon på røde tester. Eksisterende kontroll mot eager-lasting av ECharts og grensen for ukomprimert grafbibliotek gjelder fortsatt.
 
 Bundlebudsjettet erstatter ikke målingene av p95 HTTP-responstid eller LCP på representative enheter og nettverk. Disse ytelsesmålene gjelder fortsatt; den deterministiske bildesuiten er ikke et produksjonsytelsesbevis.
