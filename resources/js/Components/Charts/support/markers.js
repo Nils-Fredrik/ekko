@@ -10,7 +10,7 @@ export function markerText(marker) {
     const kind = trans(marker?.kind === 'action' ? 'app.charts.marker_action' : 'app.charts.marker_model');
     const detail = marker?.detail ? ` – ${marker.detail}` : '';
 
-    return `${kind}: ${marker?.label ?? ''}${detail}`;
+    return `${marker?.date ?? ''} · ${kind}: ${marker?.label ?? ''}${detail}`;
 }
 
 /** Tooltip notes for the markers in one bucket. */

@@ -495,6 +495,9 @@ return [
         'rank' => 'No. :rank',
         'previous_period' => 'Previous period',
         'marker_model' => 'Model change',
+        'markers' => 'Markers',
+        'action_started' => 'Action started',
+        'action_completed' => 'Action completed',
         'marker_action' => 'Action',
         'sentiment' => [
             'negative' => 'Negative',

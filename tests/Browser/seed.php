@@ -1,6 +1,7 @@
 <?php
 
 use App\Api\TokenTenant;
+use App\Models\Action;
 use App\Models\Brand;
 use App\Models\Engine;
 use App\Models\EnginePrice;
@@ -46,6 +47,8 @@ $reportSelector = str_repeat('b', 32);
 $norwegianToken = str_repeat('c', 64);
 $norwegianSelector = str_repeat('d', 32);
 app(TenantContext::class)->run($team->id, function () use ($team, $brand, $reportToken, $reportSelector, $norwegianToken, $norwegianSelector): void {
+    Action::factory()->create(['brand_id' => $brand->id, 'title' => 'Published action marker',
+        'started_at' => '2026-10-02 12:00:00', 'completed_at' => '2026-10-03 12:00:00']);
     foreach ([['en', $reportToken, $reportSelector], ['nb', $norwegianToken, $norwegianSelector]] as [$locale, $token, $selector]) {
         $schedule = ReportSchedule::factory()->create(['brand_id' => $brand->id, 'locale' => $locale]);
         $due = new DueReport($schedule->id, $brand->id, 'weekly', $locale, ['report@example.test'], '2026-10-01', '2026-10-03', []);

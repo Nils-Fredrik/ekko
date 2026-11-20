@@ -34,7 +34,6 @@ test('a marker later in the last weekly bucket stays when until is the period en
     assert.equal(bucketMarkers([marker], categories, categories.at(-1)).size, 0);
 });
 
-
 test('year comparison keeps March calendar dates after a prior leap day', () => {
     const current = periodBuckets('2025-02-28', '2025-03-02');
     const previous = periodBuckets('2024-02-28', '2024-03-02');
@@ -59,3 +58,21 @@ test('year comparison matches calendar months and preserves whole weekly aggrega
 test('preceding-period comparison still aligns by bucket offset', () => {
     assert.deepEqual(alignComparison(['2025-03-01', '2025-03-02'], ['2025-02-27', '2025-02-28'], [27, null]), [27, null]);
 });
+for (const [grain, buckets] of [
+    ['day', ['2026-10-25', '2026-10-31', '2026-11-01']],
+    ['week', ['2026-10-19', '2026-10-26', '2026-10-26']],
+    ['month', ['2026-10-01', '2026-10-01', '2026-11-01']],
+]) {
+    test(`action dates survive ${grain} grouping, overlaps and partial buckets`, () => {
+        const categories = periodBuckets('2026-10-25', '2026-11-01', grain);
+        const dates = ['2026-10-25', '2026-10-31', '2026-11-01'];
+        const markers = dates.flatMap((date) => ['started', 'completed'].map((state) => ({
+            key: `${date}:${state}`, date, kind: 'action', label: state,
+        })));
+        const grouped = bucketMarkers([...markers, { key: 'late', date: '2026-11-02' }], categories, '2026-11-01');
+        assert.equal([...grouped.values()].flat().length, 6);
+        for (const [index, date] of dates.entries()) {
+            assert.equal(grouped.get(buckets[index]).filter((marker) => marker.date === date).length, 2);
+        }
+    });
+}

@@ -46,6 +46,7 @@ final class GraphCache
             'funnel' => self::sorted($filter->funnelStages),
             'prompt' => self::sorted($filter->promptIds),
             'timezone' => $timezone,
+            'locale' => app()->getLocale(),
             'day' => CarbonImmutable::now($timezone)->toDateString(),
         ];
         $key = 'graph:v1:'.hash('sha256', json_encode($dimensions, JSON_THROW_ON_ERROR));

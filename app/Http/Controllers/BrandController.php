@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\ActionMarkers;
 use App\Dashboard\AnalysisFilters;
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
@@ -16,7 +17,6 @@ use App\Models\Prompt;
 use App\Models\Team;
 use App\Onboarding\Analysis;
 use App\Tenancy\TenantContext;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -198,35 +198,9 @@ class BrandController extends Controller
         ])->all();
     }
 
-    /**
-     * Actions are brand-level context; their stored timestamps are converted to the tenant's local day.
-     *
-     * @return list<array{key: string, date: string, kind: string, label: string, href: string, action_id: int}>
-     */
+    /** @return list<array<string, mixed>> */
     private function actionMarkers(Brand $brand, DashboardPeriod $period): array
     {
-        $from = CarbonImmutable::parse($period->from, $period->timezone)->startOfDay()->utc();
-        $until = CarbonImmutable::parse($period->to, $period->timezone)->addDay()->startOfDay()->utc();
-        $actions = Action::query()->where('brand_id', $brand->id)
-            ->where(fn ($query) => $query
-                ->where(fn ($q) => $q->where('started_at', '>=', $from)->where('started_at', '<', $until))
-                ->orWhere(fn ($q) => $q->where('completed_at', '>=', $from)->where('completed_at', '<', $until)))
-            ->get(['id', 'title', 'started_at', 'completed_at']);
-        $markers = [];
-        foreach ($actions as $action) {
-            foreach (['started_at', 'completed_at'] as $field) {
-                $when = $action->{$field};
-                if ($when === null || $when->lessThan($from) || ! $when->lessThan($until)) {
-                    continue;
-                }
-                $markers[] = ['key' => 'action:'.$action->id.':'.$field,
-                    'date' => $when->copy()->setTimezone($period->timezone)->toDateString(),
-                    'kind' => 'action', 'label' => $action->title,
-                    'href' => route('brands.actions.show', [$brand, $action]), 'action_id' => $action->id];
-            }
-        }
-        usort($markers, fn (array $a, array $b): int => [$a['date'], $a['key']] <=> [$b['date'], $b['key']]);
-
-        return $markers;
+        return app(ActionMarkers::class)->forPeriod($brand->id, $period->from, $period->to, $period->timezone);
     }
 }

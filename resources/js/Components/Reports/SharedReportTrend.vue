@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
+import { markerText } from '@/Components/Charts/support/markers.js';
 import TrendLineChart from '@/Components/Charts/TrendLineChart.vue';
 
 const props = defineProps({
@@ -8,6 +9,7 @@ const props = defineProps({
     from: { type: String, required: true },
     to: { type: String, required: true },
     trend: { type: Array, required: true },
+    markers: { type: Array, default: () => [] },
 });
 
 // Keep missing days empty rather than drawing a line across data that did not exist.
@@ -25,6 +27,7 @@ const points = computed(() => {
 });
 const series = computed(() => [{ key: 'own', label: props.brand, own: true, points: points.value }]);
 const selected = ref(null);
+const selectedMarker = ref(null);
 function select(event) {
     if (event?.key !== 'own') return;
     const index = categories.value.indexOf(event.category);
@@ -55,6 +58,9 @@ function formatPoint(value) {
             :categories="categories"
             :series="series"
             :legend="false"
+            :markers="markers"
+            :until="to"
+            @marker="selectedMarker = $event"
             @select="select"
         />
         <details v-if="categories.length && trend.length">
@@ -72,6 +78,9 @@ function formatPoint(value) {
                 </li>
             </ul>
         </details>
+        <p v-if="selectedMarker" role="status" data-testid="shared-marker-selection">
+            {{ markerText(selectedMarker) }}
+        </p>
         <p v-if="selected" role="status" data-testid="shared-trend-selection">
             {{ selected.date }} · {{ selectedValue }} · {{ $t('app.dashboard.n', { n: selected.n }) }}
         </p>
