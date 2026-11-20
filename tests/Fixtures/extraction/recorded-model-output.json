@@ -2267,6 +2267,388 @@
     "input_tokens": 645,
     "output_tokens": 85
    }
+  },
+  "nb-40": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Kaffekompaniet selger både hele bønner og kapsler i nettbutikken sin, og Åsen Kaffe har en egen abonnementsordning."
+      },
+      {
+       "surface_name": "Åsen Kaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 4
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Kaffekompaniet selger både hele bønner og kapsler i nettbutikken sin, og Åsen Kaffe har en egen abonnementsordning."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://shop.kaffekompaniet.no/kapsler?utm_source=chatgpt.com",
+       "source_type": "marketplace"
+      },
+      {
+       "url": "https://www.aasenkaffe.no/abonnement/",
+       "source_type": "marketplace"
+      },
+      {
+       "url": "https://nordlysrosteri.no/blogg/lysbrent-eller-morkbrent",
+       "source_type": "other"
+      },
+      {
+       "url": "https://www.prisjakt.no/c/kaffe",
+       "source_type": "marketplace"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 180
+   }
+  },
+  "nb-41": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Bergensbrenneriet",
+       "entity": {
+        "type": "competitor",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Bergensbrenneriet diskuteres både på Reddit og Kvinneguiden, og brenneriet har en aktiv Instagram-konto."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.reddit.com/r/norge/comments/xyz/beste_kaffen/",
+       "source_type": "social"
+      },
+      {
+       "url": "https://www.kvinneguiden.no/topic/12345-kaffebrenneri/",
+       "source_type": "forum"
+      },
+      {
+       "url": "https://www.instagram.com/bergensbrenneriet/",
+       "source_type": "social"
+      },
+      {
+       "url": "https://www.facebook.com/groups/kaffeentusiaster",
+       "source_type": "social"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 140
+   }
+  },
+  "nb-42": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Mattilsynet har ingen merknader til Fjordkaffe, og VG testet nylig filterkaffe fra flere brennerier."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.mattilsynet.no/mat-og-vann/kaffe",
+       "source_type": "gov"
+      },
+      {
+       "url": "https://www.vg.no/forbruker/test/i/abc123/test-av-filterkaffe",
+       "source_type": "review"
+      },
+      {
+       "url": "https://no.trustpilot.com/review/fjordkaffe.no",
+       "source_type": "review"
+      },
+      {
+       "url": "https://snl.no/kaffe",
+       "source_type": "wiki"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 140
+   }
+  },
+  "nb-43": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe har også en egen nettbutikk, og bloggen Kaffeprat har skrevet om den nye espressoblandingen."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://shop.fjordkaffe.no/espresso/blanding-1",
+       "source_type": "marketplace"
+      },
+      {
+       "url": "https://kaffeprat.blogspot.com/2026/10/ny-espresso.html",
+       "source_type": "other"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 110
+   }
+  },
+  "nb-44": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Kaffekompaniet",
+       "entity": {
+        "type": "competitor",
+        "id": 2
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Brukte kaffekverner fra Kaffekompaniet selges ofte på Finn, mens nye kverner også finnes i en lokal kaffebutikk."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.finn.no/bap/forsale/search.html?q=kaffekvern",
+       "source_type": "marketplace"
+      },
+      {
+       "url": "https://kaffehusetsentrum.no/kverner",
+       "source_type": "marketplace"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 110
+   }
+  },
+  "sv-29": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe har en svensk webbutik, och Björnkaffe säljer sina bönor direkt från rosteriet."
+      },
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe har en svensk webbutik, och Björnkaffe säljer sina bönor direkt från rosteriet."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://butik.fjordkaffe.se/kaffe/morkrost",
+       "source_type": "other"
+      },
+      {
+       "url": "https://www.bjornkaffe.se/erbjudanden/?utm_medium=ai",
+       "source_type": "marketplace"
+      },
+      {
+       "url": "https://www.pricerunner.se/cl/kaffe",
+       "source_type": "marketplace"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 165
+   }
+  },
+  "sv-30": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "På Flashback och Familjeliv diskuteras Fjordkaffe ofta, och företaget lägger upp recept på Youtube."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.flashback.org/t3456789",
+       "source_type": "forum"
+      },
+      {
+       "url": "https://www.familjeliv.se/forum/thread/98765-basta-kaffet",
+       "source_type": "social"
+      },
+      {
+       "url": "https://www.youtube.com/watch?v=abc123",
+       "source_type": "social"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 125
+   }
+  },
+  "sv-31": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Livsmedelsverket har inga synpunkter på Björnkaffe, och SVT har granskat kaffepriserna."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.livsmedelsverket.se/livsmedel-och-innehall/kaffe",
+       "source_type": "gov"
+      },
+      {
+       "url": "https://www.svt.se/nyheter/inrikes/kaffepriserna-stiger",
+       "source_type": "news"
+      },
+      {
+       "url": "https://sv.wikipedia.org/wiki/Kaffe",
+       "source_type": "wiki"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 125
+   }
+  },
+  "sv-32": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Fjordkaffe",
+       "entity": {
+        "type": "brand",
+        "id": 1
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Fjordkaffe har höga betyg på Trustpilot och säljs även via Tradera och Amazon."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://se.trustpilot.com/review/fjordkaffe.no",
+       "source_type": "review"
+      },
+      {
+       "url": "https://www.tradera.com/category/kaffe",
+       "source_type": "marketplace"
+      },
+      {
+       "url": "https://www.amazon.se/s?k=fjordkaffe",
+       "source_type": "marketplace"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 125
+   }
+  },
+  "sv-33": {
+   "batch": {
+    "text": {
+     "mentions": [
+      {
+       "surface_name": "Björnkaffe",
+       "entity": {
+        "type": "competitor",
+        "id": 3
+       },
+       "list_position": null,
+       "is_recommended": false,
+       "sentiment": 0.0,
+       "evidence": "Aftonbladet har testat kaffe från flera rosterier, och Björnkaffe skriver om testet på sin blogg."
+      }
+     ],
+     "citations": [
+      {
+       "url": "https://www.aftonbladet.se/nyheter/a/xyz/kaffetest",
+       "source_type": "review"
+      },
+      {
+       "url": "https://blogg.bjornkaffe.se/kaffetestet/",
+       "source_type": "other"
+      }
+     ],
+     "answer_type": "informational"
+    },
+    "input_tokens": 700,
+    "output_tokens": 110
+   }
   }
  }
 }

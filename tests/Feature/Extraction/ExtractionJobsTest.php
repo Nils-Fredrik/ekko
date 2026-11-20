@@ -260,7 +260,8 @@ it('writes the combined result of a batch: enriched mentions, unknown companies,
             ->and($citations[0]->ownership)->toBe('third_party')
             ->and($citations[0]->from_annotation)->toBeFalse()
             ->and($citations[1]->ownership)->toBe('own')
-            ->and($citations[1]->source_type)->toBe('marketplace');
+            // The brand's own shop is other, whatever the model says (T20-F2, SourceTypeRules).
+            ->and($citations[1]->source_type)->toBe('other');
 
         expect($listed->refresh()->answer_type)->toBe('list')
             ->and($listed->llm_failed)->toBeFalse()
@@ -368,6 +369,47 @@ it('lets annotated citations win and only adds source_type to them', function ()
         expect($citations)->toHaveCount(2)
             ->and($citations->pluck('from_annotation')->all())->toBe([true, true])
             ->and($citations->pluck('source_type')->all())->toBe(['news', 'review']);
+    });
+});
+
+it('applies the deterministic source type rules over the model to annotated citations', function () {
+    // T20-F2: own and competitor sites are other, and well-known hosts have a fixed type, also when the model
+    // left the source out.
+    $a = extractionTenant();
+    $response = collectedResponse($a, 'Fjordkaffe og Nordlys Rosteri diskuteres ofte.');
+    $urls = [
+        'https://shop.fjordkaffe.no/kampanje',
+        'https://www.nordlys.no/erbjudanden',
+        'https://www.reddit.com/r/kaffe/comments/abc',
+        'https://snl.no/kaffe',
+        'https://kaffeprat.example/innlegg',
+    ];
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($response, $urls) {
+        foreach ($urls as $rank => $url) {
+            Citation::query()->create([
+                'response_id' => $response->id, 'url' => $url, 'url_normalized' => $url, 'domain' => 'placeholder',
+                'ownership' => 'third_party', 'from_annotation' => true, 'rank_in_answer' => $rank + 1,
+            ]);
+        }
+    });
+    $client = new FakeExtractionClient(fn (string $id): array => entry(
+        [reported('Fjordkaffe', 'brand', $a['brand'], false), reported('Nordlys Rosteri', 'competitor', $a['competitor'], false)],
+        [
+            ['url' => $urls[0], 'source_type' => 'marketplace'],
+            ['url' => $urls[1], 'source_type' => 'marketplace'],
+            ['url' => $urls[2], 'source_type' => 'social'],
+            ['url' => $urls[4], 'source_type' => 'review'],
+        ],
+    ));
+    app()->instance(ExtractionClient::class, $client);
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    dispatch_sync(new PollExtractionBatch($a['tenant']->id, ExtractionJob::query()->withoutGlobalScopes()->sole()->id));
+
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($response) {
+        $citations = Citation::query()->where('response_id', $response->id)->orderBy('rank_in_answer')->get();
+        expect($citations->pluck('ownership')->all())->toBe(['own', 'competitor', 'third_party', 'third_party', 'third_party'])
+            ->and($citations->pluck('source_type')->all())->toBe(['other', 'other', 'forum', 'wiki', 'review']);
     });
 });
 

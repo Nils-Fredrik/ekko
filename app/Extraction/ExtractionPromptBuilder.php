@@ -34,7 +34,15 @@ Rules for the output:
 - sentiment: a number from -1.0 (clearly negative) to 1.0 (clearly positive) for how the answer speaks about the entity, 0 when neutral.
 - list_position: the 1-based number of the numbered or bulleted list item where the entity first appears inside a list, otherwise null.
 - evidence: a short quote copied from the answer that supports is_recommended, at most 200 characters.
-- citations: every URL in sources and every URL written in the answer text, each once, with source_type news, review, forum, wiki, marketplace, social, gov or other, judged from the address and the surrounding text.
+- citations: every URL in sources and every URL written in the answer text, each once, with a source_type. Classify the site as a whole, from its domain first and then the path and the surrounding text, not the single page:
+  - news: newspapers, broadcasters, magazines and other editorial news sites, also their test and review articles (nrk.no, vg.no, dagbladet.no, aftenposten.no, e24.no, svt.se, aftonbladet.se, dn.se, svd.se).
+  - review: sites whose main purpose is customer reviews, ratings or product tests (trustpilot.com, tripadvisor, testfakta.se, yelp.com).
+  - forum: discussion forums and question-and-answer sites where users write threads and replies (reddit.com, flashback.org, familjeliv.se, kvinneguiden.no, diskusjon.no, quora.com). Reddit is a forum, not social.
+  - wiki: encyclopedias and wikis (wikipedia.org, snl.no, ne.se).
+  - marketplace: sites where many sellers or many brands are sold or price-compared: marketplaces, classified ads, price comparison and retailers that sell many brands (finn.no, blocket.se, tradera.com, amazon, prisjakt.no, pricerunner.se).
+  - social: social media profiles, pages, groups, posts and videos (facebook.com, instagram.com, linkedin.com, x.com, tiktok.com, youtube.com).
+  - gov: government, municipalities and public agencies (regjeringen.no, nav.no, oslo.kommune.no, mattilsynet.no, skatteverket.se, livsmedelsverket.se, .gov).
+  - other: everything else. The website of a single company or brand is always other, also when it sells its own products: its webshop, product, price, offer and campaign pages, its blog and subdomains such as shop. or blogg. (for example sykkelhuset.no/produkter, shop.sykkelhuset.no, skogsbryggeriet.se/erbjudanden, blogg.skogsbryggeriet.se). This holds for the known entities and for any other company. Personal blogs and sites you cannot place are other too.
 - answer_type: list (a list of options), single_recommendation (one recommended option), comparison (options compared without a clear pick), informational (facts, no recommendation) or refusal (the engine declined or could not answer).
 - The language of the answer never changes the schema: field names and enum values stay in English.
 PROMPT;

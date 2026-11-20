@@ -31,6 +31,7 @@ final class ExtractionWriter
     public function __construct(
         private readonly UrlNormalizer $urls = new UrlNormalizer,
         private readonly ExtractionCost $cost = new ExtractionCost,
+        private readonly SourceTypeRules $sourceTypeRules = new SourceTypeRules,
     ) {}
 
     /**
@@ -163,6 +164,7 @@ final class ExtractionWriter
      * Citations from annotations win (docs/spec.md 8.2): when the response has any, the model only
      * supplies source_type for the ones that have none. Without annotations the model's citations are stored,
      * but only those whose URL or domain is in the answer text; a source the model made up is dropped (T39-F10).
+     * Either way the deterministic {@see SourceTypeRules} decide over the model's source_type (T20-F2).
      *
      * @param  list<ModelCitation>  $found
      */
@@ -179,7 +181,7 @@ final class ExtractionWriter
 
         if ($existing->contains('from_annotation', true)) {
             foreach ($existing as $row) {
-                $type = $sourceTypes[$row->url_normalized] ?? null;
+                $type = $this->sourceTypeRules->resolve((string) $row->domain, $row->ownership, $sourceTypes[$row->url_normalized] ?? null);
                 if ($row->from_annotation && $row->source_type === null && $type !== null) {
                     $row->update(['source_type' => $type]);
                 }
@@ -205,7 +207,7 @@ final class ExtractionWriter
                 'domain' => $parts['domain'],
                 'ownership' => $ownership['ownership'],
                 'competitor_id' => $ownership['competitor_id'],
-                'source_type' => $type,
+                'source_type' => $this->sourceTypeRules->resolve($parts['domain'], $ownership['ownership'], $type),
                 'rank_in_answer' => ++$rank,
                 'from_annotation' => false,
             ]);
