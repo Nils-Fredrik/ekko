@@ -33,7 +33,6 @@ return [
         'invalid_topic' => 'Temaet mangler navn eller er brukt to ganger.',
         'invalid_prompt' => 'Prompten er ugyldig, for lang, eller inneholder en e-postadresse eller et telefonnummer.',
         'duplicate_prompt' => 'Den samme prompten er lagt inn to ganger.',
-        'invalid_engine' => 'Motoren kan ikke brukes i denne pakken.',
         'prompt_limit' => 'Pakken tillater ikke så mange prompts i ett marked.',
     ],
     'warnings' => [

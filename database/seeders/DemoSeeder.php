@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\MeasurementPlan\MeasurementPlans;
 use App\Models\AggDaily;
 use App\Models\AggSourceDaily;
 use App\Models\AiReferralDaily;
@@ -11,6 +12,7 @@ use App\Models\BotHitDaily;
 use App\Models\Brand;
 use App\Models\BrandAlias;
 use App\Models\BrandDomain;
+use App\Models\BrandPlanEngine;
 use App\Models\Citation;
 use App\Models\Competitor;
 use App\Models\CompetitorAlias;
@@ -20,7 +22,6 @@ use App\Models\EnginePrice;
 use App\Models\ExtractionJob;
 use App\Models\Integration;
 use App\Models\Market;
-use App\Models\MarketEngine;
 use App\Models\Mention;
 use App\Models\Plan;
 use App\Models\Prompt;
@@ -149,13 +150,15 @@ class DemoSeeder extends Seeder
             'language' => $language,
             'location_label' => $location,
         ]);
+        // The brand's standard plan; the market inherits it (docs/spec.md 7.6).
         foreach (self::ENGINES as $key => [, , , , $frequency, $scope]) {
-            MarketEngine::factory()->for($market)->create([
+            BrandPlanEngine::factory()->for($brand)->create([
                 'engine_key' => $key,
                 'frequency' => $frequency,
                 'prompt_scope' => $scope,
             ]);
         }
+        app(MeasurementPlans::class)->inherit($market);
 
         $topic = Topic::factory()->for($brand)->create([
             'name' => $language === 'sv' ? 'Varumärkesdesign' : 'Merkevarebygging',

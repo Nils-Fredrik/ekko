@@ -433,6 +433,17 @@ return [
         own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)], 'data' => ['name' => 'Renamed']],
         deniedRoles: ['editor', 'reader'],
     ),
+    // The measurement plan (T53): another tenant's brand is a 404; a foreign market ID on an own brand is
+    // rejected without writing in tests/Feature/MeasurementPlan/PlanAccessTest.php.
+    'brands.plan.show' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
+    ),
+    'brands.plan.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)], 'data' => ['standard' => ['engines' => []]]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)], 'data' => ['standard' => ['engines' => []]]],
+        deniedRoles: ['editor', 'reader'],
+    ),
     'alerts.index' => RouteAccess::user(),
     'alerts.rules.store' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['data' => ['brand_id' => $brandOf($s, true), 'type' => 'quota', 'is_active' => true]],

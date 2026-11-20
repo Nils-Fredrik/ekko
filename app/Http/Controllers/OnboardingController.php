@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Dashboard\DashboardLabels;
 use App\Integrations\BrandIntegrations;
 use App\Jobs\RunOnboardingAnalysis;
+use App\MeasurementPlan\MeasurementPlans;
 use App\Models\Brand;
 use App\Models\BrandFact;
 use App\Models\Engine;
@@ -83,8 +84,16 @@ class OnboardingController extends Controller
                 'repetitions' => $tenant->kind === 'pitch' ? 1 : ($plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1),
             ])->values();
 
+        $plans = app(MeasurementPlans::class);
+        $options = $plans->options($tenant);
+
         return Inertia::render('Onboarding/Wizard', [
             'engines' => $engines,
+            // The same plan as brand settings: the package's choices and standard, and for a new market the brand's
+            // plan that it inherits by default (docs/spec.md 7.6, T53).
+            'measurementPlan' => $brand === null
+                ? ['options' => $options, 'standard' => $options['defaults']]
+                : ['options' => $options, 'standard' => $plans->present($tenant, $brand)['standard']],
             'maxCore' => (int) config('ekko.wizard.suggestions.max_core_prompts'),
             'clickhouseEndpoints' => app(BrandIntegrations::class)->endpoints(),
             'brand' => $brand === null ? null : [
@@ -132,7 +141,10 @@ class OnboardingController extends Controller
             'engines' => ['sometimes', 'array', 'max:20'],
             'engines.*.engine_key' => ['required', 'string', 'max:64'],
             'engines.*.frequency' => ['required', Rule::in(PromptSchedule::frequencies())],
+            'engines.*.prompt_scope' => ['sometimes', Rule::in(MeasurementPlans::SCOPES)],
             'engines.*.repetitions' => ['required', 'integer', 'between:1,3'],
+            // A new market inherits the brand's plan unless it is given own choices (docs/spec.md 7.6).
+            'plan_mode' => [$brand ? 'prohibited' : 'sometimes', Rule::in([Market::PLAN_INHERIT, Market::PLAN_OWN])],
             ...$integrations->rules(),
         ], [], [
             'name' => __('onboarding.ui.name'),

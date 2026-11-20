@@ -4,12 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Dashboard\DashboardLabels;
 use App\Integrations\BrandIntegrations;
+use App\MeasurementPlan\MeasurementPlans;
 use App\Models\Brand;
 use App\Models\EnginePrice;
 use App\Models\Integration;
 use App\Models\Market;
 use App\Models\MarketEngine;
+use App\Models\Team;
 use App\Scheduling\PromptSchedule;
+use App\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -28,7 +31,7 @@ class BrandSettingsController extends Controller
 {
     private const DOMAIN = '/\A(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\z/i';
 
-    public function __construct(private BrandIntegrations $integrations) {}
+    public function __construct(private BrandIntegrations $integrations, private MeasurementPlans $plans) {}
 
     public function show(Brand $brand): Response
     {
@@ -65,9 +68,11 @@ class BrandSettingsController extends Controller
                 'language' => $market->language,
                 'location_label' => $market->location_label,
                 'is_active' => $market->is_active,
+                'plan_mode' => $market->plan_mode,
             ])->values(),
             'engines' => $brand->markets->flatMap(fn (Market $market) => $market->marketEngines->map(fn (MarketEngine $engine): array => [
                 'id' => $engine->id,
+                'market_id' => $market->id,
                 'market' => $market->location_label !== '' && $market->location_label !== null
                     ? $market->location_label
                     : $market->country,
@@ -77,6 +82,8 @@ class BrandSettingsController extends Controller
                 'prompt_scope' => $engine->prompt_scope,
                 'repetitions' => $engine->repetitions,
             ]))->values(),
+            // Standard plan, inheritance and own market choices (docs/spec.md 7.6, T53); the editor is T55.
+            'measurementPlan' => $this->plans->present(Team::query()->findOrFail((int) app(TenantContext::class)->require()), $brand),
             'integrations' => $seeIntegrations
                 ? $brand->integrations->map(fn (Integration $integration): array => [
                     'type' => $integration->type,
@@ -279,6 +286,7 @@ class BrandSettingsController extends Controller
         // without the unique key seeing both of them on the same scope in between.
         $plan = $brand->tenant->plan;
         $moves = [];
+        $detached = [];
         foreach ($data['engines'] as $index => $row) {
             if (! is_array($row)) {
                 continue;
@@ -290,6 +298,14 @@ class BrandSettingsController extends Controller
                 ]);
             }
             Gate::authorize('update', $engine);
+            $changed = $engine->frequency !== $row['frequency'] || $engine->prompt_scope !== $row['prompt_scope'] || $engine->repetitions !== (int) $row['repetitions'];
+            if ($changed && ! isset($detached[$engine->market_id])) {
+                // Changing a row of an inheriting market gives it own choices from its current setup (docs/spec.md 7.6).
+                // The form sends every row on each save, so unchanged rows leave inheritance alone. A row that fails the
+                // checks below throws inside update()'s transaction, which also rolls this back.
+                $this->plans->detach(Market::query()->findOrFail($engine->market_id));
+                $detached[$engine->market_id] = true;
+            }
             if ($plan !== null && ! PromptSchedule::allows($row['frequency'], $plan->maxFrequencyForEngine($engine->engine_key))) {
                 throw ValidationException::withMessages([
                     "engines.{$index}.frequency" => __('onboarding.issues.frequency_above_plan', ['engine' => DashboardLabels::engines([$engine->engine_key])[$engine->engine_key]]),
