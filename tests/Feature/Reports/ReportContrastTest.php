@@ -57,8 +57,8 @@ test('section bars are the same markup on the web page and in the pdf', function
             'lines' => [['name' => 'Northwind', 'own' => true, 'points' => [0.2, 0.4], 'ranks' => [1, 2]]],
         ],
         'heatmap' => [
-            'engines' => ['chatgpt'],
-            'rows' => [['prompt' => 'Who leads?', 'cells' => [0.5]]],
+            'engines' => ['ChatGPT'],
+            'rows' => [['prompt' => 'Who leads?', 'cells' => [['text' => '50,0 % n 10', 'low' => false, 'value' => 0.5]]]],
         ],
         'funnel' => [
             ['label' => 'Fetched', 'value' => 12, 'low' => false],
@@ -73,6 +73,8 @@ test('section bars are the same markup on the web page and in the pdf', function
         ->toContain('data-testid="report-competitor-ranks"')
         ->toContain('points="40,10 560,150"')
         ->toContain('data-testid="report-prompt-heatmap"')
+        ->toContain('50,0 % n 10')
+        ->toContain(__('reports.rank'))
         ->toContain('data-testid="report-bars-funnel"')
         ->and($shared)->toContain('data-testid="report-competitor-lines"')
         ->toContain('data-testid="report-prompt-heatmap"')
@@ -116,6 +118,49 @@ test('report charts keep sample size, rank and distinguishable engine names', fu
         ->and($html)->toContain('16,7 % n 6')->toContain('data-low-sample')
         ->and($shared)->toContain('16,7 % n 6')->toContain('data-low-sample')
         ->and($shared)->not->toContain('shared-report.js');
+});
+
+test('a snapshot stored before ratio was saved does not draw empty rate bars', function () {
+    $html = reportHtml('#112233');
+    $legacy = view('reports.pdf', [
+        'brand' => 'Northwind',
+        'from' => '2026-10-01',
+        'to' => '2026-10-31',
+        'profile' => ['name' => 'Northwind', 'color' => '#112233', 'logo' => null],
+        'insight' => null,
+        'responses' => 10,
+        'headlines' => [],
+        'engines' => [[
+            'engine' => 'ChatGPT',
+            'visibility' => ['text' => '40 % n 10', 'low' => false],
+            'share_of_voice' => ['text' => '20 % n 10', 'low' => false],
+        ]],
+        'prompts' => [],
+        'competitors' => [[
+            'name' => 'Nordlys',
+            'mentions' => 4,
+            'visibility' => ['text' => '40 % n 10', 'low' => false],
+            'share_of_voice' => ['text' => '40 % n 10', 'low' => false],
+        ]],
+        'sources' => [['domain' => 'example.com', 'citations' => 4]],
+        'gaps' => [],
+        'bots' => [],
+        'traffic' => [],
+        'models' => [],
+        'actions' => [
+            'title' => 'Actions', 'open_title' => 'Open', 'done_title' => 'Done',
+            'empty_open' => 'None open', 'empty_done' => 'None done', 'change_label' => 'Change',
+            'open' => [], 'completed' => [],
+        ],
+        'shared' => true,
+    ])->render();
+
+    expect($html)->not->toContain('data-testid="report-bars-engines"')
+        ->and($legacy)->toContain('40 % n 10')
+        ->and($legacy)->not->toContain('data-testid="report-bars-engines"')
+        ->and($legacy)->not->toContain('data-testid="report-bars-competitors"')
+        ->and($legacy)->toContain('data-testid="report-bars-sources"')
+        ->and($legacy)->toContain('width="360"');
 });
 
 test('a brand color that already clears AA is rendered unchanged', function () {

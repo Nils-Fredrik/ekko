@@ -45,7 +45,7 @@ test('shared report token is only returned once, scoped to one tenant and report
         ->assertHeader('Content-Security-Policy', "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'");
     $this->withHeader('Authorization', 'Bearer '.$token)->get($endpoint)->assertOk()->assertSee('Private insight for this report')
         ->assertDontSee('Another report must remain private')
-        ->assertSee('shared-report-chart-data')->assertDontSee('shared-report.js', false)->assertSee('2026-10-03')
+        ->assertSee('data-testid="pdf-report-trend"', false)->assertDontSee('shared-report-chart-data', false)->assertSee('2026-10-03')
         ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('Referrer-Policy', 'no-referrer');
     $this->withHeader('Authorization', 'Bearer '.$token)->get($otherEndpoint)->assertNotFound();
     $other = MetricsWorld::create();
@@ -137,7 +137,7 @@ test('the PDF renders the published trend and preserves gaps', function () {
         ->not->toContain('stroke="#b62b1b" stroke-width="2"');
     expect(view('reports.pdf', [...$data, 'shared' => true])->render())
         ->toContain('data-testid="pdf-report-trend"')
-        ->toContain('shared-report-chart-data')
+        ->not->toContain('shared-report-chart-data')
         ->toContain('id="report-cover"')
         ->toContain('id="report-development"');
 

@@ -1,5 +1,8 @@
 @php
     $scale = $scale ?? 'rate';
+    if ($scale === 'rate') {
+        $items = array_values(array_filter($items, fn ($item): bool => is_numeric($item['value'] ?? null)));
+    }
     $max = 1.0;
     if ($scale === 'count') {
         $max = 1.0;

@@ -21,7 +21,6 @@
         @page { size: A4 portrait; margin: 14mm; }
         .report-section { break-after: page; }
         .report-section:last-child { break-after: auto; }
-        .interactive { display: none; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #e7e5e4; }
         th { font-size: 10px; color: #78716c; }
@@ -73,13 +72,6 @@
         @if (! ($short ?? false) && ! empty($trend))
             <section class="report-section" id="report-development">
                 @include('reports.partials.pdf-trend')
-                @if ($shared ?? false)
-                    @php
-                        $chartData = ['trend' => $trend, 'markers' => $markers ?? [], 'brand' => $brand, 'from' => $from, 'to' => $to, 'label' => __('reports.trend')];
-                    @endphp
-                    <div class="interactive" id="shared-report-chart"></div>
-                    <script type="application/json" id="shared-report-chart-data">@json($chartData)</script>
-                @endif
             </section>
         @endif
 

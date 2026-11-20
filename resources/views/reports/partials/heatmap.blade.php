@@ -18,10 +18,7 @@
                 <tr>
                     <th scope="row">{{ $row['prompt'] }}</th>
                     @foreach ($row['cells'] as $cell)
-                        @php
-                            $shown = is_array($cell) ? $cell : ['text' => is_numeric($cell) ? $cell : '–', 'low' => false];
-                        @endphp
-                        <td @class(['low' => $shown['low'] ?? false])>{{ $shown['text'] ?? '–' }}</td>
+                        <td @class(['low' => $cell['low'] ?? false])>{{ $cell['text'] ?? '–' }}</td>
                     @endforeach
                 </tr>
             @endforeach

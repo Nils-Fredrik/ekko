@@ -44,7 +44,8 @@
             }
         }
     @endphp
-    <svg data-testid="report-competitor-ranks" viewBox="0 0 580 180" role="img" aria-label="{{ $label }}" style="width: 100%; max-height: 180px">
+    <svg data-testid="report-competitor-ranks" viewBox="0 0 580 180" role="img" aria-label="{{ __('reports.rank') }}" style="width: 100%; max-height: 180px">
+        <title>{{ __('reports.rank') }}</title>
         <line x1="40" y1="10" x2="40" y2="150" stroke="#78716c" />
         <line x1="40" y1="150" x2="560" y2="150" stroke="#78716c" />
         <text x="0" y="14" font-size="10">1</text>
@@ -65,6 +66,7 @@
             @if ($commands !== [])
                 <polyline fill="none" stroke="{{ $color }}" stroke-width="2" points="{{ implode(' ', $commands) }}" />
             @endif
+            <text x="{{ 40 + ($index * 90) }}" y="172" font-size="10" fill="{{ $color }}">{{ \Illuminate\Support\Str::limit((string) $line['name'], 14) }}</text>
         @endforeach
     </svg>
 @endif
