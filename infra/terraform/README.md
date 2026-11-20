@@ -163,25 +163,48 @@ explicitly enable the engine only then. This does not require new secrets.
 
 The `ekko` repository has cleanup policies managed by Terraform
 (`foundation.tf`). CI tags every image with its commit SHA, so the delete rule
-uses `tag_state = "ANY"`. It deletes versions older than
-`artifact_delete_after_days` (default 1 day). The keep rule always keeps the
-newest `artifact_keep_count` (default 20) versions of each image (`web`,
-`jobs`), and KEEP wins over DELETE. The running web revision and all jobs use
-the newest digest, so they are always kept. The window also bounds rollback:
-only web revisions whose image is among the 20 newest can start new instances.
+uses `tag_state = "ANY"` and deletes versions older than
+`artifact_delete_after_days` (default 3 days). KEEP wins over DELETE, and two
+rules keep versions:
+
+- `keep-live` keeps every version with a tag starting with `live`.
+  `scripts/deploy.sh` moves the `live` tag on `web` and `jobs` to the promoted
+  digests after a successful deployment, and `scripts/rollback-traffic.sh` moves
+  the `web` tag to the rollback revision's image. The digest serving traffic is
+  therefore kept even after a rollback or a run of failed deployments.
+- `keep-recent-versions` keeps the newest `artifact_keep_count` (default 20)
+  versions of each image. Older rollback targets are kept only while they are
+  younger than the retention age. A revision whose image is deleted cannot
+  start instances.
+
+The `live` tag protects only what the last successful deployment or rollback
+set. If a job is changed manually (for example after a partial deployment, see
+the runbook), tag its digest with
+`gcloud artifacts docker tags add <image>@<digest> <image>:live`.
+
+### Dry run
 
 `artifact_cleanup_dry_run` defaults to `true`, so the policies only log what
-they would delete. Cleanup runs about once a day. Read the result in Cloud
-Logging (Logs Explorer, project `ekko-514612`):
+they would delete. Terraform also enables Data Write audit logs for
+`artifactregistry.googleapis.com` (`google_project_iam_audit_config`), which the
+dry-run entries require. Cleanup runs about once a day. In Logs Explorer for
+project `ekko-514612`, use:
 
 ```
 protoPayload.serviceName="artifactregistry.googleapis.com"
-protoPayload.methodName="Dry run : Delete Versions"
+protoPayload.methodName="google.devtools.artifactregistry.v1.ArtifactRegistry.BatchDeleteVersions"
+protoPayload.request.validateOnly=true
 ```
 
-Each entry lists the versions that would be deleted. Check that the digest of
-the revision with traffic (`gcloud run services describe ekko-web`), of every
-job (`gcloud run jobs describe <job>`) and of the intended rollback targets is
-absent. Only then set `artifact_cleanup_dry_run = false` in
-`production.auto.tfvars` in a separate, reviewed change and apply it. Deleted
-versions cannot be restored.
+Each entry lists the versions that would be deleted
+(`protoPayload.request.names`). Before turning dry run off:
+
+1. Make sure the `live` tags exist (`gcloud artifacts docker images list
+   europe-west1-docker.pkg.dev/ekko-514612/ekko/web --include-tags`, likewise
+   `jobs`). A deployment made after this change sets them. Otherwise, tag the
+   current digests manually.
+2. Check that no digest from `gcloud run services describe ekko-web`, from
+   `gcloud run jobs describe <job>` for every job, or from the intended rollback
+   targets is in the log.
+3. Set `artifact_cleanup_dry_run = false` in `production.auto.tfvars` in a
+   separate, reviewed change and apply it. Deleted versions cannot be restored.

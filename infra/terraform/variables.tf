@@ -156,7 +156,7 @@ variable "artifact_keep_count" {
 variable "artifact_delete_after_days" {
   description = "Image versions older than this, and outside the kept window, are deleted."
   type        = number
-  default     = 1
+  default     = 3
   validation {
     condition     = var.artifact_delete_after_days >= 1
     error_message = "Must be at least 1 day."

@@ -7,3 +7,10 @@ if [[ ! "$revision" =~ ^ekko-web-[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]] || ((${#revis
     exit 1
 fi
 gcloud run services update-traffic ekko-web --region "$REGION" --project "$PROJECT_ID" --to-revisions="${revision}=100"
+# Protect the image now serving traffic from Artifact Registry cleanup.
+image=$(gcloud run revisions describe "$revision" --region "$REGION" --project "$PROJECT_ID" --format='value(spec.containers[0].image)')
+if [[ "$image" != *@sha256:* ]]; then
+    echo "Traffic moved, but the revision image is not a digest; tag it live manually: $image" >&2
+    exit 1
+fi
+gcloud artifacts docker tags add "$image" "${image%@*}:live" --quiet
