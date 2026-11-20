@@ -10,6 +10,8 @@ Board #914 beskriver felles filtre, delbare URL-er og lagrede visninger. De enke
 
 `AnalysisFilters` normaliserer tillatte dimensjoner mot merkevarens ressurser. `DashboardPeriod` tolker datoene i tenantens tidssone. En egendefinert periode kan være høyst 366 dager. Samme periode i fjor bruker kalenderdatoer med 29. februar klippet til 28. februar. Ulike vinduer eller sammenligninger deler ikke innsikts-/sammenligningscache.
 
+Innsiktens dagskvote, lagringsdag og genereringsdato følger dagens dato i tenantens tidssone, uavhengig av valgt analyseperiode. Prompten beskriver valgt sammenligningsmodus og begge faktiske datovinduer.
+
 Konkurrentfilteret velger trendens sammenligningsserier, med egen merkevare beholdt, ikke et nytt utvalg av råsvar. Kilde- og trafikkvisninger tilbyr bare dimensjoner datakildene støtter. Dette er presiseringer av U11, ikke nye filtreringsmetrikker.
 
 `saved_views` eies av tenant og bruker, og er avgrenset til merkevare og analyseside. Tabellen har FORCE RLS på tenant og en sammensatt tenant/brand-fremmednøkkel. Listen og sletting avgrenser også på innlogget bruker. Alle som kan lese merkevaren kan lagre egne visninger; det gir ingen rett til å endre merkevaren. Navn brukes som upsert-nøkkel innen eget omfang.

@@ -58,7 +58,6 @@ final readonly class InsightService
         }
 
         return $this->resolve('brand', $brand->id, $period, [
-            'window' => [$filter->from, $filter->to, $previous->from, $previous->to],
             'market' => $filter->marketIds, 'engine' => $filter->engineKeys, 'topic' => $filter->topicIds, 'intent' => $filter->intents,
         ], fn (): InsightFigures => $this->builder->brand($brand, $period, $filter, $previous));
     }
@@ -97,15 +96,17 @@ final readonly class InsightService
             sort($values);
         }
         unset($values);
-        $filter = ['days' => $period->days, 'from' => $period->from, 'to' => $period->to] + $dimensions;
+        $filter = ['days' => $period->days, 'from' => $period->from, 'to' => $period->to,
+            'comparison' => $period->comparison, 'previous_from' => $period->previousFrom, 'previous_to' => $period->previousTo] + $dimensions;
         $key = hash('sha256', json_encode(['scope' => $scope, 'brand' => $brandId, 'locale' => $locale, 'filter' => $filter], JSON_THROW_ON_ERROR));
+        $localDay = CarbonImmutable::now($period->timezone)->startOfDay();
 
         $data = $figures();
         if (! $data->usable) {
             return null;
         }
 
-        $row = Insight::query()->where('filter_key', $key)->whereDate('local_date', $period->to)->first();
+        $row = Insight::query()->where('filter_key', $key)->whereDate('local_date', $localDay->toDateString())->first();
         if ($row === null || ($row->status === Insight::UNAVAILABLE && $this->mayRetry($row))) {
             $lock = Cache::lock("insight:{$tenantId}:{$key}", 120);
             if (! $lock->get()) {
@@ -113,9 +114,9 @@ final readonly class InsightService
             }
             try {
                 // Another request may have written it while this one waited for the lock.
-                $row = Insight::query()->where('filter_key', $key)->whereDate('local_date', $period->to)->first();
+                $row = Insight::query()->where('filter_key', $key)->whereDate('local_date', $localDay->toDateString())->first();
                 if ($row === null || ($row->status === Insight::UNAVAILABLE && $this->mayRetry($row))) {
-                    $row = $this->generate($row, $scope, $brandId, $period, $key, $filter, $locale, $data);
+                    $row = $this->generate($row, $scope, $brandId, $period, $key, $filter, $locale, $data, $localDay);
                 }
             } finally {
                 $lock->release();
@@ -141,12 +142,12 @@ final readonly class InsightService
     /**
      * @param  array<string, mixed>  $filter
      */
-    private function generate(?Insight $row, string $scope, ?int $brandId, DashboardPeriod $period, string $key, array $filter, string $locale, InsightFigures $data): Insight
+    private function generate(?Insight $row, string $scope, ?int $brandId, DashboardPeriod $period, string $key, array $filter, string $locale, InsightFigures $data, CarbonImmutable $localDay): Insight
     {
         $tenantId = app(TenantContext::class)->require();
         $log = ['tenant' => $tenantId, 'brand' => $brandId, 'scope' => $scope];
         $attributes = [
-            'brand_id' => $brandId, 'scope' => $scope, 'local_date' => $period->to, 'filter_key' => $key, 'filter' => $filter,
+            'brand_id' => $brandId, 'scope' => $scope, 'local_date' => $localDay->toDateString(), 'filter_key' => $key, 'filter' => $filter,
             'locale' => $locale, 'attempted_at' => CarbonImmutable::now('UTC'), 'template' => null, 'directions' => [], 'entities' => [],
             'model' => null, 'usage_event_id' => null,
         ];
@@ -161,8 +162,10 @@ final readonly class InsightService
             return $row;
         };
 
-        $dayStart = CarbonImmutable::parse($period->to, $period->timezone)->startOfDay()->utc();
-        if (Insight::query()->where(fn ($q) => $q->whereNotNull('usage_event_id')->orWhere('reason', 'unknown'))->where('attempted_at', '>=', $dayStart)->count() >= (int) config('ekko.insights.max_per_tenant_per_day')) {
+        // Generation limits follow the actual tenant-local day, never a user-selected analysis date.
+        if (Insight::query()->where(fn ($q) => $q->whereNotNull('usage_event_id')->orWhere('reason', 'unknown'))
+            ->where('attempted_at', '>=', $localDay->utc())->where('attempted_at', '<', $localDay->addDay()->utc())
+            ->count() >= (int) config('ekko.insights.max_per_tenant_per_day')) {
             Log::info('Insight call.', $log + ['outcome' => 'not_called', 'reason' => 'cap']);
 
             return $store(Insight::UNAVAILABLE, 'cap');
@@ -183,7 +186,7 @@ final readonly class InsightService
             return $store(Insight::UNAVAILABLE, 'reduced');
         }
 
-        $request = $this->prompts->build($data, $scope, $locale, $period->days);
+        $request = $this->prompts->build($data, $scope, $locale, $period);
         try {
             // Resolved here: without ANTHROPIC_API_KEY the container cannot build the client.
             $result = app(InsightTextWriter::class)->write($request);

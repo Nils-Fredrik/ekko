@@ -403,3 +403,38 @@ test('the text is hidden when the direction of a finding it names turns, even wi
 
     expect(brandInsight($this, $this->w))->toBeNull()->and($this->writer->requests)->toHaveCount(1);
 });
+
+test('custom analysis dates cannot bypass the current tenant days insight cap', function (string $until) {
+    $this->travelTo(CarbonImmutable::parse('2026-11-16 00:30:00', 'Europe/Oslo'));
+    config(['ekko.insights.max_per_tenant_per_day' => 1]);
+    $this->writer->reply = FakeInsightWriter::json('Synligheten er {visibility_now}.');
+    expect(brandInsight($this, $this->w))->not->toBeNull();
+
+    expect(brandInsight($this, $this->w, '?from=2026-11-01&to='.$until))->toBeNull()
+        ->and($this->writer->requests)->toHaveCount(1)
+        ->and(Insight::query()->where('reason', 'cap')->count())->toBe(1);
+})->with(['historical' => '2026-11-15', 'future' => '2026-11-17']);
+
+test('historical insights use the generation day and regain their allowance at local midnight', function () {
+    config(['ekko.insights.max_per_tenant_per_day' => 1]);
+    $this->writer->reply = FakeInsightWriter::json('Synligheten er {visibility_now}.');
+    $query = '?from=2026-11-01&to=2026-11-10';
+    $this->travelTo(CarbonImmutable::parse('2026-11-15 23:30:00', 'Europe/Oslo'));
+    expect(brandInsight($this, $this->w, $query)['generated_on'])->toBe('2026-11-15');
+    $this->travelTo(CarbonImmutable::parse('2026-11-16 00:30:00', 'Europe/Oslo'));
+    expect(brandInsight($this, $this->w, $query)['generated_on'])->toBe('2026-11-16')
+        ->and($this->writer->requests)->toHaveCount(2);
+});
+
+test('insight prompts identify the actual selected comparison window', function (string $comparison, string $previousFrom, string $previousTo) {
+    $this->writer->reply = FakeInsightWriter::json('Synligheten er {visibility_now}.');
+    expect(brandInsight($this, $this->w, '?from=2026-11-01&to=2026-11-16&comparison='.$comparison))->not->toBeNull();
+    $payload = json_decode(explode("\n", $this->writer->requests[0]->user, 2)[1], true, flags: JSON_THROW_ON_ERROR);
+    expect($payload['comparison_mode'])->toBe($comparison)
+        ->and($payload['period'])->toBe(['from' => '2026-11-01', 'to' => '2026-11-16'])
+        ->and($payload['comparison_period'])->toBe(['from' => $previousFrom, 'to' => $previousTo])
+        ->and($payload['comparison'])->toContain($comparison === 'year' ? 'last year' : 'before the period');
+})->with([
+    'previous' => ['previous', '2026-10-16', '2026-10-31'],
+    'year' => ['year', '2025-11-01', '2025-11-16'],
+]);
