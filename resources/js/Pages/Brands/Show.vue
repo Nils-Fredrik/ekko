@@ -127,6 +127,19 @@ const leadingEngine = computed(
             .sort((left, right) => right.visibility.value - left.visibility.value)[0] ?? null,
 );
 
+const competitorIndex = computed(() => {
+    const ids = [];
+    for (const row of props.chartData?.competitors ?? []) {
+        for (const entity of row.entities ?? []) {
+            if (entity.id !== 'brand' && !ids.includes(entity.id)) {
+                ids.push(entity.id);
+            }
+        }
+    }
+
+    return new Map(ids.map((id, index) => [id, index]));
+});
+
 const trendSeries = computed(() => {
     if (categories.value.length === 0) {
         return [];
@@ -149,10 +162,10 @@ const trendSeries = computed(() => {
             byId.get(entity.id).points.set(row.period, entity.visibility);
         }
     }
-    const competitors = [...byId.entries()].map(([id, entity], index) => ({
+    const competitors = [...byId.entries()].map(([id, entity]) => ({
         key: id,
         label: entity.label,
-        colorIndex: index,
+        colorIndex: competitorIndex.value.get(id) ?? 0,
         points: categories.value.map((period) => point(entity.points.get(period))),
     }));
 
@@ -177,10 +190,12 @@ const markers = computed(() => [...props.modelChanges.map(modelMarker), ...(prop
 const panels = computed(() => {
     const rows = props.chartData?.engines ?? [];
     const keys = [...new Set(rows.map((row) => row.engine_key))];
+    const periodVisibility = new Map(props.engines.map((item) => [item.key, item.visibility]));
 
     return keys.map((key) => ({
         key,
         label: engineName.value(key),
+        headline: periodVisibility.get(key) ?? null,
         points: aligned(
             rows.filter((row) => row.engine_key === key),
             (row) => row.visibility,
@@ -221,11 +236,11 @@ const shareSeries = computed(() => {
         }
     }
 
-    return [...groups.entries()].map(([key, group], index) => ({
+    return [...groups.entries()].map(([key, group]) => ({
         key,
         label: group.label,
         own: group.own || undefined,
-        colorIndex: group.own ? undefined : index,
+        colorIndex: group.own ? undefined : (competitorIndex.value.get(key) ?? 0),
         points: categories.value.map((period) => point(group.points.get(period))),
     }));
 });

@@ -24,7 +24,8 @@ const props = defineProps({
     label: { type: String, required: true },
     description: { type: String, default: '' },
     categories: { type: Array, required: true },
-    // [{ key, label, points: [{ value, n, low_sample, change? }] }], one per engine.
+    // [{ key, label, headline?: { value, n, low_sample }, points: [{ value, n, low_sample, change? }] }].
+    // `headline` is the period value the page quotes; without it the header shows the last bucket.
     panels: { type: Array, required: true },
     // Markers per panel key: { [panelKey]: [marker] }. Model changes belong to one engine.
     markers: { type: Object, default: () => ({}) },
@@ -64,7 +65,10 @@ function select(panel, params) {
     );
 }
 
-function lastValue(panel) {
+function shownValue(panel) {
+    if (panel.headline && typeof panel.headline === 'object') {
+        return formatValue(panel.headline.value, props.kind);
+    }
     const range = firstAndLast(panel.points);
 
     return range ? formatValue(range.last.point.value, props.kind) : trans('app.charts.empty');
@@ -156,7 +160,7 @@ const summary = computed(() => {
                 return `${panel.label} ${trans('app.charts.empty')}`;
             }
 
-            return `${panel.label} ${formatValue(range.last.point.value, props.kind)} (${formatChange(range.last.point.value - range.first.point.value, props.kind)})`;
+            return `${panel.label} ${shownValue(panel)} (${formatChange(range.last.point.value - range.first.point.value, props.kind)})`;
         })
         .join(', ');
 
@@ -182,7 +186,9 @@ const summary = computed(() => {
             <div v-for="panel in panels" :key="panel.key">
                 <div class="flex items-baseline justify-between gap-2 text-xs">
                     <span class="font-medium">{{ panel.label }}</span>
-                    <span class="tabular-nums text-shell-muted">{{ lastValue(panel) }}</span>
+                    <span class="tabular-nums text-shell-muted" :class="panel.headline?.low_sample ? 'opacity-40' : ''">
+                        {{ shownValue(panel) }}
+                    </span>
                 </div>
                 <EkkoChart
                     compact

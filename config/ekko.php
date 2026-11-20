@@ -298,8 +298,8 @@ return [
     | retry_after_minutes; no more than max_per_tenant_per_day calls are made per tenant and day.
     */
     'insights' => [
-        // On now that the brand dashboard and the overview render <InsightLine> (U05). The deferred prop is fetched
-        // by every page view, so the text stays off until a page shows it. Set EKKO_INSIGHTS_ENABLED to override.
+        // On by default: the brand dashboard and the overview render <InsightLine> (U05). Set
+        // EKKO_INSIGHTS_ENABLED=false to stop the deferred prop from booking a call.
         'enabled' => (bool) env('EKKO_INSIGHTS_ENABLED', true),
         'max_per_tenant_per_day' => 40,
         'retry_after_minutes' => 60,
