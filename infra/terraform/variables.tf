@@ -136,3 +136,29 @@ variable "allow_work_rollout_downgrade" {
   type        = bool
   default     = false
 }
+
+variable "artifact_cleanup_dry_run" {
+  description = "Only log what the Artifact Registry cleanup policies would delete. Set false after the dry-run log is reviewed."
+  type        = bool
+  default     = true
+}
+
+variable "artifact_keep_count" {
+  description = "Newest versions kept per image (web, jobs). Bounds how far back web rollback can go."
+  type        = number
+  default     = 20
+  validation {
+    condition     = var.artifact_keep_count >= 10
+    error_message = "Keep at least 10 versions so the running digest and rollback targets survive."
+  }
+}
+
+variable "artifact_delete_after_days" {
+  description = "Image versions older than this, and outside the kept window, are deleted."
+  type        = number
+  default     = 3
+  validation {
+    condition     = var.artifact_delete_after_days >= 1
+    error_message = "Must be at least 1 day."
+  }
+}
