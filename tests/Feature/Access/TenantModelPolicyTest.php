@@ -34,6 +34,7 @@ function tenantModelRights(): array
         Models\BrandDomain::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
         Models\Market::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
         Models\MarketEngine::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
+        Models\BrandPlanEngine::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
         Models\Competitor::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\CompetitorAlias::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\CompetitorDomain::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),

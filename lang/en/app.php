@@ -311,6 +311,21 @@ return [
     'account' => [
         'owns_tenants' => 'You own a tenant and cannot delete your account. Ask the platform admin to transfer or delete the tenant first.',
     ],
+    'plan' => [
+        'invalid' => 'The measurement plan has an invalid format.',
+        'invalid_mode' => 'Choose whether the market inherits the brand plan or has its own choices.',
+        'duplicate_market' => 'The market appears more than once in the change.',
+        'engines_with_inherit' => 'A market that inherits the brand plan cannot have its own engine choices.',
+        'unknown_engine' => 'Unknown engine.',
+        'invalid_scope' => 'Choose all prompts or core prompts only.',
+        'invalid_frequency' => 'Choose a supported interval.',
+        'invalid_repetitions' => 'Repetitions must be between 1 and 3.',
+        'too_many_rules' => 'The plan can have at most :max rules.',
+        'engine_unavailable' => ':engine is not available in the package.',
+        'frequency_above_cap' => 'The interval for :engine is more frequent than the package allows.',
+        'repetitions_above_cap' => 'The package allows at most :max repetitions.',
+    ],
+
     'workspace' => [
         'integration_status' => [
             'pending' => 'Pending',

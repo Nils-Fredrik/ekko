@@ -20,4 +20,9 @@ class MarketFactory extends Factory
             'is_active' => true,
         ];
     }
+
+    public function inheriting(): static
+    {
+        return $this->state(['plan_mode' => Market::PLAN_INHERIT]);
+    }
 }

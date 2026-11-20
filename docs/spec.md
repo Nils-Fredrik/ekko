@@ -253,15 +253,22 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `competitors` | `tenant_id`, `brand_id`, `name`, `is_active`, `deleted_at` (logisk sletting) |
 | `competitor_aliases` | `competitor_id`, `alias`, `match_mode` |
 | `competitor_domains` | `competitor_id`, `domain` |
-| `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active` |
+| `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active`, `plan_mode` (inherit, own; T53) |
 | `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency` (daily, weekly, monthly, off). T52 legger til every_14_days og every_21_days. Øvrige valg er `prompt_scope` (all, core) og `repetitions` (1–3, standard 1). |
+| `brand_plan_engines` | `tenant_id`, `brand_id`, `engine_key`, `frequency`, `prompt_scope` (all, core), `repetitions` (1–3). Merkevarens standardplan (T53), samme form som `market_engines` |
 | `brand_facts` | `tenant_id`, `brand_id`, `text` (høyst 300 tegn), `is_active` (11.6) |
 | `topics` | `tenant_id`, `brand_id`, `name`, `cross_market_key` (kobler samme tema på tvers av markeder) |
 | `prompts` | `tenant_id`, `market_id`, `topic_id`, `text`, `intent` (category, comparison, brand, problem, local), `funnel_stage` (awareness, consideration, decision), `priority` (core, standard), `is_active`, `text_hash` |
 | `engines` | `key`, `family` (chatgpt, gemini, google_aio, perplexity, claude), `method` (api, ui_scrape, serp), `provider`, `model_id`, `config` (jsonb), `is_enabled` |
 | `engine_prices` | `engine_key`, `valid_from`, `price_per_call_usd`, `price_per_1k_input_tokens_usd`, `price_per_1k_output_tokens_usd`, `price_per_search_usd` |
 
-T53 innfører en standardplan eid av merkevaren og lagrer eksplisitt om et marked arver eller bruker egne valg. To planer med like verdier kan ha ulik arvestatus. Planen og markedsvalgene følger tenant-isolasjonen og kravene til relasjoner i kapittel 6. T53 dokumenterer tabeller, kolonner og relasjoner her sammen med migreringen.
+T53 innfører en standardplan eid av merkevaren og lagrer eksplisitt om et marked arver eller bruker egne valg. To planer med like verdier kan ha ulik arvestatus. Planen og markedsvalgene følger tenant-isolasjonen og kravene til relasjoner i kapittel 6.
+
+- `brand_plan_engines` holder standardplanen og har FORCE RLS. Tabellen har en sammensatt fremmednøkkel `(tenant_id, brand_id)` til `brands` med kaskadesletting og en fremmednøkkel til `engines`. Den er unik på `(tenant_id, brand_id, engine_key, prompt_scope)`. `frequency` er begrenset til de seks verdiene under, og `repetitions` til 1–3.
+- `markets.plan_mode` er `inherit` eller `own`. Databasens standardverdi er `own`. Appen setter `inherit` når et nytt marked arver.
+- `market_engines` holder alltid markedets effektive regler. Et marked med `inherit` har en eksakt kopi av standardplanen, holdt oppdatert i samme transaksjon som hver endring av standarden eller arvestatusen. Planlegger, førstekjøring, Anthropic-planlegger, estimat, motorfiltre og `list_brands` leser derfor én kilde ([ADR 0042](decisions/0042-maleplan-arv-og-egne-markedsvalg.md)).
+- Per motor finnes høyst én regel for alle spørsmål (`all`) og én kjerneregel (`core`). Et kjernespørsmål bruker kjerneregelen når den finnes, ellers regelen for alle. Et vanlig spørsmål bruker bare regelen for alle.
+- Migreringen `2026_11_21_100000_create_brand_measurement_plans` endrer ikke radene i `market_engines`. Alle eksisterende markeder får `own`, og alle merkevarer får pakkens standardplan etter 7.6.
 
 Merkevareplan, markedsvalg og pakkegrenser bruker samme frekvensverdier. Rekkefølgen fra sjeldnest til oftest er `off` < `monthly` < `every_21_days` < `every_14_days` < `weekly` < `daily`. Dermed tillater et tak på `every_14_days` også hver tredje uke og månedlig. Den eksisterende regelen for motorspesifikt pakketak i `plans.engine_max_frequencies` og standardtaket i `plans.max_frequency` gjelder i estimat, lagring og kjøring.
 
@@ -493,6 +500,8 @@ I standardoppsettet følger ChatGPT, Gemini og Haiku merkevarens valgte interval
 Ved innføring får hver eksisterende merkevare samme standardplan som en ny merkevare i den aktuelle pakken. Bruk motorer og promptutvalg fra 7.4 med én gjentakelse. Sett intervallet til det sjeldneste av motorens standard og pakketaket. Utilgjengelige motorer og motorer utenfor pakken settes til Av. For en merkevare uten pakke er alle motorer av. Denne regelen gjelder også for en merkevare uten markeder.
 
 Alle eksisterende markeder får sitt tidligere oppsett som eksplisitte egne valg, også egne kjerneregler, avslåtte motorer og markeder uten motorer. Administrator kan deretter velge hvilke markeder som skal arve. Planendringer gjelder fremtidig planlegging. Historiske svar beholder tilknytningen til den opprinnelige kjøringen.
+
+**Lagring (T53).** `GET /brands/{brand}/measurement-plan` gir standardplanen, hvert markeds `plan_mode` og effektive regler og pakkens valg (`options`: frekvenser som kan planlegges, omfang, maks gjentakelser, motorer med tak og pris, samt pakkens standard). Innstillingssiden og veiviseren får de samme dataene som `measurementPlan`. `PUT` samme sti tar `standard.engines` og `markets[]` (`id`, `plan_mode`, valgfritt `engines`) og lagrer alt samlet. En delvis ugyldig endring skriver ingenting. «Egne valg» uten `engines` beholder markedets nåværende oppsett. Hvis veiviseren sender motorer for et nytt marked uten `plan_mode`, får markedet egne valg som før T53. Uten motorer, eller med `plan_mode=inherit`, arver markedet (ADR 0042).
 
 Førstekjøringen, dispatcheren og kostnadsestimatet bruker oppsettet som gjelder for hvert marked, enten det arver merkevareplanen eller har egne valg. Det samme gjelder Anthropic-planleggerens grunnlastprognose og tildeling av ekstra Sonnet-kjøringer på nivå 2 (12.5). Merkevareinnstillingene og MCP-verktøyet `list_brands` viser de samme motorene med frekvens, promptutvalg og gjentakelser. Motorfiltrene i merkevareoversikten, på kildesiden og i analysevisningene henter også motorvalg fra dette oppsettet. Pakkens motor- og frekvenstak, kvotekontrollen i 7.2 og reglene for pitch og Anthropic-kreditter gjelder fortsatt.
 
@@ -1002,7 +1011,7 @@ Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-
 | Tool | Beskrivelse |
 |---|---|
 | `whoami` | Bruker, tenants og roller |
-| `list_brands` | Merkevarer med markeder og motorer. Etter T53 viser `markets[].engines[]` markedets arvede eller egne regler med `engine`, `frequency` (verdiene i 6.2), `prompt_scope` og `repetitions`. |
+| `list_brands` | Merkevarer med markeder og motorer. `plan[]` er merkevarens standardplan, og `markets[].plan_mode` sier om markedet arver den (`inherit`) eller har egne valg (`own`). `markets[].engines[]` viser markedets effektive regler med `engine`, `frequency` (verdiene i 6.2), `prompt_scope` og `repetitions` (T53). |
 | `get_visibility` | Metrikker for merkevare, marked, motor, tema og periode, med n |
 | `compare_competitors` | Share of voice, posisjon og anbefalingsrate mot konkurrenter (posisjon og anbefalingsrate foreløpig bare for merkevaren, ADR 0016) |
 | `get_prompt_results` | Resultater per prompt, sortert etter endring |

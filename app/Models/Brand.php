@@ -41,6 +41,16 @@ class Brand extends Model
         return $this->hasMany(Competitor::class);
     }
 
+    /**
+     * The standard measurement plan; markets that inherit hold a copy (docs/spec.md 7.6, ADR 0042).
+     *
+     * @return HasMany<BrandPlanEngine, $this>
+     */
+    public function planEngines(): HasMany
+    {
+        return $this->hasMany(BrandPlanEngine::class);
+    }
+
     /** @return HasMany<Market, $this> */
     public function markets(): HasMany
     {

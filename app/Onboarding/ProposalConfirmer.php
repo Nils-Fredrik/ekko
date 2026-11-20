@@ -4,12 +4,13 @@ namespace App\Onboarding;
 
 use App\FactCheck\BrandFactManager;
 use App\Integrations\BrandIntegrations;
+use App\MeasurementPlan\MeasurementPlans;
+use App\MeasurementPlan\StandardPlan;
 use App\Models\Brand;
 use App\Models\BrandAlias;
 use App\Models\Competitor;
 use App\Models\CompetitorAlias;
 use App\Models\Engine;
-use App\Models\EnginePrice;
 use App\Models\Market;
 use App\Models\Plan;
 use App\Models\Prompt;
@@ -34,6 +35,7 @@ final class ProposalConfirmer
     public function __construct(
         private ProposalParser $personalData,
         private FirstRun $firstRun,
+        private MeasurementPlans $plans,
         private AnalysisStore $store,
         private BrandIntegrations $integrations,
         private BrandFactManager $facts,
@@ -71,7 +73,8 @@ final class ProposalConfirmer
                     || $engines->contains(fn (Engine $engine): bool => ! $plan->allowsEngine($engine->key) || $plan->maxFrequencyForEngine($engine->key) !== 'daily')) {
                     throw ValidationException::withMessages(['engines' => __('pitch.plan_unavailable')]);
                 }
-                $data['engines'] = $engines->map(fn (Engine $engine): array => ['engine_key' => $engine->key, 'frequency' => 'daily', 'repetitions' => 1])->all();
+                $data['engines'] = $engines->map(fn (Engine $engine): array => ['engine_key' => $engine->key, 'prompt_scope' => 'all', 'frequency' => 'daily', 'repetitions' => 1])->values()->all();
+                unset($data['plan_mode']);
             }
             $brand = $analysis->kind === Analysis::MARKET
                 ? $this->existingBrand($analysis)
@@ -92,7 +95,7 @@ final class ProposalConfirmer
             if ($analysis->kind === Analysis::BRAND) {
                 $this->createFacts($brand, $data['facts'] ?? []);
             }
-            $this->createEngines($market, $data['engines'] ?? [], $plan);
+            $this->applyPlan($tenant, $analysis, $brand, $market, $data);
             $this->integrations->apply($brand, $data);
 
             $runs = $this->firstRun->start($tenant, $market);
@@ -268,46 +271,37 @@ final class ProposalConfirmer
     }
 
     /**
-     * @param  list<mixed>  $rows
+     * The wizard uses the same measurement plan as brand settings (docs/spec.md 7.6, ADR 0042). A new brand gets the
+     * chosen engines as its standard plan, or the package standard when none are sent, and its first market inherits.
+     * A new market inherits unless it is sent with plan_mode own (or, from the earlier wizard, with engines only).
+     *
+     * @param  array<string, mixed>  $data
      */
-    private function createEngines(Market $market, array $rows, ?Plan $plan): void
+    private function applyPlan(Team $tenant, Analysis $analysis, Brand $brand, Market $market, array $data): void
     {
-        $seen = [];
-        foreach ($rows as $index => $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $key = (string) ($row['engine_key'] ?? '');
-            $frequency = (string) ($row['frequency'] ?? '');
-            $repetitions = (int) ($row['repetitions'] ?? 1);
-            $engine = Engine::query()->find($key);
-            if (! $engine instanceof Engine || ! $engine->isAvailable() || isset($seen[$key])
-                || ($plan instanceof Plan && ! $plan->allowsEngine($key))
-                || ! $this->frequencyAllowed($frequency, $plan instanceof Plan ? $plan->maxFrequencyForEngine($key) : 'daily')
-                || $repetitions < 1 || $repetitions > 3
-                || ($plan instanceof Plan && $repetitions > $plan->max_repetitions)) {
-                throw ValidationException::withMessages([
-                    "engines.{$index}.engine_key" => __('onboarding.errors.invalid_engine'),
-                ]);
-            }
-            $seen[$key] = true;
-            if ($frequency !== 'off' && ! EnginePrice::query()->where('engine_key', $key)->where('valid_from', '<=', now())->exists()) {
-                throw ValidationException::withMessages(["engines.{$index}.engine_key" => __('onboarding.issues.no_price', ['engine' => $key])]);
-            }
-            $market->marketEngines()->create([
-                'engine_key' => $key,
-                'frequency' => $frequency,
-                'prompt_scope' => 'all',
-                'repetitions' => $repetitions,
-            ]);
+        $errors = [];
+        $rules = array_key_exists('engines', $data)
+            ? $this->plans->validateRules($tenant, array_values((array) $data['engines']), 'engines', $errors)
+            : null;
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
         }
-    }
+        if ($analysis->kind === Analysis::BRAND) {
+            $this->plans->initialize($brand, $rules ?? StandardPlan::forTenant($tenant));
+            $this->plans->inherit($market);
 
-    private function frequencyAllowed(string $chosen, string $max): bool
-    {
-        $rank = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
+            return;
+        }
+        $mode = $data['plan_mode'] ?? ($rules === null ? Market::PLAN_INHERIT : Market::PLAN_OWN);
+        if ($mode === Market::PLAN_INHERIT) {
+            if ($rules !== null) {
+                throw ValidationException::withMessages(['engines' => __('app.plan.engines_with_inherit')]);
+            }
+            $this->plans->inherit($market);
 
-        return isset($rank[$chosen], $rank[$max]) && $rank[$chosen] <= $rank[$max];
+            return;
+        }
+        $this->plans->own($market, $rules ?? []);
     }
 
     private function slug(string $name): string

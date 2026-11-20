@@ -311,6 +311,21 @@ return [
     'account' => [
         'owns_tenants' => 'Du äger en tenant och kan inte radera ditt konto. Be plattformsadministratören att först överföra eller radera tenanten.',
     ],
+    'plan' => [
+        'invalid' => 'Mätplanen har ett ogiltigt format.',
+        'invalid_mode' => 'Välj om marknaden ska ärva varumärkets plan eller ha egna val.',
+        'duplicate_market' => 'Marknaden förekommer flera gånger i ändringen.',
+        'engines_with_inherit' => 'En marknad som ärver varumärkets plan kan inte ha egna motorval.',
+        'unknown_engine' => 'Okänd motor.',
+        'invalid_scope' => 'Välj alla frågor eller bara kärnfrågorna.',
+        'invalid_frequency' => 'Välj ett intervall som stöds.',
+        'invalid_repetitions' => 'Upprepningar måste vara mellan 1 och 3.',
+        'too_many_rules' => 'Planen kan ha högst :max regler.',
+        'engine_unavailable' => ':engine är inte tillgänglig i paketet.',
+        'frequency_above_cap' => 'Intervallet för :engine är tätare än paketet tillåter.',
+        'repetitions_above_cap' => 'Paketet tillåter högst :max upprepningar.',
+    ],
+
     'workspace' => [
         'integration_status' => [
             'pending' => 'Väntar',
