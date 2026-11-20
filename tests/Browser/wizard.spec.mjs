@@ -87,4 +87,19 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     expect(markets.markets).toBe(2);
     expect(markets.swedish_queued).toBeGreaterThan(0);
     expect(markets.competitors).toBe(3);
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.getByRole('link', { name: 'Competitors', exact: true }).click();
+    const remove = page.getByRole('button', { name: 'Delete Ny konkurrent', exact: true });
+    page.once('dialog', (dialog) => dialog.dismiss());
+    await remove.click();
+    await expect(remove).toBeVisible();
+    page.once('dialog', async (dialog) => {
+        expect(dialog.message()).toContain('Ny konkurrent');
+        await dialog.accept();
+    });
+    await remove.click();
+    await expect(remove).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole('row').filter({ hasText: 'Ny konkurrent' })).toHaveCount(0);
 });

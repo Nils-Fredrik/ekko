@@ -121,6 +121,7 @@ class BrandController extends Controller
                     'sentiment' => $metrics->sentimentDistribution($filter),
                     'action_markers' => $this->actionMarkers($brand, $period),
                 ],
+                competitorIds: $brand->competitors->modelKeys(),
             )),
         ]);
     }
