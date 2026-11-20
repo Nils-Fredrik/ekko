@@ -1,7 +1,8 @@
 <script setup>
 // Funnel «fetched by AI → cited → visits» (docs/ui-forbedring.md 6, U09), as horizontal bars
 // with the share of the previous step. Each step explains how it is measured, as visible text
-// under the chart.
+// under the chart. Steps measured in different units (requests, answers, sessions) are not a
+// conversion, so `ratios` can turn the share of the previous step off.
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
@@ -16,6 +17,7 @@ const props = defineProps({
     kind: { type: String, default: 'count' },
     color: { type: String, default: 'own' },
     rowHeight: { type: Number, default: 44 },
+    ratios: { type: Boolean, default: true },
 });
 
 const height = computed(() => Math.max(props.steps.length, 1) * props.rowHeight + 16);
@@ -23,7 +25,7 @@ const height = computed(() => Math.max(props.steps.length, 1) * props.rowHeight 
 function conversion(index) {
     const previous = props.steps[index - 1]?.value;
     const value = props.steps[index]?.value;
-    if (index === 0 || !previous || value == null) {
+    if (!props.ratios || index === 0 || !previous || value == null) {
         return null;
     }
 
@@ -93,13 +95,13 @@ const table = computed(() => ({
     columns: [
         { key: 'label', label: trans('app.charts.funnel.step') },
         { key: 'value', label: trans('app.charts.value'), numeric: true },
-        { key: 'conversion', label: trans('app.charts.funnel.conversion'), numeric: true },
+        ...(props.ratios ? [{ key: 'conversion', label: trans('app.charts.funnel.conversion'), numeric: true }] : []),
     ],
     rows: props.steps.map((step, index) => ({
         key: step.key,
         label: step.label,
         value: formatValue(step.value, props.kind),
-        conversion: formatValue(conversion(index), 'rate'),
+        ...(props.ratios ? { conversion: formatValue(conversion(index), 'rate') } : {}),
     })),
 }));
 
