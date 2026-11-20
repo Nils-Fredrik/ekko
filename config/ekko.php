@@ -309,6 +309,20 @@ return [
     ],
 
     /*
+    | The standard measurement plan for a new brand (docs/spec.md 7.4 and 7.6, ADR 0042). Each engine's
+    | frequency is capped by the chosen brand interval and the package; unavailable engines are off.
+    */
+    'measurement_plan' => [
+        'standard' => [
+            ['engine_key' => 'chatgpt_api', 'prompt_scope' => 'all', 'frequency' => 'daily'],
+            ['engine_key' => 'gemini_api', 'prompt_scope' => 'all', 'frequency' => 'daily'],
+            ['engine_key' => 'claude_haiku', 'prompt_scope' => 'all', 'frequency' => 'daily'],
+            ['engine_key' => 'claude_sonnet', 'prompt_scope' => 'core', 'frequency' => 'weekly'],
+        ],
+        'max_rules' => 20,
+    ],
+
+    /*
     | The onboarding wizard (docs/spec.md 13 and 16, ADR 0018). Fetching a customer's site is the one place
     | where Ekko makes a request to an address the user typed, so the limits are strict.
     */
@@ -341,7 +355,7 @@ return [
         'pending_reservation_seconds' => 1800,
         'estimate' => [
             // Runs per month for one prompt and one repetition.
-            'runs_per_month' => ['daily' => '30', 'weekly' => '4.35', 'monthly' => '1', 'off' => '0'],
+            'runs_per_month' => ['daily' => '30', 'weekly' => '4.35', 'every_14_days' => '2.175', 'every_21_days' => '1.45', 'monthly' => '1', 'off' => '0'],
             // What one engine call is assumed to use, by engine method. Token prices come from engine_prices.
             'call_usage' => [
                 'api' => ['input_tokens' => 400, 'output_tokens' => 1200, 'search_calls' => 2],

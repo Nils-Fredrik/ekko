@@ -60,8 +60,7 @@ final class FirstRun
                     if ($setting === null || $setting->frequency === 'off' || ! $setting->engine->isAvailable() || $plan === null || ! $plan->allowsEngine($key)) {
                         continue;
                     }
-                    $rank = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
-                    $frequency = $rank[$setting->frequency] <= $rank[$plan->maxFrequencyForEngine($key)] ? $setting->frequency : $plan->maxFrequencyForEngine($key);
+                    $frequency = PromptSchedule::capped($setting->frequency, $plan->maxFrequencyForEngine($key));
                     if ($frequency === 'off' || ($prompt->priority !== 'core' && ! PromptSchedule::due($prompt->id, $frequency, $day))) {
                         continue;
                     }

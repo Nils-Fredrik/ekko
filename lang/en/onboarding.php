@@ -33,7 +33,6 @@ return [
         'invalid_topic' => 'The topic needs a name, or it is listed twice.',
         'invalid_prompt' => 'The prompt is invalid, too long, or contains an email address or a phone number.',
         'duplicate_prompt' => 'The same prompt is entered twice.',
-        'invalid_engine' => 'The engine cannot be used on this plan.',
         'prompt_limit' => 'The plan does not allow this many prompts in one market.',
     ],
     'warnings' => [
@@ -58,6 +57,8 @@ return [
     'frequencies' => [
         'daily' => 'Daily',
         'weekly' => 'Weekly',
+        'every_14_days' => 'Every 14 days',
+        'every_21_days' => 'Every 3 weeks',
         'monthly' => 'Monthly',
         'off' => 'Off',
     ],

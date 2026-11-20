@@ -50,3 +50,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0039: Produkt-API og MCP for tiltak, fakta, rapporter og pitch](0039-produkt-api-og-mcp.md)
 - [0040: Låst Linux-nettleser for visuell regresjon](0040-visuell-regresjon-i-ci.md)
 - [0041: Analysefiltre og lagrede visninger](0041-analysefiltre-og-lagrede-visninger.md)
+- [0042: Måleplan: arv og egne markedsvalg](0042-maleplan-arv-og-egne-markedsvalg.md)

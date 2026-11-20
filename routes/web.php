@@ -14,6 +14,7 @@ use App\Http\Controllers\BrandCompetitorController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\BrandCrawlerController;
 use App\Http\Controllers\BrandFactController;
+use App\Http\Controllers\BrandMeasurementPlanController;
 use App\Http\Controllers\BrandPromptController;
 use App\Http\Controllers\BrandSettingsController;
 use App\Http\Controllers\BrandSourceController;
@@ -103,6 +104,8 @@ Route::middleware([
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}/settings', [BrandSettingsController::class, 'show'])->name('brands.settings');
     Route::put('/brands/{brand}/settings', [BrandSettingsController::class, 'update'])->name('brands.settings.update');
+    Route::get('/brands/{brand}/measurement-plan', [BrandMeasurementPlanController::class, 'show'])->name('brands.plan.show');
+    Route::put('/brands/{brand}/measurement-plan', [BrandMeasurementPlanController::class, 'update'])->name('brands.plan.update');
     Route::post('/brands/{brand}/views', [SavedViewController::class, 'store'])->name('brands.views.store');
     Route::delete('/brands/{brand}/views/{savedView}', [SavedViewController::class, 'destroy'])->name('brands.views.destroy');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');

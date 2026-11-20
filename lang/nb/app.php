@@ -346,6 +346,22 @@ return [
     'account' => [
         'owns_tenants' => 'Du eier en tenant og kan ikke slette kontoen din. Be plattformadministratoren om å overføre eller slette tenanten først.',
     ],
+    'plan' => [
+        'invalid' => 'Måleplanen har et ugyldig format.',
+        'invalid_mode' => 'Velg om markedet skal arve merkevarens plan eller ha egne valg.',
+        'duplicate_market' => 'Markedet står flere ganger i endringen.',
+        'engines_with_inherit' => 'Et marked som arver merkevarens plan, kan ikke ha egne motorvalg.',
+        'unknown_engine' => 'Ukjent motor.',
+        'invalid_scope' => 'Velg alle spørsmål eller bare kjernespørsmålene.',
+        'invalid_frequency' => 'Velg et intervall som støttes.',
+        'invalid_repetitions' => 'Gjentakelser må være mellom 1 og 3.',
+        'too_many_rules' => 'Planen kan ha høyst :max regler.',
+        'engine_unavailable' => ':engine er ikke tilgjengelig i pakken.',
+        'frequency_above_cap' => 'Intervallet for :engine er hyppigere enn pakken tillater.',
+        'standard_invalid' => 'Merkevarens plan har motorvalg som ikke kan brukes nå. Oppdater planen før markedet arver den.',
+        'repetitions_above_cap' => 'Pakken tillater høyst :max gjentakelser.',
+    ],
+
     'workspace' => [
         'integration_status' => [
             'pending' => 'Venter',

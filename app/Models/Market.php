@@ -9,9 +9,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property string $plan_mode inherit: follows the brand's standard plan; own: explicit market choices (docs/spec.md 7.6)
+ */
 class Market extends Model
 {
     use BelongsToTenant;
+
+    public const PLAN_INHERIT = 'inherit';
+
+    public const PLAN_OWN = 'own';
 
     /** @use HasFactory<MarketFactory> */
     use HasFactory;
@@ -23,6 +30,7 @@ class Market extends Model
         'language',
         'location_label',
         'is_active',
+        'plan_mode',
     ];
 
     /** @return BelongsTo<Brand, $this> */

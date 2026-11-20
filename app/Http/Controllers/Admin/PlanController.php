@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Engine;
 use App\Models\Plan;
+use App\Scheduling\PromptSchedule;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -21,7 +22,7 @@ final class PlanController extends Controller
         return Inertia::render('Admin/Plans', [
             'plans' => Plan::query()->where('is_pitch_plan', false)->orderBy('name')->get(),
             'engines' => Engine::query()->orderBy('key')->get(['key']),
-            'frequencies' => ['daily', 'weekly', 'monthly'],
+            'frequencies' => PromptSchedule::frequencies(),
         ]);
     }
 
@@ -54,12 +55,12 @@ final class PlanController extends Controller
             'max_prompts_per_market' => ['nullable', 'integer', 'min:1'],
             'monthly_call_quota' => ['nullable', 'integer', 'min:0'],
             'monthly_budget_usd' => ['nullable', 'numeric', 'min:0'],
-            'max_frequency' => ['required', Rule::in(['daily', 'weekly', 'monthly'])],
+            'max_frequency' => ['required', Rule::in(PromptSchedule::frequencies())],
             'max_repetitions' => ['required', 'integer', 'between:1,3'],
             'allowed_engines' => ['present', 'array'],
             'allowed_engines.*' => ['string', 'exists:engines,key'],
             'engine_max_frequencies' => ['present', 'array'],
-            'engine_max_frequencies.*' => ['string', Rule::in(['daily', 'weekly', 'monthly'])],
+            'engine_max_frequencies.*' => ['string', Rule::in(PromptSchedule::frequencies())],
         ]);
 
         $allowed = array_values(array_unique($data['allowed_engines'] ?? []));

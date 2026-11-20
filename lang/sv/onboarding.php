@@ -33,7 +33,6 @@ return [
         'invalid_topic' => 'Temat saknar namn eller är angivet två gånger.',
         'invalid_prompt' => 'Prompten är ogiltig, för lång, eller innehåller en e-postadress eller ett telefonnummer.',
         'duplicate_prompt' => 'Samma prompt är angiven två gånger.',
-        'invalid_engine' => 'Motorn kan inte användas i det här paketet.',
         'prompt_limit' => 'Paketet tillåter inte så många prompter på en marknad.',
     ],
     'warnings' => [
@@ -58,6 +57,8 @@ return [
     'frequencies' => [
         'daily' => 'Dagligen',
         'weekly' => 'Varje vecka',
+        'every_14_days' => 'Var 14:e dag',
+        'every_21_days' => 'Var tredje vecka',
         'monthly' => 'Varje månad',
         'off' => 'Av',
     ],

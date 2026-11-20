@@ -9,6 +9,7 @@ use App\Models\BrandAlias;
 use App\Models\EnginePrice;
 use App\Models\Integration;
 use App\Models\MarketEngine;
+use App\Models\Plan;
 use App\Models\Report;
 use App\Models\ReportSchedule;
 use App\Models\Team;
@@ -569,3 +570,22 @@ test('brand settings reject enabling an unpriced engine before changing or repla
     $this->put(route('brands.settings.update', $world->brand), $data)->assertSessionHasNoErrors();
     expect($engine->fresh()->frequency)->toBe('daily');
 })->with(['all', 'core'])->with([false, true]);
+
+test('brand settings allow multiweek intervals and reject a frequency above the engine cap atomically', function () {
+    $world = MetricsWorld::create();
+    $plan = Plan::factory()->create(['max_frequency' => 'monthly', 'engine_max_frequencies' => [$world->engine->key => 'every_14_days']]);
+    $world->tenant->forceFill(['plan_id' => $plan->id])->save();
+    EnginePrice::factory()->for($world->engine)->create(['valid_from' => now()->subDay()]);
+    $setting = MarketEngine::factory()->for($world->market)->for($world->engine)->create(['frequency' => 'monthly']);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $save = fn (string $frequency) => $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
+        'engines' => [['id' => $setting->id, 'frequency' => $frequency, 'prompt_scope' => 'all', 'repetitions' => 1]],
+    ]);
+    foreach (['every_14_days', 'every_21_days'] as $frequency) {
+        $save($frequency)->assertSessionHasNoErrors();
+        expect($setting->refresh()->frequency)->toBe($frequency);
+    }
+    $save('weekly')->assertSessionHasErrors('engines.0.frequency');
+    expect($setting->refresh()->frequency)->toBe('every_21_days');
+});

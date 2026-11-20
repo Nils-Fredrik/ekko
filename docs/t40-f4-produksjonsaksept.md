@@ -2,7 +2,7 @@
 
 Board `task:75`. Flyt og garantier: [ADR 0033](decisions/0033-malrettet-vekking-med-cloud-tasks.md). Drift: [runbook](runbook.md#målrettet-vekking-og-reservekontroll-t40-f4).
 
-Dette er planen for fase B. **Ingenting her er gjennomført.** Hvert trinn krever eierens godkjenning av den konkrete Terraform-planen. Agenter kjører ikke `terraform apply`, `gcloud`-kommandoer som skriver, trafikkflytting eller bryterendringer i produksjon uten dette. Tall merket *estimat* er ikke målt.
+Fase B har driftsmålinger fra `legacy` i avsnittet «Bevis». Avstemming mot Cloud Billing og målingene i senere trinn gjenstår. Hvert trinn krever eierens godkjenning av den konkrete Terraform-planen. Agenter kjører ikke `terraform apply`, `gcloud`-kommandoer som skriver, trafikkflytting eller bryterendringer i produksjon uten dette. Tall merket *estimat* er ikke målt.
 
 ## 0. Utgangspunkt og forutsetninger
 
@@ -35,7 +35,8 @@ Mål to perioder med dagens oppsett og noter vinduene i UTC:
 | Mål | Kilde og metode |
 |---|---|
 | Starter av `ekko-wake`, `ekko-worker`, `ekko-task` | `gcloud run jobs executions list --job=<jobb> --region=europe-west1 --format='value(name,createTime,completionTime)'`, filtrert på vinduet, eller metrikken `run.googleapis.com/job/completed_execution_count` per `job_name`. For `ekko-task` deles startene på kommando (aggregate, usage-rollup, alerts, monitor-health) ved hjelp av eksekveringens overstyrte argumenter. |
-| Fakturert instans-tid (CPU og minne) | Metrikken `run.googleapis.com/container/billable_instance_time` summert per jobb og for `ekko-web`. Alle jobber har 1 vCPU / 1 GiB, så vCPU-sekunder = GiB-sekunder = summen. Kontroller mot faktureringsrapporten (SKU-ene for Cloud Run CPU og minne) for samme dager. |
+| Instanstid i Cloud Monitoring | Summer `run.googleapis.com/container/billable_instance_time` i sekunder per jobb og separat for web i hvert målevindu. Behold målevinduets start og slutt i UTC. |
+| Fakturerbar bruk av CPU og minne | Hent bruksmengde og enhet for Cloud Run-jobbenes CPU- og minne-SKU-er fra Cloud Billing for Ekko-prosjektet. Avstem mot starter, ressurser og minsteprisen på ett minutt per startet jobbinstans. Bruk samme tidsgrunnlag på begge sider. Hvis faktureringsrapporten bare viser hele dager, sammenlign hele dager og behold de kortere målevinduene som driftsmålinger. |
 | Databasearbeid | Cloud SQL-metrikkene `database/postgresql/transaction_count` og `database/cpu/utilization`, og Query Insights (topp-spørringer per vindu). |
 | Cloud Tasks | Metrikkene `cloudtasks.googleapis.com/api/request_count` (opprettinger) og `cloudtasks.googleapis.com/queue/task_attempt_count` per `response_code`. I `legacy` er tallet 0. |
 | Leverandørens statuskall | Loggmeldingen `extraction.status_check` i `ekko-worker`: `gcloud logging read 'resource.type="cloud_run_job" jsonPayload.message="extraction.status_check"' --freshness=… --format='value(timestamp)'`, telt per vindu. Gjelder både `PollExtractionBatch` og kjedingen. |
@@ -88,7 +89,7 @@ Forutsetning: #910 er avklart, og baseline er registrert.
 
 ## 6. Kostnadsvurdering
 
-**Prisgrunnlag (estimat, kontrolleres mot [Cloud Run-prisene](https://cloud.google.com/run/pricing) og [Cloud Tasks-prisene](https://cloud.google.com/tasks/pricing) på vurderingstidspunktet):** Cloud Run-jobber faktureres per instans for hele levetiden, med minimum ett minutt per instans (spec 17.3). Instansbasert pris er om lag 0,000018 USD per vCPU-sekund og 0,000002 USD per GiB-sekund i tier 1. Gratiskvoten er om lag 180 000 vCPU-sekunder og 360 000 GiB-sekunder per måned og faktureringskonto. Cloud Tasks har om lag 1 million gratis operasjoner per måned, deretter om lag 0,40 USD per million. Web faktureres per forespørsel.
+**Prisgrunnlag (estimat, kontrolleres mot [Cloud Run-prisene](https://cloud.google.com/run/pricing) og [Cloud Tasks-prisene](https://cloud.google.com/tasks/pricing) på vurderingstidspunktet):** Cloud Run-jobber faktureres per instans for hele levetiden, med minimum ett minutt per instans (spec 17.3). Instansbasert pris er om lag 0,000018 USD per vCPU-sekund og 0,000002 USD per GiB-sekund i tier 1. Gratiskvoten er om lag 180 000 vCPU-sekunder og 360 000 GiB-sekunder per måned og faktureringskonto. Cloud Tasks har om lag 1 million gratis operasjoner per måned, deretter om lag 0,40 USD per million. Ved baselinemålingen hadde `ekko-web` instansbasert fakturering (`cpu-throttling=false`).
 
 **Teoretisk nedre grense ved tomgang (estimat, ikke målt):**
 
@@ -122,10 +123,19 @@ Med 1 vCPU / 1 GiB tilsvarer `legacy`-grensen om lag 259 000 vCPU-s og like mang
 
 *Fylles ut under fase B.*
 
-| Periode (UTC) | Trinn | wake-starter | worker-starter | task-starter (agg/usage) | Fakturert vCPU-s jobber | Web vCPU-s | DB-transaksjoner | Cloud Tasks opprett/forsøk | Statuskall | Dashboard p50/p95 |
+**Baseline i `legacy` (målt 20.11.2026 av Claude Code, task:75).**
+
+- **Representativ periode:** førstekjøring for et nytt marked pluss en manuell Gemini-kjøring, 217 kjøringer, 217 svar og 4 uttrekksbatcher, alle `extracted`/`completed`. `ekko-task` hadde i tillegg 13 `monitor-health` og 4 manuelle kjøringer som ikke er tatt med.
+- **Tom periode:** ingen innsamling (daglig innsamling var ikke slått på). `ekko-task` startet 166 ganger: 24 `aggregate`, 24 `usage-rollup`, 96 `monitor-health`, 11 `evaluate-alerts` og 11 manuelle (eval og tinker). `ekko-wake` startet 95 ganger, det vil si én gang per `extraction-poll`-kvarter uten at det fantes arbeid. Dette er startene trinnet `event` skal fjerne.
+- Cloud Monitoring målte 1 673 instanssekunder for `ekko-task`, 771 for `ekko-wake` og 240 for `ekko-migrate` i den tomme perioden. I arbeidsperioden målte den 2 586 for `ekko-worker`, 360 for `ekko-task` og 180 for `ekko-wake`. Tabellen viser summene fra denne metrikken.
+- De 95 `ekko-wake`-startene i den tomme perioden gir over kjøringenes levetid en nedre grense på 5 700 vCPU-sekunder og 5 700 GiB-sekunder (95 × 60 s × 1 vCPU eller 1 GiB). Monitoring viser 771 s for samme jobb. Fakturerbar bruk for begge periodene står åpen til CPU- og minne-SKU-ene er avstemt etter avsnitt 1. Kostnadssammenligningen mellom `legacy` og `event` venter på denne avstemmingen. [Cloud Run – fakturerbar instanstid for jobber](https://cloud.google.com/run/pricing)
+- Cloud Monitoring målte 85 550 instanssekunder for `ekko-web` i det tomme døgnet (86 400 s). Tjenesten hadde `minScale=0` og `cpu-throttling=false`. Web vises separat fra jobbene i begge måleperiodene.
+- **Ikke målt ennå:** DB-transaksjoner (Cloud SQL-metrikk) og dashboardforsinkelse. Dashboardmålingen gjøres med den første ordinære daglige innsamlingen.
+
+| Periode (UTC) | Trinn | wake-starter | worker-starter | task-starter (agg/usage) | Jobber, instanssekunder (Monitoring) | Web, instanssekunder (Monitoring) | DB-transaksjoner | Cloud Tasks opprett/forsøk | Statuskall | Dashboard p50/p95 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| | legacy, tom | | | | | | | 0/0 | | – |
-| | legacy, representativ | | | | | | | 0/0 | | |
+| 19.11 18:10 – 20.11 18:10 | legacy, tom | 95 | 0 | 24/24 | 2 684 | 85 550 | ikke målt | 0/0 | 9 | – |
+| 19.11 15:00 – 18:10 | legacy, representativ | 13 | 5 | 4/4 | 3 126 | 11 366 | ikke målt | 0/0 | 4 | ikke målt |
 | | shadow, tom | | | | | | | | | – |
 | | shadow, representativ | | | | | | | | | |
 | | event, tom | | | | | | | | | – |
