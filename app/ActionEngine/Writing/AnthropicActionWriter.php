@@ -4,6 +4,7 @@ namespace App\ActionEngine\Writing;
 
 use Anthropic\Client;
 use Anthropic\Core\Exceptions\APIStatusException;
+use App\Insights\InsightTextWriter;
 use App\Onboarding\Model\AnthropicOnboardingClient;
 use Psr\Http\Client\ClientInterface;
 use Throwable;
@@ -11,11 +12,12 @@ use Throwable;
 /**
  * Action wording through the Anthropic API with the official SDK, like {@see AnthropicOnboardingClient}:
  * Ekko's own workspace key, structured output with a JSON schema, no retries (a retried call could be billed
- * twice), no sampling parameters.
+ * twice), no sampling parameters. The same writer words the dashboard insight text (ADR 0038): `$settings` names the
+ * block of config('ekko.anthropic') with the model, token limit and timeout.
  */
-final class AnthropicActionWriter implements ActionWriter
+final class AnthropicActionWriter implements ActionWriter, InsightTextWriter
 {
-    public function __construct(private readonly Client $client) {}
+    public function __construct(private readonly Client $client, private readonly string $settings = 'actions') {}
 
     public static function configured(): bool
     {
@@ -24,7 +26,7 @@ final class AnthropicActionWriter implements ActionWriter
         return is_string($key) && trim($key) !== '';
     }
 
-    public static function fromConfig(?ClientInterface $transporter = null): self
+    public static function fromConfig(?ClientInterface $transporter = null, string $settings = 'actions'): self
     {
         $key = config('services.anthropic.key');
         if (! is_string($key) || trim($key) === '') {
@@ -33,14 +35,14 @@ final class AnthropicActionWriter implements ActionWriter
 
         return new self(new Client(
             apiKey: $key,
-            requestOptions: ['maxRetries' => 0, 'timeout' => (float) config('ekko.anthropic.actions.timeout_seconds'), ...($transporter === null ? [] : ['transporter' => $transporter])],
-        ));
+            requestOptions: ['maxRetries' => 0, 'timeout' => (float) config("ekko.anthropic.{$settings}.timeout_seconds"), ...($transporter === null ? [] : ['transporter' => $transporter])],
+        ), $settings);
     }
 
     public function write(ActionTextRequest $request): ActionWriterResult
     {
         /** @var array{model: string, max_tokens: int, effort: string} $config */
-        $config = config('ekko.anthropic.actions');
+        $config = config("ekko.anthropic.{$this->settings}");
 
         try {
             $message = $this->client->messages->create(

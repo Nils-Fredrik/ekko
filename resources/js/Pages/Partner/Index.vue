@@ -1,42 +1,21 @@
 <script setup>
 import { useForm, usePage } from '@inertiajs/vue3';
+import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import PitchCreateForm from '@/Components/PitchCreateForm.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
-defineProps({
+const props = defineProps({
     period: { type: Object, required: true },
     clients: { type: Array, required: true },
+    portfolioGraphs: { type: Array, default: null },
 });
 
 const page = usePage();
 const convert = useForm({});
 
-function formatRate(metric) {
-    if (metric.value === null || metric.value === undefined) {
-        return null;
-    }
-
-    return new Intl.NumberFormat(page.props.locale || 'nb', {
-        style: 'percent',
-        maximumFractionDigits: 1,
-    }).format(metric.value);
-}
-
-function formatChange(current, previous) {
-    if (
-        current.value === null ||
-        current.value === undefined ||
-        previous.value === null ||
-        previous.value === undefined
-    ) {
-        return null;
-    }
-
-    return new Intl.NumberFormat(page.props.locale || 'nb', {
-        maximumFractionDigits: 1,
-        signDisplay: 'exceptZero',
-    }).format((current.value - previous.value) * 100);
+function sparkline(clientId) {
+    return props.portfolioGraphs?.find((row) => row.id === clientId)?.series ?? [];
 }
 </script>
 
@@ -59,8 +38,7 @@ function formatChange(current, previous) {
                     <thead class="border-b border-line text-left text-shell-muted">
                         <tr>
                             <th class="px-4 py-3 font-medium">{{ $t('app.partner.client') }}</th>
-                            <th class="px-4 py-3 text-right font-medium">{{ $t('app.partner.visibility') }}</th>
-                            <th class="px-4 py-3 text-right font-medium">{{ $t('app.partner.change') }}</th>
+                            <th class="px-4 py-3 font-medium">{{ $t('app.partner.visibility') }}</th>
                             <th class="px-4 py-3 text-right font-medium">{{ $t('app.partner.alerts') }}</th>
                         </tr>
                     </thead>
@@ -84,17 +62,15 @@ function formatChange(current, previous) {
                                     {{ $t('pitch.convert') }}
                                 </button>
                             </td>
-                            <td class="px-4 py-3 text-right tabular-nums">
-                                {{ formatRate(client.visibility) ?? $t('app.dashboard.empty') }}
-                            </td>
-                            <td class="px-4 py-3 text-right tabular-nums">
-                                {{
-                                    formatChange(client.visibility, client.previous_visibility) === null
-                                        ? $t('app.dashboard.empty')
-                                        : $t('app.dashboard.change_points', {
-                                              change: formatChange(client.visibility, client.previous_visibility),
-                                          })
-                                }}
+                            <td class="min-w-56 px-4 py-3">
+                                <KpiCard
+                                    size="secondary"
+                                    :framed="false"
+                                    :label="$t('app.partner.visibility')"
+                                    :metric="client.visibility"
+                                    :previous="client.previous_visibility"
+                                    :points="sparkline(client.id)"
+                                />
                             </td>
                             <td class="px-4 py-3 text-right tabular-nums">{{ client.alerts }}</td>
                         </tr>

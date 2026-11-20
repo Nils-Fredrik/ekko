@@ -135,3 +135,11 @@ Kommandopalett etter 7.9, skjelettvisning for kort og grafer, tomme tilstander e
 
 - Alle sider i applayouten har skjelett under sidelasting og forklarende tomtilstand der listen eller grafen kan være tom.
 - Søket returnerer bare data fra tenanten brukeren har tilgang til.
+
+## U12 – Innsiktstekst
+
+Kort oppsummering per merkevare og periode (7.2, under filterlinjen) og på tvers av merkevarer (7.1, øverst på oversikten), skrevet av Claude Sonnet 5.5 ut fra strukturerte endringstall, på brukerens språk. Tallene settes inn fra databasen og skrives aldri av modellen. Lagres per døgn og filterkombinasjon og regnes med i Anthropic-potten ved at hvert kall reserveres og settles på kontoen og hoppes over i redusert modus (`docs/spec.md` 12.5). Den har ingen egen post i nivå 2-fordelingen, som avvik i påvente av eierspørsmål Board #1060. Detaljene står i ADR 0038.
+
+- Ingen tall i teksten avviker fra tallene på siden (automatisk test). Bare tall siden viser får plassholder.
+- Propen `insight` på `Brands/Show` og `Home` er utsatt (gruppen `insight`) og er `null` eller `{ text, label, generated_on }`. `<InsightLine :insight="insight" />` viser den og tegner ingenting for `null`.
+- Faller generering bort (redusert modus, kvote eller feil), vises ingen innsiktslinje.

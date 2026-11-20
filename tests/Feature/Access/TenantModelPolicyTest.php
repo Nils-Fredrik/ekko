@@ -79,6 +79,8 @@ function tenantModelRights(): array
         Models\Action::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\ActionPrompt::class => $system(POLICY_EVERY_ROLE),
         Models\ActionGeneration::class => $system(POLICY_NO_ROLE),
+        // Insight texts on the dashboards (14.2, ADR 0038): written by the system, read like the dashboards they sit on.
+        Models\Insight::class => $system(POLICY_EVERY_ROLE),
 
         // Usage (6.5): "se forbruk" is the admin's.
         Models\AnthropicBudgetPlan::class => $system(POLICY_ADMINS),

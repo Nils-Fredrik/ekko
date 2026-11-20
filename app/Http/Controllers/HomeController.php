@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
+use App\Insights\InsightService;
 use App\Metrics\MetricsService;
 use App\Models\Action;
 use App\Models\Alert;
@@ -44,7 +45,8 @@ class HomeController extends Controller
             ]);
         }
 
-        $brands = Brand::query()->with('markets')->orderBy('name')->get()->map(function (Brand $brand) use ($metrics, $period) {
+        $brandModels = Brand::query()->with('markets')->orderBy('name')->get();
+        $brands = $brandModels->map(function (Brand $brand) use ($metrics, $period) {
             $current = $metrics->visibility($period->filter($brand->id));
             $previous = $metrics->visibility($period->filter($brand->id, previous: true));
 
@@ -64,6 +66,8 @@ class HomeController extends Controller
             'alerts' => $this->alerts(),
             'runs' => $this->runs(),
             'usage' => $this->usage($period->timezone),
+            // The insight line across brands (U12, ADR 0038): null, or {text, label, generated_on}.
+            'insight' => Inertia::defer(fn (): ?array => app(InsightService::class)->forOverview($brandModels, $period), 'insight'),
             'chartData' => Inertia::defer(fn (): array => array_map(function (array $brand) use ($period, $metrics): array {
                 $filter = $period->filter($brand['id']);
 

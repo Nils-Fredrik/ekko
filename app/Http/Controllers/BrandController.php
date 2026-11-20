@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
+use App\Insights\InsightService;
 use App\Metrics\MetricsService;
 use App\Metrics\MetricsSummary;
 use App\Models\Action;
@@ -103,6 +104,9 @@ class BrandController extends Controller
             'voice' => $this->voice($dashboard['voice'], $brand),
             'engines' => $this->engines($dashboard['engines']),
             'modelChanges' => $this->modelChanges($metrics, $period, $selection['engineKeys']),
+            // The insight line (U12, ADR 0038): null, or {text, label, generated_on}. Deferred in its own group: a
+            // missing text must not delay the graphs, and the first view of a day may make the model call.
+            'insight' => Inertia::defer(fn (): ?array => app(InsightService::class)->forBrand($brand, $period, $filter, $previous), 'insight'),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
                 'brand.dashboard.'.$grain, $filter, $period->timezone, fn (): array => [
                     'series' => array_map(fn (array $row): array => [
