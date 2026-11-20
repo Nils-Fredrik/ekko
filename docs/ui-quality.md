@@ -4,6 +4,8 @@
 
 Nettleseren kjører i det offisielle Playwright-imaget, låst til versjon, digest og `linux/amd64`, også på Apple Silicon. Runneren kobler den til PHP-serveren på verten og stopper sin egen container etter kjøringen. Ingen produksjonsdata eller eksterne modellkall brukes. Nettleseroppsettet nullstiller bare den verifiserte `_testing`-databasen; kjør ikke Pest eller andre nettlesertester samtidig mot samme database.
 
+Sideregisteret har 42 scenarioer, inkludert fakta og pitchprosjekter: 168 referansebilder og 176 kontroller når de åtte testene av sperrer og grafventing tas med.
+
 ## Referansebilder
 
 Etter en tilsiktet UI-endring:
@@ -21,6 +23,8 @@ CI-artifactet `ui-quality-<run>-<attempt>` inneholder:
 - Playwrights HTML-rapport med alle sidebilder, axe-funn og forventet/faktisk/diff ved feil.
 - `baseline-changes/index.html`, som viser versjonerte referansebilder før og etter PR-en, også når både kode og referanse er oppdatert og testen er grønn. Første PR viser alle bildene som nye.
 - `bundle-budget.json`, med størrelser og grenser.
+
+Hvis lokal Docker ikke er tilgjengelig, kan faktiske PNG-er fra en fullført CI-kjøring brukes som grunnlag. Kontroller kjøringens commit og bilder manuelt, kopier bare de tilsiktede nye eller endrede bildene til riktig prosjektmappe, og krev en ny, full bildesammenligning i CI etter commit. Feil i lasting, JavaScript eller axe skal rettes, ikke godkjennes som referanser.
 
 Åpne Playwright-rapporten med `npx playwright show-report playwright-report/ui-quality`. Baselineoversikten er en selvstendig HTML-fil med tilhørende PNG-er.
 
