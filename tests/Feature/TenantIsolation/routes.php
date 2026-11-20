@@ -4,6 +4,7 @@ use App\Models\Action;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
+use App\Models\BrandFact;
 use App\Models\Engine;
 use App\Models\Market;
 use App\Models\Plan;
@@ -157,6 +158,67 @@ foreach (['store', 'update', 'destroy'] as $action) {
 // verifies the collection contents and raw RLS against another tenant and a partner's client.
 foreach (['brands', 'alerts', 'usage'] as $resource) {
     $apiEntries['api.v1.'.$resource.'.index'] = RouteAccess::user(own: fn () => []);
+}
+
+// T50: the token still selects exactly one tenant; nested body IDs are tested separately too.
+$extension = function (Scenario $s, bool $foreign, string $resource, string $operation): array {
+    return app(TenantContext::class)->run($foreign ? $s->tenantB->id : $s->tenantA->id, function () use ($resource, $operation): array {
+        $brand = Brand::factory()->create();
+        if ($resource === 'report-links' || $resource === 'reports') {
+            $report = Report::factory()->create();
+            $data = [];
+            if ($operation === 'destroy') {
+                $data['id'] = ReportLink::query()->create(['report_id' => $report->id, 'public_id' => bin2hex(random_bytes(16)),
+                    'token_hash' => hash('sha256', random_bytes(32)), 'expires_at' => now()->addDay()])->id;
+            }
+
+            return ['params' => ['report' => $report->id], 'data' => $data];
+        }
+        $params = ['brand' => $brand->id];
+        $data = [];
+        if ($resource === 'actions') {
+            if ($operation === 'store') {
+                $data = ['title' => 'Synthetic action'];
+            }
+            if (in_array($operation, ['update', 'show'], true)) {
+                $action = Action::factory()->create(['brand_id' => $brand->id, 'status' => 'planned']);
+                if ($operation === 'show') {
+                    $params = ['action' => $action->id];
+                } else {
+                    $data = ['id' => $action->id, 'status' => 'in_progress'];
+                }
+            }
+        }
+        if ($resource === 'facts') {
+            if ($operation === 'store') {
+                $data = ['text' => 'Synthetic fact', 'is_active' => false];
+            }
+            if (in_array($operation, ['update', 'destroy'], true)) {
+                $fact = BrandFact::factory()->create(['brand_id' => $brand->id]);
+                $data = ['id' => $fact->id, 'is_active' => false];
+            }
+        }
+
+        return ['params' => $params, 'data' => $data];
+    });
+};
+foreach (['actions' => ['index', 'show', 'store', 'update'], 'facts' => ['index', 'store', 'update', 'destroy'],
+    'claims' => ['index'], 'reports' => ['show'], 'report-links' => ['store', 'destroy']] as $resource => $operations) {
+    foreach ($operations as $operation) {
+        $writes = ! in_array($operation, ['index', 'show'], true);
+        $apiEntries['api.v1.'.$resource.'.'.$operation] = RouteAccess::tenant(
+            foreign: fn (Scenario $s) => $extension($s, true, $resource, $operation),
+            own: fn (Scenario $s) => $extension($s, false, $resource, $operation),
+            deniedRoles: $writes ? ($resource === 'actions' ? ['reader'] : ['editor', 'reader']) : [],
+        );
+    }
+}
+$apiEntries['api.v1.reports.index'] = RouteAccess::user(own: fn () => []);
+foreach (['index', 'store'] as $operation) {
+    $apiEntries['api.v1.pitches.'.$operation] = RouteAccess::user(
+        own: fn () => ['data' => ['name' => 'Synthetic pitch', 'domain' => 'example.test', 'country' => 'NO', 'language' => 'nb']],
+        deniedRoles: ['owner', 'admin', 'editor', 'reader'],
+    );
 }
 
 return [

@@ -42,3 +42,7 @@ gcloud run services update-traffic "$service" --region "$REGION" --project "$PRO
 for job in ekko-dispatch ekko-worker ekko-task ekko-wake; do
     gcloud run jobs update "$job" --image "$JOB_IMAGE" --region "$REGION" --project "$PROJECT_ID"
 done
+# Move the "live" tag to the promoted digests. Artifact Registry cleanup always
+# keeps tags with this prefix (infra/terraform/foundation.tf).
+gcloud artifacts docker tags add "$WEB_IMAGE" "${WEB_IMAGE%@*}:live" --quiet
+gcloud artifacts docker tags add "$JOB_IMAGE" "${JOB_IMAGE%@*}:live" --quiet

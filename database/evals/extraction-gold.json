@@ -1461,6 +1461,204 @@
    "note": "negative, with review source"
   },
   {
+   "id": "nb-40",
+   "language": "nb",
+   "text": "Kaffekompaniet selger både hele bønner og kapsler i nettbutikken sin, og Åsen Kaffe har en egen abonnementsordning.",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null,
+     "is_recommended": false
+    },
+    {
+     "entity": "competitor:aasen",
+     "surface": "Åsen Kaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://shop.kaffekompaniet.no/kapsler?utm_source=chatgpt.com",
+     "normalized": "https://shop.kaffekompaniet.no/kapsler",
+     "ownership": "competitor",
+     "competitor": "kaffekompaniet",
+     "source_type": "other"
+    },
+    {
+     "url": "https://www.aasenkaffe.no/abonnement/",
+     "normalized": "https://aasenkaffe.no/abonnement",
+     "ownership": "competitor",
+     "competitor": "aasen",
+     "source_type": "other"
+    },
+    {
+     "url": "https://nordlysrosteri.no/blogg/lysbrent-eller-morkbrent",
+     "normalized": "https://nordlysrosteri.no/blogg/lysbrent-eller-morkbrent",
+     "ownership": "competitor",
+     "competitor": "nordlys",
+     "source_type": "other"
+    },
+    {
+     "url": "https://www.prisjakt.no/c/kaffe",
+     "normalized": "https://prisjakt.no/c/kaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "marketplace"
+    }
+   ],
+   "note": "source type: competitor webshop, subscription page and blog are other; price comparison is marketplace"
+  },
+  {
+   "id": "nb-41",
+   "language": "nb",
+   "text": "Bergensbrenneriet diskuteres både på Reddit og Kvinneguiden, og brenneriet har en aktiv Instagram-konto.",
+   "expected": [
+    {
+     "entity": "competitor:bergensbrenneriet",
+     "surface": "Bergensbrenneriet",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.reddit.com/r/norge/comments/xyz/beste_kaffen/",
+     "normalized": "https://reddit.com/r/norge/comments/xyz/beste_kaffen",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "forum"
+    },
+    {
+     "url": "https://www.kvinneguiden.no/topic/12345-kaffebrenneri/",
+     "normalized": "https://kvinneguiden.no/topic/12345-kaffebrenneri",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "forum"
+    },
+    {
+     "url": "https://www.instagram.com/bergensbrenneriet/",
+     "normalized": "https://instagram.com/bergensbrenneriet",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "social"
+    },
+    {
+     "url": "https://www.facebook.com/groups/kaffeentusiaster",
+     "normalized": "https://facebook.com/groups/kaffeentusiaster",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "social"
+    }
+   ],
+   "note": "source type: Reddit and Kvinneguiden are forums, Instagram and Facebook groups are social"
+  },
+  {
+   "id": "nb-42",
+   "language": "nb",
+   "text": "Mattilsynet har ingen merknader til Fjordkaffe, og VG testet nylig filterkaffe fra flere brennerier.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.mattilsynet.no/mat-og-vann/kaffe",
+     "normalized": "https://mattilsynet.no/mat-og-vann/kaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "gov"
+    },
+    {
+     "url": "https://www.vg.no/forbruker/test/i/abc123/test-av-filterkaffe",
+     "normalized": "https://vg.no/forbruker/test/i/abc123/test-av-filterkaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "news"
+    },
+    {
+     "url": "https://no.trustpilot.com/review/fjordkaffe.no",
+     "normalized": "https://no.trustpilot.com/review/fjordkaffe.no",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "review"
+    },
+    {
+     "url": "https://snl.no/kaffe",
+     "normalized": "https://snl.no/kaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "wiki"
+    }
+   ],
+   "note": "source type: a test in a newspaper is news; agency is gov, Trustpilot review, SNL wiki"
+  },
+  {
+   "id": "nb-43",
+   "language": "nb",
+   "text": "Fjordkaffe har også en egen nettbutikk, og bloggen Kaffeprat har skrevet om den nye espressoblandingen.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://shop.fjordkaffe.no/espresso/blanding-1",
+     "normalized": "https://shop.fjordkaffe.no/espresso/blanding-1",
+     "ownership": "own",
+     "competitor": null,
+     "source_type": "other"
+    },
+    {
+     "url": "https://kaffeprat.blogspot.com/2026/10/ny-espresso.html",
+     "normalized": "https://kaffeprat.blogspot.com/2026/10/ny-espresso.html",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "other"
+    }
+   ],
+   "note": "source type: own webshop is other, a personal blog is other"
+  },
+  {
+   "id": "nb-44",
+   "language": "nb",
+   "text": "Brukte kaffekverner fra Kaffekompaniet selges ofte på Finn, mens nye kverner også finnes i en lokal kaffebutikk.",
+   "expected": [
+    {
+     "entity": "competitor:kaffekompaniet",
+     "surface": "Kaffekompaniet",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.finn.no/bap/forsale/search.html?q=kaffekvern",
+     "normalized": "https://finn.no/bap/forsale/search.html?q=kaffekvern",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "marketplace"
+    },
+    {
+     "url": "https://kaffehusetsentrum.no/kverner",
+     "normalized": "https://kaffehusetsentrum.no/kverner",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "other"
+    }
+   ],
+   "note": "source type: classified ads are marketplace, the shop of a single unknown company is other"
+  },
+  {
    "id": "sv-21",
    "language": "sv",
    "text": "Om du vill ha ekologiskt kaffe rekommenderar jag Fjordkaffe. Björnkaffe är ett bra och billigare alternativ.",
@@ -1630,6 +1828,190 @@
     }
    ],
    "note": "own site in text"
+  },
+  {
+   "id": "sv-29",
+   "language": "sv",
+   "text": "Fjordkaffe har en svensk webbutik, och Björnkaffe säljer sina bönor direkt från rosteriet.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": false
+    },
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://butik.fjordkaffe.se/kaffe/morkrost",
+     "normalized": "https://butik.fjordkaffe.se/kaffe/morkrost",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "other"
+    },
+    {
+     "url": "https://www.bjornkaffe.se/erbjudanden/?utm_medium=ai",
+     "normalized": "https://bjornkaffe.se/erbjudanden",
+     "ownership": "competitor",
+     "competitor": "bjornkaffe",
+     "source_type": "other"
+    },
+    {
+     "url": "https://www.pricerunner.se/cl/kaffe",
+     "normalized": "https://pricerunner.se/cl/kaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "marketplace"
+    }
+   ],
+   "note": "source type: an unregistered subdomain of the own shop is still other; competitor offers are other"
+  },
+  {
+   "id": "sv-30",
+   "language": "sv",
+   "text": "På Flashback och Familjeliv diskuteras Fjordkaffe ofta, och företaget lägger upp recept på Youtube.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.flashback.org/t3456789",
+     "normalized": "https://flashback.org/t3456789",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "forum"
+    },
+    {
+     "url": "https://www.familjeliv.se/forum/thread/98765-basta-kaffet",
+     "normalized": "https://familjeliv.se/forum/thread/98765-basta-kaffet",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "forum"
+    },
+    {
+     "url": "https://www.youtube.com/watch?v=abc123",
+     "normalized": "https://youtube.com/watch?v=abc123",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "social"
+    }
+   ],
+   "note": "source type: Flashback and Familjeliv are forums, Youtube is social"
+  },
+  {
+   "id": "sv-31",
+   "language": "sv",
+   "text": "Livsmedelsverket har inga synpunkter på Björnkaffe, och SVT har granskat kaffepriserna.",
+   "expected": [
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.livsmedelsverket.se/livsmedel-och-innehall/kaffe",
+     "normalized": "https://livsmedelsverket.se/livsmedel-och-innehall/kaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "gov"
+    },
+    {
+     "url": "https://www.svt.se/nyheter/inrikes/kaffepriserna-stiger",
+     "normalized": "https://svt.se/nyheter/inrikes/kaffepriserna-stiger",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "news"
+    },
+    {
+     "url": "https://sv.wikipedia.org/wiki/Kaffe",
+     "normalized": "https://sv.wikipedia.org/wiki/Kaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "wiki"
+    }
+   ],
+   "note": "source type: agency is gov, public broadcaster is news, Wikipedia is wiki"
+  },
+  {
+   "id": "sv-32",
+   "language": "sv",
+   "text": "Fjordkaffe har höga betyg på Trustpilot och säljs även via Tradera och Amazon.",
+   "expected": [
+    {
+     "entity": "brand:fjordkaffe",
+     "surface": "Fjordkaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://se.trustpilot.com/review/fjordkaffe.no",
+     "normalized": "https://se.trustpilot.com/review/fjordkaffe.no",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "review"
+    },
+    {
+     "url": "https://www.tradera.com/category/kaffe",
+     "normalized": "https://tradera.com/category/kaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "marketplace"
+    },
+    {
+     "url": "https://www.amazon.se/s?k=fjordkaffe",
+     "normalized": "https://amazon.se/s?k=fjordkaffe",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "marketplace"
+    }
+   ],
+   "note": "source type: review platform is review, Tradera and Amazon are marketplace"
+  },
+  {
+   "id": "sv-33",
+   "language": "sv",
+   "text": "Aftonbladet har testat kaffe från flera rosterier, och Björnkaffe skriver om testet på sin blogg.",
+   "expected": [
+    {
+     "entity": "competitor:bjornkaffe",
+     "surface": "Björnkaffe",
+     "list_position": null,
+     "is_recommended": false
+    }
+   ],
+   "citations": [
+    {
+     "url": "https://www.aftonbladet.se/nyheter/a/xyz/kaffetest",
+     "normalized": "https://aftonbladet.se/nyheter/a/xyz/kaffetest",
+     "ownership": "third_party",
+     "competitor": null,
+     "source_type": "news"
+    },
+    {
+     "url": "https://blogg.bjornkaffe.se/kaffetestet/",
+     "normalized": "https://blogg.bjornkaffe.se/kaffetestet",
+     "ownership": "competitor",
+     "competitor": "bjornkaffe",
+     "source_type": "other"
+    }
+   ],
+   "note": "source type: a test in a newspaper is news; competitor blog is other"
   }
  ]
 }

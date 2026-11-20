@@ -25,7 +25,7 @@ function mcpToolKeys(): array
 }
 
 /**
- * @return array{permission: TenantPermission|null, arguments: Closure(array<string, int>): array<string, mixed>}
+ * @return array{permission: TenantPermission|null, allowed_roles?: list<string>, client_allowed?: bool, arguments: Closure(array<string, int>): array<string, mixed>}
  */
 function mcpToolEntry(string $class): array
 {
@@ -62,7 +62,8 @@ test('in the own tenant the role decides, and nothing from tenant B shows', func
         $token = McpTestClient::connect($this->s->userWithRole($role), $this->s->tenantA, write: true);
         $result = McpTestClient::call($this, $token, mcpToolName($class), ($entry['arguments'])($this->idsA));
         $tenantRole = $role === 'owner' ? TenantRole::Admin : TenantRole::from($role);
-        $allowed = $entry['permission'] === null || $tenantRole->grants($entry['permission']);
+        $allowed = ($entry['permission'] === null || $tenantRole->grants($entry['permission']))
+            && (! isset($entry['allowed_roles']) || in_array($role, $entry['allowed_roles'], true));
 
         expect($result['isError'])->toBe(! $allowed, "{$class} as {$role}: ".$result['text'])
             ->and(stripos($result['raw'], $this->s->marker))->toBeFalse("{$class} as {$role} showed data from tenant B");
@@ -107,8 +108,13 @@ test('the partner advisor reaches the client tenant with the tenant argument, th
     $advisor = McpTestClient::call($this, McpTestClient::connect($this->s->userWithRole('partner_advisor'), $this->s->tenantA, write: true), mcpToolName($class), $arguments);
     $editor = McpTestClient::call($this, McpTestClient::connect($this->s->userWithRole('editor'), $this->s->tenantA, write: true), mcpToolName($class), $arguments);
 
-    expect($advisor['isError'])->toBeFalse("{$class}: ".$advisor['text'])
-        ->and($advisor['data']['tenant']['id'])->toBe($this->s->clientOfA->id)
+    if ($entry['client_allowed'] ?? true) {
+        expect($advisor['data']['tenant']['id'])->toBe($this->s->clientOfA->id);
+    } else {
+        expect($advisor['text'])->toBe(__('mcp.errors.forbidden'));
+    }
+
+    expect($advisor['isError'])->toBe(! ($entry['client_allowed'] ?? true), "{$class}: ".$advisor['text'])
         ->and(stripos($advisor['raw'], $this->s->marker))->toBeFalse()
         ->and($editor['text'])->toBe(__('mcp.errors.unknown_tenant'));
 })->with(fn () => mcpToolKeys());

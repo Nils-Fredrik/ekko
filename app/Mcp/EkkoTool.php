@@ -11,7 +11,10 @@ use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
@@ -20,6 +23,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\ResponseFactory;
 use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Support\ValidationMessages;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 /**
@@ -75,6 +79,18 @@ abstract class EkkoTool extends Tool
                 [$tenant->id],
                 fn (): ToolResult => $this->run($request, $context, $tenant),
             ));
+        } catch (AuthorizationException) {
+            return Response::error(__('mcp.errors.forbidden'));
+        } catch (HttpException $e) {
+            if (! in_array($e->getStatusCode(), [403, 404, 422], true)) {
+                throw $e;
+            }
+
+            return Response::error(__(match ($e->getStatusCode()) {
+                403 => 'mcp.errors.forbidden',
+                404 => 'mcp.errors.not_found',
+                default => 'mcp.errors.invalid_state',
+            }));
         } catch (ToolFailure $e) {
             return Response::error($e->getMessage());
         } catch (ValidationException $e) {
@@ -227,6 +243,23 @@ abstract class EkkoTool extends Tool
             'next_cursor' => $offset + $size < count($items) ? $this->cursor($offset + $size) : null,
             'total' => count($items),
         ];
+    }
+
+    /**
+     * @template T of Model
+     *
+     * @param  Builder<T>  $query
+     * @param  callable(T): array<string, mixed>  $serialize
+     * @return array{items: list<array<string, mixed>>, total: int, next_cursor: string|null}
+     */
+    protected function queryPage(Builder $query, Request $request, callable $serialize): array
+    {
+        $size = max(1, min(100, (int) config('ekko.mcp.page_size')));
+        $offset = $this->offset($request);
+        $total = (clone $query)->count();
+        $items = $query->offset($offset)->limit($size)->get()->map($serialize)->values()->all();
+
+        return ['items' => $items, 'total' => $total, 'next_cursor' => $offset + $size < $total ? $this->cursor($offset + $size) : null];
     }
 
     /** The offset in the cursor argument (0 without one). */

@@ -6,6 +6,7 @@ return [
     'nav' => 'Claude',
 
     'errors' => [
+        'invalid_state' => 'Ändringen är inte tillåten i nuvarande tillstånd.',
         'reconnect' => 'Anslut Ekko igen i Claude.',
         'read_only' => 'Anslutningen ger bara läsbehörighet. Anslut igen och tillåt ändringar för att använda det här verktyget.',
         'unknown_tenant' => 'Okänd tenant, eller en tenant du inte har åtkomst till. Se whoami.',
@@ -87,6 +88,13 @@ return [
     ],
 
     'summaries' => [
+        'list_actions' => 'Åtgärder för varumärket.',
+        'update_action' => 'Åtgärden har sparats.',
+        'get_fact_check' => 'Fakta och bedömda påståenden.',
+        'get_report' => 'Sparad rapport.',
+        'create_report_link' => 'Delbar rapportlänk skapad.',
+        'create_pitch' => 'Pitchprojekt skapat. Lägg till prompts i promptredigeraren eller via API/MCP och aktivera motorer i marknadsinställningarna före körning.',
+
         'whoami' => ':name har åtkomst till :count tenanter genom Claude.',
         'list_brands' => ':count varumärken.',
         'get_visibility' => ':brand :from–:to: synlighet :visibility (n = :n).',
