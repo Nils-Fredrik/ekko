@@ -50,7 +50,7 @@ beforeEach(function () {
 });
 
 test('actions are filtered and paginated and use the shared transition rules', function () {
-    $action = productCall($this, $this->token, 'POST', $this->brandPath.'/actions', ['title' => 'My action', 'steps' => ['Check source']])
+    $action = productCall($this, $this->token, 'POST', $this->brandPath.'/actions', ['title' => 'My action', 'description' => '', 'steps' => ['Check source']])
         ->assertCreated()->assertJsonPath('data.status', 'planned')->json('data.id');
     productCall($this, $this->token, 'GET', $this->brandPath.'/actions?status=planned&per_page=1')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('total', 2);
     productCall($this, $this->token, 'PATCH', $this->brandPath.'/actions', ['id' => $action, 'status' => 'in_progress'])->assertOk()->assertJsonPath('data.status', 'in_progress');

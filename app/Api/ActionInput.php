@@ -26,7 +26,7 @@ final class ActionInput
         Gate::authorize('create', Action::class);
         $data = Validator::make($input, [
             'title' => ['required', 'string', 'max:255'],
-            'description' => ['sometimes', 'string', 'max:5000'],
+            'description' => ['nullable', 'string', 'max:5000'],
             'steps' => ['sometimes', 'array', 'max:25'],
             'steps.*' => ['required', 'string', 'max:1000'],
             'type' => ['nullable', Rule::enum(ActionType::class)],
