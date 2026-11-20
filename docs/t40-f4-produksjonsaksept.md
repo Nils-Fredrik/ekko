@@ -122,10 +122,18 @@ Med 1 vCPU / 1 GiB tilsvarer `legacy`-grensen om lag 259 000 vCPU-s og like mang
 
 *Fylles ut under fase B.*
 
+**Baseline i `legacy` (målt 20.11.2026 av Claude Code, task:75).**
+
+- **Representativ periode:** førstekjøring for et nytt marked pluss en manuell Gemini-kjøring, 217 kjøringer, 217 svar og 4 uttrekksbatcher, alle `extracted`/`completed`. `ekko-task` hadde i tillegg 13 `monitor-health` og 4 manuelle kjøringer som ikke er tatt med.
+- **Tom periode:** ingen innsamling (daglig innsamling var ikke slått på). `ekko-task` startet 166 ganger: 24 `aggregate`, 24 `usage-rollup`, 96 `monitor-health`, 11 `evaluate-alerts` og 11 manuelle (eval og tinker). `ekko-wake` startet 95 ganger, det vil si én gang per `extraction-poll`-kvarter uten at det fantes arbeid. Dette er startene trinnet `event` skal fjerne.
+- **Fakturert tid:** `run.googleapis.com/container/billable_instance_time`, summert per jobb og for `ekko-web`. Jobbene har 1 vCPU / 1 GiB, så tallene er vCPU-sekunder og GiB-sekunder. Tom periode, jobber: `ekko-task` 1 673 s, `ekko-wake` 771 s, `ekko-migrate` 240 s (deploy). Representativ: `ekko-worker` 2 586 s, `ekko-task` 360 s, `ekko-wake` 180 s.
+- **Web er i praksis alltid på:** 85 550 s av 86 400 s i den tomme perioden. Tjenesten har `minScale=0`, men CPU alltid tildelt og jevnlige kall (overvåking, Scheduler-mål) holder en instans varm. Det er den største faste Cloud Run-kostnaden og uavhengig av T40-F4.
+- **Ikke målt ennå:** DB-transaksjoner (Cloud SQL-metrikk) og dashboardforsinkelse. Dashboardmålingen gjøres med den første ordinære daglige innsamlingen.
+
 | Periode (UTC) | Trinn | wake-starter | worker-starter | task-starter (agg/usage) | Fakturert vCPU-s jobber | Web vCPU-s | DB-transaksjoner | Cloud Tasks opprett/forsøk | Statuskall | Dashboard p50/p95 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| | legacy, tom | | | | | | | 0/0 | | – |
-| | legacy, representativ | | | | | | | 0/0 | | |
+| 19.11 18:10 – 20.11 18:10 | legacy, tom | 95 | 0 | 24/24 | 2 684 | 85 550 | ikke målt | 0/0 | 9 | – |
+| 19.11 15:00 – 18:10 | legacy, representativ | 13 | 5 | 4/4 | 3 126 | 11 366 | ikke målt | 0/0 | 4 | ikke målt |
 | | shadow, tom | | | | | | | | | – |
 | | shadow, representativ | | | | | | | | | |
 | | event, tom | | | | | | | | | – |
