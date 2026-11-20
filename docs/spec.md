@@ -1646,13 +1646,15 @@ Kontraktene i 15.1–15.2 og OpenAPI utvides etter Board #899 (`task:83`). Gjenb
 
 ### T51–T55 – Måleplan per merkevare
 
+På Ekko-boardet ligger implementeringen (T52–T55) i fasen **Måleplan per merkevare**. T51 er den separate spesifikasjonsoppgaven.
+
 | Pakke og Board-oppgave | Leveranse og akseptkriterier |
 |---|---|
 | T51 · `task:116` | Spesifikasjon i 7.6 og arbeidspakker på Board med ansvar og avhengigheter. |
-| T52 · `task:117` | Felles kalender- og frekvensregler i lagring, pakkegrenser, første kjøring, dispatcher og Anthropic-planlegger. Test begge nye intervaller over årsskifte og sommertid, samt Av, eksisterende uke-/månedsfordeling og gjentatt planlegging samme dag. |
-| T53 · `task:118` | Standardplan, markedsarv og eksplisitte egne valg i datamodell og backend. Test migrering fra ulike eksisterende markeder, endring av standard, tilbakestilling, én kjerneregel per kjøring og atomisk lagring fra innstillinger og veiviser. Test tilgang og tenant-isolasjon med fremmede merkevare- og markeds-ID-er. |
-| T54 · `task:119` | Felles estimat for et utkast i begge innganger med neste måledato, kostnad og kvote etter 7.6. Test regneeksemplene med syntetiske priser, BYOK, manglende pris og inaktive markeder, samt at forhåndsvisning er uten sideeffekter. |
-| T55 · `task:120` | Måleplan i innstillingene og veiviseren på nb, sv og en. Nettlesertest med to markeder dekker arv, eget intervall, tilbakeføring til standard, oppdatert estimat ved rask redigering og bekreftelse. Sjekk tastaturbetjening og lesertilgang. |
+| T52 · `task:123` | Felles kalender- og frekvensregler i lagring, pakkegrenser, første kjøring, dispatcher og Anthropic-planlegger. Test begge nye intervaller over årsskifte og sommertid, samt Av, eksisterende uke-/månedsfordeling og gjentatt planlegging samme dag. |
+| T53 · `task:124` | Standardplan, markedsarv og eksplisitte egne valg i datamodell og backend. Test migrering fra ulike eksisterende markeder, endring av standard, tilbakestilling, én kjerneregel per kjøring og atomisk lagring fra innstillinger og veiviser. Test tilgang og tenant-isolasjon med fremmede merkevare- og markeds-ID-er. |
+| T54 · `task:125` | Felles estimat for et utkast i begge innganger med neste måledato, kostnad og kvote etter 7.6. Test regneeksemplene med syntetiske priser, BYOK, manglende pris og inaktive markeder, samt at forhåndsvisning er uten sideeffekter. |
+| T55 · `task:126` | Måleplan i innstillingene og veiviseren på nb, sv og en. Nettlesertest med to markeder dekker arv, eget intervall, tilbakeføring til standard, oppdatert estimat ved rask redigering og bekreftelse. Sjekk tastaturbetjening og lesertilgang. |
 
 ---
 
