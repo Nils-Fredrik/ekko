@@ -139,7 +139,7 @@ class GetResponses extends EkkoTool
         foreach (Brand::query()->whereIn('id', $ids['brand'])->pluck('name', 'id') as $id => $name) {
             $names["brand:{$id}"] = (string) $name;
         }
-        foreach (Competitor::query()->whereIn('id', $ids['competitor'])->pluck('name', 'id') as $id => $name) {
+        foreach (Competitor::withTrashed()->whereIn('id', $ids['competitor'])->pluck('name', 'id') as $id => $name) {
             $names["competitor:{$id}"] = (string) $name;
         }
 

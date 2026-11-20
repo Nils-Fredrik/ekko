@@ -250,7 +250,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `brands` | `tenant_id`, `name`, `slug`, `primary_domain`, `status` |
 | `brand_aliases` | `brand_id`, `alias`, `match_mode` (exact_word, case_insensitive, regex) |
 | `brand_domains` | `brand_id`, `domain`, `include_subdomains` |
-| `competitors` | `tenant_id`, `brand_id`, `name`, `is_active` |
+| `competitors` | `tenant_id`, `brand_id`, `name`, `is_active`, `deleted_at` (logisk sletting) |
 | `competitor_aliases` | `competitor_id`, `alias`, `match_mode` |
 | `competitor_domains` | `competitor_id`, `domain` |
 | `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active` |
@@ -1501,6 +1501,7 @@ Sidehenting med SSRF-vern (kapittel 16), forslag med Claude Sonnet 5.5 etter kap
 `Brands/Prompts.vue`, `PromptShow.vue`, `Competitors.vue`, `Sources.vue` og `Crawlers.vue`, inkludert CSV-import og -eksport av prompts.
 - Nevnelser er uthevet i svartekst.
 - Forslag om ukjente merkevarer kan legges til som konkurrent med ett klikk.
+- Brukere som kan redigere konkurrenter, kan velge «Slett» i konkurrentlisten og bekrefte slettingen i en dialog som viser navnet (T27-F1). `DELETE /brands/{brand}/competitors/{competitor}` fjerner konkurrenten fra merkevarens oppsett, sammenligninger og fremtidig gjenkjenning. Tidligere svar, nevnelser og sitater beholder koblingen til konkurrenten, også ved ny aggregering. Slettingen registreres i revisjonsloggen.
 
 ### T28 – Innstillinger, varsler, rapporter, forbruk, team
 `Brands/Settings.vue`, `Alerts/Index.vue`, `Reports/Index.vue`, `Usage/Index.vue` og utvidelser i `Teams/Show.vue` (Slack, rapportprofil, egne nøkler).

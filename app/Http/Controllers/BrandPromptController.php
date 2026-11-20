@@ -345,7 +345,7 @@ class BrandPromptController extends Controller
      */
     private function caseFold(Brand $brand): array
     {
-        $brand->loadMissing(['aliases', 'competitors.aliases']);
+        $brand->loadMissing('aliases');
         $keys = [];
 
         foreach ($brand->aliases as $alias) {
@@ -358,7 +358,7 @@ class BrandPromptController extends Controller
             }
         }
 
-        foreach ($brand->competitors as $competitor) {
+        foreach ($brand->competitors()->withTrashed()->with('aliases')->get() as $competitor) {
             foreach ($competitor->aliases as $alias) {
                 if ($alias->match_mode !== 'case_insensitive') {
                     continue;

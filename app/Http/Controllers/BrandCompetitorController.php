@@ -69,6 +69,7 @@ class BrandCompetitorController extends Controller
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
                 'brand.competitors.u07.'.$grain.'.'.$period->comparison, $filter, $period->timezone,
                 fn (): array => $page->chartData($filter, $previous, $grain),
+                competitorIds: $brand->competitors->modelKeys(),
             )),
         ]);
     }
@@ -106,5 +107,14 @@ class BrandCompetitorController extends Controller
         });
 
         return back();
+    }
+
+    public function destroy(Brand $brand, string $competitor): RedirectResponse
+    {
+        $record = $brand->competitors()->lockForUpdate()->findOrFail($competitor);
+        Gate::authorize('delete', $record);
+        $record->delete();
+
+        return back(fallback: route('brands.competitors.index', $brand));
     }
 }
