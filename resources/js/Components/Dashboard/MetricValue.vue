@@ -54,7 +54,7 @@ const changeClass = computed(() => {
 
 <template>
     <span
-        :class="metric.low_sample ? 'text-shell-muted/50' : 'text-shell-text'"
+        :class="metric.low_sample ? 'text-shell-muted' : 'text-shell-text'"
         :title="metric.low_sample ? $t('app.dashboard.low_sample') : undefined"
     >
         <span class="text-2xl font-medium tracking-tight">{{ text ?? $t('app.dashboard.empty') }}</span>
