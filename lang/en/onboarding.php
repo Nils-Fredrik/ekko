@@ -62,6 +62,11 @@ return [
         'off' => 'Off',
     ],
     'ui' => [
+        'facts' => 'Facts about the brand',
+        'facts_intro' => 'Suggestions from the site. Ekko checks the AI answers against the facts you approve. Correct the text if something is wrong.',
+        'fact' => 'Fact',
+        'approve_fact' => 'Approve',
+        'add_fact' => 'Add fact',
         'no_active_engines' => 'No engines are active. The configuration will be saved without starting a run.',
         'save_without_run' => 'Save without a run',
         'add_market' => 'Add market',

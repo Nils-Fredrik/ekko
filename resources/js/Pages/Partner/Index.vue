@@ -1,8 +1,7 @@
 <script setup>
-import { useForm, usePage } from '@inertiajs/vue3';
+import { Link, useForm, usePage } from '@inertiajs/vue3';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
-import PitchCreateForm from '@/Components/PitchCreateForm.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -26,7 +25,12 @@ function sparkline(clientId) {
         </template>
         <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
             <p class="text-sm text-shell-muted">{{ $t('app.partner.intro', { days: period.days }) }}</p>
-            <PitchCreateForm class="mt-6" />
+            <p class="mt-3 text-sm text-shell-muted">
+                {{ $t('pitch.ui.partner_hint') }}
+                <Link :href="route('pitches.index')" class="text-primary no-underline">
+                    {{ $t('pitch.ui.manage') }}
+                </Link>
+            </p>
             <EmptyState
                 v-if="clients.length === 0"
                 class="mt-6"

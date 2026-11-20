@@ -71,6 +71,17 @@ function isolationAction(int $tenantId): array
     });
 }
 
+/** @return array{brand: int, fact: int} */
+function isolationFact(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $brand = Brand::factory()->create();
+        $fact = BrandFact::factory()->create(['brand_id' => $brand->id, 'is_active' => true]);
+
+        return ['brand' => $brand->id, 'fact' => $fact->id];
+    });
+}
+
 /** @return array{brand: int} */
 function isolationMarket(int $tenantId): array
 {
@@ -341,6 +352,13 @@ return [
         },
         deniedRoles: ['owner', 'admin', 'editor', 'reader'],
     )->withoutForeignCheck('Uses the current partner only; cross-partner authorization is covered by PitchProjectsTest.'),
+    // T49: the pitch list of the current partner. PitchPagesTest checks that another partner's pitch never appears.
+    'pitches.index' => RouteAccess::user(own: fn () => [], deniedRoles: ['owner', 'admin', 'editor', 'reader']),
+    'pitches.open' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['team' => Team::factory()->clientOf($s->tenantB)->create(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->id]],
+        own: fn (Scenario $s) => ['params' => ['team' => Team::factory()->clientOf($s->tenantA)->create(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->id]],
+        deniedRoles: ['owner', 'admin', 'editor', 'reader'],
+    ),
     'pitches.convert' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['team' => Team::factory()->clientOf($s->tenantB)->create(['kind' => 'pitch', 'pitch_expires_at' => now()->addDays(7)])->id]],
         own: function (Scenario $s) {
@@ -563,6 +581,26 @@ return [
             'data' => ['name' => 'Kaffebonna'],
         ],
         deniedRoles: ['reader'],
+    ),
+    // T49: the fact page. The fact must belong to the brand in the path (BrandFactPageTest checks a fact of another brand).
+    'brands.facts.index' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.facts.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)], 'data' => ['text' => 'Grunnlagt i 1998.']],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)], 'data' => ['text' => 'Grunnlagt i 1998.']],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.facts.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationFact($s->tenantB->id), 'data' => ['is_active' => false]],
+        own: fn (Scenario $s) => ['params' => isolationFact($s->tenantA->id), 'data' => ['is_active' => false]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.facts.destroy' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationFact($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationFact($s->tenantA->id)],
+        deniedRoles: ['editor', 'reader'],
     ),
     'brands.sources' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],

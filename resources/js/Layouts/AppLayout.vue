@@ -115,6 +115,13 @@ const logout = () => {
                                 >
                                     {{ $t('app.nav.partner') }}
                                 </NavLink>
+                                <NavLink
+                                    v-if="page.props.canViewPartner"
+                                    :href="route('pitches.index')"
+                                    :active="route().current('pitches.index')"
+                                >
+                                    {{ $t('pitch.ui.nav') }}
+                                </NavLink>
                                 <NavLink :href="route('brands.index')" :active="route().current('brands.*')">
                                     {{ $t('app.nav.brands') }}
                                 </NavLink>
@@ -397,6 +404,19 @@ const logout = () => {
                         @click="menuOpen = false"
                     >
                         {{ $t('app.nav.partner') }}
+                    </Link>
+                    <Link
+                        v-if="page.props.canViewPartner"
+                        :href="route('pitches.index')"
+                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
+                        :class="
+                            route().current('pitches.index')
+                                ? 'bg-shell-text/10 font-medium text-shell-text'
+                                : 'text-shell-muted'
+                        "
+                        @click="menuOpen = false"
+                    >
+                        {{ $t('pitch.ui.nav') }}
                     </Link>
                     <Link
                         :href="route('alerts.index')"

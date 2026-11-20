@@ -62,6 +62,11 @@ return [
         'off' => 'Av',
     ],
     'ui' => [
+        'facts' => 'Fakta om merkevaren',
+        'facts_intro' => 'Forslag fra nettsiden. Ekko sjekker AI-svarene mot faktaene du godkjenner. Rett teksten om noe er feil.',
+        'fact' => 'Faktum',
+        'approve_fact' => 'Godkjenn',
+        'add_fact' => 'Legg til faktum',
         'no_active_engines' => 'Ingen motorer er aktive. Oppsettet lagres uten å starte en kjøring.',
         'save_without_run' => 'Lagre uten kjøring',
         'add_market' => 'Legg til marked',

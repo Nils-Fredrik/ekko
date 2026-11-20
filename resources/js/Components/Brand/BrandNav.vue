@@ -18,6 +18,7 @@ const items = [
     { name: 'brands.sources', label: 'app.library.sources', match: 'brands.sources' },
     { name: 'brands.crawlers', label: 'app.library.crawlers', match: 'brands.crawlers' },
     { name: 'brands.actions.index', label: 'app.library.actions', match: 'brands.actions.*' },
+    { name: 'brands.facts.index', label: 'fact_check.ui.tab', match: 'brands.facts.*' },
 ];
 
 function active(match) {
