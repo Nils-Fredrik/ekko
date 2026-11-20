@@ -30,7 +30,7 @@ Hvis lokal Docker ikke er tilgjengelig, kan faktiske PNG-er fra en fullført CI-
 
 Innloggingsdata ligger midlertidig i `.ui-auth`, slettes etter testen og lastes ikke opp. Tester bruker reell innlogging og tofaktor for rollene som krever det. Sidekomponenten kontrolleres før bildet tas; en omdirigering til innlogging kan ikke bli en godkjent referanse for en beskyttet side.
 
-Før opptak venter testen på at Vue er montert og alle utsatte Inertia-props er lagt inn, bekreftet gjennom Inertias offentlige `success`-hendelse. Deretter rulles hver ECharts-graf inn i synsfeltet og må ha både `data-chart-ready="true"` og synlig SVG. En egen regresjonstest dekker utsatte grafdata uten lasteskjelett og en graf under skjermkanten. `networkidle` alene er ikke et signal om at siden er ferdig rendret. Den eldre Chart.js-trendgrafen har en egen responsiv 2:1-ramme, slik at endringer i kortets øvrige innhold ikke gir en størrelsesløkke under opptak.
+Før opptak venter testen på at Vue er montert og alle utsatte Inertia-props er lagt inn, bekreftet gjennom Inertias offentlige `success`-hendelse. Deretter rulles hver ECharts-graf inn i synsfeltet og må ha både `data-chart-ready="true"` og synlig SVG. En egen regresjonstest dekker utsatte grafdata uten lasteskjelett og en graf under skjermkanten. `networkidle` alene er ikke et signal om at siden er ferdig rendret.
 
 `npm run test:ui:contracts` krever at hver Inertia-side har et scenario eller en konkret begrunnelse for at ruten ikke er aktiv. Jetstreams vilkårs- og personvernsider er inaktive fordi funksjonen er deaktivert; dette kontrolleres også. Registrer nye sider og nødvendige syntetiske data i samme PR.
 
