@@ -254,7 +254,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `competitor_aliases` | `competitor_id`, `alias`, `match_mode` |
 | `competitor_domains` | `competitor_id`, `domain` |
 | `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active`, `plan_mode` (inherit, own; T53) |
-| `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency` (daily, weekly, monthly, off). T52 legger til every_14_days og every_21_days. Øvrige valg er `prompt_scope` (all, core) og `repetitions` (1–3, standard 1). |
+| `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency` (daily, weekly, every_14_days, every_21_days, monthly, off). Øvrige valg er `prompt_scope` (all, core) og `repetitions` (1–3, standard 1). |
 | `brand_plan_engines` | `tenant_id`, `brand_id`, `engine_key`, `frequency`, `prompt_scope` (all, core), `repetitions` (1–3). Merkevarens standardplan (T53), samme form som `market_engines` |
 | `brand_facts` | `tenant_id`, `brand_id`, `text` (høyst 300 tegn), `is_active` (11.6) |
 | `topics` | `tenant_id`, `brand_id`, `name`, `cross_market_key` (kobler samme tema på tvers av markeder) |
@@ -336,7 +336,7 @@ Sentimentfordeling og kildetype/eierskap lagres separat i dagsaggregatene for gr
 
 **Fordeling over uka:** Ved ukentlig frekvens kjøres et prompt på ukedagen `crc32(prompt_id) % 7`. Ved månedlig frekvens kjøres det på dag `crc32(prompt_id) % 28 + 1`. Prompts med `priority = core` kan ha høyere frekvens enn resten av markedet, begrenset av pakken. Dette gir jevn belastning og jevn kostnad.
 
-T52 legger til hver 14. dag og hver 3. uke. Begge måles i lokale kalenderdager i tenantens tidssone. Bruk en fast referansedato og en stabil forskyvning per prompt over henholdsvis 14 og 21 dager. To ordinære forfall for samme prompt med uendret intervall ligger da nøyaktig 14 eller 21 dager fra hverandre, også ved nyttår og skifte av sommertid. Månedlig betyr fortsatt én gang per kalendermåned. Førstegangskjøringen i kapittel 13 er et eget steg.
+Hver 14. dag og hver 3. uke måles i lokale kalenderdager i tenantens tidssone. Referansedatoen er søndag 4. januar 1970. Første forfall fra denne datoen er forskjøvet med henholdsvis `crc32(prompt_id) % 14` og `crc32(prompt_id) % 21` dager. To ordinære forfall for samme prompt med uendret intervall ligger da nøyaktig 14 eller 21 dager fra hverandre, også ved nyttår og skifte av sommertid. Månedlig betyr fortsatt én gang per kalendermåned. Førstegangskjøringen i kapittel 13 er et eget steg.
 
 Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-autentisering står i [ADR 0020](decisions/0020-dispatch-og-worker.md). Køoppgaver som fortsatt venter seks timer etter den ene nye innsendingen, avsluttes som feilet. Produksjonsstart verifiseres med T10 etter bootstrap. [ADR 0030](decisions/0030-avgrenset-worker-start.md) avgrenser web til en fast poll-jobb og håndhever connector/TLS for Cloud SQL. Et vellykket `extraction-poll`-kall bekrefter oppstart/allerede aktiv dispatcher; senere jobbfeil varsles av T36.
 

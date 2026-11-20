@@ -3,12 +3,11 @@
 namespace App\MeasurementPlan;
 
 use App\Scheduling\PromptSchedule;
-use Carbon\CarbonImmutable;
 use InvalidArgumentException;
 
 /**
- * The shared frequency contract for brand plans, market choices and package caps (docs/spec.md 6.2).
- * Values are ordered from rarest to most frequent.
+ * The shared frequency contract for brand plans, market choices and package caps (docs/spec.md 6.2), on top of
+ * the calendar rules in PromptSchedule (T52). Values are ordered from rarest to most frequent.
  */
 final class Frequency
 {
@@ -30,9 +29,7 @@ final class Frequency
     {
         $rarest = $first;
         foreach ($others as $frequency) {
-            if (self::rank($frequency) < self::rank($rarest)) {
-                $rarest = $frequency;
-            }
+            $rarest = PromptSchedule::capped($rarest, $frequency);
         }
 
         return $rarest;
@@ -40,27 +37,16 @@ final class Frequency
 
     public static function allows(string $frequency, string $cap): bool
     {
-        return self::rank($frequency) <= self::rank($cap);
+        return PromptSchedule::allows($frequency, $cap);
     }
 
     /**
-     * The values the calendar rules (PromptSchedule, T52) can plan today, in contract order. A plan is
-     * never stored with an interval the scheduler cannot run, so the set grows with PromptSchedule alone.
+     * Every value the calendar rules can plan, rarest first.
      *
      * @return list<string>
      */
     public static function schedulable(): array
     {
-        $day = CarbonImmutable::create(2026, 1, 1);
-
-        return array_values(array_filter(self::ORDER, function (string $frequency) use ($day): bool {
-            try {
-                PromptSchedule::due(1, $frequency, $day);
-
-                return true;
-            } catch (InvalidArgumentException) {
-                return false;
-            }
-        }));
+        return array_reverse(PromptSchedule::frequencies());
     }
 }

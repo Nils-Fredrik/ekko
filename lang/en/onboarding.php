@@ -57,6 +57,8 @@ return [
     'frequencies' => [
         'daily' => 'Daily',
         'weekly' => 'Weekly',
+        'every_14_days' => 'Every 14 days',
+        'every_21_days' => 'Every 3 weeks',
         'monthly' => 'Monthly',
         'off' => 'Off',
     ],

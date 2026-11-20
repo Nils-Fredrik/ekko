@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Dashboard\DashboardLabels;
 use App\Integrations\BrandIntegrations;
-use App\MeasurementPlan\Frequency;
 use App\MeasurementPlan\MeasurementPlans;
 use App\Models\Brand;
 use App\Models\EnginePrice;
@@ -12,6 +11,7 @@ use App\Models\Integration;
 use App\Models\Market;
 use App\Models\MarketEngine;
 use App\Models\Team;
+use App\Scheduling\PromptSchedule;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,6 +43,7 @@ class BrandSettingsController extends Controller
             ->map(fn (mixed $key): string => (string) $key)
             ->all();
         $engineNames = DashboardLabels::engines($engineKeys);
+        $plan = $brand->tenant->plan;
         $seeIntegrations = Gate::allows('viewAny', Integration::class);
 
         return Inertia::render('Brands/Settings', [
@@ -77,6 +78,7 @@ class BrandSettingsController extends Controller
                     : $market->country,
                 'name' => $engineNames[$engine->engine_key] ?? $engine->engine_key,
                 'frequency' => $engine->frequency,
+                'frequencies' => PromptSchedule::frequencies($plan?->maxFrequencyForEngine($engine->engine_key) ?? 'daily'),
                 'prompt_scope' => $engine->prompt_scope,
                 'repetitions' => $engine->repetitions,
             ]))->values(),
@@ -117,7 +119,7 @@ class BrandSettingsController extends Controller
             'markets.*.is_active' => ['required', 'boolean'],
             'engines' => ['sometimes', 'array'],
             'engines.*.id' => ['required', 'integer'],
-            'engines.*.frequency' => ['required', Rule::in(Frequency::schedulable())],
+            'engines.*.frequency' => ['required', Rule::in(PromptSchedule::frequencies())],
             'engines.*.prompt_scope' => ['required', Rule::in(['all', 'core'])],
             'engines.*.repetitions' => ['required', 'integer', 'between:1,3'],
             ...$this->integrations->rules(),
@@ -282,6 +284,7 @@ class BrandSettingsController extends Controller
 
         // A scope change is removed before it is written back. Two rows can then trade all and core
         // without the unique key seeing both of them on the same scope in between.
+        $plan = $brand->tenant->plan;
         $moves = [];
         $detached = [];
         foreach ($data['engines'] as $index => $row) {
@@ -301,6 +304,11 @@ class BrandSettingsController extends Controller
                 // The form sends every row on each save, so unchanged rows leave inheritance alone.
                 $this->plans->detach(Market::query()->findOrFail($engine->market_id));
                 $detached[$engine->market_id] = true;
+            }
+            if ($plan !== null && ! PromptSchedule::allows($row['frequency'], $plan->maxFrequencyForEngine($engine->engine_key))) {
+                throw ValidationException::withMessages([
+                    "engines.{$index}.frequency" => __('onboarding.issues.frequency_above_plan', ['engine' => DashboardLabels::engines([$engine->engine_key])[$engine->engine_key]]),
+                ]);
             }
             if ($row['frequency'] !== 'off' && ! EnginePrice::query()->where('engine_key', $engine->engine_key)->where('valid_from', '<=', now())->exists()) {
                 throw ValidationException::withMessages([
