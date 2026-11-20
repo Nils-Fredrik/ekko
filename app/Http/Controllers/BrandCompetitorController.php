@@ -64,6 +64,7 @@ class BrandCompetitorController extends Controller
                     'series' => $metrics->competitorVisibilitySeries($filter, $grain),
                     'sentiment' => $metrics->sentimentDistribution($filter),
                 ],
+                competitorIds: $brand->competitors->modelKeys(),
             )),
         ]);
     }
@@ -101,5 +102,14 @@ class BrandCompetitorController extends Controller
         });
 
         return back();
+    }
+
+    public function destroy(Brand $brand, string $competitor): RedirectResponse
+    {
+        $record = $brand->competitors()->lockForUpdate()->findOrFail($competitor);
+        Gate::authorize('delete', $record);
+        $record->delete();
+
+        return back(fallback: route('brands.competitors.index', $brand));
     }
 }

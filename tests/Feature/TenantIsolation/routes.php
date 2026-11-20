@@ -5,6 +5,7 @@ use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\BrandFact;
+use App\Models\Competitor;
 use App\Models\Engine;
 use App\Models\Market;
 use App\Models\Plan;
@@ -79,6 +80,16 @@ function isolationFact(int $tenantId): array
         $fact = BrandFact::factory()->create(['brand_id' => $brand->id, 'is_active' => true]);
 
         return ['brand' => $brand->id, 'fact' => $fact->id];
+    });
+}
+
+/** @return array{brand: int, competitor: int} */
+function isolationCompetitor(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $competitor = Competitor::factory()->create();
+
+        return ['brand' => $competitor->brand_id, 'competitor' => $competitor->id];
     });
 }
 
@@ -580,6 +591,11 @@ return [
             'params' => ['brand' => isolationBrandId($s->tenantA->id)],
             'data' => ['name' => 'Kaffebonna'],
         ],
+        deniedRoles: ['reader'],
+    ),
+    'brands.competitors.destroy' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantA->id)],
         deniedRoles: ['reader'],
     ),
     // T49: the fact page. The fact must belong to the brand in the path (BrandFactPageTest checks a fact of another brand).

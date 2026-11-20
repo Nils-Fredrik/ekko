@@ -4,6 +4,7 @@ import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
+import { trans } from 'laravel-vue-i18n';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -17,6 +18,7 @@ const props = defineProps({
 });
 
 const pending = ref([]);
+const deleting = ref(false);
 const shownCompetitors = computed(() =>
     props.competitors.filter(
         (item) => !props.filters.competitor || String(item.id) === String(props.filters.competitor),
@@ -39,6 +41,18 @@ function add(suggestion) {
             },
         },
     );
+}
+
+function remove(competitor) {
+    if (deleting.value || !window.confirm(trans('app.library.confirm_delete_competitor', { name: competitor.name }))) {
+        return;
+    }
+
+    deleting.value = true;
+    router.delete(route('brands.competitors.destroy', [props.brand.id, competitor.id]), {
+        preserveScroll: true,
+        onFinish: () => (deleting.value = false),
+    });
 }
 </script>
 
@@ -99,6 +113,9 @@ function add(suggestion) {
                                 <th class="px-4 py-3 font-medium">{{ $t('app.library.aliases') }}</th>
                                 <th class="px-4 py-3 font-medium">{{ $t('app.library.domains') }}</th>
                                 <th class="px-4 py-3 font-medium">{{ $t('app.library.active') }}</th>
+                                <th v-if="canManage" scope="col" class="px-4 py-3">
+                                    <span class="sr-only">{{ $t('actions.delete') }}</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -115,6 +132,17 @@ function add(suggestion) {
                                     :class="competitor.is_active ? 'text-success' : 'text-shell-muted'"
                                 >
                                     {{ competitor.is_active ? $t('app.library.active') : $t('app.library.inactive') }}
+                                </td>
+                                <td v-if="canManage" class="px-4 py-3 text-end">
+                                    <button
+                                        type="button"
+                                        class="rounded-lg px-2 py-1 text-error hover:underline disabled:opacity-50"
+                                        :aria-label="$t('actions.named.delete', { name: competitor.name })"
+                                        :disabled="deleting"
+                                        @click="remove(competitor)"
+                                    >
+                                        {{ $t('actions.delete') }}
+                                    </button>
                                 </td>
                             </tr>
                         </tbody>

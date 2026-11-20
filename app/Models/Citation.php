@@ -37,7 +37,7 @@ class Citation extends Model
     /** @return BelongsTo<Competitor, $this> */
     public function competitor(): BelongsTo
     {
-        return $this->belongsTo(Competitor::class);
+        return $this->belongsTo(Competitor::class)->withTrashed();
     }
 
     /** @return array<string, string> */

@@ -38,7 +38,7 @@ trait ChartDistributionMetrics
                     sum((item.value->>'positive')::bigint) AS positive
                 FROM filtered
                 CROSS JOIN LATERAL jsonb_each(coalesce(sentiment_distribution->'competitors', '{}'::jsonb)) item
-                JOIN competitors c ON c.id::text = item.key AND c.brand_id = ? AND c.tenant_id = ? AND c.is_active
+                JOIN competitors c ON c.id::text = item.key AND c.brand_id = ? AND c.tenant_id = ? AND c.is_active AND c.deleted_at IS NULL
                 GROUP BY item.key
             )
             SELECT (SELECT count(*) FROM filtered WHERE sentiment_distribution IS NULL) AS missing,

@@ -1,6 +1,10 @@
 <?php
 
+use App\Detection\DetectionCatalog;
 use App\Engines\RawResponseStore;
+use App\Metrics\DailyAggregator;
+use App\Metrics\MetricsFilter;
+use App\Metrics\MetricsService;
 use App\Models\AggDaily;
 use App\Models\AggSourceDaily;
 use App\Models\AiReferralDaily;
@@ -146,6 +150,64 @@ test('a pitch cannot add a fourth competitor, but a converted customer can', fun
     $world->tenant->forceFill(['kind' => 'customer'])->save();
     $this->post(route('brands.competitors.store', $world->brand), ['name' => 'Fourth'])->assertRedirect()->assertSessionHasNoErrors();
     expect($world->brand->competitors()->count())->toBe(4);
+});
+
+test('an editor can delete only a competitor of the selected brand', function () {
+    $world = MetricsWorld::create();
+    $editor = User::factory()->create();
+    $world->tenant->users()->attach($editor, ['role' => 'editor']);
+    $editor->switchTeam($world->tenant);
+    $otherBrand = Brand::factory()->create();
+    $url = route('brands.competitors.destroy', [$world->brand, $world->c1]);
+    $index = route('brands.competitors.index', $world->brand);
+
+    $this->actingAs($editor)->delete(route('brands.competitors.destroy', [$otherBrand, $world->c1]))->assertNotFound();
+    $this->from($index)->delete($url)->assertRedirect($index);
+    $this->delete($url)->assertNotFound();
+    $this->get($index.'?competitor='.$world->c1->id)->assertInertia(fn ($page) => $page
+        ->has('competitors', 1)->where('competitors.0.id', $world->c2->id)
+        ->missing('filters.competitor'));
+    expect($world->c1->activitiesAsSubject()->where('event', 'deleted')->where('causer_id', $editor->id)->count())->toBe(1);
+});
+
+test('deleting a competitor stops new detection and preserves historical measurements', function () {
+    $world = MetricsWorld::create();
+    $competitor = $world->c1;
+    $domain = 'nordlys.example.test';
+    CompetitorAlias::factory()->for($competitor)->create(['alias' => $competitor->name]);
+    CompetitorDomain::factory()->for($competitor)->create(['domain' => $domain]);
+    $response = $world->answer($world->p1, '2026-11-10T10:00:00Z', [
+        'competitors' => [$competitor->id => 1],
+        'citations' => [[$domain, 'competitor']],
+    ]);
+    $response->citations()->update(['competitor_id' => $competitor->id]);
+    $response->mentions()->update(['sentiment' => 0.8]);
+
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $index = route('brands.competitors.index', [$world->brand, 'from' => '2026-11-10', 'to' => '2026-11-10']);
+    app(DailyAggregator::class)->aggregate('2026-11-10');
+    $this->actingAs($owner)->get($index)->assertInertia(fn ($page) => $page->loadDeferredProps(fn ($data) => $data
+        ->where('chartData.series.0.entities', fn ($entities) => collect($entities)->pluck('name')->contains($competitor->name))));
+    $this->delete(route('brands.competitors.destroy', [$world->brand, $competitor]))->assertRedirect();
+    $this->get($index)->assertInertia(fn ($page) => $page->loadDeferredProps(fn ($data) => $data
+        ->where('chartData.series.0.entities', fn ($entities) => collect($entities)->pluck('name')->doesntContain($competitor->name))));
+
+    $catalog = DetectionCatalog::load();
+    expect($catalog->aliases)->toBeEmpty()
+        ->and($catalog->domains->classify($domain)['ownership'])->toBe('third_party')
+        ->and($response->citations()->sole()->competitor->id)->toBe($competitor->id);
+    app(DailyAggregator::class)->aggregate('2026-11-10');
+    expect(AggDaily::query()->sole()->competitor_mentions)->toEqual([$competitor->id => 1]);
+
+    $metrics = app(MetricsService::class);
+    $filter = new MetricsFilter($world->brand->id, '2026-11-10', '2026-11-10');
+    expect($metrics->sourceGapDetail($filter, $domain)['competitors'])->toBeEmpty()
+        ->and(collect($metrics->sentimentDistribution($filter)['rows'])->pluck('key'))->not->toContain('competitor:'.$competitor->id);
+
+    $this->post(route('brands.competitors.store', $world->brand), ['name' => $competitor->name])
+        ->assertRedirect()->assertSessionHasNoErrors();
+    expect($world->brand->competitors()->where('name', $competitor->name)->sole()->id)->not->toBe($competitor->id);
 });
 
 test('prompts can be edited, exported and imported, and a reader cannot change them', function () {
