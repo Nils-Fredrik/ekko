@@ -264,7 +264,7 @@ final class ReportPublisher
     }
 
     /**
-     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, points: list<float|null>, lows: list<bool>, ranks: list<int|null>}>}
+     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, points: list<float|null>, lows: list<bool>, ns: list<int>, ranks: list<int|null>}>}
      */
     private function competitorSeries(MetricsFilter $filter, string $brand): array
     {
@@ -278,11 +278,13 @@ final class ReportPublisher
                     'own' => $id === 'brand',
                     'points' => [],
                     'lows' => [],
+                    'ns' => [],
                     'ranks' => [],
                     'latest' => $entity['share_of_voice']['value'],
                 ];
                 $lines[$id]['points'][] = $entity['share_of_voice']['value'];
                 $lines[$id]['lows'][] = (bool) $entity['share_of_voice']['low_sample'];
+                $lines[$id]['ns'][] = (int) $entity['share_of_voice']['n'];
                 $lines[$id]['ranks'][] = $entity['rank'];
                 $lines[$id]['latest'] = $entity['share_of_voice']['value'];
             }
@@ -309,11 +311,21 @@ final class ReportPublisher
     {
         $cells = $this->metrics->visibilityByPromptEngine($filter);
         $totals = [];
+        $counts = [];
         foreach ($cells as $cell) {
-            $totals[$cell['prompt_id']] = ($totals[$cell['prompt_id']] ?? 0) + ($cell['visibility']['value'] ?? 0);
+            if (! is_numeric($cell['visibility']['value'])) {
+                continue;
+            }
+            $id = $cell['prompt_id'];
+            $totals[$id] = ($totals[$id] ?? 0) + $cell['visibility']['value'];
+            $counts[$id] = ($counts[$id] ?? 0) + 1;
         }
-        arsort($totals);
-        $promptIds = array_slice(array_map(intval(...), array_keys($totals)), 0, 20);
+        $averages = [];
+        foreach ($totals as $id => $sum) {
+            $averages[$id] = $sum / $counts[$id];
+        }
+        arsort($averages);
+        $promptIds = array_slice(array_map(intval(...), array_keys($averages)), 0, 20);
         $grid = [];
         foreach ($cells as $cell) {
             $grid[$cell['prompt_id']][$cell['engine_key']] = $cell['visibility'];

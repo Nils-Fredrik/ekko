@@ -3,6 +3,7 @@
 return [
     'trend' => 'Visibility over time',
     'rank' => 'Ranking over time',
+    'share_over_time' => 'Share of voice over time',
     'reconstructed' => 'This web version was reconstructed from available data. The original PDF may differ.',
     'share' => ['title' => 'Share report', 'once' => 'Copy the link now. It cannot be shown again later.', 'days' => 'Valid for days', 'create' => 'Create link', 'url' => 'Shareable link', 'expiry' => 'Expires :date · :views views', 'revoke' => 'Revoke', 'revoked' => 'Revoked', 'failed' => 'Could not update the link. Try again.', 'loading' => 'Loading report …', 'not_found' => 'The report does not exist or the link has expired.', 'page' => 'Report', 'points' => 'Show data points'],
     'title' => 'Report for :brand',

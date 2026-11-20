@@ -71,10 +71,14 @@ test('section bars are the same markup on the web page and in the pdf', function
 
     expect($pdf)->toContain('data-testid="report-competitor-lines"')
         ->toContain('data-testid="report-competitor-ranks"')
-        ->toContain('points="40,10 560,150"')
+        ->toContain('points="40,10 57.3,150"')
         ->toContain('data-testid="report-prompt-heatmap"')
+        ->toContain('background-color: rgba(182, 43, 27, 0.24)')
         ->toContain('50,0 % n 10')
+        ->toContain(__('reports.share_over_time'))
         ->toContain(__('reports.rank'))
+        ->toContain('data-testid="report-competitor-values"')
+        ->toContain('ChatGPT · 40%')
         ->toContain('data-testid="report-bars-funnel"')
         ->and($shared)->toContain('data-testid="report-competitor-lines"')
         ->toContain('data-testid="report-prompt-heatmap"')
@@ -83,6 +87,43 @@ test('section bars are the same markup on the web page and in the pdf', function
         ->toContain('data-testid="report-bars-sources"')
         ->and($shared)->toContain('data-testid="report-bars-engines"')
         ->toContain('data-testid="report-bars-sources"');
+});
+
+test('competitor lines leave days without answers open', function () {
+    $html = view('reports.pdf', [
+        'brand' => 'Northwind',
+        'from' => '2026-10-01',
+        'to' => '2026-10-03',
+        'profile' => ['name' => 'Northwind', 'color' => '#112233', 'logo' => null],
+        'insight' => null,
+        'responses' => 12,
+        'headlines' => [],
+        'engines' => [],
+        'prompts' => [],
+        'competitors' => [],
+        'sources' => [],
+        'gaps' => [],
+        'bots' => [],
+        'traffic' => [],
+        'models' => [],
+        'actions' => [
+            'title' => 'Actions', 'open_title' => 'Open', 'done_title' => 'Done',
+            'empty_open' => 'None open', 'empty_done' => 'None done', 'change_label' => 'Change',
+            'open' => [], 'completed' => [],
+        ],
+        'competitor_series' => [
+            'periods' => ['2026-10-01', '2026-10-03'],
+            'lines' => [[
+                'name' => 'Northwind', 'own' => true,
+                'points' => [0.2, 0.4], 'ranks' => [1, 2], 'ns' => [4, 8], 'lows' => [true, false],
+            ]],
+        ],
+    ])->render();
+
+    expect($html)->not->toContain('<polyline')
+        ->and($html)->toContain('cx="40"')
+        ->and($html)->toContain('cx="560"')
+        ->and($html)->toContain('2026-10-01 · 20% · n 4');
 });
 
 test('report charts keep sample size, rank and distinguishable engine names', function () {

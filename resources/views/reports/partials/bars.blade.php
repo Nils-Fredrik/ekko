@@ -20,9 +20,14 @@
                 $width = $max > 0 ? 360 * max(0, $value) / $max : 0;
                 $y = 8 + $index * 22;
                 $low = (bool) ($item['low'] ?? false);
+                $shown = $scale === 'rate'
+                    ? (is_numeric($item['value'] ?? null) ? round((float) $item['value'] * 100, 1).'%' : __('reports.empty_value'))
+                    : (is_numeric($item['value'] ?? null) ? (string) $item['value'] : __('reports.empty_value'));
             @endphp
             <text x="0" y="{{ $y + 12 }}" font-size="10">{{ \Illuminate\Support\Str::limit((string) $item['label'], 28) }}</text>
-            <rect x="160" y="{{ $y }}" width="{{ round($width, 1) }}" height="14" fill="{{ $low ? '#a8a29e' : '#b62b1b' }}" />
+            <rect x="160" y="{{ $y }}" width="{{ round($width, 1) }}" height="14" fill="{{ $low ? '#a8a29e' : '#b62b1b' }}">
+                <title>{{ $item['label'] }} · {{ $shown }}</title>
+            </rect>
         @endforeach
     </svg>
 @endif
