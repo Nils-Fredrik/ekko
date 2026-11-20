@@ -20,4 +20,4 @@ URL-er inneholder valg, aldri en privat visnings-ID som mottakeren må ha tilgan
 
 ## Konsekvenser
 
-Filterendringer henter også deferred-props, slik at gamle grafer ikke vises som nye resultater. Full navigasjon mellom analysesider er fortsatt vanlig Inertia-navigasjon. Historiske innsiktstekster med gammel cacheidentitet blir ikke gjenbrukt for et annet vindu. Ingen eksterne modellkall gjøres i nettlesertestene.
+Filterendringer henter utsatte grafdata i samme delvise svar. Innsiktsteksten hentes i en separat forespørsel etter at grafene er oppdatert, slik at modellkall ikke forsinker tallene (ADR 0038). Tidligere innsiktstekst tømmes og gamle forespørsler avbrytes ved neste filterskifte. Full navigasjon mellom analysesider er fortsatt vanlig Inertia-navigasjon. Historiske innsiktstekster med gammel cacheidentitet blir ikke gjenbrukt for et annet vindu. Ingen eksterne modellkall gjøres i nettlesertestene.

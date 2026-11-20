@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/vue3';
 
-// Include deferred props explicitly so a partial visit never keeps graphs from the old filter.
+// Fetch graphs with the filters, but let model-backed insight arrive separately (ADR 0038).
 export const analysisProps = [
     'analysisFilters',
     'period',
@@ -13,7 +13,6 @@ export const analysisProps = [
     'modelChanges',
     'topActions',
     'chartData',
-    'insight',
     'prompts',
     'competitors',
     'suggestions',
@@ -24,8 +23,29 @@ export const analysisProps = [
     'shown',
 ];
 
+let latestVisit = 0;
+
 export function visitAnalysis(url, query, options = {}) {
-    router.get(url, query, { only: analysisProps, preserveState: true, preserveScroll: true, ...options });
+    const visit = ++latestVisit;
+    // Also cancel the initial deferred request: an old insight must never overwrite a newer filter's text.
+    router.cancelAll({ prefetch: false });
+    router.replaceProp('insight', null, {
+        onFinish: () => {
+            if (visit !== latestVisit) return;
+            router.get(url, query, {
+                only: analysisProps,
+                preserveState: true,
+                preserveScroll: true,
+                ...options,
+                onSuccess: async (page) => {
+                    await options.onSuccess?.(page);
+                    if (visit === latestVisit && page.component === 'Brands/Show') {
+                        router.reload({ only: ['insight'] });
+                    }
+                },
+            });
+        },
+    });
 }
 
 export function crossFilter(url, query, key, value) {

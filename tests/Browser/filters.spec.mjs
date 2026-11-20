@@ -7,7 +7,10 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await page.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(/\/dashboard$/);
     const path = `/brands/${process.env.FILTER_BRAND_ID}`;
+    const initialInsight = page.waitForResponse((response) => new URL(response.url()).pathname === path
+        && response.request().headers()['x-inertia-partial-data'] === 'insight');
     await page.goto(`${path}?from=2026-10-01&to=2026-10-03`);
+    await initialInsight;
     const bar = page.getByTestId('analysis-filters');
     await expect(bar).toContainText('2026-10-01');
     await page.evaluate(() => { window.filterPageIdentity = 'unchanged'; });
@@ -16,9 +19,30 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await bar.getByRole('button', { name: 'Add or change filters', exact: true }).click();
     await bar.getByRole('combobox', { name: 'Comparison period', exact: true }).selectOption('year');
     await bar.getByRole('combobox', { name: 'Market', exact: true }).selectOption({ label: 'NO' });
-    await bar.getByRole('button', { name: 'Apply', exact: true }).click();
-    await expect(bar).toContainText('2025-10-01');
-    await expect(bar.getByRole('button', { name: 'Remove NO', exact: true })).toBeVisible();
+    let releaseInsight;
+    const insightReady = new Promise((resolve) => { releaseInsight = resolve; });
+    let insightRequested = false;
+    const slowInsight = async (route) => {
+        if (new URL(route.request().url()).searchParams.get('comparison') === 'year'
+            && route.request().headers()['x-inertia-partial-data']?.split(',').includes('insight')) {
+            insightRequested = true;
+            await insightReady;
+        }
+        await route.continue();
+    };
+    await page.route(`**${path}?*`, slowInsight);
+    try {
+        await bar.getByRole('button', { name: 'Apply', exact: true }).click();
+        // The new figures must appear while the insight request is still held back.
+        await expect(bar).toContainText('2025-10-01');
+        await expect(bar.getByRole('button', { name: 'Remove NO', exact: true })).toBeVisible();
+        await expect.poll(() => insightRequested).toBe(true);
+        expect(visits.filter((request) => request.headers()['x-inertia-partial-data']?.includes('chartData'))
+            .every((request) => !request.headers()['x-inertia-partial-data'].split(',').includes('insight'))).toBe(true);
+    } finally {
+        releaseInsight();
+        await page.unrouteAll({ behavior: 'wait' });
+    }
     expect(await page.evaluate(() => window.filterPageIdentity)).toBe('unchanged');
     expect(visits.some((request) => request.headers()['x-inertia-partial-data']?.includes('chartData'))).toBe(true);
     expect(visits.every((request) => !request.isNavigationRequest())).toBe(true);

@@ -6,6 +6,7 @@
 
 use App\ActionEngine\Writing\ActionWriterFailed;
 use App\AnthropicBudget\Account;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Insights\InsightTextGuard;
 use App\Insights\InsightTextWriter;
 use App\Models\AggDaily;
@@ -438,3 +439,18 @@ test('insight prompts identify the actual selected comparison window', function 
     'previous' => ['previous', '2026-10-16', '2026-10-31'],
     'year' => ['year', '2025-11-01', '2025-11-16'],
 ]);
+
+test('a partial filter visit does not invoke the insight writer until its separate request', function () {
+    $this->writer->reply = FakeInsightWriter::json('Synligheten er {visibility_now}.');
+    $headers = ['X-Inertia' => 'true',
+        'X-Inertia-Version' => app(HandleInertiaRequests::class)->version(request()),
+        'X-Inertia-Partial-Component' => 'Brands/Show',
+        'X-Inertia-Partial-Data' => 'period,analysisFilters,summary,chartData'];
+    $url = brandUrl($this->w, '?from=2026-11-01&to=2026-11-16&comparison=year');
+    $this->actingAs($this->owner)->withHeaders($headers)->get($url)->assertOk()
+        ->assertJsonPath('props.period.comparison', 'year')->assertJsonMissingPath('props.insight');
+    expect($this->writer->requests)->toHaveCount(0);
+    $this->withHeader('X-Inertia-Partial-Data', 'insight')->get($url)->assertOk()
+        ->assertJsonPath('props.insight.generated_on', '2026-11-16');
+    expect($this->writer->requests)->toHaveCount(1);
+});
