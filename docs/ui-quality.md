@@ -26,6 +26,8 @@ CI-artifactet `ui-quality-<run>-<attempt>` inneholder:
 
 Innloggingsdata ligger midlertidig i `.ui-auth`, slettes etter testen og lastes ikke opp. Tester bruker reell innlogging og tofaktor for rollene som krever det. Sidekomponenten kontrolleres før bildet tas; en omdirigering til innlogging kan ikke bli en godkjent referanse for en beskyttet side.
 
+Før opptak venter testen på at Vue er montert og alle utsatte Inertia-props er lagt inn, bekreftet gjennom Inertias offentlige `success`-hendelse. Deretter rulles hver ECharts-graf inn i synsfeltet og må ha både `data-chart-ready="true"` og synlig SVG. En egen regresjonstest dekker utsatte grafdata uten lasteskjelett og en graf under skjermkanten. `networkidle` alene er ikke et signal om at siden er ferdig rendret. Den eldre Chart.js-trendgrafen har en egen responsiv 2:1-ramme, slik at endringer i kortets øvrige innhold ikke gir en størrelsesløkke under opptak.
+
 `npm run test:ui:contracts` krever at hver Inertia-side har et scenario eller en konkret begrunnelse for at ruten ikke er aktiv. Jetstreams vilkårs- og personvernsider er inaktive fordi funksjonen er deaktivert; dette kontrolleres også. Registrer nye sider og nødvendige syntetiske data i samme PR.
 
 ## Tilgjengelighet
@@ -38,12 +40,12 @@ Første U15-kjøring hadde 0 kritiske funn etter retting av skjemanavn. Den rapp
 
 `npm run test:budget` leser Vite-manifestet etter bygg. Størrelsene er gzip nivå 9, uten dobbelttelling av delte moduler. Det største språksettet (JSON og genererte PHP-oversettelser) inngår i førstegangsbudsjettet, mens grafer fortsatt må lastes asynkront.
 
-| Måling | Grense i byte | Utgangspunkt ved U15 |
-|---|---:|---:|
-| App og statiske importer + største språkmodul | 160 000 | 148 882 |
-| Største første sidelasting + app og språk | 285 000 | 267 751 |
-| ECharts-chunk | 240 000 | 211 419 |
-| Alle JavaScript-chunker | 700 000 | 642 306 |
+| Måling                                        | Grense i byte | Utgangspunkt ved U15 |
+| --------------------------------------------- | ------------: | -------------------: |
+| App og statiske importer + største språkmodul |       160 000 |              148 871 |
+| Største første sidelasting + app og språk     |       285 000 |              267 792 |
+| ECharts-chunk                                 |       240 000 |              211 419 |
+| Alle JavaScript-chunker                       |       700 000 |              642 424 |
 
 Grensene gir omtrent 6–15 % rom fra dagens bygg og ligger i `tests/Browser/visual/budgets.json`. Overskridelse eller manglende måling stopper CI. En budsjettendring skal begrunnes i PR-en; den skal ikke være en automatisk reaksjon på røde tester. Eksisterende kontroll mot eager-lasting av ECharts og grensen for ukomprimert grafbibliotek gjelder fortsatt.
 

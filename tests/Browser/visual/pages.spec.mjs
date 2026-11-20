@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { pages } from './pages.mjs';
 import { criticalViolations } from './accessibility.mjs';
+import { observeInertia, settleCharts } from './settle.mjs';
 
 for (const [name, component, role, path] of pages) {
     test.describe(name, () => {
@@ -15,6 +16,7 @@ for (const [name, component, role, path] of pages) {
             );
             const errors = [];
             page.on('pageerror', (error) => errors.push(error.message));
+            await observeInertia(page);
             const response = await page.goto(path());
             expect(response.status()).toBe(name === 'shared-missing' ? 404 : 200);
             // A login redirect must never silently become the baseline for an inaccessible page.
@@ -26,15 +28,8 @@ for (const [name, component, role, path] of pages) {
                         .then(JSON.parse)
                         .then((p) => p.component),
                 ).toBe(component);
-            await page.waitForLoadState('networkidle');
+            await settleCharts(page, { inertia: !!component, shared: name === 'shared-report' });
             if (component) await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-            await page.evaluate(() => document.fonts.ready);
-            // Bring lazy chart containers into view, then wait for their SVG before capturing the whole page.
-            for (const figure of await page.locator('figure[data-chart-ready]').all()) {
-                await figure.scrollIntoViewIfNeeded();
-                await expect(figure).toHaveAttribute('data-chart-ready', 'true');
-            }
-            await page.evaluate(() => window.scrollTo(0, 0));
             const scan = await new AxeBuilder({ page })
                 .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
                 .analyze();
