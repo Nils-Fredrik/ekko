@@ -38,7 +38,7 @@ const submit = () => {
                     <img src="/images/maksimer-m-square.svg" alt="" class="logo-mark h-8 w-8" />
                 </span>
                 <h1 class="mt-5 text-[32px] font-medium tracking-tight text-shell-fg">{{ $t('app.name') }}</h1>
-                <p class="mt-1 text-[13px] text-shell-text/50">{{ $t('app.tagline') }}</p>
+                <p class="mt-1 text-[13px] text-shell-muted">{{ $t('app.tagline') }}</p>
             </div>
 
             <div
@@ -85,7 +85,7 @@ const submit = () => {
                     </svg>
                     {{ $t('Log in with :provider', { provider: providerNames[provider] }) }}
                 </a>
-                <p class="text-center text-[12px] text-shell-text/40">{{ $t('or with email and password') }}</p>
+                <p class="text-center text-[12px] text-shell-muted">{{ $t('or with email and password') }}</p>
             </div>
 
             <form class="mt-6" @submit.prevent="submit">
@@ -148,7 +148,7 @@ const submit = () => {
                     v-for="item in locales"
                     :key="item.code"
                     type="button"
-                    :class="item.code === locale ? 'text-shell-fg' : 'text-shell-text/40 hover:text-shell-text/80'"
+                    :class="item.code === locale ? 'text-shell-fg' : 'text-shell-muted hover:text-shell-text'"
                     @click="setLocale(item.code)"
                 >
                     {{ item.label }}

@@ -38,7 +38,9 @@ test('the funnel shows the measured figures and how each step is measured', asyn
     await expect(funnel.locator('figure[data-chart-ready="true"]')).toBeVisible();
     await expect(funnel.getByText('Requests from AI robots to the brand', { exact: false })).toBeVisible();
     await expect(funnel.getByText('out of 20 answers in the period', { exact: false })).toBeVisible();
-    await expect(funnel.getByText('Google Analytics 4 sessions where the visit came from an AI service.')).toBeVisible();
+    await expect(
+        funnel.getByText('Google Analytics 4 sessions where the visit came from an AI service.'),
+    ).toBeVisible();
     await funnel.getByRole('button', { name: 'Show as table' }).click();
     const rows = funnel.locator('table tbody tr');
     await expect(rows).toHaveCount(3);
@@ -57,6 +59,15 @@ test('the funnel shows the measured figures and how each step is measured', asyn
     const pages = page.getByTestId('crawler-page');
     await expect(pages.first()).toContainText('crawled-coffee.example.test/guide');
     await expect(pages.first()).toContainText('25');
+
+    await page.setViewportSize({ width: 320, height: 720 });
+    const traffic = page.getByTestId('crawler-traffic');
+    const sources = traffic.getByRole('region', { name: await traffic.locator('caption').innerText() });
+    await traffic.getByRole('button', { name: 'Show as table' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(sources).toBeFocused();
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => sources.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
     expect(errors).toEqual([]);
 });
 
@@ -77,5 +88,7 @@ test('a period of one day still draws the robot chart and lists the hits', async
     await expect(robots.locator('figure[data-chart-ready="true"]')).toBeVisible();
     await robots.getByRole('button', { name: 'Show as table' }).click();
     await expect(robots.locator('table tbody')).toContainText('30');
+    await page.keyboard.press('Tab');
+    await expect(robots.getByRole('region', { name: await robots.locator('h3').innerText() })).toBeFocused();
     expect(errors).toEqual([]);
 });

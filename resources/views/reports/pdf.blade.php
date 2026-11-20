@@ -10,21 +10,25 @@
     @if (($shared ?? false) && ! empty($trend))
         @vite('resources/js/shared-report.js')
     @endif
+    @php
+        $reportColor = \App\Reports\ReadableColor::against($profile['color'], '#ffffff');
+    @endphp
     <style>
         html, body { margin: 0; background: #fff; color: #1c1917; font-family: sans-serif; font-size: 12px; }
-        header { padding: 24px 32px; color: #fff; background: {{ $profile['color'] }}; }
+        header { padding: 24px 32px; color: #fff; background: {{ $reportColor }}; }
         header h1 { margin: 0; font-size: 22px; }
         header p { margin: 6px 0 0; }
         header img { height: 36px; margin-bottom: 8px; }
         main { padding: 24px 32px; }
-        h2 { margin: 22px 0 8px; font-size: 14px; color: {{ $profile['color'] }}; }
+        h2 { margin: 22px 0 8px; font-size: 14px; color: {{ $reportColor }}; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #e7e5e4; }
         th { font-size: 10px; color: #78716c; }
         .cards { width: 100%; }
         .cards td { width: 25%; vertical-align: top; border: 1px solid #e7e5e4; }
         .value { font-size: 16px; }
-        .muted, .low { color: #a8a29e; }
+        .muted, .low { color: #78716c; }
+        summary { box-sizing: border-box; min-height: 24px; min-width: 24px; padding: 2px 0; cursor: pointer; }
     </style>
 </head>
 <body>

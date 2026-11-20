@@ -308,43 +308,50 @@ const hasFunnel = computed(() => steps.value.some((step) => step.value !== null)
                                     :previous="previousTraffic"
                                     kind="count"
                                 />
-                                <table class="mt-4 w-full text-left text-sm" data-testid="crawler-traffic-sources">
-                                    <caption class="sr-only">
-                                        {{ $t('app.crawlers.traffic_by_source') }}
-                                    </caption>
-                                    <thead class="border-b border-line text-xs text-shell-muted">
-                                        <tr>
-                                            <th class="py-2 pe-3 font-medium">{{ $t('app.library.source') }}</th>
-                                            <th class="py-2 pe-3 text-right font-medium">
-                                                {{ $t('app.library.sessions') }}
-                                            </th>
-                                            <th class="py-2 pe-3 text-right font-medium">
-                                                {{ $t('app.library.engaged') }}
-                                            </th>
-                                            <th class="py-2 text-right font-medium">
-                                                {{ $t('app.library.conversions') }}
-                                            </th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr
-                                            v-for="row in traffic"
-                                            :key="row.source"
-                                            class="border-b border-line-soft last:border-0"
-                                        >
-                                            <td class="py-2 pe-3 break-all">{{ row.source }}</td>
-                                            <td class="py-2 pe-3 text-right tabular-nums">
-                                                {{ formatValue(row.sessions, 'count') }}
-                                            </td>
-                                            <td class="py-2 pe-3 text-right tabular-nums">
-                                                {{ formatValue(row.engaged_sessions, 'count') }}
-                                            </td>
-                                            <td class="py-2 text-right tabular-nums">
-                                                {{ formatValue(row.conversions, 'number') }}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                                <div
+                                    role="region"
+                                    tabindex="0"
+                                    aria-labelledby="crawler-traffic-by-source-caption"
+                                    class="mt-4 overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                >
+                                    <table class="w-full text-left text-sm" data-testid="crawler-traffic-sources">
+                                        <caption id="crawler-traffic-by-source-caption" class="sr-only">
+                                            {{ $t('app.crawlers.traffic_by_source') }}
+                                        </caption>
+                                        <thead class="border-b border-line text-xs text-shell-muted">
+                                            <tr>
+                                                <th class="py-2 pe-3 font-medium">{{ $t('app.library.source') }}</th>
+                                                <th class="py-2 pe-3 text-right font-medium">
+                                                    {{ $t('app.library.sessions') }}
+                                                </th>
+                                                <th class="py-2 pe-3 text-right font-medium">
+                                                    {{ $t('app.library.engaged') }}
+                                                </th>
+                                                <th class="py-2 text-right font-medium">
+                                                    {{ $t('app.library.conversions') }}
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr
+                                                v-for="row in traffic"
+                                                :key="row.source"
+                                                class="border-b border-line-soft last:border-0"
+                                            >
+                                                <td class="py-2 pe-3 break-all">{{ row.source }}</td>
+                                                <td class="py-2 pe-3 text-right tabular-nums">
+                                                    {{ formatValue(row.sessions, 'count') }}
+                                                </td>
+                                                <td class="py-2 pe-3 text-right tabular-nums">
+                                                    {{ formatValue(row.engaged_sessions, 'count') }}
+                                                </td>
+                                                <td class="py-2 text-right tabular-nums">
+                                                    {{ formatValue(row.conversions, 'number') }}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             </template>
                         </section>
 
@@ -365,35 +372,47 @@ const hasFunnel = computed(() => steps.value.some((step) => step.value !== null)
                             <p v-else-if="pages.length === 0" class="mt-4 text-sm text-shell-muted">
                                 {{ $t('app.crawlers.pages_empty') }}
                             </p>
-                            <table v-else class="mt-4 w-full text-left text-sm">
-                                <caption class="sr-only">
-                                    {{ $t('app.crawlers.pages') }}
-                                </caption>
-                                <thead class="border-b border-line text-xs text-shell-muted">
-                                    <tr>
-                                        <th class="py-2 pe-3 font-medium">{{ $t('app.crawlers.page') }}</th>
-                                        <th class="py-2 pe-3 text-right font-medium">{{ $t('app.library.hits') }}</th>
-                                        <th class="py-2 text-right font-medium">{{ $t('app.crawlers.bots_count') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr
-                                        v-for="page in pages"
-                                        :key="`${page.domain}${page.path}`"
-                                        class="border-b border-line-soft last:border-0"
-                                        data-testid="crawler-page"
-                                    >
-                                        <td class="py-2 pe-3 break-all">
-                                            <span class="text-shell-muted">{{ page.domain }}</span>
-                                            <span>{{ page.path }}</span>
-                                        </td>
-                                        <td class="py-2 pe-3 text-right tabular-nums">
-                                            {{ formatValue(page.hits, 'count') }}
-                                        </td>
-                                        <td class="py-2 text-right tabular-nums">{{ page.bots }}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                            <div
+                                v-else
+                                role="region"
+                                tabindex="0"
+                                aria-labelledby="crawler-pages-caption"
+                                class="mt-4 overflow-x-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            >
+                                <table class="w-full text-left text-sm">
+                                    <caption id="crawler-pages-caption" class="sr-only">
+                                        {{ $t('app.crawlers.pages') }}
+                                    </caption>
+                                    <thead class="border-b border-line text-xs text-shell-muted">
+                                        <tr>
+                                            <th class="py-2 pe-3 font-medium">{{ $t('app.crawlers.page') }}</th>
+                                            <th class="py-2 pe-3 text-right font-medium">
+                                                {{ $t('app.library.hits') }}
+                                            </th>
+                                            <th class="py-2 text-right font-medium">
+                                                {{ $t('app.crawlers.bots_count') }}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr
+                                            v-for="page in pages"
+                                            :key="`${page.domain}${page.path}`"
+                                            class="border-b border-line-soft last:border-0"
+                                            data-testid="crawler-page"
+                                        >
+                                            <td class="py-2 pe-3 break-all">
+                                                <span class="text-shell-muted">{{ page.domain }}</span>
+                                                <span>{{ page.path }}</span>
+                                            </td>
+                                            <td class="py-2 pe-3 text-right tabular-nums">
+                                                {{ formatValue(page.hits, 'count') }}
+                                            </td>
+                                            <td class="py-2 text-right tabular-nums">{{ page.bots }}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
                         </section>
                     </div>
                 </template>
