@@ -59,3 +59,23 @@ test('the funnel shows the measured figures and how each step is measured', asyn
     await expect(pages.first()).toContainText('25');
     expect(errors).toEqual([]);
 });
+
+test('a period of one day still draws the robot chart and lists the hits', async ({ page }) => {
+    const { brand, day, email } = fixture();
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+
+    await page.goto('/login');
+    await page.locator('#email').fill(email);
+    await page.locator('#password').fill(process.env.SMOKE_PASSWORD);
+    await page.locator('button[type="submit"]').click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+
+    await page.goto(`/brands/${brand}/crawlers?from=${day}&to=${day}`);
+    const robots = page.getByTestId('crawler-robots');
+    await robots.locator('figure').scrollIntoViewIfNeeded();
+    await expect(robots.locator('figure[data-chart-ready="true"]')).toBeVisible();
+    await robots.getByRole('button', { name: 'Show as table' }).click();
+    await expect(robots.locator('table tbody')).toContainText('30');
+    expect(errors).toEqual([]);
+});

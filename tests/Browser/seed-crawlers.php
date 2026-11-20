@@ -38,7 +38,9 @@ if ($reader === null) {
 $result = app(TenantContext::class)->run($tenantId, fn (): array => DB::transaction(function (): array {
     $existing = Brand::query()->where('name', 'Browser crawlers brand')->first();
     if ($existing !== null) {
-        return ['brand' => $existing->id];
+        $day = BotHitDaily::query()->where('brand_id', $existing->id)->where('bot', 'gptbot')->value('date');
+
+        return ['brand' => $existing->id, 'day' => substr((string) $day, 0, 10)];
     }
     $timezone = Team::query()->findOrFail(current_tenant_id())->timezone ?: 'UTC';
     $today = CarbonImmutable::now($timezone);
@@ -71,6 +73,6 @@ $result = app(TenantContext::class)->run($tenantId, fn (): array => DB::transact
         ]);
     }
 
-    return ['brand' => $brand->id];
+    return ['brand' => $brand->id, 'day' => $yesterday];
 }));
 echo json_encode([...$result, 'email' => $reader->email], JSON_THROW_ON_ERROR);

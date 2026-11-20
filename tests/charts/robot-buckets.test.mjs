@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { robotSpan } from '../../resources/js/Pages/Brands/robotBuckets.js';
+import { hasIsolatedPoint } from '../../resources/js/Components/Charts/support/data.js';
 
 const days = ['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05'];
 
@@ -17,4 +18,13 @@ test('a single bucket with data is widened to its neighbours so the point is vis
 test('nothing is drawn without log data', () => {
     assert.equal(robotSpan(days, new Set()), null);
     assert.equal(robotSpan(days, new Map([['2026-10-01', 1]])), null);
+});
+
+test('a period of one bucket keeps its single point, and the chart shows it as a symbol', () => {
+    const span = robotSpan(['2026-11-03'], new Set(['2026-11-03']));
+    assert.deepEqual(span, { from: 0, to: 0 });
+    assert.equal(hasIsolatedPoint([42]), true);
+    assert.equal(hasIsolatedPoint([null, 5, null, 0, 3]), true);
+    assert.equal(hasIsolatedPoint([0, 5, 3]), false);
+    assert.equal(hasIsolatedPoint([null, null]), false);
 });
