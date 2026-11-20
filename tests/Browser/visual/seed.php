@@ -6,6 +6,8 @@ use App\Models\Action;
 use App\Models\AiReferralDaily;
 use App\Models\BotHitDaily;
 use App\Models\Brand;
+use App\Models\BrandFact;
+use App\Models\Claim;
 use App\Models\Competitor;
 use App\Models\Market;
 use App\Models\Prompt;
@@ -56,6 +58,12 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
         'steps' => [['text' => 'Review the current page', 'done' => true], ['text' => 'Add source references', 'done' => false]]]);
     $values['UI_PROMPT_ID'] = (string) $world->p1->id;
     $values['UI_ACTION_ID'] = (string) $action->id;
+    $fact = BrandFact::factory()->for($brand)->create(['text' => 'Founded in 1998.', 'is_active' => true]);
+    BrandFact::factory()->for($brand)->create(['text' => 'Coffee is roasted in Oslo.', 'is_active' => false]);
+    $response->update(['answer_text' => 'Fjord Coffee was founded in 2005. Northern Roast is another option.']);
+    Claim::query()->create(['brand_id' => $brand->id, 'response_id' => $response->id, 'fact_id' => $fact->id,
+        'text' => 'Founded in 2005.', 'quote' => 'Fjord Coffee was founded in 2005.', 'verdict' => Claim::CONTRADICTED,
+        'source_citation_ids' => $response->citations()->pluck('id')->all()]);
     $values['UI_REPORT_ID'] = (string) Report::query()->orderBy('id')->firstOrFail()->id;
     $values['UI_EMPTY_BRAND_ID'] = (string) Brand::factory()->create(['name' => 'New brand', 'primary_domain' => 'new.example.test'])->id;
 });
