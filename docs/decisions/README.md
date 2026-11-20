@@ -47,3 +47,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0036: Faktasjekk: påstander i uttrekket, kilder og tiltak](0036-faktasjekk.md)
 - [0037: Fordelinger i dagsaggregatene for grafdata](0037-grafdata-fordelinger.md)
 - [0038: Innsiktstekst på dashboardene](0038-innsiktstekst.md)
+- [0039: Produkt-API og MCP for tiltak, fakta, rapporter og pitch](0039-produkt-api-og-mcp.md)

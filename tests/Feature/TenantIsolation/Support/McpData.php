@@ -2,18 +2,21 @@
 
 namespace Tests\Feature\TenantIsolation\Support;
 
+use App\Models\Action;
 use App\Models\AggDaily;
 use App\Models\AggSourceDaily;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\BotHitDaily;
 use App\Models\Brand;
+use App\Models\BrandFact;
 use App\Models\Citation;
 use App\Models\Competitor;
 use App\Models\Engine;
 use App\Models\Market;
 use App\Models\Mention;
 use App\Models\Prompt;
+use App\Models\Report;
 use App\Models\Response;
 use App\Models\Run;
 use App\Models\RunBatch;
@@ -29,7 +32,7 @@ use App\Tenancy\TenantContext;
 final class McpData
 {
     /**
-     * @return array{brand: int, market: int, prompt: int, topic: int}
+     * @return array{brand: int, market: int, prompt: int, topic: int, action: int, report: int}
      */
     public static function seed(Team $tenant, string $label): array
     {
@@ -61,7 +64,11 @@ final class McpData
             Alert::factory()->create(['alert_rule_id' => $rule->id, 'acknowledged_by' => null, 'payload' => ['note' => "{$label} alert"]]);
             UsageEvent::factory()->create(['occurred_at' => now(), 'kind' => 'engine_call', 'engine_key' => $engine->key, 'calls' => 1]);
 
-            return ['brand' => $brand->id, 'market' => $market->id, 'prompt' => $prompt->id, 'topic' => $topic->id];
+            $action = Action::factory()->create(['brand_id' => $brand->id, 'title' => "{$label} action", 'status' => 'planned']);
+            $report = Report::factory()->create(['web_snapshot' => ['brand' => "{$label} report"]]);
+            BrandFact::factory()->create(['brand_id' => $brand->id, 'text' => "{$label} fact"]);
+
+            return ['action' => $action->id, 'report' => $report->id, 'brand' => $brand->id, 'market' => $market->id, 'prompt' => $prompt->id, 'topic' => $topic->id];
         });
     }
 

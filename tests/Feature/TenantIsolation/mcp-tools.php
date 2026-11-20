@@ -42,4 +42,16 @@ return [
             ['market' => $ids['market'], 'topic' => $ids['topic'], 'text' => 'Isolation test prompt '.$ids['prompt'], 'intent' => 'category', 'funnel_stage' => 'awareness'],
         ]],
     ],
+
+    Tools\ListActions::class => ['permission' => TenantPermission::ViewData, 'arguments' => fn (array $ids) => ['brand' => $ids['brand']]],
+    Tools\UpdateAction::class => ['permission' => TenantPermission::ManagePrompts, 'arguments' => fn (array $ids) => ['brand' => $ids['brand'], 'id' => $ids['action'], 'status' => 'in_progress']],
+    Tools\GetFactCheck::class => ['permission' => TenantPermission::ViewData, 'arguments' => fn (array $ids) => ['brand' => $ids['brand']]],
+    Tools\GetReport::class => ['permission' => TenantPermission::ViewData, 'arguments' => fn (array $ids) => ['report' => $ids['report']]],
+    Tools\CreateReportLink::class => ['permission' => TenantPermission::ManageReports, 'arguments' => fn (array $ids) => ['report' => $ids['report']]],
+    Tools\CreatePitch::class => [
+        'permission' => TenantPermission::ViewData,
+        'allowed_roles' => ['partner_advisor'],
+        'client_allowed' => false,
+        'arguments' => fn (array $ids) => ['name' => 'Synthetic pitch', 'domain' => 'example.test', 'country' => 'NO', 'language' => 'nb'],
+    ],
 ];

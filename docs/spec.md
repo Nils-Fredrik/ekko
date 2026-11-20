@@ -914,6 +914,13 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | GET | `/api/v1/brands/{brand}/competitors` | read |
 | GET | `/api/v1/alerts` | read |
 | GET | `/api/v1/usage?month=` | read |
+| GET | `/api/v1/brands/{brand}/actions?status=&type=&market=` og `/api/v1/actions/{action}` | read |
+| POST/PATCH | `/api/v1/brands/{brand}/actions` | write |
+| GET | `/api/v1/brands/{brand}/facts` og `/api/v1/brands/{brand}/claims?verdict=` | read |
+| POST/PATCH/DELETE | `/api/v1/brands/{brand}/facts` | write |
+| GET | `/api/v1/reports` og `/api/v1/reports/{report}` | read |
+| POST/DELETE | `/api/v1/reports/{report}/links` | write |
+| GET/POST | `/api/v1/pitches` | write, partnerrådgiver eller plattformadmin |
 
 Rate limit: 60 forespørsler per minutt per token og 120 per minutt per bruker, summert over alle brukerens tokens. Alle v1-ruter deler tellerne. `429` inkluderer `Retry-After`. En bruker kan ha høyst 20 aktive API-tokens (utløpte og Claude-tilkoblingens tokens telles ikke), og et nytt token utløper etter 365 dager (`config/ekko.php`, `api`).
 
@@ -926,6 +933,14 @@ Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-
 - PATCH og DELETE sender promptens `id` i JSON-body på samlingsruten. POST krever `market_id`, `text`, `intent` og `funnel_stage`. Et marked kan ikke endres med PATCH. Tema, marked og prompt må tilhøre merkevaren; fremmede ID-er gir 404. Pakkegrensen gjelder aktive prompts og håndheves ved opprettelse og reaktivering. Inaktive prompts beholder historikken uten å bruke plasser. Markedet låses før prompten, i samme rekkefølge som MCP; duplikatsjekken håndheves ved opprettelse og tekstendring. DELETE sletter prompten med databasens kaskader; bruk `is_active: false` for å beholde historikken.
 - `responses` gir svartekst, omtaler og kilder, men ingen lagringsadresser eller motorens råsvar. `usage` viser valgt måned (`YYYY-MM`, standard inneværende lokale måned), eller `data: null` når forbruk ikke finnes. Beløp serialiseres som desimalstrenger.
 - Feil returneres som JSON: 401 (mangler/ugyldig token), 403 (tilgang), 404 (ukjent eller fremmed ressurs), 422 (ugyldige felt eller pakkegrense) og 429 (rate limit).
+
+**Utvidelser (T50, [ADR 0039](decisions/0039-produkt-api-og-mcp.md)):**
+
+- Tiltak bruker samme opprettelse og statusflyt som grensesnittet. POST krever `title`; valgfrie felt er `description`, `steps`, `type`, `market_id`, `topic_id` og `prompt_ids`. PATCH krever `id` og `status` i body. Samme status er en idempotent operasjon som beholder datoene; ulovlige overganger gir 422. Filteret `type=own` betyr tiltak uten type. Marked, tema og prompts må tilhøre merkevaren. Skriving krever `manage_prompts`.
+- Fakta krever `manage_brands` ved skriving. POST krever `text` (maks 300 tegn); `is_active` er valgfritt og standard sann. PATCH/DELETE bruker `id` i body. Endring av fakta ugyldiggjør gamle vurderinger og bruker samme grenser og ny vurdering som web. Påstander filtreres på `supported`, `contradicted` eller `unrelated`; tekst, sitat og tilhørende kilder ligger under `untrusted_engine_output`.
+- Rapporter returnerer lagret periode, innhold og tiltaksseksjon. Eldre rapporter uten `web_snapshot` har `content: null`. Ingen mottakeradresser, lagringsstier eller profilkonfigurasjon eksponeres. `pdf_url` er en vanlig autentisert nettleserlenke, ikke en offentlig eller bearer-autentisert nedlasting. POST av delingslenke krever `manage_reports`, tar `days` (1–3650, standard 90) og returnerer `id`, URL med hemmelighet i fragmentet og utløp. Hemmeligheten vises én gang. DELETE tar lenkens `id` i body. Opprettelse og tilbakekalling logges med ID-er, aldri hemmeligheten.
+- Pitch-listing og opprettelse krever `write` også for GET, samt partnerrådgiver eller plattformadmin. Partneren er tokenets bundne tenant; en annen `partner_team_id` kan ikke sendes. POST krever `name`, `domain`, `country` og `language`, oppretter et sju dagers prosjekt med merkevare, domene og marked og håndhever tre aktive pitch-prosjekter per partner. Ingen prompts eller betalte modellkall startes. Prompts legges til via prompt-editoren eller API/MCP, og motorer aktiveres i markedsinnstillingene før kjøring. REST-tokenet beholder sin opprinnelige tenantbinding.
+- Samlingene i T50 bruker paginatorformatet `data`, `current_page`, `last_page`, `per_page`, `total` og lenker, som kilde-endepunktet. Enkeltressurser har `data`. DELETE svarer 204. Eksisterende token-, rolle-, RLS- og ratebegrensninger gjelder alle rutene.
 
 ### 15.2 MCP-server
 
@@ -949,8 +964,16 @@ Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-
 | `get_usage` | Forbruk mot kvote og budsjett |
 | `propose_prompts` | Grunnlag for forslag til nye prompts for et tema: promptene som finnes, dekning og plass i pakken. Claude lager forslagene (skriver ingenting) |
 | `upsert_prompts` | Legger til eller endrer prompts (krever skriverett, logges) |
+| `list_actions` | Tiltak med evidens; filtre på merkevare, marked, status og type, med cursor |
+| `update_action` | Eget tiltak eller statusendring; samme felt som REST, krever skriverett og `manage_prompts`, logges |
+| `get_fact_check` | Fakta og påstander med kilder; verdict-filter og cursor for påstander |
+| `get_report` | Lagret rapport som strukturert data og autentisert PDF-lenke |
+| `create_report_link` | Delbar rapportlenke; krever skriverett og `manage_reports`, logges uten hemmeligheten |
+| `create_pitch` | Pitch-prosjekt for et domene under valgt partner; krever skriverett og partnerrolle/plattformadmin, logges |
 
 Svar fra MCP-verktøyene er strukturert JSON med en kort tekstoppsummering. Store resultater pagineres med `cursor`. Tekst motorene har skrevet, ligger under feltet `untrusted_engine_output`: i `get_responses` svarteksten, ordlyden i nevnelsene og kildene, og i `list_alerts` navnet i et varsel om ny konkurrent. Nevnelsene utenfor feltet har bare navn fra tenantens katalog.
+
+T50 bruker de samme tjenestene og valideringsreglene som REST. Skriving krever både OAuth-samtykke og gjeldende rolle; alle skrivende kall får revisjonslogg med ID-er. Pitch opprettes under valgt partner og gir ikke REST-tokenet utvidet tilgang. MCP beholder eksisterende partnertilgang til den nye kunde-tenanten. `list_actions` legger tekst og evidens under `untrusted_engine_output`; `get_fact_check` gjør det samme for påstander og kilder, og `get_report` for rapportinnhold og tiltak. Delingslenker gir tilgang uten innlogging og opprettes bare når brukeren ber om deling.
 
 ---
 
@@ -1547,6 +1570,12 @@ Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning me
 ### T46 – Delbar rapportlenke
 
 En rapport kan deles fra rapportsiden som en tidsbegrenset skrivebeskyttet nettversjon etter 11.4. Token er tilfeldig, lagres hashet og kan trekkes tilbake. Tokenoppslag for utløpt, ugyldig eller tilbaketrukket lenke gir 404. Visninger registreres og svaret har `noindex` og `Referrer-Policy: no-referrer`. Isolasjonstestene skal vise at et token aldri gir tilgang til andre rapporter eller tenants.
+
+---
+
+### T50 – API og MCP for tiltak, faktasjekk, rapporter og pitch
+
+Kontraktene i 15.1–15.2 og OpenAPI utvides etter Board #899 (`task:83`). Gjenbruker tiltaksflyt, faktahåndtering, rapportdeling og pitch-kvote. Alle nye ruter og verktøy registreres i isolasjonssuiten, inklusive body-ID-er, rollegrenser og partnerkontekst. Skriving via MCP logges uten innhold eller hemmeligheter. Akseptanse: filtrering/paginering, gyldige statusoverganger, ugyldiggjøring av faktavurderinger, opprettelse/tilbakekalling av delingslenker, partneravgrenset pitch og grønn full testpakke.
 
 ---
 
