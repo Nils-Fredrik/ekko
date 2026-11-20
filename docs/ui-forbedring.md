@@ -195,7 +195,7 @@ Avvik fra rekkefølgen i oppgaven:
 
 Promptlisten åpner med heatmapen prompts × motorer, gruppert etter tema. Klikk i en celle åpner prompten med den motoren valgt i filteret. Tabellen er et alternativ, med minigraf for synlighet (siste 28 dager, uavhengig av periodelengden) og prikkrad for de siste 14 dagene. En prikk er fylt når merkevaren ble nevnt den dagen.
 
-`PromptShow` viser én celle per dag og motor. Klikk på en celle med svar viser svaret, med uthevede nevnelser og kilder, og om nevnelsen er den samme som i forrige svar. Dager uten svar kan ikke velges. Det første svaret innenfor perioden og de 100 siste svarene har alltid ukjent endring, også når et eldre svar finnes utenfor det utvalget.
+`PromptShow` viser én celle per dag og motor. Klikk på en celle med svar viser svaret, med uthevede nevnelser og kilder, og om nevnelsen er den samme som i forrige svar. Dager uten svar kan ikke velges. Cellefargen bruker alle svarene i perioden. Bare teksten til de 100 nyeste lastes, så en eldre dag kan være nevnt uten at teksten vises. Det første svaret i det lastede utvalget har alltid ukjent endring.
 
 Inline redigering, aktivering og CSV-import og -eksport er uendret. `TrendChart` og Chart.js er fjernet.
 

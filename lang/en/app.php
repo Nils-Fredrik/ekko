@@ -259,6 +259,7 @@ return [
         'day_mentioned' => 'Mentioned :date.',
         'day_silent' => 'Not mentioned :date.',
         'day_empty' => 'No answers :date.',
+        'day_unloaded' => 'The text for this day is outside the latest :count answers.',
         'show_heatmap' => 'Show heatmap',
         'show_table' => 'Show table',
         'no_topic' => 'No topic',

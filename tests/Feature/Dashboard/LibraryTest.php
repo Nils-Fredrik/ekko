@@ -133,6 +133,34 @@ test('the prompt timeline records the mention change and can open one engine', f
             ->where('engines.0.answers.0.change', null));
 });
 
+test('days outside the loaded answers stay marked when the prompt has more than 100 answers', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-20 12:00:00', 'Europe/Oslo'));
+    $world = MetricsWorld::create();
+    $old = $world->answer($world->p1, '2026-11-01T10:00:00Z', ['brand' => ['pos' => 1]]);
+    foreach (range(1, 100) as $ignored) {
+        $world->answer($world->p1, '2026-11-19T10:00:00Z');
+    }
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)->get(route('brands.prompts.show', [$world->brand, $world->p1]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('truncated', true)
+            ->where('shown', 100)
+            ->where('engines.0.days', function ($days) {
+                $oldDay = collect($days)->firstWhere('date', '2026-11-01');
+                $loaded = collect($days)->firstWhere('date', '2026-11-19');
+                expect($oldDay['mentioned'])->toBeTrue()
+                    ->and($oldDay['n'])->toBe(1)
+                    ->and($loaded['mentioned'])->toBeFalse()
+                    ->and($loaded['n'])->toBe(100);
+
+                return true;
+            })
+            ->where('engines.0.answers', fn ($answers) => collect($answers)->pluck('id')->doesntContain($old->id)));
+});
+
 test('an unknown brand that recurs can be added as a competitor in one click', function () {
     $world = MetricsWorld::create();
     foreach ([1, 2] as $ignored) {

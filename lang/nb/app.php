@@ -259,6 +259,7 @@ return [
         'day_mentioned' => 'Nevnt :date.',
         'day_silent' => 'Ikke nevnt :date.',
         'day_empty' => 'Ingen svar :date.',
+        'day_unloaded' => 'Teksten for denne dagen er utenfor de :count siste svarene.',
         'show_heatmap' => 'Vis heatmap',
         'show_table' => 'Vis tabell',
         'no_topic' => 'Uten tema',

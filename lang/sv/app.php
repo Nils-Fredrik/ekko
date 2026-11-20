@@ -259,6 +259,7 @@ return [
         'day_mentioned' => 'Nämnd :date.',
         'day_silent' => 'Inte nämnd :date.',
         'day_empty' => 'Inga svar :date.',
+        'day_unloaded' => 'Texten för den här dagen ligger utanför de :count senaste svaren.',
         'show_heatmap' => 'Visa heatmap',
         'show_table' => 'Visa tabell',
         'no_topic' => 'Utan tema',

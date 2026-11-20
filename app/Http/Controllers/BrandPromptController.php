@@ -217,24 +217,62 @@ class BrandPromptController extends Controller
         $query = Response::query()
             ->whereHas('run', fn ($run) => $run->where('prompt_id', $prompt->id))
             ->whereBetween('collected_at', [$from, $to])
-            ->when($filter->engineKeys !== [], fn ($q) => $q->whereIn('engine_key', $filter->engineKeys))
+            ->when($filter->engineKeys !== [], fn ($q) => $q->whereIn('engine_key', $filter->engineKeys));
+        $total = (clone $query)->count();
+        $presence = (clone $query)
+            ->select(['responses.id', 'responses.engine_key', 'responses.collected_at'])
+            ->withExists([
+                'mentions as brand_mentioned' => fn ($mentions) => $mentions
+                    ->where('entity_type', 'brand')
+                    ->where('entity_id', $brand->id),
+            ])
+            ->orderByDesc('collected_at')
+            ->get();
+        $labels = DashboardLabels::engines($presence->pluck('engine_key')->unique()->values()->all());
+        $groups = [];
+        foreach ($presence as $row) {
+            $key = (string) $row->engine_key;
+            if (! isset($groups[$key])) {
+                $groups[$key] = [
+                    'key' => $key,
+                    'engine' => $labels[$key] ?? DashboardLabels::engine($key),
+                    'answers' => [],
+                    'days' => [],
+                ];
+            }
+            $collected = $row->collected_at;
+            $date = $collected instanceof CarbonInterface ? $collected->copy()->timezone($period->timezone)->toDateString() : '';
+            if ($date === '') {
+                continue;
+            }
+            if (! isset($groups[$key]['days'][$date])) {
+                $groups[$key]['days'][$date] = ['date' => $date, 'mentioned' => false, 'n' => 0];
+            }
+            $groups[$key]['days'][$date]['n']++;
+            $groups[$key]['days'][$date]['mentioned'] = $groups[$key]['days'][$date]['mentioned'] || (bool) $row->getAttribute('brand_mentioned');
+        }
+        foreach ($groups as $key => $group) {
+            $groups[$key]['days'] = array_values($group['days']);
+        }
+
+        $responses = (clone $query)
             ->with([
                 'mentions' => fn ($mentions) => $mentions->orderBy('first_char_offset')->orderBy('id'),
                 'citations',
             ])
-            ->orderByDesc('collected_at');
-        $total = (clone $query)->count();
-        $responses = $query->limit(100)->get();
-        $labels = DashboardLabels::engines($responses->pluck('engine_key')->unique()->values()->all());
+            ->orderByDesc('collected_at')
+            ->limit(100)
+            ->get();
 
         $caseFold = $this->caseFold($brand);
-        $groups = [];
         foreach ($responses as $response) {
             $key = $response->engine_key;
             if (! isset($groups[$key])) {
                 $groups[$key] = [
+                    'key' => $key,
                     'engine' => $labels[$key] ?? DashboardLabels::engine($key),
                     'answers' => [],
+                    'days' => [],
                 ];
             }
             $collected = $response->collected_at;

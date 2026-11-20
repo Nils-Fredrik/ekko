@@ -20,37 +20,50 @@ const selected = ref(null);
 
 const timelines = computed(() =>
     props.engines.map((group) => {
-        const byDate = new Map();
+        const answersByDate = new Map();
         for (const answer of group.answers) {
             if (!answer.date) {
                 continue;
             }
-            if (!byDate.has(answer.date)) {
-                byDate.set(answer.date, []);
+            if (!answersByDate.has(answer.date)) {
+                answersByDate.set(answer.date, []);
             }
-            byDate.get(answer.date).push(answer);
+            answersByDate.get(answer.date).push(answer);
         }
+        const coverage = new Map((group.days ?? []).map((day) => [day.date, day]));
 
         return {
             ...group,
             days: periodBuckets(props.period.from, props.period.to).map((date) => {
-                const answers = byDate.get(date) ?? [];
+                const covered = coverage.get(date);
 
-                return { date, answers, mentioned: answers.some((answer) => answer.mentioned) };
+                return {
+                    date,
+                    answers: answersByDate.get(date) ?? [],
+                    mentioned: Boolean(covered?.mentioned),
+                    covered: Boolean(covered),
+                };
             }),
         };
     }),
 );
 
+const selectedDay = computed(
+    () =>
+        timelines.value
+            .find((group) => group.key === selected.value?.key)
+            ?.days.find((day) => day.date === selected.value?.date) ?? null,
+);
+
 function latestDay(group) {
-    return [...group.days].reverse().find((day) => day.answers.length) ?? null;
+    return [...group.days].reverse().find((day) => day.covered) ?? null;
 }
 
 watch(
     timelines,
     (groups) => {
         const current = groups.find((group) => group.key === selected.value?.key);
-        const stillThere = current?.days.some((day) => day.date === selected.value?.date && day.answers.length);
+        const stillThere = current?.days.some((day) => day.date === selected.value?.date && day.covered);
         if (stillThere) {
             return;
         }
@@ -81,7 +94,7 @@ function changeKey(change) {
 }
 
 function dayLabel(day) {
-    if (day.answers.length === 0) {
+    if (!day.covered) {
         return 'app.library.day_empty';
     }
 
@@ -132,11 +145,11 @@ function dayLabel(day) {
                                 :class="
                                     day.mentioned
                                         ? 'border-primary bg-primary'
-                                        : day.answers.length
+                                        : day.covered
                                           ? 'border-line bg-shell-surface'
                                           : 'border-line'
                                 "
-                                :disabled="day.answers.length === 0"
+                                :disabled="!day.covered"
                                 :aria-pressed="
                                     selected?.key === group.key && selected?.date === day.date ? 'true' : 'false'
                                 "
@@ -146,8 +159,11 @@ function dayLabel(day) {
                         </div>
                     </div>
                     <div v-if="selected?.key === group.key" class="flex flex-col gap-4">
+                        <p v-if="selectedDay && selectedDay.answers.length === 0" class="text-sm text-shell-muted">
+                            {{ $t('app.library.day_unloaded', { count: shown }) }}
+                        </p>
                         <article
-                            v-for="answer in group.days.find((day) => day.date === selected.date)?.answers ?? []"
+                            v-for="answer in selectedDay?.answers ?? []"
                             :key="answer.id"
                             class="rounded-2xl border border-line bg-shell-panel p-5"
                         >
