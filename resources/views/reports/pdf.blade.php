@@ -28,7 +28,7 @@
         .cards td { width: 25%; vertical-align: top; border: 1px solid #e7e5e4; }
         .value { font-size: 16px; }
         .muted, .low { color: #78716c; }
-        summary { display: inline-flex; align-items: center; box-sizing: border-box; min-height: 24px; min-width: 24px; cursor: pointer; }
+        summary { box-sizing: border-box; min-height: 24px; min-width: 24px; padding: 2px 0; cursor: pointer; }
     </style>
 </head>
 <body>
