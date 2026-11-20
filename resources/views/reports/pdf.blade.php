@@ -85,24 +85,29 @@
 
         <section class="report-section" id="report-engines">
             <h2>{{ __('reports.engines') }}</h2>
+            @include('reports.partials.bars', ['name' => 'engines', 'label' => __('reports.engines'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['engine'], 'value' => $row['visibility']['ratio'] ?? null, 'low' => $row['visibility']['low'] ?? false], $engines)])
             @include('reports.partials.table', ['columns' => [__('reports.engine'), __('reports.visibility'), __('reports.share_of_voice')], 'rows' => array_map(fn ($row) => [$row['engine'], $row['visibility'], $row['share_of_voice']], $engines)])
         </section>
 
         <section class="report-section" id="report-competitors">
             <h2>{{ __('reports.competitors') }}</h2>
+            @include('reports.partials.bars', ['name' => 'competitors', 'label' => __('reports.competitors'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['name'], 'value' => $row['share_of_voice']['ratio'] ?? null, 'low' => $row['share_of_voice']['low'] ?? false], $competitors)])
             @include('reports.partials.table', ['columns' => [__('reports.competitor'), __('reports.mentions'), __('reports.visibility'), __('reports.share_of_voice')], 'rows' => array_map(fn ($row) => [$row['name'], $row['mentions'], $row['visibility'], $row['share_of_voice']], $competitors)])
         </section>
 
         <section class="report-section" id="report-prompts">
             <h2>{{ __('reports.prompts') }}</h2>
+            @include('reports.partials.bars', ['name' => 'prompts', 'label' => __('reports.prompts'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['prompt'], 'value' => $row['visibility']['ratio'] ?? null, 'low' => $row['visibility']['low'] ?? false], $prompts)])
             @include('reports.partials.table', ['columns' => [__('reports.prompt'), __('reports.visibility'), __('reports.change')], 'rows' => array_map(fn ($row) => [$row['prompt'], $row['visibility'], $row['change']], $prompts)])
         </section>
 
         <section class="report-section" id="report-sources">
             <h2>{{ __('reports.sources') }}</h2>
+            @include('reports.partials.bars', ['name' => 'sources', 'label' => __('reports.sources'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['domain'], 'value' => $row['citations'], 'low' => false], $sources)])
             @include('reports.partials.table', ['columns' => [__('reports.domain'), __('reports.citations')], 'rows' => array_map(fn ($row) => [$row['domain'], $row['citations']], $sources)])
 
             <h2>{{ __('reports.gaps') }}</h2>
+            @include('reports.partials.bars', ['name' => 'gaps', 'label' => __('reports.gaps'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['domain'], 'value' => $row['gap_responses'], 'low' => false], $gaps)])
             @include('reports.partials.table', ['columns' => [__('reports.domain'), __('reports.gap')], 'rows' => array_map(fn ($row) => [$row['domain'], $row['gap_responses']], $gaps)])
         </section>
 
@@ -131,9 +136,11 @@
 
         <section class="report-section" id="report-robots">
             <h2>{{ __('reports.bots') }}</h2>
+            @include('reports.partials.bars', ['name' => 'bots', 'label' => __('reports.bots'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['bot'], 'value' => $row['hits'], 'low' => false], $bots)])
             @include('reports.partials.table', ['columns' => [__('reports.bot'), __('reports.hits')], 'rows' => array_map(fn ($row) => [$row['bot'], $row['hits']], $bots)])
 
             <h2>{{ __('reports.traffic') }}</h2>
+            @include('reports.partials.bars', ['name' => 'traffic', 'label' => __('reports.traffic'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['source'], 'value' => $row['sessions'], 'low' => false], $traffic)])
             @include('reports.partials.table', ['columns' => [__('reports.source'), __('reports.sessions'), __('reports.conversions')], 'rows' => array_map(fn ($row) => [$row['source'], $row['sessions'], $row['conversions']], $traffic)])
         </section>
 

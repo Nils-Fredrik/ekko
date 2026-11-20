@@ -13,6 +13,48 @@ test('the shared report darkens a brand color that is too light on white', funct
         ->and($html)->toContain('min-height: 24px');
 });
 
+test('section bars are the same markup on the web page and in the pdf', function () {
+    $base = [
+        'brand' => 'Northwind',
+        'from' => '2026-10-01',
+        'to' => '2026-10-31',
+        'profile' => ['name' => 'Northwind', 'color' => '#112233', 'logo' => null],
+        'insight' => null,
+        'responses' => 10,
+        'headlines' => [],
+        'engines' => [[
+            'engine' => 'ChatGPT',
+            'visibility' => ['text' => '40 % n 10', 'low' => false, 'ratio' => 0.4],
+            'share_of_voice' => ['text' => '20 % n 10', 'low' => false, 'ratio' => 0.2],
+        ]],
+        'prompts' => [],
+        'competitors' => [],
+        'sources' => [['domain' => 'example.com', 'citations' => 4]],
+        'gaps' => [],
+        'bots' => [],
+        'traffic' => [],
+        'models' => [],
+        'actions' => [
+            'title' => 'Actions',
+            'open_title' => 'Open',
+            'done_title' => 'Done',
+            'empty_open' => 'None open',
+            'empty_done' => 'None done',
+            'change_label' => 'Change',
+            'open' => [],
+            'completed' => [],
+        ],
+    ];
+
+    $pdf = view('reports.pdf', $base)->render();
+    $shared = view('reports.pdf', [...$base, 'shared' => true])->render();
+
+    expect($pdf)->toContain('data-testid="report-bars-engines"')
+        ->toContain('data-testid="report-bars-sources"')
+        ->and($shared)->toContain('data-testid="report-bars-engines"')
+        ->toContain('data-testid="report-bars-sources"');
+});
+
 test('a brand color that already clears AA is rendered unchanged', function () {
     $html = reportHtml('#112233');
 

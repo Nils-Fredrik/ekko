@@ -262,7 +262,7 @@ final class ReportPublisher
     /**
      * A percentage keeps its sample size, and a small sample is faded (docs/spec.md 9).
      *
-     * @return array{text: string, low: bool}
+     * @return array{text: string, low: bool, ratio: float|null}
      */
     private function sample(Metric $metric, bool $rate): array
     {
@@ -271,10 +271,11 @@ final class ReportPublisher
         return [
             'text' => $value.' '.__('reports.sample', ['n' => $metric->n]),
             'low' => $metric->isLowSample(),
+            'ratio' => $metric->value,
         ];
     }
 
-    /** @return list<array{engine: string, visibility: array{text: string, low: bool}, share_of_voice: array{text: string, low: bool}}> */
+    /** @return list<array{engine: string, visibility: array{text: string, low: bool, ratio: float|null}, share_of_voice: array{text: string, low: bool, ratio: float|null}}> */
     private function engines(MetricsFilter $filter): array
     {
         $rows = $this->metrics->breakdown($filter, 'engine');
@@ -290,7 +291,7 @@ final class ReportPublisher
         return $engines;
     }
 
-    /** @return list<array{prompt: string, visibility: array{text: string, low: bool}, change: string}> */
+    /** @return list<array{prompt: string, visibility: array{text: string, low: bool, ratio: float|null}, change: string}> */
     private function prompts(MetricsFilter $current, MetricsFilter $previous): array
     {
         $now = $this->metrics->breakdown($current, 'prompt');
@@ -318,7 +319,7 @@ final class ReportPublisher
         ], $ranked);
     }
 
-    /** @return list<array{name: string, mentions: int, visibility: array{text: string, low: bool}, share_of_voice: array{text: string, low: bool}}> */
+    /** @return list<array{name: string, mentions: int, visibility: array{text: string, low: bool, ratio: float|null}, share_of_voice: array{text: string, low: bool, ratio: float|null}}> */
     private function competitors(MetricsFilter $filter): array
     {
         return array_map(fn (array $row): array => [
