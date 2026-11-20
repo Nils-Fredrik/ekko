@@ -254,7 +254,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `competitor_aliases` | `competitor_id`, `alias`, `match_mode` |
 | `competitor_domains` | `competitor_id`, `domain` |
 | `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active` |
-| `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency`, `prompt_scope` (all, core), `repetitions` (1–3, standard 1). Måleplanen i 7.6 utvider dagens frekvenser (daily, weekly, monthly, off) med intervaller på 14 og 21 dager. |
+| `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency` (daily, weekly, every_14_days, every_21_days, monthly, off etter T52), `prompt_scope` (all, core), `repetitions` (1–3, standard 1). |
 | `brand_facts` | `tenant_id`, `brand_id`, `text` (høyst 300 tegn), `is_active` (11.6) |
 | `topics` | `tenant_id`, `brand_id`, `name`, `cross_market_key` (kobler samme tema på tvers av markeder) |
 | `prompts` | `tenant_id`, `market_id`, `topic_id`, `text`, `intent` (category, comparison, brand, problem, local), `funnel_stage` (awareness, consideration, decision), `priority` (core, standard), `is_active`, `text_hash` |
@@ -262,6 +262,8 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `engine_prices` | `engine_key`, `valid_from`, `price_per_call_usd`, `price_per_1k_input_tokens_usd`, `price_per_1k_output_tokens_usd`, `price_per_search_usd` |
 
 T53 innfører en standardplan eid av merkevaren og lagrer eksplisitt om et marked arver eller bruker egne valg. To planer med like verdier kan ha ulik arvestatus. Planen og markedsvalgene følger tenant-isolasjonen og kravene til relasjoner i kapittel 6.
+
+Merkevareplan, markedsvalg og pakkegrenser bruker samme frekvensverdier. Rekkefølgen fra sjeldnest til oftest er `off` < `monthly` < `every_21_days` < `every_14_days` < `weekly` < `daily`. Dermed tillater et tak på `every_14_days` også hver tredje uke og månedlig. Den eksisterende regelen for motorspesifikt pakketak i `plans.engine_max_frequencies` og standardtaket i `plans.max_frequency` gjelder i estimat, lagring og kjøring.
 
 ### 6.3 Innsamling og resultater
 
@@ -488,7 +490,9 @@ Under **Merkevare → Innstillinger → Måleplan** velger tenant-admin hvilke m
 
 I standardoppsettet følger ChatGPT, Gemini og Haiku merkevarens valgte intervall for alle spørsmål. Sonnet dekker kjernespørsmålene med samme intervall, opptil ukentlig grunnfrekvens. Velges hver 14. dag for merkevaren, får også Sonnet dette intervallet. Brukeren kan se hvilke motorer og spørsmål endringen gjelder før lagring.
 
-Ved innføring beholdes eksisterende markeders faktiske oppsett som egne valg, også egne kjerneregler og avslåtte motorer. Administrator kan deretter velge hvilke markeder som skal arve. Planendringer gjelder fremtidig planlegging. Historiske svar beholder tilknytningen til den opprinnelige kjøringen. Førstekjøring, ordinær planlegging og estimat skal bruke samme effektive markedsoppsett. Pakkens motor- og frekvenstak, kvotekontrollen i 7.2 og reglene for pitch og Anthropic-kreditter gjelder fortsatt.
+Ved innføring får hver eksisterende merkevare samme standardplan som en ny merkevare i den aktuelle pakken. Bruk motorer og promptutvalg fra 7.4 med én gjentakelse. Sett intervallet til det sjeldneste av motorens standard og pakketaket. Utilgjengelige motorer og motorer utenfor pakken settes til Av. For en merkevare uten pakke er alle motorer av. Denne regelen gjelder også for en merkevare uten markeder.
+
+Alle eksisterende markeder får sitt tidligere oppsett som eksplisitte egne valg, også egne kjerneregler, avslåtte motorer og markeder uten motorer. Administrator kan deretter velge hvilke markeder som skal arve. Planendringer gjelder fremtidig planlegging. Historiske svar beholder tilknytningen til den opprinnelige kjøringen. Førstekjøring, ordinær planlegging og estimat skal bruke samme effektive markedsoppsett. Pakkens motor- og frekvenstak, kvotekontrollen i 7.2 og reglene for pitch og Anthropic-kreditter gjelder fortsatt.
 
 **Forhåndsvisning før lagring.** Når brukeren endrer et valg, beregner serveren hva det foreslåtte oppsettet vil gi for aktive spørsmål og markeder. Vis resultat per marked og motor, samt total for merkevaren. Estimering skriver ingen plan, legger ingen jobb i kø og bruker ingen betalte modellkall.
 
@@ -1385,10 +1389,10 @@ Rekkefølgen styres kun av avhengighetene. Alle pakker uten uoppfylte avhengighe
 | T41 | Kredittstyrt planlegging for Anthropic | Codex / GPT-6.1 Sol | T17, T19, T20 |
 | T42 | Kryssreview i GitHub og automatisk mergekø | Codex / GPT-6.1 Terra | T01 |
 | T46 | Delbar rapportlenke | Codex / GPT-6.1 Sol | T32 |
-| T51 | Spesifikasjon for måleplan per merkevare | Codex | – |
-| T52 | Fem måleintervaller i planleggingen | Codex | T51 |
-| T53 | Merkevareplan med arv og egne markedsvalg | Claude Code | T51 |
-| T54 | Kostnadsestimat før lagring av måleplan | Codex | T52, T53 |
+| T51 | Spesifikasjon for måleplan per merkevare | Codex / GPT-6.1 Sol | – |
+| T52 | Fem måleintervaller i planleggingen | Codex / GPT-6.1 Sol | T51 |
+| T53 | Merkevareplan med arv og egne markedsvalg | Claude Code / Opus 5.5 | T51 |
+| T54 | Kostnadsestimat før lagring av måleplan | Codex / GPT-6.1 Sol | T52, T53 |
 | T55 | Måleplan i merkevareinnstillinger og veiviser | Cursor / Grok 4.7 | T54 |
 
 ### T01 – Repo og fundament
