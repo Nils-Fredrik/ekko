@@ -5,7 +5,7 @@
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
-import { bucketMarkers, isLowSample } from './support/data.js';
+import { bucketMarkers, hasIsolatedPoint, isLowSample } from './support/data.js';
 import { axisFormatter, formatDate, formatValue, tooltipHtml } from './support/format.js';
 import { timeTable } from './support/lines.js';
 import { markerNotes, markerSeries } from './support/markers.js';
@@ -75,27 +75,32 @@ const colorFor = (palette) => (item, index) => seriesColor(palette, item, props.
 
 function option({ palette }) {
     const color = colorFor(palette);
-    const series = props.series.map((item, index) => ({
-        id: `s-${item.key}`,
-        type: 'line',
-        name: item.label,
-        stack: 'total',
-        showSymbol: false,
-        connectNulls: false,
-        emphasis: { focus: 'series' },
-        lineStyle: { width: 1, color: color(item, index) },
-        itemStyle: { color: color(item, index) },
-        areaStyle: { color: color(item, index), opacity: item.own ? 0.9 : 0.75 },
-        data: props.categories.map((_, bucket) => shown(item, bucket)),
-        markArea:
-            index === 0 && lowBands.value.length > 0
-                ? {
-                      silent: true,
-                      itemStyle: { color: palette.shell, opacity: 0.45 },
-                      data: lowBands.value.map(([from, to]) => [{ xAxis: from }, { xAxis: to }]),
-                  }
-                : undefined,
-    }));
+    const series = props.series.map((item, index) => {
+        const data = props.categories.map((_, bucket) => shown(item, bucket));
+
+        return {
+            id: `s-${item.key}`,
+            type: 'line',
+            name: item.label,
+            stack: 'total',
+            // A single drawn point (a one-day period) has no line or area, so its symbol carries it.
+            showSymbol: hasIsolatedPoint(data),
+            connectNulls: false,
+            emphasis: { focus: 'series' },
+            lineStyle: { width: 1, color: color(item, index) },
+            itemStyle: { color: color(item, index) },
+            areaStyle: { color: color(item, index), opacity: item.own ? 0.9 : 0.75 },
+            data,
+            markArea:
+                index === 0 && lowBands.value.length > 0
+                    ? {
+                          silent: true,
+                          itemStyle: { color: palette.shell, opacity: 0.45 },
+                          data: lowBands.value.map(([from, to]) => [{ xAxis: from }, { xAxis: to }]),
+                      }
+                    : undefined,
+        };
+    });
     if (buckets.value.size > 0) {
         series.push(markerSeries(palette, buckets.value));
     }

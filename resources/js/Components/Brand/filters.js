@@ -18,6 +18,7 @@ export const analysisProps = [
     'suggestions',
     'bots',
     'traffic',
+    'funnel',
     'citing',
     'truncated',
     'shown',
