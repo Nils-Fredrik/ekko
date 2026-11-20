@@ -54,8 +54,8 @@ $result = app(TenantContext::class)->run($tenantId, fn (): array => DB::transact
     $engine = Engine::query()->where('key', 'browser_competitors')->first() ?? Engine::factory()->create(['key' => 'browser_competitors']);
     $prompt = Prompt::factory()->for($market)->create(['text' => 'Which tea shop do you recommend?']);
 
-    // Alpha leads today, the brand led a week ago.
-    foreach ([[0, 20, 10, 14, 4], [1, 20, 12, 10, 3], [8, 10, 6, 2, 1]] as [$daysAgo, $responses, $brandMentioned, $alphaMentions, $betaMentions]) {
+    // Alpha leads the period (tied with the brand today), the brand led a week ago.
+    foreach ([[0, 20, 12, 12, 4], [1, 20, 10, 12, 3], [8, 10, 6, 2, 1]] as [$daysAgo, $responses, $brandMentioned, $alphaMentions, $betaMentions]) {
         AggDaily::factory()->create([
             'market_id' => $market->id, 'engine_key' => $engine->key, 'prompt_id' => $prompt->id,
             'date' => $today->subDays($daysAgo)->toDateString(), 'responses' => $responses, 'brand_mentioned' => $brandMentioned,

@@ -27,11 +27,12 @@ function rankPoints(item) {
     }));
 }
 
-// Series that end on the same point (a shared rank on the same day) would print their end labels on top of each
-// other, so the first of them carries all the names and the others show none.
+// The end label sits on the final drawn point of each series: on the solid line, or on the dashed low-n line when
+// the final point has low n (the solid line leaves such a point out). Series that end on the same point (a shared
+// rank on the same day) would print their labels on top of each other, so the first of them carries all the names.
 function endLabels() {
     const groups = new Map();
-    const owner = props.series.map((item) => {
+    const ends = props.series.map((item) => {
         const points = rankPoints(item);
         let last = points.length - 1;
         while (last >= 0 && points[last]?.value == null) {
@@ -46,11 +47,13 @@ function endLabels() {
         }
         groups.get(key).push(item.label);
 
-        return key;
+        return { key, low: isLowSample(points[last]) };
     });
 
-    return owner.map((key, index) =>
-        key !== null && owner.indexOf(key) === index ? groups.get(key).join(', ') : null,
+    return ends.map((end, index) =>
+        end !== null && ends.findIndex((other) => other?.key === end.key) === index
+            ? { text: groups.get(end.key).join(', '), low: end.low }
+            : null,
     );
 }
 
@@ -67,7 +70,7 @@ function option({ palette }) {
             z: item.own ? 10 : 2,
             extra: { showSymbol: true, symbolSize: item.own ? 9 : 7 },
         }).map((line) =>
-            line.id.endsWith('-low')
+            line.id.endsWith('-low') !== Boolean(labels[index]?.low)
                 ? line
                 : {
                       ...line,
@@ -75,7 +78,7 @@ function option({ palette }) {
                       // template and would replace {a}, {b}, {c} or {@…} in a brand name.
                       endLabel: {
                           show: labels[index] !== null,
-                          formatter: () => labels[index] ?? '',
+                          formatter: () => labels[index]?.text ?? '',
                           color: palette.text,
                           fontSize: 11,
                       },

@@ -38,6 +38,8 @@ test('ranking, table, sentiment and suggestions use the dashboard colors', async
     const ranking = page.getByTestId('competitor-ranking').locator('figure[data-chart-ready="true"]');
     await expect(ranking).toBeVisible();
     expect(await strokes(ranking)).toContain(firstCompetitorColor);
+    // Tied today: one end label carries both names instead of two labels on top of each other.
+    await expect(ranking.locator('svg text', { hasText: 'Browser competitors brand, Alpha rival' })).toHaveCount(1);
 
     const table = page.getByTestId('competitor-table');
     const alpha = table.getByRole('row', { name: /Alpha rival/ });
