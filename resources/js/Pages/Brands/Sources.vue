@@ -18,6 +18,7 @@ const props = defineProps({
     brand: { type: Object, required: true },
     period: { type: Object, required: true },
     filters: { type: Object, required: true },
+    analysisFilters: { type: Object, required: true },
     markets: { type: Array, required: true },
     engines: { type: Array, required: true },
     citing: { type: Object, default: null },
@@ -115,7 +116,7 @@ function swatch(source) {
 }
 
 function params(domain) {
-    const query = { days: props.period.days };
+    const query = { ...props.analysisFilters.query };
     if (props.filters.market) query.market = props.filters.market;
     if (props.filters.engine) query.engine = props.filters.engine;
     if (domain) query.domain = domain;
@@ -194,15 +195,7 @@ function rate(value, item) {
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
                 <BrandNav :brand-id="brand.id" />
-                <PeriodFilters
-                    :brand-id="brand.id"
-                    route-name="brands.sources"
-                    :days="period.days"
-                    :markets="markets"
-                    :market="filters.market"
-                    :engines="engines"
-                    :engine="filters.engine || ''"
-                />
+                <PeriodFilters :brand-id="brand.id" route-name="brands.sources" />
 
                 <div v-if="!chartData" class="grid gap-6" aria-busy="true" :aria-label="$t('app.sources.loading')">
                     <div class="ekko-skeleton h-80 rounded-2xl"></div>

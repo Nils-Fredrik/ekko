@@ -7,6 +7,7 @@ use App\Models\AggSourceDaily;
 use App\Models\AiReferralDaily;
 use App\Models\BotHitDaily;
 use App\Models\Competitor;
+use App\Models\Market;
 use App\Models\Mention;
 use App\Models\ModelChange;
 use App\Models\Prompt;
@@ -301,9 +302,9 @@ final class MetricsService
 
     /**
      * The summary per value of a dimension (market, engine, prompt, topic, intent or funnel_stage), keyed by the
-     * value (the topic key is "" for prompts without a topic).
+     * value (the topic key is "" for prompts without a topic). PHP converts numeric dimension keys to integers.
      *
-     * @return array<string, MetricsSummary>
+     * @return array<int|string, MetricsSummary>
      */
     public function breakdown(MetricsFilter $filter, string $dimension): array
     {
@@ -702,6 +703,12 @@ final class MetricsService
 
         $scope = fn (Builder $query): Builder => $query
             ->where('runs.status', 'extracted')
+            ->whereIn('prompts.market_id', Market::query()->where('brand_id', $filter->brandId)->select('id'))
+            ->when($filter->engineKeys !== [], fn (Builder $q) => $q->whereIn('responses.engine_key', $filter->engineKeys))
+            ->when($filter->topicIds !== [], fn (Builder $q) => $q->whereIn('prompts.topic_id', $filter->topicIds))
+            ->when($filter->intents !== [], fn (Builder $q) => $q->whereIn('prompts.intent', $filter->intents))
+            ->when($filter->funnelStages !== [], fn (Builder $q) => $q->whereIn('prompts.funnel_stage', $filter->funnelStages))
+            ->when($filter->promptIds !== [], fn (Builder $q) => $q->whereIn('prompts.id', $filter->promptIds))
             ->when($filter->marketIds !== [], fn (Builder $q) => $q->whereIn('prompts.market_id', $filter->marketIds))
             ->where('responses.collected_at', '>=', $start)->where('responses.collected_at', '<', $end);
 

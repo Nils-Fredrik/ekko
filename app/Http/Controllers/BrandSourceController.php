@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Dashboard\AnalysisFilters;
 use App\Dashboard\BrandPage;
 use App\Dashboard\DashboardLabels;
+use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
 use App\Dashboard\SourcePage;
-use App\Metrics\MetricsFilter;
 use App\Models\Brand;
 use App\Models\MarketEngine;
 use Illuminate\Http\Request;
@@ -25,16 +26,19 @@ class BrandSourceController extends Controller
     {
         BrandPage::authorizeView($brand);
         $brand->load('markets');
-        $period = BrandPage::period($request);
-        $marketIds = BrandPage::marketIds($brand, $request);
-        $engineKeys = $this->engineKeys($brand, $request);
-        $filter = new MetricsFilter($brand->id, $period->from, $period->to, marketIds: $marketIds, engineKeys: $engineKeys);
+        $query = AnalysisFilters::query($brand, $request->query(), 'brands.sources');
+        $period = DashboardPeriod::fromInput($query);
+        $selection = AnalysisFilters::selection($query);
+        $marketIds = $selection['marketIds'];
+        $engineKeys = $selection['engineKeys'];
+        $filter = $period->filter($brand->id, ...$selection);
 
         $domain = $this->domain($request);
 
         return Inertia::render('Brands/Sources', [
             'brand' => BrandPage::payload($brand),
-            'period' => ['days' => $period->days],
+            'period' => $period->toArray(),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.sources', $query),
             'filters' => [
                 'market' => $marketIds[0] ?? null,
                 'engine' => $engineKeys[0] ?? null,
@@ -56,24 +60,6 @@ class BrandSourceController extends Controller
         $domain = mb_strtolower(trim($request->string('domain')->toString()));
 
         return $domain === '' || mb_strlen($domain) > 255 ? null : $domain;
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function engineKeys(Brand $brand, Request $request): array
-    {
-        $engine = $request->string('engine')->toString();
-        if ($engine === '') {
-            return [];
-        }
-
-        $known = MarketEngine::query()
-            ->whereIn('market_id', $brand->markets->pluck('id'))
-            ->where('engine_key', $engine)
-            ->exists();
-
-        return $known ? [$engine] : [];
     }
 
     /**

@@ -37,12 +37,7 @@ function when(value) {
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
                 <BrandNav :brand-id="brand.id" />
-                <PeriodFilters
-                    :brand-id="brand.id"
-                    route-name="brands.prompts.show"
-                    :params="{ prompt: prompt.id }"
-                    :days="period.days"
-                />
+                <PeriodFilters :brand-id="brand.id" route-name="brands.prompts.show" :params="{ prompt: prompt.id }" />
 
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="font-medium">{{ prompt.text }}</h3>

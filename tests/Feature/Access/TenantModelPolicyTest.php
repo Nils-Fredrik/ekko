@@ -43,6 +43,9 @@ function tenantModelRights(): array
         Models\BrandFact::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
         Models\Claim::class => $system(POLICY_EVERY_ROLE),
 
+        // These rights apply only to the requesting user's own saved views (U11).
+        Models\SavedView::class => $edit(POLICY_EVERY_ROLE, POLICY_EVERY_ROLE),
+
         // Alerts and reports (6.5): set by the admin, seen by everyone.
         Models\AlertRule::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
         Models\ReportLink::class => $edit(POLICY_ADMINS, POLICY_ADMINS),
@@ -119,13 +122,13 @@ function policyMember(Team $tenant, string $role): User
 }
 
 /**
- * A model instance in the tenant, without a database row: the policy only reads tenant_id.
+ * A model instance in the tenant, without a database row: policies read tenant_id and, for personal views, user_id.
  *
  * @param  class-string<Model>  $class
  */
-function policyModelIn(string $class, Team $tenant): Model
+function policyModelIn(string $class, Team $tenant, ?User $owner = null): Model
 {
-    return (new $class)->forceFill(['id' => 1, 'tenant_id' => $tenant->id]);
+    return (new $class)->forceFill(['id' => 1, 'tenant_id' => $tenant->id, ...($class === Models\SavedView::class ? ['user_id' => $owner?->id] : [])]);
 }
 
 beforeEach(function () {
@@ -141,11 +144,12 @@ test('every tenant-owned model has a policy and an entry in this test', function
 });
 
 test('the role decides what may be done with each tenant-owned model', function (string $role) {
-    $gate = Gate::forUser(policyMember($this->tenant, $role));
+    $user = policyMember($this->tenant, $role);
+    $gate = Gate::forUser($user);
     $wrong = [];
 
     foreach (tenantModelRights() as $class => $rights) {
-        $model = policyModelIn($class, $this->tenant);
+        $model = policyModelIn($class, $this->tenant, $user);
         $actual = [
             'viewAny' => $gate->allows('viewAny', $class),
             'view' => $gate->allows('view', $model),
@@ -172,12 +176,13 @@ test('the role decides what may be done with each tenant-owned model', function 
 })->with(POLICY_EVERY_ROLE);
 
 test('a model in another tenant is denied for every role', function (string $role) {
-    $gate = Gate::forUser(policyMember($this->tenant, $role));
+    $user = policyMember($this->tenant, $role);
+    $gate = Gate::forUser($user);
     $other = Team::factory()->tenant()->create();
     $allowed = [];
 
     foreach (array_keys(tenantModelRights()) as $class) {
-        $model = policyModelIn($class, $other);
+        $model = policyModelIn($class, $other, $user);
         foreach (['view', 'update', 'delete'] as $ability) {
             if ($gate->allows($ability, $model)) {
                 $allowed[] = class_basename($class).".{$ability}";
@@ -191,11 +196,12 @@ test('a model in another tenant is denied for every role', function (string $rol
 test('a partner advisor has the admin rights in a client tenant', function () {
     $partner = Team::factory()->tenant()->create();
     $client = Team::factory()->tenant()->create(['partner_team_id' => $partner->id]);
-    $gate = Gate::forUser(policyMember($partner, 'partner_advisor'));
+    $user = policyMember($partner, 'partner_advisor');
+    $gate = Gate::forUser($user);
     app(TenantContext::class)->set($client->id);
 
     foreach (tenantModelRights() as $class => $rights) {
-        $model = policyModelIn($class, $client);
+        $model = policyModelIn($class, $client, $user);
 
         expect($gate->allows('view', $model))->toBe(in_array('admin', $rights['read'], true), class_basename($class))
             ->and($gate->allows('create', $class))->toBe(in_array('admin', $rights['create'], true), class_basename($class))
@@ -211,3 +217,11 @@ test('a user without a role in the tenant gets nothing', function () {
             ->and($gate->allows('view', policyModelIn($class, $this->tenant)))->toBeFalse(class_basename($class));
     }
 });
+
+test('no tenant role may read or change another users saved views', function (string $role) {
+    $gate = Gate::forUser(policyMember($this->tenant, $role));
+    $view = policyModelIn(Models\SavedView::class, $this->tenant, User::factory()->create());
+    foreach (['view', 'update', 'delete'] as $ability) {
+        expect($gate->allows($ability, $view))->toBeFalse();
+    }
+})->with(POLICY_EVERY_ROLE);

@@ -15,6 +15,7 @@ use App\Models\ReportSchedule;
 use App\Models\Response;
 use App\Models\Run;
 use App\Models\RunBatch;
+use App\Models\SavedView;
 use App\Models\Team;
 use App\Models\Topic;
 use App\Onboarding\AnalysisStore;
@@ -442,6 +443,28 @@ return [
     ),
     'reports.index' => RouteAccess::user(),
     'reports.shared' => RouteAccess::public()->withoutForeignCheck('Public bearer credential is tested separately with two tenants.'),
+    'brands.views.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)], 'data' => ['name' => 'Test view', 'page' => 'brands.show', 'filters' => ['days' => 7]]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)], 'data' => ['name' => 'Test view', 'page' => 'brands.show', 'filters' => ['days' => 7]]],
+    ),
+    'brands.views.destroy' => RouteAccess::tenant(
+        foreign: function (Scenario $s): array {
+            $brand = isolationBrandId($s->tenantB->id);
+            $view = app(TenantContext::class)->run($s->tenantB->id, fn () => SavedView::query()->create([
+                'brand_id' => $brand, 'user_id' => $s->ownerB->id, 'page' => 'brands.show', 'name' => 'Private view', 'filters' => ['days' => 7],
+            ]));
+
+            return ['params' => ['brand' => $brand, 'savedView' => $view->id]];
+        },
+        own: function (Scenario $s): array {
+            $brand = isolationBrandId($s->tenantA->id);
+            $view = app(TenantContext::class)->run($s->tenantA->id, fn () => SavedView::query()->create([
+                'brand_id' => $brand, 'user_id' => $s->adminA->id, 'page' => 'brands.show', 'name' => 'Own view', 'filters' => ['days' => 7],
+            ]));
+
+            return ['params' => ['brand' => $brand, 'savedView' => $view->id]];
+        },
+    ),
     'reports.links.store' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['report' => isolationReportLink($s->tenantB->id)['report']], 'data' => ['days' => 1]],
         own: fn (Scenario $s) => ['params' => ['report' => isolationReportLink($s->tenantA->id)['report']], 'data' => ['days' => 1]],

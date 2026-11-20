@@ -4,7 +4,7 @@ import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     brand: { type: Object, required: true },
@@ -17,6 +17,11 @@ const props = defineProps({
 });
 
 const pending = ref([]);
+const shownCompetitors = computed(() =>
+    props.competitors.filter(
+        (item) => !props.filters.competitor || String(item.id) === String(props.filters.competitor),
+    ),
+);
 
 function add(suggestion) {
     if (pending.value.includes(suggestion.name)) {
@@ -46,13 +51,7 @@ function add(suggestion) {
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
                 <BrandNav :brand-id="brand.id" />
-                <PeriodFilters
-                    :brand-id="brand.id"
-                    route-name="brands.competitors.index"
-                    :days="period.days"
-                    :markets="markets"
-                    :market="filters.market"
-                />
+                <PeriodFilters :brand-id="brand.id" route-name="brands.competitors.index" />
 
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <h3 class="text-sm font-medium">{{ $t('app.library.suggestions') }}</h3>
@@ -104,7 +103,7 @@ function add(suggestion) {
                         </thead>
                         <tbody>
                             <tr
-                                v-for="competitor in competitors"
+                                v-for="competitor in shownCompetitors"
                                 :key="competitor.id"
                                 class="border-b border-line-soft last:border-0 hover:bg-row-hover"
                             >

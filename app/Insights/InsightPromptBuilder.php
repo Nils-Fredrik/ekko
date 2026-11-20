@@ -4,6 +4,7 @@ namespace App\Insights;
 
 use App\ActionEngine\ActionLocale;
 use App\ActionEngine\Writing\ActionTextRequest;
+use App\Dashboard\DashboardPeriod;
 
 /**
  * The request that asks Claude Sonnet 5.5 for the insight text (docs/spec.md 14.2, ADR 0038). The model gets the
@@ -16,7 +17,7 @@ final class InsightPromptBuilder
 
     public const OVERVIEW_MAX_LENGTH = 480;
 
-    public function build(InsightFigures $figures, string $scope, string $locale, int $days): ActionTextRequest
+    public function build(InsightFigures $figures, string $scope, string $locale, DashboardPeriod $period): ActionTextRequest
     {
         $language = ActionLocale::languageName($locale);
         $max = $scope === 'overview' ? self::OVERVIEW_MAX_LENGTH : self::BRAND_MAX_LENGTH;
@@ -35,8 +36,11 @@ final class InsightPromptBuilder
 
         $payload = [
             'scope' => $scope,
-            'period_days' => $days,
-            'comparison' => "the {$days} days before the period",
+            'period_days' => $period->days,
+            'period' => ['from' => $period->from, 'to' => $period->to],
+            'comparison_mode' => $period->comparison,
+            'comparison' => $period->comparison === 'year' ? 'the same calendar dates last year' : "the {$period->days} days before the period",
+            'comparison_period' => ['from' => $period->previousFrom, 'to' => $period->previousTo],
             'findings' => array_map(fn (array $finding): array => array_diff_key($finding, ['id' => true]), $figures->findings),
         ];
 

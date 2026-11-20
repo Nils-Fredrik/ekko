@@ -21,7 +21,7 @@ defineProps({
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
                 <BrandNav :brand-id="brand.id" />
-                <PeriodFilters :brand-id="brand.id" route-name="brands.crawlers" :days="period.days" />
+                <PeriodFilters :brand-id="brand.id" route-name="brands.crawlers" />
 
                 <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel text-shell-text">
                     <h3 class="px-4 pt-4 text-sm font-medium">{{ $t('app.library.bots') }}</h3>

@@ -6,10 +6,12 @@ use App\Metrics\MetricsFilter;
 use App\Models\Team;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
- * A dashboard window of 7, 28 or 90 tenant-local days ending today, plus the window of the same
- * length immediately before it. The dashboard compares the two and never stores the windows.
+ * A preset or custom tenant-local date window, compared with the previous window or last year.
  */
 final class DashboardPeriod
 {
@@ -23,6 +25,7 @@ final class DashboardPeriod
         public readonly string $to,
         public readonly string $previousFrom,
         public readonly string $previousTo,
+        public readonly string $comparison = 'previous',
     ) {}
 
     public static function forCurrentTenant(int $days): self
@@ -49,6 +52,37 @@ final class DashboardPeriod
             $previousFrom->toDateString(),
             $previousTo->toDateString(),
         );
+    }
+
+    /** @param array<string, mixed> $input */
+    public static function fromInput(array $input): self
+    {
+        $data = Validator::make($input, [
+            'days' => ['sometimes', 'integer', Rule::in(self::LENGTHS)],
+            'from' => ['nullable', 'required_with:to', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'required_with:from', 'date_format:Y-m-d', 'after_or_equal:from'],
+            'comparison' => ['sometimes', Rule::in(['previous', 'year'])],
+        ])->validate();
+        $base = self::forCurrentTenant((int) ($data['days'] ?? 28));
+        $from = CarbonImmutable::parse($data['from'] ?? $base->from, $base->timezone);
+        $to = CarbonImmutable::parse($data['to'] ?? $base->to, $base->timezone);
+        $days = (int) $from->diffInDays($to) + 1;
+        if ($days > 366) {
+            throw ValidationException::withMessages(['to' => __('filters.range_too_long')]);
+        }
+        $comparison = $data['comparison'] ?? 'previous';
+        $previousTo = $comparison === 'year' ? $to->subYearNoOverflow() : $from->subDay();
+        $previousFrom = $comparison === 'year' ? $from->subYearNoOverflow() : $previousTo->subDays($days - 1);
+
+        return new self($days, $base->timezone, $from->toDateString(), $to->toDateString(),
+            $previousFrom->toDateString(), $previousTo->toDateString(), $comparison);
+    }
+
+    /** @return array{days: int, from: string, to: string, previous_from: string, previous_to: string, comparison: string} */
+    public function toArray(): array
+    {
+        return ['days' => $this->days, 'from' => $this->from, 'to' => $this->to,
+            'previous_from' => $this->previousFrom, 'previous_to' => $this->previousTo, 'comparison' => $this->comparison];
     }
 
     /**
