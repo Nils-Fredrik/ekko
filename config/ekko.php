@@ -341,7 +341,7 @@ return [
         'pending_reservation_seconds' => 1800,
         'estimate' => [
             // Runs per month for one prompt and one repetition.
-            'runs_per_month' => ['daily' => '30', 'weekly' => '4.35', 'monthly' => '1', 'off' => '0'],
+            'runs_per_month' => ['daily' => '30', 'weekly' => '4.35', 'every_14_days' => '2.175', 'every_21_days' => '1.45', 'monthly' => '1', 'off' => '0'],
             // What one engine call is assumed to use, by engine method. Token prices come from engine_prices.
             'call_usage' => [
                 'api' => ['input_tokens' => 400, 'output_tokens' => 1200, 'search_calls' => 2],

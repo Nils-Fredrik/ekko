@@ -106,8 +106,8 @@ final class Planner
         $extractionCost = $this->estimator->expectedExtraction($now);
         $local = $now->setTimezone($tenant->timezone)->startOfDay();
         foreach (Market::query()->where('is_active', true)->whereHas('brand', fn ($q) => $q->where('status', 'active'))->with(['marketEngines.engine', 'prompts' => fn ($q) => $q->where('is_active', true)])->get() as $market) {
-            $sonnet = $market->marketEngines->firstWhere('engine_key', 'claude_sonnet');
-            if ($sonnet !== null && $sonnet->engine->isAvailable() && $plan->allowsEngine('claude_sonnet') && $this->keys->forEngine($tenant, $sonnet->engine) === null && ! AnthropicInsightAllocation::query()->where('brand_id', $market->brand_id)->where('cycle_start', $this->account->cycle($now)->start->toDateString())->exists()) {
+            $sonnet = $market->marketEngines->where('frequency', '!=', 'off')->firstWhere('engine_key', 'claude_sonnet');
+            if ($sonnet !== null && $sonnet->engine->isAvailable() && $plan->allowsEngine('claude_sonnet') && $plan->maxFrequencyForEngine('claude_sonnet') !== 'off' && $this->keys->forEngine($tenant, $sonnet->engine) === null && ! AnthropicInsightAllocation::query()->where('brand_id', $market->brand_id)->where('cycle_start', $this->account->cycle($now)->start->toDateString())->exists()) {
                 $key = $tenant->id.':insight:'.$market->brand_id;
                 $offers[$key] = ['key' => $key, 'kind' => 'insight', 'cost' => Money::units((string) config('ekko.anthropic.insight_estimate_usd')), 'tier' => 3, 'variance' => 0.0, 'tenant' => $tenant->id, 'prompt' => 0, 'engine' => 'claude_sonnet', 'repetition' => 1, 'brand' => $market->brand_id];
             }
@@ -121,8 +121,7 @@ final class Planner
                     if ($setting === null || ! $setting->engine->isAvailable() || ! $plan->allowsEngine($key)) {
                         continue;
                     }
-                    $ranks = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
-                    $frequency = $ranks[$setting->frequency] <= $ranks[$plan->maxFrequencyForEngine($key)] ? $setting->frequency : $plan->maxFrequencyForEngine($key);
+                    $frequency = PromptSchedule::capped($setting->frequency, $plan->maxFrequencyForEngine($key));
                     if ($tenant->kind === 'pitch' && $frequency !== 'off' && $plan->maxFrequencyForEngine($key) === 'daily') {
                         $frequency = 'daily';
                     }

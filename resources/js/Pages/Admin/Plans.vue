@@ -117,7 +117,7 @@ function toggle(form, key) {
                         {{ $t('admin.plans.frequency') }}
                         <select v-model="row.form.max_frequency" :class="field">
                             <option v-for="frequency in frequencies" :key="frequency" :value="frequency">
-                                {{ $t(`admin.plans.frequencies.${frequency}`) }}
+                                {{ $t(`onboarding.frequencies.${frequency}`) }}
                             </option>
                         </select>
                     </label>
@@ -149,9 +149,9 @@ function toggle(form, key) {
                             class="!mt-0 !w-32"
                             :aria-label="`${engine.key}: ${$t('admin.plans.frequency')}`"
                         >
-                            <option value="">{{ $t(`admin.plans.frequencies.${row.form.max_frequency}`) }}</option>
+                            <option value="">{{ $t(`onboarding.frequencies.${row.form.max_frequency}`) }}</option>
                             <option v-for="frequency in frequencies" :key="frequency" :value="frequency">
-                                {{ $t(`admin.plans.frequencies.${frequency}`) }}
+                                {{ $t(`onboarding.frequencies.${frequency}`) }}
                             </option>
                         </select>
                     </label>

@@ -15,9 +15,11 @@ use App\Models\RunBatch;
 use App\Models\Team;
 use App\Models\TenantApiKey;
 use App\Models\UsageEvent;
+use App\Onboarding\FirstRun;
 use App\Scheduling\CloudRunAccessToken;
 use App\Scheduling\CollectionLocks;
 use App\Scheduling\Dispatcher;
+use App\Scheduling\PromptSchedule;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
@@ -375,3 +377,32 @@ test('daily dispatch fails visibly when the lock remains busy beyond its wait li
         $lock->release();
     }
 });
+
+test('first collection and ordinary dispatch respect the core scope and multiweek engine cap', function (string $frequency, int $interval) {
+    $engine = dispatchEngine();
+    $tenant = dispatchTenant($engine, 2);
+    $tenant->forceFill(['timezone' => 'Europe/Oslo'])->save();
+    $tenant->plan->update(['max_frequency' => 'off', 'engine_max_frequencies' => [$engine->key => $frequency]]);
+    $market = app(TenantContext::class)->run($tenant->id, function () {
+        $market = Market::query()->sole();
+        $market->marketEngines()->sole()->update(['prompt_scope' => 'core']);
+
+        return $market;
+    });
+    $core = app(TenantContext::class)->run($tenant->id, fn () => $market->prompts()->where('priority', 'core')->sole());
+    $due = CarbonImmutable::now($tenant->timezone)->addDay()->startOfDay()->addMinutes(5);
+    while (! PromptSchedule::due($core->id, $frequency, $due)) {
+        $due = $due->addDay();
+    }
+
+    $this->travelTo($due->subDay());
+    $first = fn () => app(TenantContext::class)->run($tenant->id, fn () => app(FirstRun::class)->start($tenant, $market));
+    expect($first())->toBe(1)->and($first())->toBe(0);
+    $dispatcher = app(Dispatcher::class);
+    expect($dispatcher->dispatch($due->subDay()->utc()))->toBe(0)
+        ->and($dispatcher->dispatch($due->utc()))->toBe(1)
+        ->and($dispatcher->dispatch($due->endOfDay()->utc()))->toBe(0)
+        ->and($dispatcher->dispatch($due->addWeek()->utc()))->toBe(0)
+        ->and($dispatcher->dispatch($due->addDays($interval)->utc()))->toBe(1);
+    app(TenantContext::class)->run($tenant->id, fn () => expect(Run::query()->pluck('prompt_id')->all())->toBe([$core->id, $core->id, $core->id]));
+})->with([['every_14_days', 14], ['every_21_days', 21]]);
