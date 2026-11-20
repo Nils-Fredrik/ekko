@@ -319,6 +319,709 @@ paths:
         '404': *id003
         '422': *id004
         '429': *id005
+  /brands/{brand}/actions:
+    get:
+      operationId: listActions
+      summary: Hent tiltak med evidens
+      description: type=own betyr tiltak uten type. Fremmede markeds-ID-er gir 404.
+      x-required-ability: read
+      parameters:
+        - $ref: '#/components/parameters/brand'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - new
+              - planned
+              - in_progress
+              - done
+              - declined
+              - expired
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum:
+              - source_gap
+              - owned_content
+              - new_competitor
+              - crawler_access
+              - fact_correction
+              - own
+        - $ref: '#/components/parameters/market'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Action'
+                  current_page:
+                    type: integer
+                  last_page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+                  next_page_url:
+                    type:
+                      - string
+                      - 'null'
+                  prev_page_url:
+                    type:
+                      - string
+                      - 'null'
+                required:
+                  - data
+                  - current_page
+                  - last_page
+                  - per_page
+                  - total
+                  - next_page_url
+                  - prev_page_url
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+    post:
+      operationId: createAction
+      summary: Opprett eget tiltak
+      description: Krever manage_prompts. Marked, tema og prompts må tilhøre merkevaren. Starter i planned.
+      x-required-ability: write
+      parameters:
+        - $ref: '#/components/parameters/brand'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  maxLength: 255
+                description:
+                  type: [string, 'null']
+                  maxLength: 5000
+                steps:
+                  type: array
+                  maxItems: 25
+                  items:
+                    type: string
+                    maxLength: 1000
+                type:
+                  type:
+                    - string
+                    - 'null'
+                  enum:
+                    - source_gap
+                    - owned_content
+                    - new_competitor
+                    - crawler_access
+                    - fact_correction
+                    - null
+                market_id:
+                  type:
+                    - integer
+                    - 'null'
+                topic_id:
+                  type:
+                    - integer
+                    - 'null'
+                prompt_ids:
+                  type: array
+                  maxItems: 100
+                  uniqueItems: true
+                  items:
+                    type: integer
+                    minimum: 1
+              required:
+                - title
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Action'
+                required:
+                  - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+    patch:
+      operationId: updateAction
+      summary: Endre tiltaksstatus
+      description: >-
+        Krever manage_prompts. id sendes i body. Lovlige overganger følger tiltaksflyten; samme status endrer
+        ingen datoer. new og expired kan ikke settes som ny status av brukeren.
+      x-required-ability: write
+      parameters:
+        - $ref: '#/components/parameters/brand'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  minimum: 1
+                status:
+                  type: string
+                  enum:
+                    - new
+                    - planned
+                    - in_progress
+                    - done
+                    - declined
+                    - expired
+              required:
+                - id
+                - status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Action'
+                required:
+                  - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /actions/{action}:
+    get:
+      operationId: getAction
+      summary: Hent ett tiltak
+      description: ''
+      x-required-ability: read
+      parameters:
+        - name: action
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Action'
+                required:
+                  - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /brands/{brand}/facts:
+    get:
+      operationId: listFacts
+      summary: Hent merkevarens fakta
+      description: ''
+      x-required-ability: read
+      parameters:
+        - $ref: '#/components/parameters/brand'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/BrandFact'
+                  current_page:
+                    type: integer
+                  last_page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+                  next_page_url:
+                    type:
+                      - string
+                      - 'null'
+                  prev_page_url:
+                    type:
+                      - string
+                      - 'null'
+                required:
+                  - data
+                  - current_page
+                  - last_page
+                  - per_page
+                  - total
+                  - next_page_url
+                  - prev_page_url
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+    post:
+      operationId: createFact
+      summary: Opprett faktum
+      description: Krever manage_brands. Samme duplikat- og antallsgrense som web.
+      x-required-ability: write
+      parameters:
+        - $ref: '#/components/parameters/brand'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  maxLength: 300
+                is_active:
+                  type: boolean
+                  default: true
+              required:
+                - text
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BrandFact'
+                required:
+                  - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+    patch:
+      operationId: updateFact
+      summary: Endre faktum
+      description: Krever manage_brands. id i body må tilhøre merkevaren. Endring ugyldiggjør tidligere vurderinger.
+      x-required-ability: write
+      parameters:
+        - $ref: '#/components/parameters/brand'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  minimum: 1
+                text:
+                  type: string
+                  maxLength: 300
+                is_active:
+                  type: boolean
+                  default: true
+              required:
+                - id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BrandFact'
+                required:
+                  - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+    delete:
+      operationId: deleteFact
+      summary: Slett faktum
+      description: Krever manage_brands. id sendes i body og må tilhøre merkevaren.
+      x-required-ability: write
+      parameters:
+        - $ref: '#/components/parameters/brand'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  minimum: 1
+              required:
+                - id
+      responses:
+        '204':
+          description: Slettet eller tilbakekalt.
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /brands/{brand}/claims:
+    get:
+      operationId: listClaims
+      summary: Hent vurderte påstander med kilder
+      description: ''
+      x-required-ability: read
+      parameters:
+        - $ref: '#/components/parameters/brand'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+        - name: verdict
+          in: query
+          schema:
+            type: string
+            enum:
+              - supported
+              - contradicted
+              - unrelated
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Claim'
+                  current_page:
+                    type: integer
+                  last_page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+                  next_page_url:
+                    type:
+                      - string
+                      - 'null'
+                  prev_page_url:
+                    type:
+                      - string
+                      - 'null'
+                required:
+                  - data
+                  - current_page
+                  - last_page
+                  - per_page
+                  - total
+                  - next_page_url
+                  - prev_page_url
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /reports:
+    get:
+      operationId: listReports
+      summary: Hent lagrede rapporter
+      description: ''
+      x-required-ability: read
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Report'
+                  current_page:
+                    type: integer
+                  last_page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+                  next_page_url:
+                    type:
+                      - string
+                      - 'null'
+                  prev_page_url:
+                    type:
+                      - string
+                      - 'null'
+                required:
+                  - data
+                  - current_page
+                  - last_page
+                  - per_page
+                  - total
+                  - next_page_url
+                  - prev_page_url
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /reports/{report}:
+    get:
+      operationId: getReport
+      summary: Hent én lagret rapport
+      description: ''
+      x-required-ability: read
+      parameters:
+        - name: report
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Report'
+                required:
+                  - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /reports/{report}/links:
+    post:
+      operationId: createReportLink
+      summary: Opprett delbar rapportlenke
+      description: >-
+        Krever manage_reports. Hemmeligheten returneres én gang i URL-fragmentet. Lenken gir offentlig
+        lesetilgang til rapporten; svaret har Cache-Control: private, no-store. Operasjonen logges uten
+        hemmeligheten.
+      x-required-ability: write
+      parameters:
+        - name: report
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                days:
+                  type: integer
+                  minimum: 1
+                  maximum: 3650
+                  default: 90
+              required: []
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ReportLink'
+                required:
+                  - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+    delete:
+      operationId: revokeReportLink
+      summary: Trekk tilbake rapportlenke
+      description: Krever manage_reports. id i body må tilhøre rapporten. Gjentatt tilbakekalling er idempotent.
+      x-required-ability: write
+      parameters:
+        - name: report
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: integer
+                  minimum: 1
+              required:
+                - id
+      responses:
+        '204':
+          description: Slettet eller tilbakekalt.
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+  /pitches:
+    get:
+      operationId: listPitches
+      summary: Hent partnerens pitch-prosjekter
+      description: >-
+        Krever partnerrådgiver eller plattformadmin i tokenets bundne tenant. Viser bare pitch-prosjekter under
+        denne partneren.
+      x-required-ability: write
+      parameters:
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/per_page'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Pitch'
+                  current_page:
+                    type: integer
+                  last_page:
+                    type: integer
+                  per_page:
+                    type: integer
+                  total:
+                    type: integer
+                  next_page_url:
+                    type:
+                      - string
+                      - 'null'
+                  prev_page_url:
+                    type:
+                      - string
+                      - 'null'
+                required:
+                  - data
+                  - current_page
+                  - last_page
+                  - per_page
+                  - total
+                  - next_page_url
+                  - prev_page_url
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
+    post:
+      operationId: createPitch
+      summary: Opprett pitch for et domene
+      description: >-
+        Krever partnerrådgiver eller plattformadmin. Partneren er tokenets tenant; partner_team_id og tenant_id
+        er forbudt. Maks tre aktive prosjekter, sju dagers levetid. Oppretter merkevare, domene og marked;
+        prompts og motorer konfigureres separat før kjøring. Ingen modellkall eller nettverkshenting. Tokenets
+        tenantbinding endres ikke. Gjentatte POST-kall oppretter nye prosjekter.
+      x-required-ability: write
+      parameters: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 120
+                domain:
+                  type: string
+                  maxLength: 255
+                country:
+                  type: string
+                  pattern: ^[a-zA-Z]{2}$
+                language:
+                  type: string
+                  maxLength: 35
+                  pattern: ^[a-zA-Z]{2,3}(?:-[a-zA-Z0-9]{2,8})*$
+              required:
+                - name
+                - domain
+                - country
+                - language
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Pitch'
+                required:
+                  - data
+        '401': *id001
+        '403': *id002
+        '404': *id003
+        '422': *id004
+        '429': *id005
 components:
   securitySchemes:
     personalToken:
@@ -1043,3 +1746,308 @@ components:
         is_active: *id017
       required:
       - id
+
+    Action:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        brand_id:
+          type: integer
+          minimum: 1
+        market_id:
+          type:
+            - integer
+            - 'null'
+        topic_id:
+          type:
+            - integer
+            - 'null'
+        type:
+          type:
+            - string
+            - 'null'
+          enum:
+            - source_gap
+            - owned_content
+            - new_competitor
+            - crawler_access
+            - fact_correction
+            - null
+        status:
+          type: string
+          enum:
+            - new
+            - planned
+            - in_progress
+            - done
+            - declined
+            - expired
+        title:
+          type: string
+        description:
+          type: string
+        steps:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+              done:
+                type: boolean
+            required:
+              - text
+              - done
+        evidence:
+          type:
+            - object
+            - array
+            - 'null'
+        competitor_evidence:
+          type:
+            - object
+            - array
+            - 'null'
+        engine_keys:
+          type: array
+          items:
+            type: string
+        impact_level:
+          type: integer
+        created_by:
+          type: string
+          enum:
+            - system
+            - user
+        text_source:
+          type: string
+        started_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        completed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        prompt_ids:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+      required:
+        - id
+        - brand_id
+        - market_id
+        - topic_id
+        - type
+        - status
+        - title
+        - description
+        - steps
+        - evidence
+        - competitor_evidence
+        - engine_keys
+        - impact_level
+        - created_by
+        - text_source
+        - started_at
+        - completed_at
+        - prompt_ids
+    BrandFact:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        brand_id:
+          type: integer
+          minimum: 1
+        text:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        updated_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+      required:
+        - id
+        - brand_id
+        - text
+        - is_active
+        - created_at
+        - updated_at
+    Claim:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        brand_id:
+          type: integer
+          minimum: 1
+        response_id:
+          type: integer
+          minimum: 1
+        fact_id:
+          type:
+            - integer
+            - 'null'
+        verdict:
+          type: string
+          enum:
+            - supported
+            - contradicted
+            - unrelated
+        untrusted_engine_output:
+          type: object
+          properties:
+            text:
+              type: string
+            quote:
+              type:
+                - string
+                - 'null'
+            sources:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    minimum: 1
+                  url:
+                    type: string
+                  domain:
+                    type: string
+                  ownership:
+                    type: string
+                  source_type:
+                    type:
+                      - string
+                      - 'null'
+                required:
+                  - id
+                  - url
+                  - domain
+                  - ownership
+                  - source_type
+          required:
+            - text
+            - quote
+            - sources
+      required:
+        - id
+        - brand_id
+        - response_id
+        - fact_id
+        - verdict
+        - untrusted_engine_output
+    Report:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        sent_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        content:
+          type:
+            - object
+            - 'null'
+          description: >-
+            Lagret web_snapshot med eksplisitte rapportfelt. null for eldre rapporter uten øyeblikksbilde. Ingen
+            profilkonfigurasjon, mottakere eller lagringsstier.
+        actions:
+          type:
+            - object
+            - array
+            - 'null'
+          description: Lagret tiltaksseksjon fra rapporttidspunktet.
+        pdf_url:
+          type:
+            - string
+            - 'null'
+          format: uri
+          description: >-
+            Autentisert nettleserlenke; krever vanlig Ekko-innlogging og riktig valgt tenant. Kan ikke lastes ned
+            med REST-token. null uten lagret PDF.
+      required:
+        - id
+        - period_start
+        - period_end
+        - sent_at
+        - content
+        - actions
+        - pdf_url
+    ReportLink:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        url:
+          type: string
+          format: uri
+          description: Offentlig rapportlenke med engangsutlevert hemmelighet i fragmentet.
+        expires_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - url
+        - expires_at
+    Pitch:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        kind:
+          type: string
+          enum:
+            - pitch
+        partner_team_id:
+          type: integer
+          minimum: 1
+        pitch_expires_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        pitch_converted_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        status:
+          type: string
+      required:
+        - id
+        - name
+        - kind
+        - partner_team_id
+        - pitch_expires_at
+        - pitch_converted_at
+        - status

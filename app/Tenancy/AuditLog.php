@@ -157,6 +157,13 @@ final class AuditLog
         ]);
     }
 
+    public function reportLinkChanged(User $by, Team $tenant, int $reportId, int $linkId, bool $revoked): void
+    {
+        $this->record($tenant, $revoked ? 'reports.link_revoked' : 'reports.link_created', $by, null, [
+            'report_id' => $reportId, 'link_id' => $linkId,
+        ]);
+    }
+
     /**
      * A change made through the Claude connection (MCP, docs/spec.md 15.2). The changed rows also have their own
      * revisions (RecordsRevisions); this entry says that Claude made them, with which tool and connection.

@@ -391,6 +391,16 @@ or restore job images; assess and restore those separately if needed. Migrations
 must remain backward compatible so that an earlier revision can run against the
 current schema. Exercise this procedure in an isolated environment before use.
 
+The rollback script moves the `live` image tag to the revision's image, so
+Artifact Registry cleanup keeps it. Other rollback targets are kept only while
+they are among the 20 newest image versions or younger than 3 days. A revision
+whose image is deleted cannot start instances. Before rollback, check that the
+revision's image digest still exists:
+`gcloud artifacts docker images list europe-west1-docker.pkg.dev/ekko-514612/ekko/web --include-tags`.
+If you restore a job image manually, tag that digest `live` as well. The
+policy, and how to read its dry run, are described in the
+[Terraform README](../infra/terraform/README.md#artifact-registry-cleanup-t10-f5).
+
 The private production exercise on 16 November 2026 confirmed that a failed
 `gcloud run jobs update` can leave the rejected image in the job configuration.
 After a partial deployment, inspect and restore **all three** application jobs
