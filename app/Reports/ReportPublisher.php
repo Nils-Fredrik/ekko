@@ -221,14 +221,14 @@ final class ReportPublisher
                 ...$point['summary']->toArray(),
             ], $this->metrics->series($current)),
             // Snapshot descriptions and dates along with the metrics, without private action links.
-            'markers' => [
+            'markers' => collect([
                 ...app(ActionMarkers::class)->forPeriod($schedule->brand_id, $from, $to, $this->timezone($tenant), links: false),
                 ...$this->metrics->modelChanges($from, $to)->map(fn ($change): array => [
                     'key' => 'model:'.$change->id,
                     'date' => $change->changed_on->toDateString(), 'kind' => 'model',
                     'label' => DashboardLabels::engine($change->engine_key), 'detail' => $change->from_model.' → '.$change->to_model,
                 ])->all(),
-            ],
+            ])->sortBy([['date', 'asc'], ['key', 'asc']])->values()->all(),
             'engines' => $this->engines($current),
             'prompts' => $this->prompts($current, $previous),
             'competitors' => $this->competitors($current),

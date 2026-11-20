@@ -75,6 +75,8 @@ final class SharedReportController extends Controller
                     // section and mark the reconstructed view as such instead of inventing an insight.
                     $data = app(ReportPublisher::class)->viewData($team, $schedule, $report->period_start->toDateString(), $report->period_end->toDateString(), null);
                     $data['actions'] = app(ReportActions::class)->published($report->action_section);
+                    // These reports never published markers; do not reconstruct them from current actions.
+                    unset($data['markers']);
                     $data['reconstructed'] = true;
                 }
                 $data['shared'] = true;
