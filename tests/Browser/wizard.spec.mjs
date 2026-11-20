@@ -88,6 +88,7 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     expect(markets.swedish_queued).toBeGreaterThan(0);
     expect(markets.competitors).toBe(3);
 
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('link', { name: 'Competitors', exact: true }).click();
     const remove = page.getByRole('button', { name: 'Delete Ny konkurrent', exact: true });
     page.once('dialog', (dialog) => dialog.dismiss());
