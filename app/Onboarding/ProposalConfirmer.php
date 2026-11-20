@@ -304,7 +304,11 @@ final class ProposalConfirmer
 
             return;
         }
-        $this->plans->own($market, $rules ?? []);
+        // Own choices start from a copy of the setup the market would otherwise have: the brand's standard.
+        if ($rules === null && $this->plans->standardErrors($tenant, $brand) !== []) {
+            throw ValidationException::withMessages(['plan_mode' => __('app.plan.standard_invalid')]);
+        }
+        $this->plans->own($market, $rules ?? $this->plans->present($tenant, $brand)['standard']);
     }
 
     private function slug(string $name): string

@@ -1,10 +1,14 @@
 <?php
 
 use App\MeasurementPlan\MeasurementPlans;
+use App\MeasurementPlan\StandardPlan;
 use App\Models\Brand;
 use App\Models\Market;
+use App\Models\Team;
+use App\Models\User;
 use App\Onboarding\Analysis;
 use App\Onboarding\AnalysisStore;
+use App\Pitch\PitchProvisioner;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\Onboarding\OnboardingFakes;
@@ -41,7 +45,7 @@ it('makes the setup chosen in the wizard the standard of a new brand and lets it
     });
 });
 
-it('lets a new market from the wizard inherit the brand plan when no own choices are sent', function () {
+it('lets a new market from the wizard inherit the brand plan when no own choices are sent, or start own choices from it', function (string $mode) {
     [$tenant, $owner] = planTenant();
     $standard = [planRule('chatgpt_api', 'daily'), planRule('claude_sonnet', 'weekly', 'core')];
     $brand = inTenant($tenant, function () use ($standard) {
@@ -57,16 +61,16 @@ it('lets a new market from the wizard inherit the brand plan when no own choices
     $store->save($analysis);
 
     $this->actingAs($owner)->post(route('onboarding.analyses.confirm', $analysis->id), [
-        'country' => 'SE', 'language' => 'sv', 'plan_mode' => 'inherit',
+        'country' => 'SE', 'language' => 'sv', 'plan_mode' => $mode,
         'prompts' => [['text' => 'Vilken sko är bäst?', 'cross_market_key' => 'shoes', 'intent' => 'category', 'funnel_stage' => 'awareness', 'priority' => 'core']],
     ])->assertRedirect()->assertSessionHasNoErrors();
 
-    inTenant($tenant, function () use ($standard): void {
+    inTenant($tenant, function () use ($standard, $mode): void {
         $market = Market::query()->where('country', 'SE')->sole();
-        expect($market->plan_mode)->toBe(Market::PLAN_INHERIT)
+        expect($market->plan_mode)->toBe($mode)
             ->and(storedMarketRules($market))->toBe(sortedRules($standard));
     });
-});
+})->with(['inherit', 'own']);
 
 it('carries a change of the standard to inheriting markets and leaves own choices alone', function () {
     [$tenant, $owner] = planTenant();
@@ -193,4 +197,20 @@ it('refuses a new market from the wizard that would inherit a standard that can 
     ])->assertSessionHasErrors(['plan_mode' => __('app.plan.standard_invalid')]);
 
     expect(inTenant($tenant, fn () => Market::query()->where('country', 'SE')->exists()))->toBeFalse();
+});
+
+it('gives a new pitch brand the package standard and lets its market inherit it', function () {
+    $admin = User::factory()->platformAdmin()->withPersonalTeam()->withTwoFactor()->create();
+    $partner = Team::factory()->tenant()->create();
+
+    $pitch = app(PitchProvisioner::class)->create($admin, $partner, ['name' => 'Syntetisk pitch', 'domain' => 'example.test', 'country' => 'NO', 'language' => 'nb']);
+
+    $expected = StandardPlan::forTenant($pitch);
+    expect(collect($expected)->where('frequency', '!=', 'off')->pluck('engine_key')->all())->each->toBeIn(StandardPlan::PITCH_ENGINES);
+    inTenant($pitch, function () use ($expected): void {
+        $market = Market::query()->sole();
+        expect(storedStandard(Brand::query()->sole()))->toBe(sortedRules($expected))
+            ->and($market->plan_mode)->toBe(Market::PLAN_INHERIT)
+            ->and(storedMarketRules($market))->toBe(sortedRules($expected));
+    });
 });

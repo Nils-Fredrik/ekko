@@ -301,7 +301,8 @@ class BrandSettingsController extends Controller
             $changed = $engine->frequency !== $row['frequency'] || $engine->prompt_scope !== $row['prompt_scope'] || $engine->repetitions !== (int) $row['repetitions'];
             if ($changed && ! isset($detached[$engine->market_id])) {
                 // Changing a row of an inheriting market gives it own choices from its current setup (docs/spec.md 7.6).
-                // The form sends every row on each save, so unchanged rows leave inheritance alone.
+                // The form sends every row on each save, so unchanged rows leave inheritance alone. A row that fails the
+                // checks below throws inside update()'s transaction, which also rolls this back.
                 $this->plans->detach(Market::query()->findOrFail($engine->market_id));
                 $detached[$engine->market_id] = true;
             }

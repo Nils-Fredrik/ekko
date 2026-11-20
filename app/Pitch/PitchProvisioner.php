@@ -2,6 +2,8 @@
 
 namespace App\Pitch;
 
+use App\MeasurementPlan\MeasurementPlans;
+use App\MeasurementPlan\StandardPlan;
 use App\Models\Brand;
 use App\Models\Team;
 use App\Models\User;
@@ -46,11 +48,15 @@ final class PitchProvisioner
         return DB::transaction(function () use ($actor, $partner, $data, $domain): Team {
             $pitch = app(PitchProjects::class)->create($actor, $partner, $data['name'], CarbonImmutable::now('UTC'));
             // Only this newly created, authorized tenant is added for these writes; restore the caller's RLS afterwards.
-            app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], function () use ($data, $domain): void {
+            app(TenantContext::class)->run($pitch->id, fn () => app(TenantRls::class)->run([$pitch->id], function () use ($data, $domain, $pitch): void {
                 $brand = Brand::query()->create(['name' => $data['name'], 'slug' => Str::slug($data['name']) ?: 'pitch', 'primary_domain' => $domain, 'status' => 'active']);
                 $brand->domains()->create(['domain' => $domain, 'include_subdomains' => true]);
                 $brand->aliases()->create(['alias' => $data['name'], 'match_mode' => 'case_insensitive']);
-                $brand->markets()->create(['country' => strtoupper($data['country']), 'language' => $data['language'], 'is_active' => true]);
+                $market = $brand->markets()->create(['country' => strtoupper($data['country']), 'language' => $data['language'], 'is_active' => true]);
+                // Like any new brand: the package standard, inherited by its market (docs/spec.md 7.6, ADR 0042).
+                $plans = app(MeasurementPlans::class);
+                $plans->initialize($brand, StandardPlan::forTenant($pitch));
+                $plans->inherit($market);
             }));
 
             return $pitch;

@@ -18,6 +18,14 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
+    /** The 7.4 standard as it stood at T53, frozen so a later change of the configuration cannot change this migration. */
+    private const STANDARD = [
+        ['engine_key' => 'chatgpt_api', 'prompt_scope' => 'all', 'frequency' => 'daily'],
+        ['engine_key' => 'gemini_api', 'prompt_scope' => 'all', 'frequency' => 'daily'],
+        ['engine_key' => 'claude_haiku', 'prompt_scope' => 'all', 'frequency' => 'daily'],
+        ['engine_key' => 'claude_sonnet', 'prompt_scope' => 'core', 'frequency' => 'weekly'],
+    ];
+
     public function up(): void
     {
         Schema::create('brand_plan_engines', function (Blueprint $table): void {
@@ -45,7 +53,7 @@ return new class extends Migration
 
         $now = now();
         foreach (Team::query()->orderBy('id')->get() as $tenant) {
-            $rules = StandardPlan::forTenant($tenant);
+            $rules = StandardPlan::forTenant($tenant, 'daily', self::STANDARD);
             app(TenantRls::class)->run([$tenant->id], function () use ($tenant, $rules, $now): void {
                 foreach (DB::table('brands')->where('tenant_id', $tenant->id)->orderBy('id')->pluck('id') as $brandId) {
                     DB::table('brand_plan_engines')->insertOrIgnore(array_map(fn (array $rule): array => $rule + [

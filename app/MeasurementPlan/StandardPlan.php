@@ -20,20 +20,30 @@ final class StandardPlan
     /** Pitch projects measure with these engines only (docs/spec.md 12.6). */
     public const PITCH_ENGINES = ['chatgpt_api', 'gemini_api', 'claude_haiku'];
 
-    /** @return list<PlanRule> */
-    public static function forTenant(Team $tenant, string $interval = 'daily'): array
+    /**
+     * @param  list<array{engine_key: string, prompt_scope: string, frequency: string}>|null  $standard  engines and scopes
+     *                                                                                                   to start from; the configured 7.4 standard when null (a migration passes a frozen copy)
+     * @return list<PlanRule>
+     */
+    public static function forTenant(Team $tenant, string $interval = 'daily', ?array $standard = null): array
     {
         $plan = $tenant->plan_id === null ? null : Plan::query()->find($tenant->plan_id);
 
-        return self::rules($plan, $interval, $tenant->kind === 'pitch');
+        return self::rules($plan, $interval, $tenant->kind === 'pitch', $standard);
     }
 
-    /** @return list<PlanRule> */
-    public static function rules(?Plan $plan, string $interval = 'daily', bool $pitch = false): array
+    /**
+     * @param  list<array{engine_key: string, prompt_scope: string, frequency: string}>|null  $standard
+     * @return list<PlanRule>
+     */
+    public static function rules(?Plan $plan, string $interval = 'daily', bool $pitch = false, ?array $standard = null): array
     {
         Frequency::rank($interval);
-        /** @var list<array{engine_key: string, prompt_scope: string, frequency: string}> $standard */
-        $standard = config('ekko.measurement_plan.standard');
+        if ($standard === null) {
+            /** @var list<array{engine_key: string, prompt_scope: string, frequency: string}> $configured */
+            $configured = config('ekko.measurement_plan.standard');
+            $standard = $configured;
+        }
         $engines = Engine::query()->whereIn('key', array_column($standard, 'engine_key'))->get()->keyBy('key');
         // An engine without a current price cannot be saved as active (7.6), so it starts off.
         $priced = EnginePrice::query()->whereIn('engine_key', $engines->keys())->where('valid_from', '<=', now())->distinct()->pluck('engine_key')->all();
