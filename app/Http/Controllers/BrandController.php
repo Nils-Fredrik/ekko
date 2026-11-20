@@ -63,18 +63,23 @@ class BrandController extends Controller
         $previous = $period->filter($brand->id, ...$selection, previous: true);
         $sparkPeriod = DashboardPeriod::forCurrentTenant(28);
         $sparkFilter = $sparkPeriod->filter($brand->id, ...$selection);
-        $dashboard = $metrics->dashboard($filter);
+        // Inertia excludes unrequested props before invoking closures. Share one scan among the
+        // dashboard props that remain, without retaining figures beyond this controller response.
+        $dashboard = null;
+        $readDashboard = function () use (&$dashboard, $metrics, $filter) {
+            return $dashboard ??= $metrics->dashboard($filter);
+        };
 
         return Inertia::render('Brands/Show', [
-            'canCreateMarket' => Gate::allows('createMarketAnalysis', Analysis::class),
-            'hasPitchReport' => Team::query()->whereKey(current_tenant_id())->whereNotNull('pitch_expires_at')->exists(),
+            'canCreateMarket' => fn () => Gate::allows('createMarketAnalysis', Analysis::class),
+            'hasPitchReport' => fn () => Team::query()->whereKey(current_tenant_id())->whereNotNull('pitch_expires_at')->exists(),
             'brand' => [
                 'id' => $brand->id,
                 'name' => $brand->name,
                 'status' => DashboardLabels::status($brand->status),
             ],
             'period' => [...$period->toArray(), 'grain' => $grain],
-            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.show', $query),
+            'analysisFilters' => fn () => AnalysisFilters::payload($brand, 'brands.show', $query),
             'filters' => [
                 'market' => $selection['marketIds'][0] ?? null,
                 'engine' => $selection['engineKeys'][0] ?? null,
@@ -82,17 +87,17 @@ class BrandController extends Controller
                 'intent' => $selection['intents'][0] ?? null,
                 'competitor' => $query['competitor'] ?? null,
             ],
-            'options' => $this->options($brand),
-            'summary' => $dashboard['summary']->toArray(),
-            'previous' => $metrics->summary($previous)->toArray(),
-            'series' => array_map(fn (array $point) => [
+            'options' => fn () => $this->options($brand),
+            'summary' => fn () => $readDashboard()['summary']->toArray(),
+            'previous' => fn () => $metrics->summary($previous)->toArray(),
+            'series' => fn () => array_map(fn (array $point) => [
                 'period' => $point['period'],
                 'visibility' => $point['summary']->visibility->toArray(),
-            ], $dashboard['series']),
-            'voice' => $this->voice($dashboard['voice'], $brand),
-            'engines' => $this->engines($dashboard['engines']),
-            'modelChanges' => $this->modelChanges($metrics, $period, $selection['engineKeys']),
-            'topActions' => Action::query()->where('brand_id', $brand->id)->open()->ranked()->limit(3)
+            ], $readDashboard()['series']),
+            'voice' => fn () => $this->voice($readDashboard()['voice'], $brand),
+            'engines' => fn () => $this->engines($readDashboard()['engines']),
+            'modelChanges' => fn () => $this->modelChanges($metrics, $period, $selection['engineKeys']),
+            'topActions' => fn () => Action::query()->where('brand_id', $brand->id)->open()->ranked()->limit(3)
                 ->get(['id', 'title'])->map(fn (Action $action): array => [
                     'id' => $action->id, 'title' => $action->title,
                 ])->all(),

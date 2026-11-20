@@ -163,7 +163,7 @@ ECharts fra `echarts/core` med SVG-tegning, ett tema bygget fra tokens som bytte
 
 - Temabytte endrer grafene uten ny lasting.
 - Grafbiblioteket lastes ikke på sider uten grafer.
-- `VoiceChart` er fjernet i U05. `TrendChart` står igjen på promptsiden, og Chart.js fjernes sammen med den når den siden er bygget om.
+- `VoiceChart` er fjernet i U05. `TrendChart` og Chart.js er fjernet i U06.
 
 ## U07 – Konkurrenter: rangering og sentiment
 
@@ -208,6 +208,30 @@ Avvik fra rekkefølgen i oppgaven:
 - Motorsammenligningen står over trenden, så begge svarene får plass på første skjerm.
 - Modellbytter er markører på trenden og motorpanelet, ikke en egen liste.
 - Innsiktslinjen ligger også på oversikten, så `ekko.insights.enabled` kan være på. U10 eier fortsatt ombyggingen av oversikten.
+
+## U06 – Prompts: heatmap, minigraf og stabilitet
+
+Promptlisten åpner med heatmapen prompts × motorer, gruppert etter tema. Klikk i en celle åpner prompten med den motoren valgt i filteret. Tabellen er et alternativ, med minigraf for synlighet (siste 28 dager, uavhengig av periodelengden) og prikkrad for de siste 14 dagene. En prikk er fylt når merkevaren ble nevnt den dagen.
+
+`PromptShow` viser én celle per dag og motor. Klikk på en celle med svar viser svaret, med uthevede nevnelser og kilder, og om nevnelsen er den samme som i forrige svar. Dager uten svar kan ikke velges. Cellefargen bruker alle svarene i perioden. Bare teksten til de 100 nyeste lastes, så en eldre dag kan være nevnt uten at teksten vises. Det første svaret i det lastede utvalget har alltid ukjent endring.
+
+Inline redigering, aktivering og CSV-import og -eksport er uendret. `TrendChart` og Chart.js er fjernet.
+
+## U10 – Oversikt og partneroversikt
+
+Oversikt etter 7.1 med samlet tidslinje, og partneroversikt etter 7.7.
+
+- Partneroversikten viser 50 kunder uten merkbar forsinkelse.
+
+Slik er det løst:
+
+- **Oversikt (`Home.vue`):** innsiktslinjen (U12) står øverst. Merkevarekortene viser synlighet med minigraf, endring og n (U04), og antall åpne tiltak fra den utsatte propen `chartData`, med skjelett til den er lastet. «Hva har skjedd» (`App\Dashboard\OverviewTimeline`) samler varsler, modellbytter, fullførte tiltak og nye aktive konkurrenter i periodens 28 dager, nyeste først, høyst ti hendelser. Hver kilde leses bare når rollen kan liste den. Hendelsen har en typemerkelapp i tekst, ikke bare farge. Forbruket er en fremdriftslinje mot kvoten (og mot budsjettet når det finnes), med status i tekst. «Neste kjøringer» står igjen ved siden av, fordi det er fremtid og ikke hører hjemme i «Hva har skjedd».
+- **Partneroversikt (`Partner/Index.vue`):** første svar inneholder bare kundenavnene. Synlighet, minigraf, endring, åpne varsler og åpne tiltak kommer i én utsatt prop (`portfolioGraphs`, U03), cachet per kunde og merkevare i `GraphCache`, med skjelett i radene til den er lastet. Første svar leser derfor ingen aggregater, og den utsatte forespørselen leser høyst to per merkevare med kald cache og ingen med varm (`tests/Feature/Dashboard/PartnerPortfolioTest.php`, 50 kunder). Tabellen sorteres etter størst nedgang som standard; kunder uten sammenligning står sist. Kolonnene kan sorteres (`aria-sort`). Klikk på en rad eller kundenavnet bytter til kunden og åpner kundens oversikt.
+
+Avvik:
+
+- Varselsprikken teller åpne (ikke kvitterte) varsler, ikke alle varsler i perioden som den gamle tabellen gjorde. Prikken står alltid sammen med tekst («2 åpne», «Ingen»).
+- «Kundens dashboard» er kundens oversikt (`/dashboard` etter tenantbytte), fordi en kunde kan ha flere merkevarer.
 
 ## 7.8 Filterlinje
 

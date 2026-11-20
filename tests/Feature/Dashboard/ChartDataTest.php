@@ -118,7 +118,14 @@ test('fixed sparkline and stability windows are independent of the seven-day pag
         ->assertOk()->assertInertia(fn ($page) => $page
         ->loadDeferredProps(fn ($deferred) => $deferred
             ->has('chartData.stability', 2)
-            ->where('chartData.stability.0.period', '2026-11-08')));
+            ->where('chartData.stability.0.period', '2026-11-08')
+            ->where('chartData.sparkline', ['from' => '2026-10-23', 'to' => '2026-11-19'])
+            ->where('chartData.engines.0.key', $world->engine->key)
+            ->where('chartData.sparklines', fn ($rows) => collect($rows)->contains(
+                fn (array $row): bool => $row['prompt_id'] === $world->p1->id
+                    && $row['period'] === '2026-11-08'
+                    && $row['visibility'] === ['value' => 0.6, 'n' => 10, 'low_sample' => false],
+            ))));
 });
 
 test('dashboard comparison follows weekly and monthly grain while the sparkline stays daily', function () {

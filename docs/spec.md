@@ -122,7 +122,7 @@ Stakken følger Varde. Agentene har lesetilgang til Varde-repoet (https://github
 | Ruting i frontend | Ziggy |
 | Ikoner | Heroicons for Vue |
 | Oversettelser | `laravel-vue-i18n` med PHP-språkfiler (`nb`, `sv`, `en`) |
-| Grafer | Apache ECharts fra `echarts/core` med SVG-tegning, lastet asynkront og fargesatt fra designtokens, gjennom `<EkkoChart>` ([ADR 0035](decisions/0035-echarts-grafbibliotek.md), `docs/ui-forbedring.md` kapittel 5–6). Chart.js står igjen til `TrendChart` på promptsiden er erstattet |
+| Grafer | Apache ECharts fra `echarts/core` med SVG-tegning, lastet asynkront og fargesatt fra designtokens, gjennom `<EkkoChart>` ([ADR 0035](decisions/0035-echarts-grafbibliotek.md), `docs/ui-forbedring.md` kapittel 5–6) |
 | Database | PostgreSQL 16 |
 | Kø og cache | Laravel `database`-driver |
 | MCP | `laravel/mcp` med egen OAuth 2.1-server og Sanctum-nøkler, samme mønster som Varde (`Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue`). Passport kan ikke brukes sammen med Sanctum på samme `User` ([ADR 0016](decisions/0016-mcp-server-og-oauth.md)) |
@@ -872,8 +872,8 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | Komponent | Innhold |
 |---|---|
 | `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google» |
-| `Pages/Home.vue` | Oversikt for valgt tenant: innsiktslinje på tvers av merkevarer, nøkkeltall per merkevare, siste varsler, neste planlagte kjøringer, forbruk mot kvote |
-| `Pages/Partner/Index.vue` | For partner-rådgivere: alle kunde-tenants med synlighet, endring og varsler i én tabell |
+| `Pages/Home.vue` | Oversikt for valgt tenant: innsiktslinje på tvers av merkevarer, merkevarekort med minigraf, endring og åpne tiltak, «Hva har skjedd» (varsler, modellbytter, fullførte tiltak og nye konkurrenter i én tidslinje), neste planlagte kjøringer, forbruk som fremdriftslinje mot kvote (U10) |
+| `Pages/Partner/Index.vue` | For partner-rådgivere: alle kunde-tenants i én porteføljetabell med synlighet og minigraf, endring, varselsprikk med tekst og åpne tiltak, sortert etter størst nedgang. En rad åpner kundens oversikt (U10) |
 | `Pages/Pitch/Index.vue`, `Pages/Pitch/Report.vue` | Pitch-prosjektene til partneren: opprette, følge (status, dag av sju, prompts og svar) og konvertere, åpne i veiviseren eller på pitch-rapporten (11.5, T49) |
 | `Pages/Brands/Index.vue` | Merkevarer med status og markeder |
 | `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), innsiktslinje, nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
@@ -905,6 +905,8 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 ### Felles analysefiltre (U11)
 
 Merkevarens analysesider bruker filterlinjen i `docs/ui-forbedring.md` 7.8. Lagrede visninger i `saved_views` inneholder `tenant_id`, `user_id`, `brand_id`, analyseside, navn og filter-JSON. Tenant-RLS og brukeravgrensning gjelder både lesing og sletting; en visning gir aldri tilgang til flere merkevarer. Nye ruter er `POST /brands/{brand}/views` og `DELETE /brands/{brand}/views/{savedView}`. Begge er registrert i isolasjonstesten. Periode-/sammenligningsvalg og støttede dimensjoner følger URL-en og oppdateres med delvise Inertia-forespørsler. Konkurrentfilter avgrenser trendens sammenligningsserier, ikke svargrunnlaget. Se ADR 0041.
+
+Merkevaredashboardet beregner bare etterspurte data ved delvise oppdateringer (U11-F1). Innsikt, grafdata og lagrede filtre utløser ikke beregning av øvrige dashboardfelter. Nøkkeltall, dagserie, stemmeandel og motorer deler én dashboardberegning innen samme svar; resultatet beholdes ikke mellom forespørsler. Autorisasjon og normalisering av filtre skjer fortsatt før data hentes, og innsiktsteksten fylles fortsatt med ferske tall fra sin egen forespørsel.
 
 ## 15. API og MCP
 
