@@ -193,3 +193,13 @@ export function trendSelection(params, categories, series) {
 
     return selection(item.key, { category });
 }
+
+/** Select a whole visible line for cross-filtering, without inventing a point date. */
+export function trendSeriesSelection(params, series) {
+    if (params?.componentType !== 'series' || params.seriesType !== 'line' || !Number.isInteger(params.seriesIndex))
+        return null;
+    const rendered = series.flatMap((item) => (splitLowSample(item.points).hasLow ? [item, item] : [item]));
+    const item = rendered[params.seriesIndex];
+    if (item?.key == null || !item.points.some((point) => point?.value != null)) return null;
+    return selection(item.key);
+}

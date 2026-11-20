@@ -88,6 +88,7 @@ app(TenantContext::class)->run($billingTenant->id, function (): void {
     }
 });
 $values = ['SMOKE_EMAIL' => $user->email, 'SMOKE_PASSWORD' => $password, 'SMOKE_TENANT_ID' => (string) $team->id, 'SMOKE_BRAND_ID' => (string) $brand->id, 'SMOKE_WIZARD_EMAIL' => $owner->email, 'SMOKE_REPORT_TOKEN' => $reportToken, 'SMOKE_REPORT_SELECTOR' => $reportSelector, 'SMOKE_REPORT_NB_TOKEN' => $norwegianToken, 'SMOKE_REPORT_NB_SELECTOR' => $norwegianSelector];
+$values = [...$values, ...require __DIR__.'/filter-fixture.php'];
 // The integrated T33/T34 contracts are exercised by the deployment smoke test.
 if (class_exists(TokenTenant::class)) {
     $values['SMOKE_REST_TOKEN'] = $user->createToken('browser-smoke', ['read', 'tenant:'.$team->id])->plainTextToken;

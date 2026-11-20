@@ -58,6 +58,7 @@ final readonly class InsightService
         }
 
         return $this->resolve('brand', $brand->id, $period, [
+            'window' => [$filter->from, $filter->to, $previous->from, $previous->to],
             'market' => $filter->marketIds, 'engine' => $filter->engineKeys, 'topic' => $filter->topicIds, 'intent' => $filter->intents,
         ], fn (): InsightFigures => $this->builder->brand($brand, $period, $filter, $previous));
     }

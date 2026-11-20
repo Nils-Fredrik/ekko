@@ -896,6 +896,10 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 
 ---
 
+### Felles analysefiltre (U11)
+
+Merkevarens analysesider bruker filterlinjen i `docs/ui-forbedring.md` 7.8. Lagrede visninger i `saved_views` inneholder `tenant_id`, `user_id`, `brand_id`, analyseside, navn og filter-JSON. Tenant-RLS og brukeravgrensning gjelder både lesing og sletting; en visning gir aldri tilgang til flere merkevarer. Nye ruter er `POST /brands/{brand}/views` og `DELETE /brands/{brand}/views/{savedView}`. Begge er registrert i isolasjonstesten. Periode-/sammenligningsvalg og støttede dimensjoner følger URL-en og oppdateres med delvise Inertia-forespørsler. Konkurrentfilter avgrenser trendens sammenligningsserier, ikke svargrunnlaget. Se ADR 0041.
+
 ## 15. API og MCP
 
 ### 15.1 REST-API

@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Dashboard\AnalysisFilters;
 use App\Dashboard\BrandPage;
+use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
-use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\Brand;
 use App\Models\Competitor;
@@ -29,10 +30,12 @@ class BrandCompetitorController extends Controller
     {
         BrandPage::authorizeView($brand);
         $brand->load('markets');
-        $period = BrandPage::period($request);
-        $marketIds = BrandPage::marketIds($brand, $request);
+        $query = AnalysisFilters::query($brand, $request->query(), 'brands.competitors.index');
+        $period = DashboardPeriod::fromInput($query);
+        $selection = AnalysisFilters::selection($query);
+        $marketIds = $selection['marketIds'];
         $grain = $request->validate(['grain' => ['sometimes', Rule::in(MetricsService::GRAINS)]])['grain'] ?? 'day';
-        $filter = new MetricsFilter($brand->id, $period->from, $period->to, marketIds: $marketIds);
+        $filter = $period->filter($brand->id, ...$selection);
 
         $competitors = Competitor::query()
             ->where('brand_id', $brand->id)
@@ -49,11 +52,12 @@ class BrandCompetitorController extends Controller
 
         return Inertia::render('Brands/Competitors', [
             'brand' => BrandPage::payload($brand),
-            'period' => ['days' => $period->days],
-            'filters' => ['market' => $marketIds[0] ?? null],
+            'period' => $period->toArray(),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.competitors.index', $query),
+            'filters' => $query,
             'markets' => BrandPage::markets($brand),
             'competitors' => $competitors,
-            'suggestions' => UnknownBrands::suggestions($brand, $period, $marketIds),
+            'suggestions' => UnknownBrands::suggestions($brand, $period, $marketIds, $filter),
             'canManage' => Gate::allows('create', Competitor::class),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
                 'brand.competitors.'.$grain, $filter, $period->timezone, fn (): array => [

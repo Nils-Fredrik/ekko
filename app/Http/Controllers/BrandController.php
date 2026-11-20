@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Dashboard\AnalysisFilters;
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
@@ -18,7 +19,6 @@ use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -54,19 +54,11 @@ class BrandController extends Controller
     {
         Gate::authorize('view', $brand);
 
-        $validated = $request->validate([
-            'days' => ['sometimes', 'integer', Rule::in(DashboardPeriod::LENGTHS)],
-            'market' => ['sometimes', 'nullable', 'integer'],
-            'engine' => ['sometimes', 'nullable', 'string'],
-            'topic' => ['sometimes', 'nullable', 'integer'],
-            'intent' => ['sometimes', 'nullable', 'string'],
-            'grain' => ['sometimes', Rule::in(MetricsService::GRAINS)],
-        ]);
-
         $brand->load(['markets', 'topics', 'competitors']);
-        $period = DashboardPeriod::forCurrentTenant((int) ($validated['days'] ?? 28));
-        $selection = $this->selection($brand, $validated);
-        $grain = $validated['grain'] ?? 'day';
+        $query = AnalysisFilters::query($brand, $request->query(), 'brands.show');
+        $period = DashboardPeriod::fromInput($query);
+        $selection = AnalysisFilters::selection($query);
+        $grain = $query['grain'];
         $filter = $period->filter($brand->id, ...$selection);
         $previous = $period->filter($brand->id, ...$selection, previous: true);
         $sparkPeriod = DashboardPeriod::forCurrentTenant(28);
@@ -81,19 +73,14 @@ class BrandController extends Controller
                 'name' => $brand->name,
                 'status' => DashboardLabels::status($brand->status),
             ],
-            'period' => [
-                'days' => $period->days,
-                'from' => $period->from,
-                'to' => $period->to,
-                'previous_from' => $period->previousFrom,
-                'previous_to' => $period->previousTo,
-                'grain' => $grain,
-            ],
+            'period' => [...$period->toArray(), 'grain' => $grain],
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.show', $query),
             'filters' => [
                 'market' => $selection['marketIds'][0] ?? null,
                 'engine' => $selection['engineKeys'][0] ?? null,
                 'topic' => $selection['topicIds'][0] ?? null,
                 'intent' => $selection['intents'][0] ?? null,
+                'competitor' => $query['competitor'] ?? null,
             ],
             'options' => $this->options($brand),
             'summary' => $dashboard['summary']->toArray(),
@@ -113,7 +100,7 @@ class BrandController extends Controller
             // missing text must not delay the graphs, and the first view of a day may make the model call.
             'insight' => Inertia::defer(fn (): ?array => app(InsightService::class)->forBrand($brand, $period, $filter, $previous), 'insight'),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
-                'brand.dashboard.'.$grain, $filter, $period->timezone, fn (): array => [
+                'brand.dashboard.u11.'.$grain.'.'.$period->comparison, $filter, $period->timezone, fn (): array => [
                     'series' => array_map(fn (array $row): array => [
                         'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
                     ], $metrics->series($filter, $grain)),
@@ -131,53 +118,6 @@ class BrandController extends Controller
                 ],
             )),
         ]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return array{marketIds: list<int>, engineKeys: list<string>, topicIds: list<int>, intents: list<string>}
-     */
-    private function selection(Brand $brand, array $validated): array
-    {
-        $marketIds = [];
-        if (isset($validated['market'])) {
-            $market = $brand->markets->firstWhere('id', (int) $validated['market']);
-            if ($market !== null) {
-                $marketIds = [$market->id];
-            }
-        }
-
-        $engineKeys = [];
-        if (isset($validated['engine']) && is_string($validated['engine']) && $validated['engine'] !== '') {
-            $known = MarketEngine::query()
-                ->whereIn('market_id', $brand->markets->pluck('id'))
-                ->where('engine_key', $validated['engine'])
-                ->exists();
-            if ($known) {
-                $engineKeys = [$validated['engine']];
-            }
-        }
-
-        $topicIds = [];
-        if (isset($validated['topic'])) {
-            $topic = $brand->topics->firstWhere('id', (int) $validated['topic']);
-            if ($topic !== null) {
-                $topicIds = [$topic->id];
-            }
-        }
-
-        $intents = [];
-        if (isset($validated['intent']) && is_string($validated['intent']) && $validated['intent'] !== '') {
-            $known = Prompt::query()
-                ->whereIn('market_id', $brand->markets->pluck('id'))
-                ->where('intent', $validated['intent'])
-                ->exists();
-            if ($known) {
-                $intents = [$validated['intent']];
-            }
-        }
-
-        return compact('marketIds', 'engineKeys', 'topicIds', 'intents');
     }
 
     /**

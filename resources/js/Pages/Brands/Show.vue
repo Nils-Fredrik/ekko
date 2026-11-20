@@ -1,4 +1,6 @@
 <script setup>
+import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
+import { crossFilter } from '@/Components/Brand/filters.js';
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
 import SmallMultiplesChart from '@/Components/Charts/SmallMultiplesChart.vue';
@@ -10,12 +12,11 @@ import { pickLeadingEngine } from './leadingEngine.js';
 import InsightLine from '@/Components/Dashboard/InsightLine.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
-import BottomSheet from '@/Components/UI/BottomSheet.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { computed, ref } from 'vue';
+import { computed } from 'vue';
 
 const props = defineProps({
     canCreateMarket: { type: Boolean, default: false },
@@ -23,6 +24,7 @@ const props = defineProps({
     brand: { type: Object, required: true },
     period: { type: Object, required: true },
     filters: { type: Object, required: true },
+    analysisFilters: { type: Object, required: true },
     options: { type: Object, required: true },
     summary: { type: Object, required: true },
     previous: { type: Object, required: true },
@@ -34,14 +36,6 @@ const props = defineProps({
     topActions: { type: Array, required: true },
     chartData: { type: Object, default: null },
 });
-
-const days = ref(props.period.days);
-const market = ref(props.filters.market ?? '');
-const engine = ref(props.filters.engine ?? '');
-const topic = ref(props.filters.topic ?? '');
-const intent = ref(props.filters.intent ?? '');
-const filtersOpen = ref(false);
-const lengths = [7, 28, 90];
 
 const primaryCards = [
     ['visibility', 'visibility', 'rate'],
@@ -55,16 +49,9 @@ const secondaryCards = [
     ['sentiment', 'sentiment', 'number'],
 ];
 
-function apply() {
-    const params = {};
-    if (days.value) params.days = days.value;
-    if (market.value) params.market = market.value;
-    if (engine.value) params.engine = engine.value;
-    if (topic.value) params.topic = topic.value;
-    if (intent.value) params.intent = intent.value;
-
-    filtersOpen.value = false;
-    router.get(route('brands.show', props.brand.id), params, { preserveScroll: true, replace: true });
+function selectFilter(key, event) {
+    const value = event?.key === 'brand' ? null : event?.key;
+    if (value !== undefined) crossFilter(route('brands.show', props.brand.id), props.analysisFilters.query, key, value);
 }
 
 function sparkline(key) {
@@ -159,12 +146,14 @@ const trendSeries = computed(() => {
             byId.get(entity.id).points.set(row.period, entity.visibility);
         }
     }
-    const competitors = [...byId.entries()].map(([id, entity]) => ({
-        key: id,
-        label: entity.label,
-        colorIndex: competitorIndex.value.get(id) ?? 0,
-        points: categories.value.map((period) => point(entity.points.get(period))),
-    }));
+    const competitors = [...byId.entries()]
+        .filter(([id]) => !props.filters.competitor || String(id) === String(props.filters.competitor))
+        .map(([id, entity]) => ({
+            key: id,
+            label: entity.label,
+            colorIndex: competitorIndex.value.get(id) ?? 0,
+            points: categories.value.map((period) => point(entity.points.get(period))),
+        }));
 
     return [own, ...competitors];
 });
@@ -305,81 +294,7 @@ function openMarker(marker) {
                 >
                     {{ $t('onboarding.ui.add_market') }}
                 </Link>
-                <div class="hidden flex-wrap items-end gap-3 sm:flex">
-                    <label class="flex flex-col gap-1 text-xs text-shell-text/70">
-                        {{ $t('app.dashboard.period') }}
-                        <select
-                            v-model="days"
-                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                            @change="apply"
-                        >
-                            <option v-for="length in lengths" :key="length" :value="length">
-                                {{ $t('app.dashboard.period_days', { days: length }) }}
-                            </option>
-                        </select>
-                    </label>
-                    <label class="flex flex-col gap-1 text-xs text-shell-text/70">
-                        {{ $t('app.dashboard.market') }}
-                        <select
-                            v-model="market"
-                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                            @change="apply"
-                        >
-                            <option value="">{{ $t('app.dashboard.all_markets') }}</option>
-                            <option v-for="item in options.markets" :key="item.id" :value="item.id">
-                                {{ item.label }}
-                            </option>
-                        </select>
-                    </label>
-                    <label class="flex flex-col gap-1 text-xs text-shell-text/70">
-                        {{ $t('app.dashboard.engine') }}
-                        <select
-                            v-model="engine"
-                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                            @change="apply"
-                        >
-                            <option value="">{{ $t('app.dashboard.all_engines') }}</option>
-                            <option v-for="item in options.engines" :key="item.key" :value="item.key">
-                                {{ item.name }}
-                            </option>
-                        </select>
-                    </label>
-                    <label class="flex flex-col gap-1 text-xs text-shell-text/70">
-                        {{ $t('app.dashboard.topic') }}
-                        <select
-                            v-model="topic"
-                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                            @change="apply"
-                        >
-                            <option value="">{{ $t('app.dashboard.all_topics') }}</option>
-                            <option v-for="item in options.topics" :key="item.id" :value="item.id">
-                                {{ item.name }}
-                            </option>
-                        </select>
-                    </label>
-                    <label class="flex flex-col gap-1 text-xs text-shell-text/70">
-                        {{ $t('app.dashboard.intent') }}
-                        <select
-                            v-model="intent"
-                            class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                            @change="apply"
-                        >
-                            <option value="">{{ $t('app.dashboard.all_intents') }}</option>
-                            <option v-for="item in options.intents" :key="item.value" :value="item.value">
-                                {{ item.label }}
-                            </option>
-                        </select>
-                    </label>
-                </div>
-
-                <button
-                    type="button"
-                    class="rounded-lg border border-line bg-shell-panel px-4 py-2 text-sm text-shell-text sm:hidden"
-                    @click="filtersOpen = true"
-                >
-                    {{ $t('app.dashboard.open_filters') }}
-                </button>
-
+                <PeriodFilters :brand-id="brand.id" route-name="brands.show" />
                 <InsightLine :insight="insight" />
 
                 <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="primary-kpis">
@@ -419,6 +334,8 @@ function openMarker(marker) {
                         :markers="panelMarkers"
                         :until="period.to"
                         :panel-height="72"
+                        select-series
+                        @select="selectFilter('engine', $event)"
                         @marker="openMarker"
                     />
                     <ul v-else class="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -462,6 +379,8 @@ function openMarker(marker) {
                         :markers="markers"
                         :until="period.to"
                         :height="180"
+                        select-series
+                        @select="selectFilter('competitor', $event)"
                         @marker="openMarker"
                     />
                 </section>
@@ -527,74 +446,5 @@ function openMarker(marker) {
                 </section>
             </div>
         </div>
-
-        <BottomSheet :show="filtersOpen" :title="$t('app.dashboard.filters')" @close="filtersOpen = false">
-            <div class="flex flex-col gap-3 py-2">
-                <label class="flex flex-col gap-1 text-xs text-shell-muted">
-                    {{ $t('app.dashboard.period') }}
-                    <select
-                        v-model="days"
-                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                    >
-                        <option v-for="length in lengths" :key="length" :value="length">
-                            {{ $t('app.dashboard.period_days', { days: length }) }}
-                        </option>
-                    </select>
-                </label>
-                <label class="flex flex-col gap-1 text-xs text-shell-muted">
-                    {{ $t('app.dashboard.market') }}
-                    <select
-                        v-model="market"
-                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                    >
-                        <option value="">{{ $t('app.dashboard.all_markets') }}</option>
-                        <option v-for="item in options.markets" :key="item.id" :value="item.id">
-                            {{ item.label }}
-                        </option>
-                    </select>
-                </label>
-                <label class="flex flex-col gap-1 text-xs text-shell-muted">
-                    {{ $t('app.dashboard.engine') }}
-                    <select
-                        v-model="engine"
-                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                    >
-                        <option value="">{{ $t('app.dashboard.all_engines') }}</option>
-                        <option v-for="item in options.engines" :key="item.key" :value="item.key">
-                            {{ item.name }}
-                        </option>
-                    </select>
-                </label>
-                <label class="flex flex-col gap-1 text-xs text-shell-muted">
-                    {{ $t('app.dashboard.topic') }}
-                    <select
-                        v-model="topic"
-                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                    >
-                        <option value="">{{ $t('app.dashboard.all_topics') }}</option>
-                        <option v-for="item in options.topics" :key="item.id" :value="item.id">{{ item.name }}</option>
-                    </select>
-                </label>
-                <label class="flex flex-col gap-1 text-xs text-shell-muted">
-                    {{ $t('app.dashboard.intent') }}
-                    <select
-                        v-model="intent"
-                        class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text"
-                    >
-                        <option value="">{{ $t('app.dashboard.all_intents') }}</option>
-                        <option v-for="item in options.intents" :key="item.value" :value="item.value">
-                            {{ item.label }}
-                        </option>
-                    </select>
-                </label>
-                <button
-                    type="button"
-                    class="rounded-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-deep"
-                    @click="apply"
-                >
-                    {{ $t('app.dashboard.apply') }}
-                </button>
-            </div>
-        </BottomSheet>
     </AppLayout>
 </template>

@@ -22,6 +22,7 @@ import { markerNotes, markerSeries } from './support/markers.js';
 import { paletteColor } from './support/palette.js';
 
 const props = defineProps({
+    selectSeries: { type: Boolean, default: false },
     label: { type: String, required: true },
     description: { type: String, default: '' },
     categories: { type: Array, required: true },
@@ -88,7 +89,14 @@ function optionFor(panel) {
     return ({ palette }) => {
         const color = paletteColor(palette, props.color);
         const buckets = bucketMarkers(props.markers[panel.key] ?? [], props.categories, props.until);
-        const series = lineSeries({ id: `p-${panel.key}`, name: panel.label, color, points: panel.points, width: 1.5 });
+        const series = lineSeries({
+            id: `p-${panel.key}`,
+            name: panel.label,
+            color,
+            points: panel.points,
+            width: 1.5,
+            extra: { triggerLineEvent: props.selectSeries },
+        });
         if (buckets.size > 0) {
             series.push(markerSeries(palette, buckets));
         }

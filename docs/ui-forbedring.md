@@ -169,3 +169,19 @@ Avvik fra rekkefølgen i oppgaven:
 - Motorsammenligningen står over trenden, så begge svarene får plass på første skjerm.
 - Modellbytter er markører på trenden og motorpanelet, ikke en egen liste.
 - Innsiktslinjen ligger også på oversikten, så `ekko.insights.enabled` kan være på. U10 eier fortsatt ombyggingen av oversikten.
+
+## 7.8 Filterlinje
+
+Alle merkevarens analysesider bruker `PeriodFilters`: oversikt, promptliste/-detalj, konkurrenter, kilder og crawlere. Aktive dimensjoner er brikker som fjernes enkeltvis. Nye valg gjøres i en popover på desktop og i `BottomSheet` på mobil.
+
+- Perioder: 7, 28 og 90 dager, eller egendefinert fra/til (begge inkludert, høyst 366 dager). Sammenligningsperioden er forrige like lange periode eller samme kalenderdatoer i fjor. 29. februar klippes til 28. februar ved behov.
+- Filtertilstanden ligger i URL-en. Preset-perioder er rullerende; egendefinerte datoer er faste. Kopierte URL-er gjenoppretter valgene. Tilbake/frem synkroniserer filterfeltene.
+- Endringer bruker Inertia partial visits som henter nye data og utsatte grafdata sammen. Forrige filters grafdata blir ikke stående etter et fullført filterskifte.
+- Motorvalg fra motorpanelet, konkurrentvalg fra trendgrafen og temavalg fra temagrafen på promptlisten bruker samme filtermekanisme. Konkurrentvalget avgrenser trendens sammenligningsserier og konkurrentlisten; egen merkevare beholdes som referanse, og utvalget av svar endres ikke.
+- Kildesiden tilbyr marked og motor; kildeaggregatene mangler promptdimensjon. Crawlere tilbyr periode; trafikk- og botdata mangler markeds-/promptdimensjon. Disse sidene viser ikke filtre datagrunnlaget ikke kan bruke.
+- Visninger lagres per bruker, tenant, merkevare og analyseside. Samme navn oppdaterer egen eksisterende visning. Eieren av tenanten kan ikke lese eller slette en annen brukers visninger. Tenantbytte gir et annet sett visninger.
+- Sammenligningsperiode inngår i graf- og innsiktscache der sammenligning vises. Tabeller uten sammenligning beholder periodens data.
+
+## U11 – Filterlinje og kryssfiltrering
+
+Felles filterlinje etter 7.8. Filterendringer henter kun data, og kopiert URL gjenskaper filtertilstanden. Lagrede visninger ligger i `saved_views` med tenant-RLS og brukeravgrensning. Datovalidering, tidsbøtter, cacheavgrensning, tenant-/brukerisolasjon, deling og mobilflyt testes. Se [ADR 0041](decisions/0041-analysefiltre-og-lagrede-visninger.md).

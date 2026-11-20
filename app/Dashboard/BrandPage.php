@@ -27,9 +27,7 @@ final class BrandPage
 
     public static function period(Request $request): DashboardPeriod
     {
-        $days = $request->filled('days') ? $request->integer('days') : 28;
-
-        return DashboardPeriod::forCurrentTenant(in_array($days, DashboardPeriod::LENGTHS, true) ? $days : 28);
+        return DashboardPeriod::fromInput($request->query());
     }
 
     /**

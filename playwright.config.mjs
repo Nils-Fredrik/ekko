@@ -21,6 +21,7 @@ export default defineConfig({
             APP_URL: `http://127.0.0.1:${port}`,
             SESSION_SECURE_COOKIE: 'false',
             EKKO_BROWSER_TEST: '1',
+            EKKO_INSIGHTS_ENABLED: 'false',
             QUEUE_CONNECTION: 'sync',
             CLOUD_RUN_ENABLED: 'false',
         },

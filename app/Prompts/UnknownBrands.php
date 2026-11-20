@@ -20,7 +20,7 @@ final class UnknownBrands
      * @param  list<int>  $marketIds
      * @return list<array{name: string, responses: int}>
      */
-    public static function suggestions(Brand $brand, DashboardPeriod $period, array $marketIds = []): array
+    public static function suggestions(Brand $brand, DashboardPeriod $period, array $marketIds = [], ?MetricsFilter $filter = null): array
     {
         $ids = $marketIds !== []
             ? array_map(fn (int|string $id): int => (int) $id, $marketIds)
@@ -30,7 +30,7 @@ final class UnknownBrands
         }
 
         $known = self::knownNames($brand);
-        $rows = app(MetricsService::class)->unknownBrands(new MetricsFilter($brand->id, $period->from, $period->to, marketIds: $ids));
+        $rows = app(MetricsService::class)->unknownBrands($filter ?? new MetricsFilter($brand->id, $period->from, $period->to, marketIds: $ids));
 
         $suggestions = [];
         foreach ($rows as $row) {

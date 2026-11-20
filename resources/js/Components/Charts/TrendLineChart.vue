@@ -5,7 +5,7 @@
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
-import { bucketMarkers, trendSelection } from './support/data.js';
+import { bucketMarkers, trendSelection, trendSeriesSelection } from './support/data.js';
 import { axisFormatter, formatChange, formatDate, formatValue, isLowSample, tooltipHtml } from './support/format.js';
 import { firstAndLast, lineSeries, pointRows, timeTable } from './support/lines.js';
 import { markerNotes, markerSeries } from './support/markers.js';
@@ -27,6 +27,7 @@ const props = defineProps({
     kind: { type: String, default: 'rate' },
     height: { type: Number, default: 240 },
     legend: { type: Boolean, default: true },
+    selectSeries: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['marker', 'select']);
@@ -45,6 +46,7 @@ function option({ palette }) {
             width: item.own ? 3 : 1.5,
             opacity: item.own || props.series.length === 1 ? 1 : 0.7,
             z: item.own ? 10 : 2,
+            extra: { triggerLineEvent: props.selectSeries },
         }),
     );
     if (props.previous) {
@@ -101,7 +103,9 @@ function option({ palette }) {
 }
 
 function select(params) {
-    const selected = trendSelection(params, props.categories, props.series);
+    const selected =
+        trendSelection(params, props.categories, props.series) ??
+        (props.selectSeries ? trendSeriesSelection(params, props.series) : null);
     if (selected) emit('select', selected);
 }
 

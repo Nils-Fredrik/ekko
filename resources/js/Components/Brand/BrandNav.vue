@@ -1,9 +1,15 @@
 <script setup>
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 
-defineProps({
+const props = defineProps({
     brandId: { type: Number, required: true },
 });
+
+const page = usePage();
+function href(item) {
+    const query = item.name === 'brands.actions.index' ? {} : (page.props.analysisFilters?.query ?? {});
+    return route(item.name, { brand: props.brandId, ...query });
+}
 
 const items = [
     { name: 'brands.show', label: 'app.library.overview', match: 'brands.show' },
@@ -24,7 +30,7 @@ function active(match) {
         <Link
             v-for="item in items"
             :key="item.name"
-            :href="route(item.name, brandId)"
+            :href="href(item)"
             class="rounded-full px-3 py-1 text-sm no-underline"
             :class="active(item.match) ? 'bg-primary text-white' : 'bg-shell-surface text-shell-text/70'"
         >

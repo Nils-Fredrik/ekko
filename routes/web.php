@@ -25,6 +25,7 @@ use App\Http\Controllers\PitchController;
 use App\Http\Controllers\PitchReportController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportLinkController;
+use App\Http\Controllers\SavedViewController;
 use App\Http\Controllers\SharedReportController;
 use App\Http\Controllers\TeamSettingsController;
 use App\Http\Controllers\UsageController;
@@ -99,6 +100,8 @@ Route::middleware([
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}/settings', [BrandSettingsController::class, 'show'])->name('brands.settings');
     Route::put('/brands/{brand}/settings', [BrandSettingsController::class, 'update'])->name('brands.settings.update');
+    Route::post('/brands/{brand}/views', [SavedViewController::class, 'store'])->name('brands.views.store');
+    Route::delete('/brands/{brand}/views/{savedView}', [SavedViewController::class, 'destroy'])->name('brands.views.destroy');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
 
     Route::get('/alerts', [AlertController::class, 'index'])->name('alerts.index');
