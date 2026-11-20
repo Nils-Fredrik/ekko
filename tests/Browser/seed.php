@@ -90,7 +90,20 @@ app(TenantContext::class)->run($billingTenant->id, function (): void {
         ], $kind);
     }
 });
-$values = ['SMOKE_EMAIL' => $user->email, 'SMOKE_PASSWORD' => $password, 'SMOKE_TENANT_ID' => (string) $team->id, 'SMOKE_BRAND_ID' => (string) $brand->id, 'SMOKE_WIZARD_EMAIL' => $owner->email, 'SMOKE_REPORT_TOKEN' => $reportToken, 'SMOKE_REPORT_SELECTOR' => $reportSelector, 'SMOKE_REPORT_NB_TOKEN' => $norwegianToken, 'SMOKE_REPORT_NB_SELECTOR' => $norwegianSelector];
+// T49: a partner advisor who creates a pitch project and follows it to a finished pitch report. The pitch engines
+// get prices so the wizard can estimate; collection is replaced by tests/Browser/pitch-collect.php.
+foreach (['chatgpt_api' => ['chatgpt', 'openai'], 'gemini_api' => ['gemini', 'google'], 'claude_haiku' => ['claude', 'anthropic']] as $key => [$family, $provider]) {
+    $pitchEngine = Engine::query()->firstOrCreate(['key' => $key], ['family' => $family, 'method' => 'api', 'provider' => $provider, 'config' => [], 'is_enabled' => true]);
+    $pitchEngine->forceFill(['is_enabled' => true])->save();
+    EnginePrice::factory()->for($pitchEngine)->create(['valid_from' => now()->subDay(), 'price_per_call_usd' => '0.01000000']);
+}
+$partner = Team::factory()->tenant()->create(['name' => 'Browser partner', 'plan_id' => Plan::factory()->create(['name' => 'Browser partner plan'])->id]);
+$advisor = User::factory()->withTwoFactor()->create([
+    'email' => 'browser-advisor@example.test', 'password' => Hash::make($password), 'locale' => 'en',
+]);
+$partner->users()->attach($advisor, ['role' => 'partner_advisor']);
+$advisor->switchTeam($partner);
+$values = ['SMOKE_EMAIL' => $user->email, 'SMOKE_PASSWORD' => $password, 'SMOKE_TENANT_ID' => (string) $team->id, 'SMOKE_BRAND_ID' => (string) $brand->id, 'SMOKE_WIZARD_EMAIL' => $owner->email, 'SMOKE_REPORT_TOKEN' => $reportToken, 'SMOKE_REPORT_SELECTOR' => $reportSelector, 'SMOKE_REPORT_NB_TOKEN' => $norwegianToken, 'SMOKE_REPORT_NB_SELECTOR' => $norwegianSelector, 'SMOKE_ADVISOR_EMAIL' => $advisor->email];
 // The integrated T33/T34 contracts are exercised by the deployment smoke test.
 if (class_exists(TokenTenant::class)) {
     $values['SMOKE_REST_TOKEN'] = $user->createToken('browser-smoke', ['read', 'tenant:'.$team->id])->plainTextToken;
