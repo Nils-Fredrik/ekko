@@ -135,7 +135,7 @@ function spokenChange(change) {
             <p class="text-sm text-shell-muted">{{ $t('app.partner.intro', { days: period.days }) }}</p>
             <p class="mt-3 text-sm text-shell-muted">
                 {{ $t('pitch.ui.partner_hint') }}
-                <Link :href="route('pitches.index')" class="text-primary no-underline">
+                <Link :href="route('pitches.index')" class="text-primary underline">
                     {{ $t('pitch.ui.manage') }}
                 </Link>
             </p>

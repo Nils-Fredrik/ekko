@@ -852,12 +852,12 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 
 **Typografi:**
 - **Skrift:** Suisse Intl med vektene 300 (Light), 400 (Book), 450 (Regular) og 500 (Medium), selvhostet som woff2 under `/fonts`. Reserve: `ui-sans-serif, system-ui, -apple-system`.
-- **Størrelser:** brødtekst `text-sm`. Metadata og hjelpetekst 12–13 px med `text-shell-text/50` og `/40`. Store tall og overskrifter med `font-medium tracking-tight`.
+- **Størrelser:** brødtekst `text-sm`. Metadata og hjelpetekst 12–13 px med `text-shell-muted`. `text-shell-text/40` og `/50` kommer under 4,5:1 og brukes ikke på tekst. Store tall og overskrifter med `font-medium tracking-tight`.
 - **Kode og ID-er:** `font-mono`.
 
 **Komponenter og mønstre (som i Varde):**
 - **Tema:** mørkt tema er standard, satt med `data-theme` på `<html>`. Valget (mørkt, lyst, system) lagres i `localStorage` under nøkkelen `ekko.theme` og settes med et inline-skript før første rendering, slik at siden ikke blinker.
-- **Knapper:** primærknapper er `rounded-full bg-primary hover:bg-primary-deep text-white text-sm font-medium`. Sekundærknapper er rammeknapper i skall-farger.
+- **Knapper:** primærknapper har klassen `rounded-full bg-primary text-white text-sm font-medium`. Hvit på `#e84a38` er 3,84:1, så flaten som bærer hvit tekst tegnes med `--color-primary-deep` (5,23:1) og hover med `--color-secondary`. Sekundærknapper er rammeknapper i skall-farger.
 - **Hjørner:** paneler og kort bruker `rounded-xl` eller `rounded-2xl` på `bg-shell-surface`/`bg-shell-panel` med tynne linjer.
 - **Statuskant:** varsler bruker en smal fargekant til venstre (`w-1 bg-warning` / `bg-error`), som på Varde-innloggingen.
 - **Tabeller:** tette, med hover-rad. Tall er høyrejustert med `tabular-nums`.
@@ -1147,7 +1147,7 @@ T36 implementerer policyene i `infra/terraform/monitoring.tf`. `ekko:monitor-hea
 
 **UI-kvalitet (U15):** Låst Linux/Chromium og syntetiske data brukes til versjonerte referansebilder. Nye Inertia-sider må inn i sideregisteret. Visuelle avvik, kritiske axe-funn og overskredne bundlebudsjetter stopper CI. Rapporten viser også endringer i referansebildene mot PR-ens basecommit. Se [ADR 0040](decisions/0040-visuell-regresjon-i-ci.md) og [UI-kvalitet](ui-quality.md).
 
-**Åpent UI-avvik:** Full WCAG 2.2 AA er ikke verifisert. Kontrast og tastaturtilgang til robotsidens rullefelt, avdekket av U15, følges opp i [U01-F1 / task:112](https://board.maksimer.com/b/vn4w66vc/work?task=112).
+**Tilgjengelighet (U01-F1):** U15s serious-funn for tekstkontrast og robotsidens rullefelt er rettet med eksisterende tokens: hvit tekst ligger på `--color-primary-deep`, lys primærtekst bruker samme token, og suksess- og feiltekst i mørkt tema er lysnet til 4,5:1. Robotsidens tabeller kan fokuseres og rulles med tastatur. Full manuell WCAG 2.2 AA-sertifisering er fortsatt ikke gjort.
 
 **Generelle krav til kode:**
 - Larastan nivå 6 uten unntak i ny kode.

@@ -38,7 +38,7 @@ Før opptak venter testen på at Vue er montert og alle utsatte Inertia-props er
 
 axe kjører WCAG 2 A/AA, 2.1 AA og 2.2 AA-regler på alle scenarioer i begge temaer og skjermstørrelser. Alle kritiske funn blokkerer, uten regelunntak. Øvrige funn bevares i rapporten for oppfølging. En grønn automatisk kontroll er ikke en full WCAG 2.2 AA-sertifisering: tastaturflyt, skjermleseropplevelse og tilstander som åpne dialoger må fortsatt vurderes. Eksisterende funksjonstester for temabytte og grafenes tabellalternativer beholdes.
 
-Første U15-kjøring, før fakta- og pitchsidene ble lagt til, hadde 0 kritiske funn etter retting av skjemanavn. Den rapporterte 458 `serious` node-funn over de 160 variantene (135 unike kombinasjoner av side, regel og mål): tekstkontrast og et ikke-tastaturfokuserbart rullefelt på robotsiden. Disse følges opp i [U01-F1 / Board task:112](https://board.maksimer.com/b/vn4w66vc/work?task=112).
+Første U15-kjøring, før fakta- og pitchsidene ble lagt til, hadde 0 kritiske funn etter retting av skjemanavn. Den rapporterte 458 `serious` node-funn over de 160 variantene: tekstkontrast og et ikke-tastaturfokuserbart rullefelt på robotsiden. U01-F1 retter disse med mørkere primærflate for hvit tekst, mørkere primærtekst i lyst tema, lysere suksess- og feiltekst i mørkt tema, og et fokuserbart rulleområde på robotsiden. Senere måling (544 serious) hadde i tillegg `link-in-text-block` og `target-size` på partnerlenken og rapportens sammendrag; de er understreket og gitt 24 px treffflate.
 
 ## JavaScript-budsjetter
 

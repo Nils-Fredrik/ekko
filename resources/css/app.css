@@ -331,3 +331,26 @@ input[type='radio']:not(:checked) {
         animation: none;
     }
 }
+
+/* White on #e84a38 is 3.84:1. Fills that carry white text use primary-deep (5.23:1). */
+.bg-primary.text-white {
+    background-color: var(--color-primary-deep);
+}
+
+.bg-primary.text-white:hover {
+    background-color: var(--color-secondary);
+}
+
+/* Primary as text fails on the light shell and on white panels. */
+:root[data-theme='light'] .text-primary {
+    color: var(--color-primary-deep);
+}
+
+/* The success and error marks are below 4.5:1 as text on the dark shell. */
+:root:not([data-theme='light']) .text-success {
+    color: #5d8a6a;
+}
+
+:root:not([data-theme='light']) .text-error {
+    color: #bd6861;
+}

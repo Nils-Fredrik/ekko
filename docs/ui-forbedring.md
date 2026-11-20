@@ -237,4 +237,4 @@ Alle aktive sider har skjermbilder og axe-kontroll i lys/mørk modus og desktop/
 
 Detaljer, grenser og kommandoer står i [UI-kvalitet](ui-quality.md). Kritiske axe-funn er den automatiske minimumssperren; WCAG 2.2 AA og manuell tastatur-/skjermleserkontroll er fortsatt mål for produktet. HTTP- og LCP-målene må måles separat på representative data, enheter og nettverk.
 
-**Åpent tilgjengelighetsavvik:** U15s første fullkjøring er fri for kritiske axe-funn, men har serious-funn for tekstkontrast og robotsidens rullefelt. [U01-F1 / task:112](https://board.maksimer.com/b/vn4w66vc/work?task=112) følger opp disse mot WCAG 2.2 AA.
+**Tilgjengelighet (U01-F1):** U15s serious-funn for tekstkontrast og robotsidens rullefelt er rettet. Hvit tekst på primær bruker `--color-primary-deep`, lys primærtekst bruker samme token, og suksess- og feiltekst i mørkt tema er lysnet slik at de klarer 4,5:1. Robotsidens tabeller kan fokuseres og rulles med tastatur. Full manuell WCAG 2.2 AA er fortsatt ikke sertifisert.
