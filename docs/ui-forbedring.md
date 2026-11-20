@@ -146,6 +146,19 @@ Konkurrentfilteret avgrenser grafene og tabellene til merkevaren og den valgte k
 - **Treemap etter kildetype:** siteringer per kildetype fra `citation_distribution` (ADR 0037). Er fordelingen ikke beregnet for alle dager i perioden, vises en forklaring i stedet for en ufullstendig graf. Klikk på en type viser bare domenene av den typen i listen.
 - **Klikk på et domene** (stolpe, gap eller listeelement) laster svarene som siterer det med en delvis Inertia-forespørsel (`?domain=`, prop `citing`): de 20 nyeste uttrukne svarene for merkevaren i perioden og filteret, med prompt, motor, marked, om merkevaren er nevnt og de siterte URL-ene.
 
+## 7.6 Roboter og trafikk
+
+`Brands/Crawlers.vue`. Tallene kommer fra `MetricsService`. Bot- og trafikkradene har bare merkevare og dato, så perioden er eneste filter. Perioder over 92 dager tegnes per ISO-uke, ellers per dag.
+
+- **Svaret først:** tre kort med periodens tall for traktstegene og endringen mot sammenligningsperioden (`funnel.current` og `funnel.previous` fra `trafficFunnel`), med minigraf for henting og besøk.
+- **Trakten «hentet av AI → sitert → besøk»** (`FunnelChart`): forespørsler fra AI-roboter mot merkevarens domener i tilgangsloggen, svar i målingen som siterer minst én side på egne domener (av n svar), og økter fra AI-tjenester i GA4. Hvert steg forklarer under grafen hvordan det er målt. Stegene måles hver for seg i ulike enheter, så trakten viser ikke andel av forrige steg (`:ratios="false"`). Et steg uten data er tomt, ikke null, og forklaringen sier om kilden mangler eller bare er tom i perioden.
+- **Henting per AI-robot** som stablet areal fra `bot_hits_daily`. Robotene sorteres etter treff i perioden og får `--data-cat-1…6` i den rekkefølgen. Er det flere enn seks, samles de minste i «Andre roboter». Loggen lagrer ingen rad for en dag uten robottreff, så en bøtte mellom første og siste bøtte med logg har null treff; før og etter står grafen tom. Har bare én bøtte data, tegnes nabobøttene som null, så punktet blir synlig (`robotBuckets.js`). En robot som mangler i en bøtte, har null treff. Navnet er user-agent-merket fra `ekko.bot_logs.bots`.
+- **AI-trafikk** som linje fra `ai_referrals_daily` (økter summert over kildene), med sammenligningsperioden stiplet, og tabell per kilde.
+- **Mest hentede sider:** de 20 sidene med flest treff i perioden (`botTopPages`), per domene og sti, med antall roboter. `bot_hits_daily` lagrer bare de ti mest hentede stiene per robot, domene og dag, så tallene er nedre grenser. Det står under overskriften.
+- **Tomtilstand:** mangler robotlogg (ClickHouse eller opplastet logg) eller GA4, og perioden ikke har data fra kilden, lenker tomtilstanden til merkevareinnstillingene der integrasjonene settes opp.
+
+Grafdataene er en utsatt prop (`chartData`, cachet i `GraphCache` per kornstørrelse og sammenligning).
+
 ## 9. Ytelse
 
 Dashboardets første HTTP-svar har et mål om p95 under 800 ms, også med ett års data. Tunge grafdata sendes som utsatte Inertia-props og caches per tenant, filterkombinasjon og lokal dag. Isolasjon og tilgangskontroll gjelder også de utsatte forespørslene. Tidsbegrenset cache må samtidig ivareta oppdateringsmålet i `docs/spec.md` kapittel 9.
