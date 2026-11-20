@@ -1,19 +1,31 @@
 <script setup>
-import AppLayout from '@/Layouts/AppLayout.vue';
-import MetricValue from '@/Components/Dashboard/MetricValue.vue';
+import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 
 const page = usePage();
 
-defineProps({
+const props = defineProps({
     period: { type: Object, required: true },
     brands: { type: Array, required: true },
     alerts: { type: Array, required: true },
     runs: { type: Array, required: true },
     usage: { type: Object, default: null },
     botLogUploadsUrl: { type: String, default: null },
+    chartData: { type: Array, default: null },
 });
+
+function sparkline(brandId) {
+    const series = props.chartData?.find((row) => row.brand_id === brandId)?.series ?? [];
+
+    return series.map((row) => ({
+        x: row.period,
+        value: row.visibility?.value ?? null,
+        n: row.visibility?.n ?? 0,
+        low_sample: Boolean(row.visibility?.low_sample),
+    }));
+}
 
 function when(value) {
     return new Intl.DateTimeFormat(document.documentElement.lang || 'nb', {
@@ -61,8 +73,15 @@ function when(value) {
                         <p class="mt-1 text-sm text-shell-muted">
                             {{ brand.markets.length ? brand.markets.join(', ') : $t('app.dashboard.no_markets') }}
                         </p>
-                        <p class="mt-4 text-xs text-shell-muted">{{ $t('app.dashboard.visibility') }}</p>
-                        <MetricValue :metric="brand.visibility" :previous="brand.previous_visibility" />
+                        <KpiCard
+                            class="mt-4"
+                            size="secondary"
+                            :framed="false"
+                            :label="$t('app.dashboard.visibility')"
+                            :metric="brand.visibility"
+                            :previous="brand.previous_visibility"
+                            :points="sparkline(brand.id)"
+                        />
                     </Link>
                 </section>
 

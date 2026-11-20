@@ -1,6 +1,7 @@
 <script setup>
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import BottomSheet from '@/Components/UI/BottomSheet.vue';
+import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
 import TrendChart from '@/Components/Dashboard/TrendChart.vue';
 import VoiceChart from '@/Components/Dashboard/VoiceChart.vue';
@@ -21,6 +22,7 @@ const props = defineProps({
     voice: { type: Array, required: true },
     engines: { type: Array, required: true },
     modelChanges: { type: Array, required: true },
+    chartData: { type: Object, default: null },
 });
 
 const days = ref(props.period.days);
@@ -35,7 +37,7 @@ const cards = [
     ['visibility', 'visibility', 'rate'],
     ['recommendation_rate', 'recommendation_rate', 'rate'],
     ['share_of_voice', 'share_of_voice', 'rate'],
-    ['average_position', 'average_position', 'number'],
+    ['average_position', 'average_position', 'number', false],
     ['first_place_rate', 'first_place_rate', 'rate'],
     ['citation_rate', 'citation_rate', 'rate'],
     ['sentiment', 'sentiment', 'number'],
@@ -57,6 +59,19 @@ function when(value) {
     return new Intl.DateTimeFormat(document.documentElement.lang || 'nb', { dateStyle: 'medium' }).format(
         new Date(value),
     );
+}
+
+function sparkline(key) {
+    return (props.chartData?.sparkline ?? []).map((row) => {
+        const metric = row.metrics?.[key] ?? {};
+
+        return {
+            x: row.period,
+            value: metric.value ?? null,
+            n: metric.n ?? 0,
+            low_sample: Boolean(metric.low_sample),
+        };
+    });
 }
 
 function shareText(share) {
@@ -168,14 +183,16 @@ function shareText(share) {
                 </button>
 
                 <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <div
-                        v-for="[key, label, kind] in cards"
+                    <KpiCard
+                        v-for="[key, label, kind, higherIsBetter] in cards"
                         :key="key"
-                        class="rounded-2xl border border-line bg-shell-panel p-4"
-                    >
-                        <p class="text-xs text-shell-muted">{{ $t(`app.dashboard.${label}`) }}</p>
-                        <MetricValue class="mt-2 block" :metric="summary[key]" :kind="kind" :previous="previous[key]" />
-                    </div>
+                        :label="$t(`app.dashboard.${label}`)"
+                        :metric="summary[key]"
+                        :kind="kind"
+                        :higher-is-better="higherIsBetter !== false"
+                        :previous="previous[key]"
+                        :points="sparkline(key)"
+                    />
                 </section>
 
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
