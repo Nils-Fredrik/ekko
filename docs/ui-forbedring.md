@@ -30,10 +30,31 @@ Fargene ligger i tema-filen som egne tokens, med verdier for mørkt og lyst tema
 | Token | Bruk |
 |---|---|
 | `--data-own` | Egen merkevare. Lik `--color-primary`. |
-| `--data-cat-1` … `--data-cat-6` | Konkurrenter, i fast rekkefølge. Avledet fra beige- og burgunder-tonene. |
+| `--data-cat-1` … `--data-cat-6` | Konkurrenter, i fast rekkefølge. Dempede jordtoner i ulike nyanser, like i begge temaer. |
 | `--data-seq-0` … `--data-seq-6` | Sekvensiell skala for heatmap, i primærfargens tone. `--data-seq-0` er skallflaten og `--data-seq-6` er `--data-own`. Skalaen går fra flaten til primær, så de første trinnene er flaten selv og kan ikke samtidig ha 3:1 mot den. |
 | `--data-positive`, `--data-negative`, `--data-neutral` | Endringer og sentiment. Positiv og negativ følger `success` og `error`. Nøytral er en beige. |
 | `--data-marker-model`, `--data-marker-action` | Markører for modellbytte og tiltak. |
+
+### Skillbare konkurrentfarger
+
+Konkurrentfargene må kunne skilles fra egen merkevare og fra hverandre, også i mørkt tema. Avstanden måles med CIEDE2000 (ΔE00):
+
+- minst 20 mellom `--data-own` og hver konkurrentfarge
+- minst 10 mellom to konkurrentfarger
+- minst 3:1 kontrast mot `#000000`, `#0b0909`, `#ffffff` og `#f5ede4`
+
+En ΔE00 på omtrent 2 er så vidt merkbar, og omtrent 10 er tydelig ulikt når fargene står side om side. Grensen 20 mot egen merkevare gir margin for tynne linjer, små punkter og mørk bakgrunn, der farger ser likere ut. `tests/Unit/DataColorContrastTest.php` kontrollerer reglene.
+
+| Token | Før | ΔE00 mot own | Etter | ΔE00 mot own |
+|---|---|---|---|---|
+| `--data-cat-1` | `#c45c48` | 6,8 | `#a8805a` | 21,9 |
+| `--data-cat-2` | `#906056` | 18,5 | `#8a6a9a` | 32,8 |
+| `--data-cat-3` | `#9a6840` | 19,8 | `#8c7a40` | 33,4 |
+| `--data-cat-4` | `#a35a68` | 19,7 | `#a86a86` | 24,4 |
+| `--data-cat-5` | `#7d6248` | 25,4 | `#7d6248` | 25,4 |
+| `--data-cat-6` | `#b56a4e` | 11,6 | `#6f8a7e` | 42,9 |
+
+Minste avstand mellom to konkurrentfarger var 5,9 før og er 11,2 etter. Laveste kontrast er 3,07 (`--data-cat-1` mot `#f5ede4`).
 
 ## U01 – Flater og datafarger
 
