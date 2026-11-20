@@ -59,3 +59,50 @@ test('queue preserves core-first input order and handles empty and lazy tenants'
     expect(PromptSchedule::due(1, 'off', now()))->toBeFalse();
     expect(fn () => PromptSchedule::due(1, 'invalid', now()))->toThrow(InvalidArgumentException::class);
 });
+
+test('multiweek prompts keep their local calendar day across new year and both clocks changing', function (string $frequency, int $interval, string $zone) {
+    $start = CarbonImmutable::parse('2025-12-01 00:03', $zone);
+    foreach ([1, 7, 123] as $prompt) {
+        $firstDue = CarbonImmutable::parse('1970-01-04', $zone)->addDays(crc32((string) $prompt) % $interval);
+        expect(PromptSchedule::due($prompt, $frequency, $firstDue))->toBeTrue();
+        $due = [];
+        $dueLate = [];
+        for ($offset = 0; $offset < 400; $offset++) {
+            $day = $start->addDays($offset);
+            if (PromptSchedule::due($prompt, $frequency, $day)) {
+                $due[] = $offset;
+                expect($day->dayOfWeek)->toBe(crc32((string) $prompt) % 7);
+            }
+            if (PromptSchedule::due($prompt, $frequency, $day->endOfDay())) {
+                $dueLate[] = $offset;
+            }
+        }
+        expect($due[0])->toBeLessThan($interval)
+            ->and($due)->toBe(range($due[0], 399, $interval))
+            ->and($dueLate)->toBe($due);
+    }
+})->with([['every_14_days', 14], ['every_21_days', 21]])->with(['Europe/Oslo', 'America/Los_Angeles']);
+
+test('every package cap includes exactly the frequencies at or below its rank', function () {
+    $ordered = ['daily', 'weekly', 'every_14_days', 'every_21_days', 'monthly', 'off'];
+    foreach ($ordered as $limit => $maximum) {
+        expect(PromptSchedule::frequencies($maximum))->toBe(array_slice($ordered, $limit));
+        foreach ($ordered as $rank => $frequency) {
+            expect(PromptSchedule::allows($frequency, $maximum))->toBe($rank >= $limit)
+                ->and(PromptSchedule::capped($frequency, $maximum))->toBe($rank >= $limit ? $frequency : $maximum);
+        }
+    }
+    expect(PromptSchedule::allows('hourly', 'daily'))->toBeFalse();
+});
+
+test('existing prompts keep their original weekly weekday and monthly date', function () {
+    $february = CarbonImmutable::parse('2028-02-01', 'Europe/Oslo');
+    foreach ([1, 7, 123] as $id) {
+        $hash = crc32((string) $id);
+        for ($day = 1; $day <= $february->daysInMonth; $day++) {
+            $date = $february->setDay($day);
+            expect(PromptSchedule::due($id, 'weekly', $date))->toBe($date->dayOfWeek === $hash % 7)
+                ->and(PromptSchedule::due($id, 'monthly', $date))->toBe($day === $hash % 28 + 1);
+        }
+    }
+});

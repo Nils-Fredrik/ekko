@@ -240,3 +240,18 @@ it('needs a prompt count or a market', function () {
 
     estimate($this, $owner, ['engines' => [['engine_key' => 'est_api', 'frequency' => 'daily']]])->assertStatus(422)->assertJsonValidationErrors('prompt_count');
 });
+
+it('estimates both multiweek intervals using the engine cap and monthly factors', function (string $frequency, int $answers, array $issues) {
+    estimateEngines();
+    $plan = Plan::factory()->create(['max_prompts_per_market' => 50, 'allowed_engines' => ['est_api'], 'engine_max_frequencies' => ['est_api' => 'every_21_days']]);
+    [, $owner] = wizardTenant($plan);
+
+    estimate($this, $owner, [
+        'prompt_count' => 50,
+        'core_prompt_count' => 10,
+        'engines' => [['engine_key' => 'est_api', 'frequency' => $frequency]],
+    ])->assertOk()->assertJsonPath('engines.0.calls', $answers)->assertJsonPath('issues.*.code', $issues);
+})->with([
+    ['every_14_days', 109, ['frequency_above_plan']],
+    ['every_21_days', 73, []],
+]);

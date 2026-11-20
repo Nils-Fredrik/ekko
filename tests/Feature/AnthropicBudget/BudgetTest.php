@@ -129,7 +129,7 @@ test('planning respects the selected Sonnet frequency and isolates idempotent te
     });
     $other = Team::factory()->tenant()->create();
     inAnthropicTenant($other, fn () => expect(AnthropicBudgetPlan::query()->count())->toBe(0));
-})->with([['daily', true], ['weekly', false], ['monthly', false]]);
+})->with([['daily', true], ['weekly', false], ['every_14_days', false], ['every_21_days', false], ['monthly', false]]);
 
 test('admin usage is available only to the platform admin and has translated budget state', function () {
     $user = User::factory()->platformAdmin()->withPersonalTeam()->withTwoFactor()->create();
@@ -255,3 +255,49 @@ test('known collection rejection releases capacity while unknown transport failu
     }
     expect(DB::table('anthropic_budget_holds')->whereNull('settled_at')->count())->toBe($known ? 0 : 1);
 })->with([true, false]);
+
+test('the credit forecast counts only scheduled core runs at the multiweek engine cap', function (string $frequency) {
+    $now = CarbonImmutable::now('UTC');
+    $engine = Engine::factory()->create(['key' => 'claude_haiku', 'provider' => 'anthropic', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create(['valid_from' => $now->subYear(), 'price_per_call_usd' => '0.02']);
+    $plan = Plan::factory()->create(['allowed_engines' => [$engine->key], 'engine_max_frequencies' => [$engine->key => $frequency]]);
+    $tenant = Team::factory()->tenant()->withPlan($plan)->create(['timezone' => 'Pacific/Auckland']);
+    $core = inAnthropicTenant($tenant, function () use ($engine) {
+        $market = Market::factory()->create(['is_active' => true]);
+        $market->brand->update(['status' => 'active']);
+        MarketEngine::factory()->for($market)->for($engine)->create(['frequency' => 'daily', 'prompt_scope' => 'core']);
+        Prompt::factory()->for($market)->create(['is_active' => true, 'priority' => 'standard']);
+
+        return Prompt::factory()->for($market)->create(['is_active' => true, 'priority' => 'core']);
+    });
+    $account = app(Account::class);
+    $days = $account->cycle($now)->daysLeft($now);
+    $dueDays = 0;
+    for ($offset = 0; $offset < $days; $offset++) {
+        if (PromptSchedule::due($core->id, $frequency, $now->setTimezone($tenant->timezone)->addDays($offset))) {
+            $dueDays++;
+        }
+    }
+    $estimator = app(Estimator::class);
+    $baseline = $dueDays * ($estimator->engine($engine->key, $now) + $estimator->extraction(3000, true, 800));
+    app(Planner::class)->plan($now);
+    expect($dueDays)->toBeGreaterThan(0)
+        ->and($account->summary()['forecast']['forecast_usd'])->toBe(Money::usd($baseline + intdiv($baseline + 9, 10)));
+})->with(['every_14_days', 'every_21_days']);
+
+test('disabled Sonnet schedules receive no credit allocation', function (string $selected, string $maximum) {
+    $engine = Engine::factory()->create(['key' => 'claude_sonnet', 'provider' => 'anthropic', 'is_enabled' => true]);
+    EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subYear()]);
+    $plan = Plan::factory()->create(['allowed_engines' => [$engine->key], 'max_frequency' => $maximum]);
+    $tenant = Team::factory()->tenant()->withPlan($plan)->create();
+    inAnthropicTenant($tenant, function () use ($engine, $selected) {
+        $market = Market::factory()->create(['is_active' => true]);
+        $market->brand->update(['status' => 'active']);
+        MarketEngine::factory()->for($market)->for($engine)->create(['frequency' => $selected]);
+        Prompt::factory()->for($market)->create(['is_active' => true, 'priority' => 'core']);
+    });
+
+    expect(app(Dispatcher::class)->dispatch(CarbonImmutable::now('UTC')))->toBe(0);
+    inAnthropicTenant($tenant, fn () => expect(AnthropicBudgetPlan::query()->sole()->additions)->toBe([])
+        ->and(AnthropicInsightAllocation::query()->count())->toBe(0));
+})->with([['off', 'daily'], ['daily', 'off']]);

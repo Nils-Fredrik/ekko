@@ -18,6 +18,7 @@ use App\Models\Topic;
 use App\Onboarding\Fetch\SiteUrl;
 use App\Onboarding\Model\OnboardingSchema;
 use App\Onboarding\Model\ProposalParser;
+use App\Scheduling\PromptSchedule;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
@@ -283,7 +284,7 @@ final class ProposalConfirmer
             $engine = Engine::query()->find($key);
             if (! $engine instanceof Engine || ! $engine->isAvailable() || isset($seen[$key])
                 || ($plan instanceof Plan && ! $plan->allowsEngine($key))
-                || ! $this->frequencyAllowed($frequency, $plan instanceof Plan ? $plan->maxFrequencyForEngine($key) : 'daily')
+                || ! PromptSchedule::allows($frequency, $plan instanceof Plan ? $plan->maxFrequencyForEngine($key) : 'daily')
                 || $repetitions < 1 || $repetitions > 3
                 || ($plan instanceof Plan && $repetitions > $plan->max_repetitions)) {
                 throw ValidationException::withMessages([
@@ -301,13 +302,6 @@ final class ProposalConfirmer
                 'repetitions' => $repetitions,
             ]);
         }
-    }
-
-    private function frequencyAllowed(string $chosen, string $max): bool
-    {
-        $rank = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
-
-        return isset($rank[$chosen], $rank[$max]) && $rank[$chosen] <= $rank[$max];
     }
 
     private function slug(string $name): string

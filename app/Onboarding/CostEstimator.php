@@ -10,6 +10,7 @@ use App\Extraction\ExtractionOutcome;
 use App\Models\Engine;
 use App\Models\Plan;
 use App\Models\Team;
+use App\Scheduling\PromptSchedule;
 use App\Usage\BillingAccount;
 use App\Usage\MonthlyUsage;
 use Brick\Math\BigDecimal;
@@ -26,9 +27,6 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
  */
 final class CostEstimator
 {
-    /** Order of frequencies, lowest first. */
-    private const FREQUENCIES = ['off', 'monthly', 'weekly', 'daily'];
-
     public function __construct(
         private readonly EnginePricing $pricing,
         private readonly TenantApiKeys $keys,
@@ -87,7 +85,7 @@ final class CostEstimator
                 if (! $plan->allowsEngine($engineKey)) {
                     $issues[] = ['code' => 'engine_not_in_plan', 'engine_key' => $engineKey];
                 }
-                if ($this->rank($row['frequency']) > $this->rank($plan->maxFrequencyForEngine($engineKey))) {
+                if (! PromptSchedule::allows($row['frequency'], $plan->maxFrequencyForEngine($engineKey))) {
                     $issues[] = ['code' => 'frequency_above_plan', 'engine_key' => $engineKey];
                 }
                 if ($row['repetitions'] > $plan->max_repetitions) {
@@ -176,12 +174,5 @@ final class CostEstimator
         }
 
         return $issues;
-    }
-
-    private function rank(string $frequency): int
-    {
-        $rank = array_search($frequency, self::FREQUENCIES, true);
-
-        return $rank === false ? -1 : $rank;
     }
 }

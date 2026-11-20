@@ -164,8 +164,7 @@ final class Dispatcher
                     if ($setting === null || ! $setting->engine->isAvailable() || ! $plan->allowsEngine($key)) {
                         continue;
                     }
-                    $ranks = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
-                    $frequency = $ranks[$setting->frequency] <= $ranks[$plan->maxFrequencyForEngine($key)] ? $setting->frequency : $plan->maxFrequencyForEngine($key);
+                    $frequency = PromptSchedule::capped($setting->frequency, $plan->maxFrequencyForEngine($key));
                     if ($tenant->kind === 'pitch' && $frequency !== 'off' && $plan->maxFrequencyForEngine($key) === 'daily') {
                         $frequency = 'daily';
                     }

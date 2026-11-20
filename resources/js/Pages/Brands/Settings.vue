@@ -190,10 +190,16 @@ function save() {
                         :disabled="!can.manage"
                         :class="field"
                     >
-                        <option value="daily">{{ $t('app.workspace.freq_daily') }}</option>
-                        <option value="weekly">{{ $t('app.workspace.freq_weekly') }}</option>
-                        <option value="monthly">{{ $t('app.workspace.freq_monthly') }}</option>
-                        <option value="off">{{ $t('app.workspace.freq_off') }}</option>
+                        <option
+                            v-if="!engines[index].frequencies.includes(engines[index].frequency)"
+                            :value="engines[index].frequency"
+                            disabled
+                        >
+                            {{ $t(`onboarding.frequencies.${engines[index].frequency}`) }}
+                        </option>
+                        <option v-for="frequency in engines[index].frequencies" :key="frequency" :value="frequency">
+                            {{ $t(`onboarding.frequencies.${frequency}`) }}
+                        </option>
                     </select>
                     <select
                         v-model="row.prompt_scope"

@@ -58,6 +58,8 @@ return [
     'frequencies' => [
         'daily' => 'Dagligen',
         'weekly' => 'Varje vecka',
+        'every_14_days' => 'Var 14:e dag',
+        'every_21_days' => 'Var tredje vecka',
         'monthly' => 'Varje månad',
         'off' => 'Av',
     ],

@@ -20,6 +20,7 @@ use App\Onboarding\Fetch\SiteUrl;
 use App\Onboarding\Model\OnboardingSchema;
 use App\Onboarding\ProposalConfirmer;
 use App\Scheduling\DispatcherLauncher;
+use App\Scheduling\PromptSchedule;
 use App\Tenancy\TenantContext;
 use App\Usage\BillingAccount;
 use App\Usage\MonthlyUsage;
@@ -76,6 +77,7 @@ class OnboardingController extends Controller
                 'engine_key' => $engine->key,
                 'name' => DashboardLabels::engines([$engine->key])[$engine->key],
                 'max_repetitions' => $tenant->kind === 'pitch' ? 1 : ($plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1),
+                'frequencies' => PromptSchedule::frequencies($plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'off'),
                 'max_frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'off',
                 'frequency' => $tenant->kind === 'pitch' ? 'daily' : ($plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'weekly'),
                 'repetitions' => $tenant->kind === 'pitch' ? 1 : ($plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1),
@@ -129,7 +131,7 @@ class OnboardingController extends Controller
             'prompts.*.priority' => ['required', Rule::in(['core', 'standard'])],
             'engines' => ['sometimes', 'array', 'max:20'],
             'engines.*.engine_key' => ['required', 'string', 'max:64'],
-            'engines.*.frequency' => ['required', Rule::in(['daily', 'weekly', 'monthly', 'off'])],
+            'engines.*.frequency' => ['required', Rule::in(PromptSchedule::frequencies())],
             'engines.*.repetitions' => ['required', 'integer', 'between:1,3'],
             ...$integrations->rules(),
         ], [], [
@@ -231,7 +233,7 @@ class OnboardingController extends Controller
         $data = $request->validate([
             'engines' => ['required', 'array', 'min:1', 'max:20'],
             'engines.*.engine_key' => ['required', 'string', 'max:64'],
-            'engines.*.frequency' => ['required', Rule::in(['daily', 'weekly', 'monthly', 'off'])],
+            'engines.*.frequency' => ['required', Rule::in(PromptSchedule::frequencies())],
             'engines.*.prompt_scope' => ['sometimes', Rule::in(['all', 'core'])],
             'engines.*.repetitions' => ['sometimes', 'integer', 'between:1,3'],
             'market_id' => ['sometimes', 'nullable', 'integer'],

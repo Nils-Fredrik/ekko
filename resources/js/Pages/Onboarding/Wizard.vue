@@ -16,7 +16,6 @@ const props = defineProps({
 const field = 'rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 const intents = ['category', 'comparison', 'brand', 'problem', 'local'];
 const stages = ['awareness', 'consideration', 'decision'];
-const frequencies = ['daily', 'weekly', 'monthly', 'off'];
 const step = ref('basis');
 const analysis = ref(null);
 const error = ref('');
@@ -486,15 +485,7 @@ function confirm() {
                         {{ engine.name }}
                     </label>
                     <select v-model="engine.frequency" :aria-label="$t('app.workspace.frequency')" :class="field">
-                        <option
-                            v-for="frequency in frequencies.filter(
-                                (item) =>
-                                    ['off', 'monthly', 'weekly', 'daily'].indexOf(item) <=
-                                    ['off', 'monthly', 'weekly', 'daily'].indexOf(engine.max_frequency),
-                            )"
-                            :key="frequency"
-                            :value="frequency"
-                        >
+                        <option v-for="frequency in engine.frequencies" :key="frequency" :value="frequency">
                             {{ $t(`onboarding.frequencies.${frequency}`) }}
                         </option>
                     </select>
