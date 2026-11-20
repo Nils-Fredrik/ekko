@@ -44,9 +44,31 @@ for (const { locale, tokenKey, selectorKey } of [
         expect(await trend.locator('table').textContent()).toContain(forty);
         await expect(trend.locator('table tbody tr')).toHaveCount(3);
         await expect(trend.locator('table tbody tr').nth(1)).toContainText(gapDate);
-        await trend.locator('summary').click();
+        await trend.locator(':scope > details > summary').click();
         await trend.getByRole('button', { name: /2026-10-03.*60\s*%/ }).click();
         await expect.poll(() => trend.getByTestId('shared-trend-selection').textContent()).toContain(sixty);
+        const markers = trend.getByTestId('chart-markers');
+        await markers.locator('summary').click();
+        await expect(markers.locator('li')).toHaveCount(2);
+        await expect(markers).toContainText('2026-10-02');
+        await expect(markers).toContainText(locale === 'en' ? 'Action started' : 'Tiltak startet');
+        await expect(markers).toContainText(locale === 'en' ? 'Action completed' : 'Tiltak fullført');
+        await expect(markers.locator('a')).toHaveCount(0);
+        await markers.locator('summary').click();
+        // A marker on the missing observation day still receives pointer events.
+        await trend.getByTestId('chart-table-toggle').click();
+        const marker = await trend.locator('[role="img"] svg path').evaluateAll((paths) => {
+            const lines = paths.map((path) => path.getBoundingClientRect())
+                .filter((rect) => rect.width < 2 && rect.height > 100).sort((a, b) => a.left - b.left);
+            return lines[0] ? { x: lines[0].left, y: lines[0].top + lines[0].height / 2 } : null;
+        });
+        expect(marker).not.toBeNull();
+        await page.mouse.move(marker.x, marker.y);
+        await expect(trend.locator('figure').getByText(locale === 'en'
+            ? '2026-10-02 · Action: Published action marker – Action started'
+            : '2026-10-02 · Tiltak: Published action marker – Tiltak startet', { exact: true })).toBeVisible();
+        await page.mouse.click(marker.x, marker.y);
+        await expect(trend.getByTestId('shared-marker-selection')).toContainText('Published action marker');
         expect(requests.some((request) => request.headers().authorization === `Bearer ${token}`)).toBe(true);
         expect(requests.every((request) => !request.url().includes(token))).toBe(true);
     });
