@@ -95,3 +95,14 @@ test('competitor suggestions honor engine and topic filters and stay within the 
     $this->actingAs($world->tenant->owner)->get(route('brands.competitors.index', [$world->brand, 'engine' => $world->engine->key, 'topic' => $topic->id]))
         ->assertOk()->assertInertia(fn ($page) => $page->where('suggestions', [['name' => 'Chosen fixture', 'responses' => 2]]));
 });
+
+test('grouping is retained only by the dashboard including saved views', function (string $page) {
+    $world = MetricsWorld::create();
+    $world->tenant->owner->switchTeam($world->tenant);
+    $filters = AnalysisFilters::query($world->brand, ['days' => 7, 'grain' => 'week'], $page);
+    expect($filters['grain'] ?? null)->toBe($page === 'brands.show' ? 'week' : null);
+    $this->actingAs($world->tenant->owner)->postJson(route('brands.views.store', $world->brand), [
+        'name' => 'Grouped view', 'page' => $page, 'filters' => ['days' => 7, 'grain' => 'week'],
+    ])->assertCreated();
+    expect(SavedView::query()->sole()->filters['grain'] ?? null)->toBe($page === 'brands.show' ? 'week' : null);
+})->with(AnalysisFilters::PAGES);

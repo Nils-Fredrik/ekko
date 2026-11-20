@@ -53,7 +53,8 @@ final class AnalysisFilters
         $data = Validator::make($input, [
             'market' => ['nullable', 'integer'], 'engine' => ['nullable', 'string', 'max:100'],
             'topic' => ['nullable', 'integer'], 'intent' => ['nullable', 'string', 'max:100'],
-            'competitor' => ['nullable', 'integer'], 'grain' => ['sometimes', Rule::in(['day', 'week', 'month'])],
+            'competitor' => ['nullable', 'integer'],
+            'grain' => $page === 'brands.show' ? ['sometimes', Rule::in(['day', 'week', 'month'])] : ['exclude'],
         ])->validate();
         $period = DashboardPeriod::fromInput($input);
         $query = ['from' => $period->from, 'to' => $period->to, 'comparison' => $period->comparison];
@@ -61,7 +62,9 @@ final class AnalysisFilters
             unset($query['from'], $query['to']);
             $query['days'] = $period->days;
         }
-        $query['grain'] = $data['grain'] ?? 'day';
+        if ($page === 'brands.show') {
+            $query['grain'] = $data['grain'] ?? 'day';
+        }
         foreach (self::options($brand, $page) as $key => $options) {
             foreach ($options as $option) {
                 if (isset($data[$key]) && (string) $data[$key] === (string) $option['value']) {

@@ -7,7 +7,10 @@ const props = defineProps({
 
 const page = usePage();
 function href(item) {
-    const query = item.name === 'brands.actions.index' ? {} : (page.props.analysisFilters?.query ?? {});
+    const query = ['brands.actions.index', 'brands.facts.index'].includes(item.name)
+        ? {}
+        : { ...(page.props.analysisFilters?.query ?? {}) };
+    if (item.name !== 'brands.show') delete query.grain;
     return route(item.name, { brand: props.brandId, ...query });
 }
 

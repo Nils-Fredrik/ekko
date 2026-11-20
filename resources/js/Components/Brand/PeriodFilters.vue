@@ -38,7 +38,7 @@ watch(
     },
     { immediate: true },
 );
-const grain = computed(() => ['brands.show', 'brands.competitors.index'].includes(props.routeName));
+const grain = computed(() => props.routeName === 'brands.show');
 const chips = computed(() =>
     Object.entries(config.value.options).flatMap(([key, items]) => {
         const selected = items.find((item) => String(item.value) === String(config.value.query[key]));
@@ -54,7 +54,8 @@ function visit(query) {
     });
 }
 function apply(close = () => {}) {
-    const query = { comparison: draft.value.comparison, grain: draft.value.grain };
+    const query = { comparison: draft.value.comparison };
+    if (grain.value) query.grain = draft.value.grain;
     if (draft.value.mode === 'custom') {
         query.from = draft.value.from;
         query.to = draft.value.to;
