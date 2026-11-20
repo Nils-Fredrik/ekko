@@ -294,3 +294,27 @@ test('the timeline keeps the ten newest events', function () {
             ->where('timeline.0.key', 'alert-'.$alerts[1])
             ->where('timeline.9.key', 'alert-'.$alerts[10]));
 });
+
+test('the timeline starts at local midnight of the period in the tenant time zone', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-17 12:00:00', 'UTC'));
+
+    try {
+        $world = MetricsWorld::create('Europe/Oslo');
+        Competitor::query()->update(['created_at' => '2026-09-01 12:00:00']);
+        $rule = AlertRule::factory()->create(['brand_id' => $world->brand->id]);
+        // The period starts 2026-10-21 in Oslo, which is 2026-10-20 22:00 UTC.
+        $inside = Alert::factory()->create(['alert_rule_id' => $rule->id, 'triggered_at' => '2026-10-20 22:30:00'])->id;
+        Alert::factory()->create(['alert_rule_id' => $rule->id, 'triggered_at' => '2026-10-20 21:30:00']);
+        $owner = $world->tenant->owner;
+        $owner->switchTeam($world->tenant);
+
+        $this->actingAs($owner)->get('/dashboard')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('period.from', '2026-10-21')
+                ->has('timeline', 1)
+                ->where('timeline.0.key', 'alert-'.$inside));
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
+});

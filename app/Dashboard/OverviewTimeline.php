@@ -25,7 +25,8 @@ final class OverviewTimeline
      */
     public function forPeriod(DashboardPeriod $period): array
     {
-        $since = CarbonImmutable::parse($period->from, $period->timezone)->startOfDay();
+        // The database session is UTC: compare against the UTC instant of the local start of the period.
+        $since = CarbonImmutable::parse($period->from, $period->timezone)->startOfDay()->utc();
         $items = [...$this->alerts($since), ...$this->modelChanges($period), ...$this->actions($since), ...$this->competitors($since)];
 
         // Newest first. Items on the same instant keep a stable order by key.
