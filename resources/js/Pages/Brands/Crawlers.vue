@@ -14,6 +14,7 @@ import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { trans } from 'laravel-vue-i18n';
+import { robotSpan } from './robotBuckets.js';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -73,19 +74,14 @@ const botSeries = computed(() => {
         byBucket.get(row.period).set(row.bot, row.hits);
     }
     const own = new Set(shownBots.value);
-    // The log stores no row for a day without robot hits, so a bucket between the first and last bucket with log data
-    // counts as zero; an isolated day would otherwise not be drawn. Outside that span the chart stays empty.
-    const withData = categories.value.filter((bucket) => byBucket.has(bucket));
-    const first = withData[0];
-    const last = withData[withData.length - 1];
+    // Buckets inside the logged span count missing robots as zero; see robotBuckets.js.
+    const span = robotSpan(categories.value, byBucket);
     const values = (pick) =>
-        categories.value.map((bucket) => {
-            if (first === undefined || bucket < first || bucket > last) {
-                return point(null);
-            }
-
-            return point(pick(byBucket.get(bucket) ?? new Map()));
-        });
+        categories.value.map((bucket, index) =>
+            span && index >= span.from && index <= span.to
+                ? point(pick(byBucket.get(bucket) ?? new Map()))
+                : point(null),
+        );
     const series = shownBots.value.map((bot, index) => ({
         key: bot,
         label: botLabel(bot),
