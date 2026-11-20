@@ -151,7 +151,7 @@ ECharts fra `echarts/core` med SVG-tegning, ett tema bygget fra tokens som bytte
 
 - Temabytte endrer grafene uten ny lasting.
 - Grafbiblioteket lastes ikke på sider uten grafer.
-- `VoiceChart` er fjernet i U05. `TrendChart` står igjen på promptsiden, og Chart.js fjernes sammen med den når den siden er bygget om.
+- `VoiceChart` er fjernet i U05. `TrendChart` og Chart.js er fjernet i U06.
 
 ## 7.9 Kommandopalett
 
@@ -190,6 +190,14 @@ Avvik fra rekkefølgen i oppgaven:
 - Motorsammenligningen står over trenden, så begge svarene får plass på første skjerm.
 - Modellbytter er markører på trenden og motorpanelet, ikke en egen liste.
 - Innsiktslinjen ligger også på oversikten, så `ekko.insights.enabled` kan være på. U10 eier fortsatt ombyggingen av oversikten.
+
+## U06 – Prompts: heatmap, minigraf og stabilitet
+
+Promptlisten åpner med heatmapen prompts × motorer, gruppert etter tema. Klikk i en celle åpner prompten med den motoren valgt i filteret. Tabellen er et alternativ, med minigraf for synlighet (siste 28 dager, uavhengig av periodelengden) og prikkrad for de siste 14 dagene. En prikk er fylt når merkevaren ble nevnt den dagen.
+
+`PromptShow` viser én celle per dag og motor. Klikk på en celle med svar viser svaret, med uthevede nevnelser og kilder, og om nevnelsen er den samme som i forrige svar. Dager uten svar kan ikke velges.
+
+Inline redigering, aktivering og CSV-import og -eksport er uendret. `TrendChart` og Chart.js er fjernet.
 
 ## 7.8 Filterlinje
 

@@ -111,11 +111,24 @@ class BrandPromptController extends Controller
             'importResult' => session('prompt_import'),
             'personalData' => (bool) session('personal_data'),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
-                'brand.prompts.u11', $filter, $period->timezone, fn (): array => [
-                    'topics' => AnalysisFilters::topicBars($brand, $metrics, $filter),
-                    'heatmap' => $metrics->visibilityByPromptEngine($filter),
-                    'stability' => $metrics->stabilityDots($dotsFilter),
-                ],
+                'brand.prompts.u11', $filter, $period->timezone, function () use ($brand, $metrics, $filter, $dotsFilter, $period, $selection): array {
+                    $sparkFrom = CarbonImmutable::parse($period->to)->subDays(27)->toDateString();
+                    $sparkFilter = new MetricsFilter($filter->brandId, $sparkFrom, $period->to, ...$selection);
+                    $heatmap = $metrics->visibilityByPromptEngine($filter);
+                    $labels = DashboardLabels::engines(array_values(array_unique(array_column($heatmap, 'engine_key'))));
+
+                    return [
+                        'topics' => AnalysisFilters::topicBars($brand, $metrics, $filter),
+                        'heatmap' => $heatmap,
+                        'engines' => array_map(
+                            fn (string $key): array => ['key' => $key, 'name' => $labels[$key] ?? DashboardLabels::engine($key)],
+                            array_keys($labels),
+                        ),
+                        'sparklines' => $metrics->visibilityByPromptSeries($sparkFilter),
+                        'sparkline' => ['from' => $sparkFrom, 'to' => $period->to],
+                        'stability' => $metrics->stabilityDots($dotsFilter),
+                    ];
+                },
             )),
         ]);
     }
@@ -191,7 +204,7 @@ class BrandPromptController extends Controller
         ]);
     }
 
-    public function show(Request $request, Brand $brand, Prompt $prompt, MetricsService $metrics): InertiaResponse
+    public function show(Request $request, Brand $brand, Prompt $prompt): InertiaResponse
     {
         BrandPage::authorizeView($brand);
         $prompt = $this->promptOf($brand, $prompt);
@@ -225,9 +238,14 @@ class BrandPromptController extends Controller
                 ];
             }
             $collected = $response->collected_at;
+            $groups[$key]['key'] = $key;
             $groups[$key]['answers'][] = [
                 'id' => $response->id,
                 'collected_at' => $collected instanceof CarbonInterface ? $collected->toIso8601String() : '',
+                'date' => $collected instanceof CarbonInterface ? $collected->copy()->timezone($period->timezone)->toDateString() : '',
+                'mentioned' => $response->mentions->contains(
+                    fn ($mention): bool => $mention->entity_type === 'brand' && (int) $mention->entity_id === (int) $brand->id,
+                ),
                 'segments' => AnswerSegments::from((string) $response->answer_text, $response->mentions, $caseFold),
                 'citations' => $response->citations->map(fn ($citation): array => [
                     'domain' => (string) $citation->domain,
@@ -236,6 +254,10 @@ class BrandPromptController extends Controller
                 ])->all(),
                 'raw' => route('brands.responses.raw', [$brand, $response]),
             ];
+        }
+
+        foreach ($groups as $key => $group) {
+            $groups[$key]['answers'] = $this->withMentionChange($group['answers']);
         }
 
         return Inertia::render('Brands/PromptShow', [
@@ -251,14 +273,31 @@ class BrandPromptController extends Controller
             ],
             'period' => $period->toArray(),
             'analysisFilters' => AnalysisFilters::payload($brand, 'brands.prompts.show', $viewQuery),
-            'series' => array_map(fn (array $point): array => [
-                'period' => $point['period'],
-                'visibility' => $point['summary']->visibility->toArray(),
-            ], $metrics->series($filter)),
             'engines' => array_values($groups),
             'truncated' => $total > 100,
             'shown' => $responses->count(),
         ]);
+    }
+
+    /**
+     * Oldest answer first, so each change is against the previous answer of the same engine.
+     *
+     * @param  list<array<string, mixed>>  $answers
+     * @return list<array<string, mixed>>
+     */
+    private function withMentionChange(array $answers): array
+    {
+        $chronological = array_reverse($answers);
+        $previous = null;
+        foreach ($chronological as $index => $answer) {
+            $mentioned = (bool) $answer['mentioned'];
+            $chronological[$index]['change'] = $previous === null
+                ? null
+                : ($mentioned === $previous ? 'same' : ($mentioned ? 'gained' : 'lost'));
+            $previous = $mentioned;
+        }
+
+        return array_reverse($chronological);
     }
 
     /**
