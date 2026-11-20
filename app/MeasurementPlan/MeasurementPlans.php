@@ -165,6 +165,15 @@ final class MeasurementPlans
                 }
             }
         }
+        // A market that starts to inherit activates the standard's rules, so they must pass today's checks too.
+        $joining = array_keys(array_filter($markets, fn (array $change): bool => $change['plan_mode'] === Market::PLAN_INHERIT));
+        if ($standard === null && $joining !== [] && $this->standardErrors($tenant, $brand) !== []) {
+            foreach ($input['markets'] as $index => $row) {
+                if (is_array($row) && in_array(self::integer($row['id'] ?? null), $joining, true)) {
+                    $errors["markets.{$index}.plan_mode"] = __('app.plan.standard_invalid');
+                }
+            }
+        }
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
@@ -239,7 +248,21 @@ final class MeasurementPlans
         $this->sync($brand->planEngines(), $rules);
     }
 
-    /** A new market inherits the brand's plan (docs/spec.md 7.6). */
+    /**
+     * Why the brand's stored standard cannot be activated for a market now (package, availability or price changed
+     * since it was saved), keyed like a standard.engines payload. Empty when it can.
+     *
+     * @return array<string, array<mixed>|string>
+     */
+    public function standardErrors(Team $tenant, Brand $brand): array
+    {
+        $errors = [];
+        $this->validateRules($tenant, $this->rules($brand->planEngines()->get()), 'standard.engines', $errors);
+
+        return $errors;
+    }
+
+    /** A new market inherits the brand's plan (docs/spec.md 7.6). Callers check standardErrors() first. */
     public function inherit(Market $market): void
     {
         $market->forceFill(['plan_mode' => Market::PLAN_INHERIT])->save();

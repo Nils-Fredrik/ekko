@@ -297,6 +297,9 @@ final class ProposalConfirmer
             if ($rules !== null) {
                 throw ValidationException::withMessages(['engines' => __('app.plan.engines_with_inherit')]);
             }
+            if ($this->plans->standardErrors($tenant, $brand) !== []) {
+                throw ValidationException::withMessages(['plan_mode' => __('app.plan.standard_invalid')]);
+            }
             $this->plans->inherit($market);
 
             return;

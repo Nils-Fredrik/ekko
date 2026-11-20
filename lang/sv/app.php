@@ -358,6 +358,7 @@ return [
         'too_many_rules' => 'Planen kan ha högst :max regler.',
         'engine_unavailable' => ':engine är inte tillgänglig i paketet.',
         'frequency_above_cap' => 'Intervallet för :engine är tätare än paketet tillåter.',
+        'standard_invalid' => 'Varumärkets plan har motorval som inte kan användas nu. Uppdatera planen innan marknaden ärver den.',
         'repetitions_above_cap' => 'Paketet tillåter högst :max upprepningar.',
     ],
 

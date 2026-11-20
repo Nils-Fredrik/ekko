@@ -3,13 +3,14 @@
 namespace App\MeasurementPlan;
 
 use App\Models\Engine;
+use App\Models\EnginePrice;
 use App\Models\Plan;
 use App\Models\Team;
 
 /**
  * The plan a new brand starts with (docs/spec.md 7.4 and 7.6). The engines and prompt scopes come from
  * 7.4 with one repetition. Each frequency is the rarest of the engine's standard, the chosen brand
- * interval and the package cap. Engines that are unavailable or outside the package are off, and a
+ * interval and the package cap. Engines that are unavailable, unpriced or outside the package are off, and a
  * tenant without a package gets every engine off.
  *
  * @phpstan-import-type PlanRule from MeasurementPlans
@@ -34,11 +35,13 @@ final class StandardPlan
         /** @var list<array{engine_key: string, prompt_scope: string, frequency: string}> $standard */
         $standard = config('ekko.measurement_plan.standard');
         $engines = Engine::query()->whereIn('key', array_column($standard, 'engine_key'))->get()->keyBy('key');
+        // An engine without a current price cannot be saved as active (7.6), so it starts off.
+        $priced = EnginePrice::query()->whereIn('engine_key', $engines->keys())->where('valid_from', '<=', now())->distinct()->pluck('engine_key')->all();
         $rules = [];
         foreach ($standard as $row) {
             $key = $row['engine_key'];
             $engine = $engines->get($key);
-            $usable = $engine instanceof Engine && $engine->isAvailable() && $plan instanceof Plan && $plan->allowsEngine($key)
+            $usable = $engine instanceof Engine && $engine->isAvailable() && $plan instanceof Plan && $plan->allowsEngine($key) && in_array($key, $priced, true)
                 && (! $pitch || in_array($key, self::PITCH_ENGINES, true));
             $frequency = $usable ? Frequency::rarest($row['frequency'], $interval, $plan->maxFrequencyForEngine($key)) : 'off';
             if ($engine === null) {

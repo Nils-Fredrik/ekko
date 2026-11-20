@@ -1,5 +1,6 @@
 <?php
 
+use App\MeasurementPlan\StandardPlan;
 use App\Models\Brand;
 use App\Models\Engine;
 use App\Models\Market;
@@ -133,4 +134,14 @@ it('gives a market inserted without a plan mode own choices and refuses an unkno
         expect(fn () => DB::transaction(fn () => DB::table('markets')->where('id', $id)->update(['plan_mode' => 'borrowed'])))
             ->toThrow(QueryException::class);
     });
+});
+
+it('starts an engine without a current price off in the standard plan', function () {
+    planCatalogue(['chatgpt_api', 'claude_haiku']);
+    DB::table('engine_prices')->where('engine_key', 'claude_haiku')->delete();
+    [$tenant] = planTenant();
+
+    $rules = collect(StandardPlan::forTenant($tenant))->keyBy('engine_key');
+    expect($rules['chatgpt_api']['frequency'])->toBe('daily')
+        ->and($rules['claude_haiku']['frequency'])->toBe('off');
 });

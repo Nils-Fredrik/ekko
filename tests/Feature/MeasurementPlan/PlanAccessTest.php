@@ -140,3 +140,21 @@ it('keeps the plan tables behind row-level security and same-tenant foreign keys
         expect(Market::query()->whereKey($mine['a']->id)->exists())->toBeFalse();
     });
 });
+
+it('refuses to let a market inherit a stored standard that can no longer be activated', function () {
+    [$tenant, $owner] = planTenant();
+    $w = planWorld($tenant, [planRule('chatgpt_api', 'daily')], [planRule('claude_haiku', 'daily')]);
+    // The price behind the stored standard is gone, as after a migration or a price change.
+    DB::table('engine_prices')->where('engine_key', 'chatgpt_api')->delete();
+    $before = planState($tenant);
+
+    $this->actingAs($owner)->putJson(route('brands.plan.update', $w['brand']), ['markets' => [['id' => $w['b']->id, 'plan_mode' => 'inherit']]])
+        ->assertUnprocessable()->assertJsonValidationErrors(['markets.0.plan_mode' => __('app.plan.standard_invalid')]);
+    expect(planState($tenant))->toEqual($before);
+
+    // A valid standard sent in the same change lets it inherit.
+    $this->putJson(route('brands.plan.update', $w['brand']), [
+        'standard' => ['engines' => [planRule('chatgpt_api', 'off'), planRule('claude_haiku', 'weekly')]],
+        'markets' => [['id' => $w['b']->id, 'plan_mode' => 'inherit']],
+    ])->assertOk()->assertJsonPath('markets.1.plan_mode', 'inherit');
+});

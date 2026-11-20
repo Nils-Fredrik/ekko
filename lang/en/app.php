@@ -358,6 +358,7 @@ return [
         'too_many_rules' => 'The plan can have at most :max rules.',
         'engine_unavailable' => ':engine is not available in the package.',
         'frequency_above_cap' => 'The interval for :engine is more frequent than the package allows.',
+        'standard_invalid' => 'The brand plan has engine choices that cannot be used now. Update the plan before the market inherits it.',
         'repetitions_above_cap' => 'The package allows at most :max repetitions.',
     ],
 

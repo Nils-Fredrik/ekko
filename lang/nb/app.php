@@ -358,6 +358,7 @@ return [
         'too_many_rules' => 'Planen kan ha høyst :max regler.',
         'engine_unavailable' => ':engine er ikke tilgjengelig i pakken.',
         'frequency_above_cap' => 'Intervallet for :engine er hyppigere enn pakken tillater.',
+        'standard_invalid' => 'Merkevarens plan har motorvalg som ikke kan brukes nå. Oppdater planen før markedet arver den.',
         'repetitions_above_cap' => 'Pakken tillater høyst :max gjentakelser.',
     ],
 

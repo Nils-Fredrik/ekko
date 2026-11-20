@@ -171,3 +171,26 @@ it('previews a draft for every market without writing anything', function () {
         ->and($preview[$w['b']->id])->toBe(['plan_mode' => 'inherit', 'is_active' => true, 'engines' => [planRule('chatgpt_api', 'monthly')]])
         ->and(inTenant($tenant, fn () => [DB::table('brand_plan_engines')->get()->toArray(), DB::table('market_engines')->get()->toArray(), DB::table('markets')->get()->toArray()]))->toEqual($before);
 });
+
+it('refuses a new market from the wizard that would inherit a standard that can no longer be activated', function () {
+    [$tenant, $owner] = planTenant();
+    $brand = inTenant($tenant, function () {
+        $brand = Brand::factory()->create(['status' => 'active']);
+        $brand->topics()->create(['name' => 'Sko', 'cross_market_key' => 'shoes']);
+        app(MeasurementPlans::class)->initialize($brand, [planRule('chatgpt_api', 'daily')]);
+
+        return $brand;
+    });
+    DB::table('engine_prices')->where('engine_key', 'chatgpt_api')->delete();
+    $store = app(AnalysisStore::class);
+    $analysis = $store->create($tenant->id, $owner->id, Analysis::MARKET, ['brand_id' => $brand->id, 'country' => 'SE', 'language' => 'sv']);
+    $analysis->status = Analysis::READY;
+    $store->save($analysis);
+
+    $this->actingAs($owner)->post(route('onboarding.analyses.confirm', $analysis->id), [
+        'country' => 'SE', 'language' => 'sv', 'plan_mode' => 'inherit',
+        'prompts' => [['text' => 'Vilken sko är bäst?', 'cross_market_key' => 'shoes', 'intent' => 'category', 'funnel_stage' => 'awareness', 'priority' => 'core']],
+    ])->assertSessionHasErrors(['plan_mode' => __('app.plan.standard_invalid')]);
+
+    expect(inTenant($tenant, fn () => Market::query()->where('country', 'SE')->exists()))->toBeFalse();
+});
