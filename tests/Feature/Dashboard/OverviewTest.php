@@ -1,9 +1,12 @@
 <?php
 
+use App\Enums\ActionStatus;
+use App\Models\Action;
 use App\Models\AggDaily;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
+use App\Models\Competitor;
 use App\Models\Engine;
 use App\Models\Market;
 use App\Models\MarketEngine;
@@ -58,7 +61,7 @@ test('the overview shows the tenant brands with visibility and n, and nothing fr
             ->where('brands.0.visibility.value', 0.5)
             ->where('brands.0.visibility.n', 20)
             ->where('brands.0.visibility.low_sample', false)
-            ->has('alerts', 1)
+            ->where('timeline', fn ($timeline) => collect($timeline)->where('kind', 'alert')->count() === 1)
             ->has('runs', 1)
             ->where('usage.calls', 12)
             ->where('usage.quota_calls', 100));
@@ -209,4 +212,85 @@ test('the period follows the tenant being acted as', function () {
     } finally {
         CarbonImmutable::setTestNow();
     }
+});
+
+test('what has happened is one timeline of alerts, model changes, completed actions and new competitors', function () {
+    CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-17 12:00:00', 'UTC'));
+
+    try {
+        $world = MetricsWorld::create();
+        Competitor::query()->update(['created_at' => '2026-09-01 12:00:00']);
+        $rule = AlertRule::factory()->create(['brand_id' => $world->brand->id]);
+        Alert::factory()->create(['alert_rule_id' => $rule->id, 'triggered_at' => '2026-11-16 08:00:00']);
+        // Older than the 28-day period: not on the overview.
+        Alert::factory()->create(['alert_rule_id' => $rule->id, 'triggered_at' => '2026-10-01 08:00:00']);
+        ModelChange::factory()->create([
+            'engine_key' => $world->engine->key,
+            'changed_on' => '2026-11-14',
+            'from_model' => 'model-a',
+            'to_model' => 'model-b',
+        ]);
+        $done = Action::factory()->create([
+            'brand_id' => $world->brand->id,
+            'title' => 'Publiser prisside',
+            'status' => ActionStatus::Done,
+            'completed_at' => '2026-11-15 09:00:00',
+        ]);
+        Action::factory()->create(['brand_id' => $world->brand->id, 'status' => ActionStatus::New]);
+        $competitor = Competitor::factory()->for($world->brand)->create(['name' => 'Kaffebrenneriet', 'created_at' => '2026-11-13 10:00:00']);
+        Competitor::factory()->for($world->brand)->create(['name' => 'Avslatt', 'is_active' => false, 'created_at' => '2026-11-13 10:00:00']);
+
+        app(TenantContext::class)->run(Team::factory()->tenant()->create()->id, function () {
+            $brand = Brand::factory()->create(['name' => 'Hemmeligmerke']);
+            Alert::factory()->create(['alert_rule_id' => AlertRule::factory()->create(['brand_id' => $brand->id])->id, 'triggered_at' => '2026-11-16 09:00:00']);
+            Competitor::factory()->for($brand)->create(['name' => 'Hemmelig konkurrent', 'created_at' => '2026-11-16 09:00:00']);
+            ModelChange::factory()->create(['changed_on' => '2026-11-16', 'from_model' => 'secret-a', 'to_model' => 'secret-b']);
+        });
+
+        $owner = $world->tenant->owner;
+        $owner->switchTeam($world->tenant);
+
+        $this->actingAs($owner)->get('/dashboard')
+            ->assertOk()
+            ->assertDontSee('Hemmelig')
+            ->assertDontSee('secret-b')
+            ->assertInertia(fn ($page) => $page
+                ->component('Home')
+                ->has('timeline', 4)
+                ->where('timeline.0.kind', 'alert')
+                ->where('timeline.0.brand', 'Fjordkaffe')
+                ->where('timeline.0.href', route('alerts.index'))
+                ->where('timeline.1.kind', 'action_done')
+                ->where('timeline.1.title', 'Publiser prisside')
+                ->where('timeline.1.href', route('brands.actions.show', [$world->brand->id, $done->id]))
+                ->where('timeline.2.kind', 'model_change')
+                ->where('timeline.2.at', '2026-11-14')
+                ->where('timeline.2.date_only', true)
+                ->where('timeline.2.detail', 'model-a → model-b')
+                ->where('timeline.2.brand', null)
+                ->where('timeline.3.kind', 'competitor')
+                ->where('timeline.3.title', 'Kaffebrenneriet')
+                ->where('timeline.3.href', route('brands.competitors.index', $competitor->brand_id)));
+    } finally {
+        CarbonImmutable::setTestNow();
+    }
+});
+
+test('the timeline keeps the ten newest events', function () {
+    $world = MetricsWorld::create();
+    Competitor::query()->update(['created_at' => now()->subDays(60)]);
+    $rule = AlertRule::factory()->create(['brand_id' => $world->brand->id]);
+    $alerts = [];
+    foreach (range(1, 12) as $hour) {
+        $alerts[$hour] = Alert::factory()->create(['alert_rule_id' => $rule->id, 'triggered_at' => now()->subHours($hour)])->id;
+    }
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+
+    $this->actingAs($owner)->get('/dashboard')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('timeline', 10)
+            ->where('timeline.0.key', 'alert-'.$alerts[1])
+            ->where('timeline.9.key', 'alert-'.$alerts[10]));
 });
