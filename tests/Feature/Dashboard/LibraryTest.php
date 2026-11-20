@@ -426,11 +426,13 @@ test('sources and crawlers read MetricsService', function () {
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->component('Brands/Sources')
-            ->where('share.0.domain', 'kaffe.example.test')
-            ->where('share.0.share', 0.2)
-            ->where('share.0.n', 20)
-            ->where('gap.0.gap_rate', 0.2)
-            ->where('gap.0.n', 10));
+            ->missing('chartData')
+            ->loadDeferredProps(fn ($deferred) => $deferred
+                ->where('chartData.sources.0.domain', 'kaffe.example.test')
+                ->where('chartData.sources.0.share', 0.2)
+                ->where('chartData.sources.0.n', 20)
+                ->where('chartData.gaps.0.gap_rate', 0.2)
+                ->where('chartData.gaps.0.n', 10)));
 
     $this->actingAs($owner)->get(route('brands.crawlers', $world->brand))
         ->assertOk()
