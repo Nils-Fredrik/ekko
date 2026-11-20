@@ -87,6 +87,7 @@ return [
         'all_actions' => 'All actions',
         'no_actions' => 'No open actions.',
         'no_sentiment' => 'No sentiment in the period.',
+        'sentiment_unavailable' => 'Sentiment figures are missing for this period.',
         'filters' => 'Filters',
         'open_filters' => 'Open filters',
         'all_markets' => 'All markets',

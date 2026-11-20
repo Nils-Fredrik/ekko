@@ -87,6 +87,7 @@ return [
         'all_actions' => 'Alla åtgärder',
         'no_actions' => 'Inga öppna åtgärder.',
         'no_sentiment' => 'Inget sentiment i perioden.',
+        'sentiment_unavailable' => 'Sentimenttalen saknas för den här perioden.',
         'filters' => 'Filter',
         'open_filters' => 'Öppna filter',
         'all_markets' => 'Alla marknader',

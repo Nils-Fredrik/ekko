@@ -486,7 +486,11 @@ function openMarker(marker) {
                     <div>
                         <h3 class="text-sm font-medium text-shell-text">{{ $t('app.dashboard.sentiment') }}</h3>
                         <p v-if="sentimentRows.length === 0 && chartData" class="mt-3 text-sm text-shell-muted">
-                            {{ $t('app.dashboard.no_sentiment') }}
+                            {{
+                                chartData.sentiment?.complete === false
+                                    ? $t('app.dashboard.sentiment_unavailable')
+                                    : $t('app.dashboard.no_sentiment')
+                            }}
                         </p>
                         <DivergingBarChart
                             v-else-if="sentimentRows.length"
