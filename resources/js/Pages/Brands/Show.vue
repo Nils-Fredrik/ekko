@@ -37,7 +37,7 @@ const cards = [
     ['visibility', 'visibility', 'rate'],
     ['recommendation_rate', 'recommendation_rate', 'rate'],
     ['share_of_voice', 'share_of_voice', 'rate'],
-    ['average_position', 'average_position', 'number'],
+    ['average_position', 'average_position', 'number', false],
     ['first_place_rate', 'first_place_rate', 'rate'],
     ['citation_rate', 'citation_rate', 'rate'],
     ['sentiment', 'sentiment', 'number'],
@@ -184,11 +184,12 @@ function shareText(share) {
 
                 <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <KpiCard
-                        v-for="[key, label, kind] in cards"
+                        v-for="[key, label, kind, higherIsBetter] in cards"
                         :key="key"
                         :label="$t(`app.dashboard.${label}`)"
                         :metric="summary[key]"
                         :kind="kind"
+                        :higher-is-better="higherIsBetter !== false"
                         :previous="previous[key]"
                         :points="sparkline(key)"
                     />

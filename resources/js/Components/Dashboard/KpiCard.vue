@@ -13,6 +13,8 @@ const props = defineProps({
     kind: { type: String, default: 'rate' },
     size: { type: String, default: 'primary' },
     framed: { type: Boolean, default: true },
+    // Average position improves when the number falls. Colour, arrow and spoken tone follow that.
+    higherIsBetter: { type: Boolean, default: true },
 });
 
 const delta = computed(() => {
@@ -28,8 +30,12 @@ const direction = computed(() => {
         return 'flat';
     }
 
-    return delta.value > 0 ? 'up' : 'down';
+    const improved = props.higherIsBetter ? delta.value > 0 : delta.value < 0;
+
+    return improved ? 'up' : 'down';
 });
+
+const presented = computed(() => (delta.value === null || props.higherIsBetter ? delta.value : -delta.value));
 
 const changeStyle = computed(() => {
     const color = { up: 'var(--data-positive)', down: 'var(--data-negative)', flat: 'var(--data-neutral)' }[
@@ -52,7 +58,7 @@ const spoken = computed(() => {
     }).format(Math.abs(props.kind === 'rate' ? delta.value * 100 : delta.value));
     const change = props.kind === 'rate' ? trans('app.dashboard.change_points_spoken', { change: amount }) : amount;
 
-    return trans(delta.value > 0 ? 'app.dashboard.change_up' : 'app.dashboard.change_down', { change });
+    return trans(direction.value === 'up' ? 'app.dashboard.change_up' : 'app.dashboard.change_down', { change });
 });
 
 const hasSparkline = computed(() => props.points.some((point) => !isMissing(point?.value)));
@@ -85,7 +91,7 @@ const hasSparkline = computed(() => props.points.some((point) => !isMissing(poin
                 <svg v-else-if="direction === 'down'" viewBox="0 0 12 12" class="size-3" aria-hidden="true">
                     <path d="M6 10.5 L1 2.5 H11 Z" fill="currentColor" />
                 </svg>
-                {{ formatChange(delta, kind) }}
+                {{ formatChange(presented, kind) }}
             </span>
         </p>
         <SparklineChart
