@@ -341,12 +341,13 @@ input[type='radio']:not(:checked) {
     background-color: var(--color-primary-deep);
 }
 
-.bg-primary.text-white:hover {
+:is(a, button):not(:disabled).bg-primary.text-white:hover {
     background-color: var(--color-secondary);
 }
 
 /* Primary as text fails on the light shell and on white panels. */
-:root[data-theme='light'] .text-primary {
+:root[data-theme='light'] .text-primary,
+:root[data-theme='light'] .hover\:text-primary:hover {
     color: var(--color-primary-deep);
 }
 
