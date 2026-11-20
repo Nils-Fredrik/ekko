@@ -4,7 +4,9 @@ namespace App\Jobs;
 
 use App\Jobs\Middleware\ApplyTenantRls;
 use App\Jobs\Middleware\SetTenantContext;
+use App\Scheduling\CollectionLocks;
 use App\Tenancy\TenantAware;
+use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -14,6 +16,8 @@ use Illuminate\Foundation\Queue\Queueable;
  *
  * The tenant is always a constructor parameter. Subclasses call parent::__construct($tenantId)
  * and merge parent::middleware() if they add their own middleware.
+ *
+ * A subclass that is ShouldBeUnique takes its unique lock through {@see self::uniqueVia()}.
  */
 abstract class TenantJob implements ShouldQueue, TenantAware
 {
@@ -39,5 +43,16 @@ abstract class TenantJob implements ShouldQueue, TenantAware
     {
         // Context first (layer 1), then row-level security for the job's tenant (layer 2).
         return [new SetTenantContext, new ApplyTenantRls];
+    }
+
+    /**
+     * The cache for the lock of a unique job (ShouldBeUnique, ShouldBeUniqueUntilProcessing). A unique job may be
+     * dispatched inside a transaction, and the database store's own lock aborts the surrounding PostgreSQL
+     * transaction (SQLSTATE 25P02) when the job is already queued. Every unique job therefore uses the
+     * PostgreSQL-safe lock (T49, T21-F1). Laravel only asks unique jobs for it.
+     */
+    public function uniqueVia(): Repository
+    {
+        return CollectionLocks::uniqueJobCache();
     }
 }

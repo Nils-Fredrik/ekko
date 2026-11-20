@@ -3,6 +3,7 @@
 use App\Engines\RawResponseStore;
 use App\Jobs\CollectEngineRun;
 use App\Jobs\GenerateTenantActions;
+use App\Jobs\SubmitExtractionBatch;
 use App\Models\Engine;
 use App\Models\EnginePrice;
 use App\Models\Market;
@@ -221,6 +222,31 @@ test('poll-only dispatch does not plan a new day and only queues submitted runs 
         $runs[1]->forceFill(['status' => 'submitted', 'enqueued_at' => null, 'next_poll_at' => now()->addHour()])->save();
     }));
     expect(app(Dispatcher::class)->dispatch(CarbonImmutable::now(), false))->toBe(1);
+});
+
+test('a poll while the extraction submit is still queued keeps planning the tenant on the database cache', function () {
+    // T21-F1: the dispatcher queues SubmitExtractionBatch inside the tenant transaction. On the PostgreSQL database
+    // cache (production), the held unique lock must not abort that transaction and fail the tenant's planning.
+    config(['cache.default' => 'database']);
+    app()->forgetInstance('cache.store');
+    $engine = dispatchEngine();
+    $tenant = dispatchTenant($engine, 2);
+    $dispatcher = app(Dispatcher::class);
+    $dispatcher->dispatch(CarbonImmutable::now());
+    DB::table('jobs')->delete();
+    $due = fn () => app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], function () {
+        $runs = Run::query()->orderBy('id')->get();
+        $runs[0]->forceFill(['status' => 'collected'])->save();
+        $runs[1]->forceFill(['status' => 'submitted', 'enqueued_at' => null, 'next_poll_at' => now()->subMinute()])->save();
+    }));
+
+    $due();
+    expect($dispatcher->dispatch(CarbonImmutable::now(), false))->toBe(1)->and($dispatcher->failures)->toBe(0);
+    $due();
+    expect($dispatcher->dispatch(CarbonImmutable::now(), false))->toBe(1)->and($dispatcher->failures)->toBe(0);
+
+    $jobs = DB::table('jobs')->pluck('payload')->map(fn ($payload) => json_decode($payload, true)['displayName']);
+    expect($jobs->filter(fn ($name) => $name === SubmitExtractionBatch::class)->count())->toBe(1);
 });
 
 test('queue insertion rolls back together with its run marker', function () {
