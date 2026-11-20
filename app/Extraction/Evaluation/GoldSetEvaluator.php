@@ -115,9 +115,12 @@ final class GoldSetEvaluator
                 $sourceTypes['total']++;
                 $sourceTypes['correct'] += $modelType === $citation['source_type'] ? 1 : 0;
 
-                // What is stored: the deterministic rules over the model's type, as in ExtractionWriter.
+                // What is stored: the deterministic rules over the model's type, as in ExtractionWriter. An answer whose
+                // model stage failed keeps no source types at all, since the writer then skips the citations.
                 $domain = (string) ($this->urls->normalize($citation['url'])['domain'] ?? '');
-                $stored = $this->sourceTypeRules->resolve($domain, $domains->classify($domain)['ownership'], $modelType);
+                $stored = $attempt->result === null
+                    ? null
+                    : $this->sourceTypeRules->resolve($domain, $domains->classify($domain)['ownership'], $modelType);
                 $storedSourceTypes['total']++;
                 if ($stored === $citation['source_type']) {
                     $storedSourceTypes['correct']++;

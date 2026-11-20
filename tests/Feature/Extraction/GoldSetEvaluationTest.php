@@ -91,6 +91,21 @@ it('sends every gold answer to the provider once, in batches, with the retry onl
         ->and($client->retries)->toBe(['nb-17', 'nn-09', 'sv-07']);
 });
 
+it('counts no stored source types for an answer whose model stage failed, as the writer stores none', function () {
+    $recorded = json_decode((string) file_get_contents(recordingPath()), true)['outputs'];
+    $failing = ['batch' => ['error' => 'errored'], 'retry' => ['text' => 'not json', 'input_tokens' => 10, 'output_tokens' => 1]];
+    $client = new FakeExtractionClient(fn (string $id): array => $id === 'nb-40' ? $failing : $recorded[$id]);
+
+    $report = (new GoldSetEvaluator)->evaluate(goldPath(), new ExtractionRunner($client));
+
+    // nb-40 has four citations; the recording had two of them wrong from the model and all four right when stored.
+    expect($report->failedIds)->toBe(['nn-09', 'nb-40'])
+        ->and($report->sourceTypes)->toBe(['correct' => 34, 'total' => 46])
+        ->and($report->storedSourceTypes)->toBe(['correct' => 41, 'total' => 46])
+        ->and($report->sourceTypeMisses)->toHaveCount(5)
+        ->and($report->sourceTypeMisses[0])->toBe('nb-40 https://shop.kaffekompaniet.no/kapsler: - ≠ other');
+});
+
 it('prints the report from the artisan command, offline with a recording', function () {
     expect(Artisan::call('ekko:extraction:eval', ['--recorded' => recordingPath()]))->toBe(0);
     $output = Artisan::output();
