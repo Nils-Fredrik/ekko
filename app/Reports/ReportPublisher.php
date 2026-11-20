@@ -236,6 +236,9 @@ final class ReportPublisher
             'gaps' => $this->metrics->sourceGap($current, 15),
             'bots' => $this->metrics->botHits($current),
             'traffic' => $this->metrics->aiTraffic($current),
+            'funnel' => $this->funnel($current),
+            'competitor_series' => $this->competitorSeries($current, $schedule->brand->name),
+            'heatmap' => $this->heatmap($current),
             'models' => $this->metrics->modelChanges($from, $to)->map(fn ($change): array => [
                 'engine' => $change->engine_key,
                 'on' => $change->changed_on->toDateString(),
@@ -243,6 +246,90 @@ final class ReportPublisher
                 'to' => $change->to_model,
             ])->all(),
             'actions' => $this->actions->section($schedule->brand_id, $from, $to),
+        ];
+    }
+
+    /**
+     * @return list<array{label: string, value: int|null, low: bool}>
+     */
+    private function funnel(MetricsFilter $filter): array
+    {
+        $funnel = $this->metrics->trafficFunnel($filter);
+
+        return array_map(fn (string $key): array => [
+            'label' => __('app.crawlers.'.$key),
+            'value' => $funnel[$key]['value'],
+            'low' => $funnel[$key]['low_sample'],
+        ], ['fetched', 'cited', 'visits']);
+    }
+
+    /**
+     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, points: list<float|null>}>}
+     */
+    private function competitorSeries(MetricsFilter $filter, string $brand): array
+    {
+        $series = $this->metrics->competitorVisibilitySeries($filter);
+        $lines = [];
+        foreach ($series as $point) {
+            foreach ($point['entities'] as $entity) {
+                $id = $entity['id'];
+                $lines[$id] ??= [
+                    'name' => $id === 'brand' ? $brand : (string) $entity['name'],
+                    'own' => $id === 'brand',
+                    'points' => [],
+                    'latest' => $entity['share_of_voice']['value'],
+                ];
+                $lines[$id]['points'][] = $entity['share_of_voice']['value'];
+                $lines[$id]['latest'] = $entity['share_of_voice']['value'];
+            }
+        }
+        $own = $lines['brand'] ?? null;
+        unset($lines['brand']);
+        uasort($lines, fn (array $a, array $b): int => ($b['latest'] ?? -1) <=> ($a['latest'] ?? -1));
+        $chosen = array_slice(array_values($lines), 0, 5);
+        if ($own !== null) {
+            array_unshift($chosen, $own);
+        }
+        foreach ($chosen as &$line) {
+            unset($line['latest']);
+        }
+        unset($line);
+
+        return ['periods' => array_column($series, 'period'), 'lines' => $chosen];
+    }
+
+    /**
+     * @return array{engines: list<string>, rows: list<array{prompt: string, cells: list<float|null>}>}
+     */
+    private function heatmap(MetricsFilter $filter): array
+    {
+        $cells = $this->metrics->visibilityByPromptEngine($filter);
+        $totals = [];
+        foreach ($cells as $cell) {
+            $totals[$cell['prompt_id']] = ($totals[$cell['prompt_id']] ?? 0) + ($cell['visibility']['value'] ?? 0);
+        }
+        arsort($totals);
+        $promptIds = array_slice(array_map(intval(...), array_keys($totals)), 0, 20);
+        $grid = [];
+        foreach ($cells as $cell) {
+            $grid[$cell['prompt_id']][$cell['engine_key']] = $cell['visibility']['value'];
+        }
+        $engines = [];
+        foreach ($promptIds as $id) {
+            foreach (array_keys($grid[$id] ?? []) as $engine) {
+                $engines[$engine] = true;
+            }
+        }
+        $engines = array_keys($engines);
+        sort($engines);
+        $names = Prompt::query()->whereIn('id', $promptIds)->pluck('text', 'id');
+
+        return [
+            'engines' => $engines,
+            'rows' => array_map(fn (int $id): array => [
+                'prompt' => (string) ($names[$id] ?? $id),
+                'cells' => array_map(fn (string $engine): ?float => $grid[$id][$engine] ?? null, $engines),
+            ], $promptIds),
         ];
     }
 

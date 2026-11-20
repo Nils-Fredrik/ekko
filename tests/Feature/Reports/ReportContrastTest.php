@@ -46,10 +46,31 @@ test('section bars are the same markup on the web page and in the pdf', function
         ],
     ];
 
-    $pdf = view('reports.pdf', $base)->render();
-    $shared = view('reports.pdf', [...$base, 'shared' => true])->render();
+    $charts = [
+        'competitor_series' => [
+            'periods' => ['2026-10-01', '2026-10-02'],
+            'lines' => [['name' => 'Northwind', 'own' => true, 'points' => [0.2, 0.4]]],
+        ],
+        'heatmap' => [
+            'engines' => ['chatgpt'],
+            'rows' => [['prompt' => 'Who leads?', 'cells' => [0.5]]],
+        ],
+        'funnel' => [
+            ['label' => 'Fetched', 'value' => 12, 'low' => false],
+            ['label' => 'Cited', 'value' => 4, 'low' => true],
+            ['label' => 'Visits', 'value' => null, 'low' => true],
+        ],
+    ];
+    $pdf = view('reports.pdf', [...$base, ...$charts])->render();
+    $shared = view('reports.pdf', [...$base, ...$charts, 'shared' => true])->render();
 
-    expect($pdf)->toContain('data-testid="report-bars-engines"')
+    expect($pdf)->toContain('data-testid="report-competitor-lines"')
+        ->toContain('data-testid="report-prompt-heatmap"')
+        ->toContain('data-testid="report-bars-funnel"')
+        ->and($shared)->toContain('data-testid="report-competitor-lines"')
+        ->toContain('data-testid="report-prompt-heatmap"')
+        ->toContain('data-testid="report-bars-funnel"')
+        ->and($pdf)->toContain('data-testid="report-bars-engines"')
         ->toContain('data-testid="report-bars-sources"')
         ->and($shared)->toContain('data-testid="report-bars-engines"')
         ->toContain('data-testid="report-bars-sources"');

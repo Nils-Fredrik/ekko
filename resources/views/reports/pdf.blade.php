@@ -91,12 +91,14 @@
 
         <section class="report-section" id="report-competitors">
             <h2>{{ __('reports.competitors') }}</h2>
+            @include('reports.partials.lines', ['series' => $competitor_series ?? ['periods' => [], 'lines' => []], 'label' => __('reports.competitors')])
             @include('reports.partials.bars', ['name' => 'competitors', 'label' => __('reports.competitors'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['name'], 'value' => $row['share_of_voice']['ratio'] ?? null, 'low' => $row['share_of_voice']['low'] ?? false], $competitors)])
             @include('reports.partials.table', ['columns' => [__('reports.competitor'), __('reports.mentions'), __('reports.visibility'), __('reports.share_of_voice')], 'rows' => array_map(fn ($row) => [$row['name'], $row['mentions'], $row['visibility'], $row['share_of_voice']], $competitors)])
         </section>
 
         <section class="report-section" id="report-prompts">
             <h2>{{ __('reports.prompts') }}</h2>
+            @include('reports.partials.heatmap', ['heatmap' => $heatmap ?? ['engines' => [], 'rows' => []], 'label' => __('reports.prompts')])
             @include('reports.partials.bars', ['name' => 'prompts', 'label' => __('reports.prompts'), 'scale' => 'rate', 'items' => array_map(fn ($row) => ['label' => $row['prompt'], 'value' => $row['visibility']['ratio'] ?? null, 'low' => $row['visibility']['low'] ?? false], $prompts)])
             @include('reports.partials.table', ['columns' => [__('reports.prompt'), __('reports.visibility'), __('reports.change')], 'rows' => array_map(fn ($row) => [$row['prompt'], $row['visibility'], $row['change']], $prompts)])
         </section>
@@ -135,6 +137,8 @@
         </section>
 
         <section class="report-section" id="report-robots">
+            <h2>{{ __('app.crawlers.funnel') }}</h2>
+            @include('reports.partials.bars', ['name' => 'funnel', 'label' => __('app.crawlers.funnel'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['label'], 'value' => $row['value'], 'low' => $row['low'] ?? false], $funnel ?? [])])
             <h2>{{ __('reports.bots') }}</h2>
             @include('reports.partials.bars', ['name' => 'bots', 'label' => __('reports.bots'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['bot'], 'value' => $row['hits'], 'low' => false], $bots)])
             @include('reports.partials.table', ['columns' => [__('reports.bot'), __('reports.hits')], 'rows' => array_map(fn ($row) => [$row['bot'], $row['hits']], $bots)])
