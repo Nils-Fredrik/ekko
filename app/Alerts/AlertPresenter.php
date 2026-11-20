@@ -139,7 +139,7 @@ final class AlertPresenter
 
     private function competitor(mixed $id): string
     {
-        return is_numeric($id) ? ($this->competitors[(int) $id] ??= (string) Competitor::query()->whereKey((int) $id)->value('name')) : '';
+        return is_numeric($id) ? ($this->competitors[(int) $id] ??= (string) Competitor::withTrashed()->whereKey((int) $id)->value('name')) : '';
     }
 
     private function prompt(mixed $id): string

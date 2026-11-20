@@ -271,6 +271,7 @@ return [
         'suggestions' => 'Suggested brands',
         'no_suggestions' => 'No unknown brands recur in this period.',
         'add_competitor' => 'Add as competitor',
+        'confirm_delete_competitor' => 'Delete :name from the competitor list? Tracking for this competitor will stop. Previous answers are kept.',
         'no_competitors' => 'No competitors.',
         'suggestion_count' => ':count answers',
         'imported' => 'Imported :created prompts. Skipped :skipped.',

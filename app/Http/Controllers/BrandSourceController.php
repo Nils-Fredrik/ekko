@@ -50,6 +50,7 @@ class BrandSourceController extends Controller
             'citing' => fn (): ?array => $domain === null ? null : $page->citing($brand, $filter, $domain),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
                 'brand.sources.u08', $filter, $period->timezone, fn (): array => $page->chartData($brand, $filter),
+                competitorIds: $brand->competitors->modelKeys(),
             )),
         ]);
     }

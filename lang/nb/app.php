@@ -271,6 +271,7 @@ return [
         'suggestions' => 'Foreslåtte merkevarer',
         'no_suggestions' => 'Ingen ukjente merkevarer går igjen i perioden.',
         'add_competitor' => 'Legg til som konkurrent',
+        'confirm_delete_competitor' => 'Slett :name fra konkurrentlisten? Sporingen av konkurrenten stopper. Tidligere svar beholdes.',
         'no_competitors' => 'Ingen konkurrenter.',
         'suggestion_count' => ':count svar',
         'imported' => 'Importerte :created prompter. Hoppet over :skipped.',
