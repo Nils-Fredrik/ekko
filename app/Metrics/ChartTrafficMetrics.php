@@ -4,6 +4,7 @@ namespace App\Metrics;
 
 use App\Models\AiReferralDaily;
 use App\Models\BotHitDaily;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 /** Tenant-scoped daily aggregates for robot and AI traffic charts. */
@@ -61,6 +62,35 @@ trait ChartTrafficMetrics
                 'conversions' => (float) $row->conversions,
                 'n' => (int) $row->sessions,
                 'low_sample' => (int) $row->sessions < 10,
+            ])->all();
+    }
+
+    /**
+     * The pages AI robots fetched most in the period, per domain and path. Each daily row keeps only its ten
+     * most fetched paths (per domain and robot), so a page's hits are the sum of the days it made that list:
+     * a lower bound, never an estimate. `bots` is the number of robots that fetched the page.
+     *
+     * @return list<array{domain: string, path: string, hits: int, bots: int}>
+     */
+    public function botTopPages(MetricsFilter $filter, int $limit = 20): array
+    {
+        $this->ensureTrafficFilter($filter);
+
+        return BotHitDaily::query()
+            ->where('bot_hits_daily.brand_id', $filter->brandId)
+            ->whereBetween('bot_hits_daily.date', [$filter->from, $filter->to])
+            ->toBase()
+            ->crossJoin(DB::raw('lateral jsonb_array_elements(bot_hits_daily.top_paths) as page(item)'))
+            ->selectRaw("bot_hits_daily.domain, page.item->>'path' as path, sum((page.item->>'hits')::bigint) as hits, count(distinct bot_hits_daily.bot) as bots")
+            ->groupByRaw("bot_hits_daily.domain, page.item->>'path'")
+            ->orderByDesc('hits')->orderBy('domain')->orderBy('path')
+            ->limit($limit)
+            ->get()
+            ->map(fn (object $row): array => [
+                'domain' => (string) $row->domain,
+                'path' => (string) $row->path,
+                'hits' => (int) $row->hits,
+                'bots' => (int) $row->bots,
             ])->all();
     }
 

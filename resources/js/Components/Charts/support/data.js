@@ -229,3 +229,12 @@ export function trendSeriesSelection(params, series) {
     if (item?.key == null || !item.points.some((point) => point?.value != null)) return null;
     return selection(item.key);
 }
+
+/**
+ * True when a series has a value with no drawn neighbour on either side, e.g. a period of a single bucket.
+ * A line or area cannot be drawn from one point, so such a series shows its symbols instead.
+ */
+export function hasIsolatedPoint(values) {
+    const drawn = (index) => values[index] !== null && values[index] !== undefined;
+    return values.some((_, index) => drawn(index) && !drawn(index - 1) && !drawn(index + 1));
+}

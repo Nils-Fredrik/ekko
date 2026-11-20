@@ -50,7 +50,7 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
             $response->update(['answer_text' => 'Fjord Coffee offers sustainably roasted coffee. Northern Roast is another option.']);
         }
         app(DailyAggregator::class)->aggregate($day);
-        BotHitDaily::query()->create(['brand_id' => $brand->id, 'domain' => 'coffee.example.test', 'bot' => 'GPTBot', 'date' => $day, 'hits' => 35, 'unique_paths' => 4, 'top_paths' => []]);
+        BotHitDaily::query()->create(['brand_id' => $brand->id, 'domain' => 'coffee.example.test', 'bot' => 'GPTBot', 'date' => $day, 'hits' => 35, 'unique_paths' => 4, 'top_paths' => [['path' => '/', 'hits' => 20], ['path' => '/sourcing', 'hits' => 15]]]);
         AiReferralDaily::query()->create(['brand_id' => $brand->id, 'source' => 'chatgpt.com', 'date' => $day, 'sessions' => 12, 'engaged_sessions' => 8, 'conversions' => 2]);
     }
     $action = Action::factory()->own()->for($brand)->create(['market_id' => $market->id, 'topic_id' => $topic->id,
