@@ -4,9 +4,7 @@ namespace App\Jobs;
 
 use App\FactCheck\FactChecker;
 use App\Jobs\Middleware\SetTenantContext;
-use App\Scheduling\CollectionLocks;
 use Carbon\CarbonImmutable;
-use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Contracts\Queue\ShouldBeUniqueUntilProcessing;
 
 /**
@@ -35,15 +33,6 @@ class CheckTenantFacts extends TenantJob implements ShouldBeUniqueUntilProcessin
     public function uniqueId(): string
     {
         return 'fact-check:'.$this->tenantId;
-    }
-
-    /**
-     * The job is dispatched inside transactions (a fact saved, several facts in the wizard, an answer extracted) while
-     * an earlier one may still hold the lock: the lock must not abort the transaction (T49).
-     */
-    public function uniqueVia(): Repository
-    {
-        return CollectionLocks::uniqueJobCache();
     }
 
     public function handle(FactChecker $checker): void
