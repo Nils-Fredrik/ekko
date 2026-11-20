@@ -1,14 +1,18 @@
 <script setup>
 import BrandNav from '@/Components/Brand/BrandNav.vue';
-import BottomSheet from '@/Components/UI/BottomSheet.vue';
+import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
+import SmallMultiplesChart from '@/Components/Charts/SmallMultiplesChart.vue';
+import StackedAreaChart from '@/Components/Charts/StackedAreaChart.vue';
+import TrendLineChart from '@/Components/Charts/TrendLineChart.vue';
+import InsightLine from '@/Components/Dashboard/InsightLine.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
-import TrendChart from '@/Components/Dashboard/TrendChart.vue';
-import VoiceChart from '@/Components/Dashboard/VoiceChart.vue';
+import BottomSheet from '@/Components/UI/BottomSheet.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { trans } from 'laravel-vue-i18n';
+import { computed, ref } from 'vue';
 
 const props = defineProps({
     canCreateMarket: { type: Boolean, default: false },
@@ -22,6 +26,8 @@ const props = defineProps({
     voice: { type: Array, required: true },
     engines: { type: Array, required: true },
     modelChanges: { type: Array, required: true },
+    insight: { type: Object, default: null },
+    topActions: { type: Array, required: true },
     chartData: { type: Object, default: null },
 });
 
@@ -33,13 +39,15 @@ const intent = ref(props.filters.intent ?? '');
 const filtersOpen = ref(false);
 const lengths = [7, 28, 90];
 
-const cards = [
+const primaryCards = [
     ['visibility', 'visibility', 'rate'],
-    ['recommendation_rate', 'recommendation_rate', 'rate'],
     ['share_of_voice', 'share_of_voice', 'rate'],
     ['average_position', 'average_position', 'number', false],
-    ['first_place_rate', 'first_place_rate', 'rate'],
     ['citation_rate', 'citation_rate', 'rate'],
+];
+const secondaryCards = [
+    ['recommendation_rate', 'recommendation_rate', 'rate'],
+    ['first_place_rate', 'first_place_rate', 'rate'],
     ['sentiment', 'sentiment', 'number'],
 ];
 
@@ -55,12 +63,6 @@ function apply() {
     router.get(route('brands.show', props.brand.id), params, { preserveScroll: true, replace: true });
 }
 
-function when(value) {
-    return new Intl.DateTimeFormat(document.documentElement.lang || 'nb', { dateStyle: 'medium' }).format(
-        new Date(value),
-    );
-}
-
 function sparkline(key) {
     return (props.chartData?.sparkline ?? []).map((row) => {
         const metric = row.metrics?.[key] ?? {};
@@ -74,15 +76,180 @@ function sparkline(key) {
     });
 }
 
-function shareText(share) {
-    if (share === null || share === undefined) {
-        return null;
+function point(metric) {
+    return {
+        value: metric?.value ?? null,
+        n: metric?.n ?? 0,
+        low_sample: Boolean(metric?.low_sample),
+    };
+}
+
+const categories = computed(() => (props.chartData?.series ?? []).map((row) => row.period));
+
+function aligned(rows, pick) {
+    const byPeriod = new Map((rows ?? []).map((row) => [row.period, pick(row)]));
+
+    return categories.value.map((period) => point(byPeriod.get(period)));
+}
+
+function modelMarker(change) {
+    return {
+        key: `model:${change.engine_key}:${change.changed_on}`,
+        date: change.changed_on,
+        kind: 'model',
+        label: trans('app.dashboard.model_change', {
+            engine: change.engine,
+            from_model: change.from_model,
+            to_model: change.to_model,
+        }),
+    };
+}
+
+const engineName = computed(() => {
+    const names = new Map(props.engines.map((item) => [item.key, item.name]));
+    for (const item of props.options.engines ?? []) {
+        names.set(item.key, item.name);
     }
 
-    return new Intl.NumberFormat(document.documentElement.lang || 'nb', {
-        style: 'percent',
-        maximumFractionDigits: 1,
-    }).format(share);
+    return (key) => names.get(key) ?? key;
+});
+
+const leadingEngine = computed(
+    () =>
+        [...props.engines]
+            .filter((item) => item.visibility?.value != null)
+            .sort((left, right) => right.visibility.value - left.visibility.value)[0] ?? null,
+);
+
+const trendSeries = computed(() => {
+    if (categories.value.length === 0) {
+        return [];
+    }
+    const own = {
+        key: 'brand',
+        label: props.brand.name,
+        own: true,
+        points: aligned(props.chartData?.series, (row) => row.metrics?.visibility),
+    };
+    const byId = new Map();
+    for (const row of props.chartData?.competitors ?? []) {
+        for (const entity of row.entities ?? []) {
+            if (entity.id === 'brand') {
+                continue;
+            }
+            if (!byId.has(entity.id)) {
+                byId.set(entity.id, { label: entity.name ?? entity.id, points: new Map() });
+            }
+            byId.get(entity.id).points.set(row.period, entity.visibility);
+        }
+    }
+    const competitors = [...byId.entries()].map(([id, entity], index) => ({
+        key: id,
+        label: entity.label,
+        colorIndex: index,
+        points: categories.value.map((period) => point(entity.points.get(period))),
+    }));
+
+    return [own, ...competitors];
+});
+
+const previousTrend = computed(() => ({
+    label: trans('app.charts.previous_period'),
+    points: (props.chartData?.previous ?? []).map((row) => point(row.metrics?.visibility)),
+}));
+
+const markers = computed(() => [...props.modelChanges.map(modelMarker), ...(props.chartData?.action_markers ?? [])]);
+
+const panels = computed(() => {
+    const rows = props.chartData?.engines ?? [];
+    const keys = [...new Set(rows.map((row) => row.engine_key))];
+
+    return keys.map((key) => ({
+        key,
+        label: engineName.value(key),
+        points: aligned(
+            rows.filter((row) => row.engine_key === key),
+            (row) => row.visibility,
+        ),
+    }));
+});
+
+const panelMarkers = computed(() => {
+    const grouped = {};
+    for (const change of props.modelChanges) {
+        grouped[change.engine_key] ??= [];
+        grouped[change.engine_key].push(modelMarker(change));
+    }
+
+    return grouped;
+});
+
+const shareSeries = computed(() => {
+    if (categories.value.length === 0) {
+        return [];
+    }
+    const groups = new Map();
+    const add = (id, label, own, period, metric) => {
+        if (!groups.has(id)) {
+            groups.set(id, { label, own, points: new Map() });
+        }
+        groups.get(id).points.set(period, metric);
+    };
+    for (const row of props.chartData?.series ?? []) {
+        add('brand', props.brand.name, true, row.period, row.metrics?.share_of_voice);
+    }
+    for (const row of props.chartData?.competitors ?? []) {
+        for (const entity of row.entities ?? []) {
+            if (entity.id === 'brand') {
+                continue;
+            }
+            add(entity.id, entity.name ?? entity.id, false, row.period, entity.share_of_voice);
+        }
+    }
+
+    return [...groups.entries()].map(([key, group], index) => ({
+        key,
+        label: group.label,
+        own: group.own || undefined,
+        colorIndex: group.own ? undefined : index,
+        points: categories.value.map((period) => point(group.points.get(period))),
+    }));
+});
+
+const sentimentRows = computed(() => {
+    const sentiment = props.chartData?.sentiment;
+    if (!sentiment?.complete || !Array.isArray(sentiment.rows)) {
+        return [];
+    }
+    const names = new Map([['own', props.brand.name]]);
+    for (const row of props.chartData?.competitors ?? []) {
+        for (const entity of row.entities ?? []) {
+            if (entity.id !== 'brand' && entity.name) {
+                names.set(`competitor:${entity.id}`, entity.name);
+            }
+        }
+    }
+
+    return sentiment.rows.map((row) => {
+        const n = row.n || row.negative + row.neutral + row.positive;
+        const share = (count) => (n ? count / n : 0);
+
+        return {
+            key: row.key,
+            label: names.get(row.key) ?? row.key,
+            negative: share(row.negative),
+            neutral: share(row.neutral),
+            positive: share(row.positive),
+            n,
+            low_sample: row.low_sample,
+        };
+    });
+});
+
+function openMarker(marker) {
+    if (marker?.href) {
+        router.visit(marker.href);
+    }
 }
 </script>
 
@@ -97,8 +264,8 @@ function shareText(share) {
             </div>
         </template>
 
-        <div class="py-8">
-            <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+        <div class="py-4">
+            <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 sm:px-6 lg:px-8">
                 <BrandNav :brand-id="brand.id" />
                 <Link
                     v-if="canCreateMarket"
@@ -182,9 +349,11 @@ function shareText(share) {
                     {{ $t('app.dashboard.open_filters') }}
                 </button>
 
-                <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <InsightLine :insight="insight" />
+
+                <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="primary-kpis">
                     <KpiCard
-                        v-for="[key, label, kind, higherIsBetter] in cards"
+                        v-for="[key, label, kind, higherIsBetter] in primaryCards"
                         :key="key"
                         :label="$t(`app.dashboard.${label}`)"
                         :metric="summary[key]"
@@ -194,74 +363,126 @@ function shareText(share) {
                         :points="sparkline(key)"
                     />
                 </section>
+                <p v-if="leadingEngine" class="text-sm text-shell-text" data-testid="leading-engine">
+                    {{ $t('app.dashboard.leading_engine', { engine: leadingEngine.name }) }}
+                </p>
 
-                <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
-                    <h3 class="text-sm font-medium">{{ $t('app.dashboard.trend') }}</h3>
+                <section>
+                    <h3 class="text-sm font-medium text-shell-text">{{ $t('app.dashboard.engines') }}</h3>
+                    <EmptyState
+                        v-if="engines.length === 0"
+                        class="mt-3"
+                        :title="$t('app.empty.engines_title')"
+                        :body="$t('app.empty.engines_body')"
+                    />
+                    <SmallMultiplesChart
+                        v-else-if="panels.length"
+                        class="mt-2"
+                        :label="$t('app.dashboard.engines')"
+                        :categories="categories"
+                        :panels="panels"
+                        :markers="panelMarkers"
+                        :until="categories.at(-1)"
+                        :panel-height="72"
+                        @marker="openMarker"
+                    />
+                    <ul v-else class="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        <li v-for="item in engines" :key="item.key" class="text-sm text-shell-text">
+                            <p>{{ item.name }}</p>
+                            <MetricValue :metric="item.visibility" />
+                        </li>
+                    </ul>
+                </section>
+
+                <section class="grid gap-3 sm:grid-cols-3">
+                    <KpiCard
+                        v-for="[key, label, kind] in secondaryCards"
+                        :key="key"
+                        size="secondary"
+                        :label="$t(`app.dashboard.${label}`)"
+                        :metric="summary[key]"
+                        :kind="kind"
+                        :previous="previous[key]"
+                        :points="sparkline(key)"
+                    />
+                </section>
+
+                <section>
+                    <h3 class="text-sm font-medium text-shell-text">{{ $t('app.dashboard.trend') }}</h3>
                     <EmptyState
                         v-if="series.length === 0"
-                        class="mt-4"
+                        class="mt-3"
                         :title="$t('app.empty.trend_title')"
                         :body="$t('app.empty.trend_body')"
                         :href="route('brands.settings', brand.id)"
                         :link="$t('app.empty.settings_link')"
                     />
-                    <TrendChart v-else class="mt-4" :points="series" />
+                    <TrendLineChart
+                        v-else-if="trendSeries.length"
+                        class="mt-2"
+                        :label="$t('app.dashboard.trend')"
+                        :categories="categories"
+                        :series="trendSeries"
+                        :previous="previousTrend"
+                        :markers="markers"
+                        :until="categories.at(-1)"
+                        :height="180"
+                        @marker="openMarker"
+                    />
                 </section>
 
                 <section class="grid gap-4 lg:grid-cols-2">
-                    <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
-                        <h3 class="text-sm font-medium">{{ $t('app.dashboard.voice') }}</h3>
+                    <div>
+                        <h3 class="text-sm font-medium text-shell-text">{{ $t('app.dashboard.voice') }}</h3>
                         <EmptyState
                             v-if="voice.every((part) => !part.mentions)"
-                            class="mt-4"
+                            class="mt-3"
                             :title="$t('app.empty.voice_title')"
                             :body="$t('app.empty.voice_body')"
                         />
-                        <template v-else>
-                            <VoiceChart class="mt-4" :parts="voice" />
-                            <ul class="mt-3 flex flex-col gap-1 text-xs text-shell-muted">
-                                <li v-for="part in voice" :key="part.id" :class="part.low_sample ? 'opacity-40' : ''">
-                                    {{ part.name }} · {{ shareText(part.share) ?? $t('app.dashboard.empty') }} ·
-                                    {{ $t('app.dashboard.n', { n: part.n }) }}
-                                </li>
-                            </ul>
-                        </template>
-                    </div>
-                    <div class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
-                        <h3 class="text-sm font-medium">{{ $t('app.dashboard.engines') }}</h3>
-                        <EmptyState
-                            v-if="engines.length === 0"
-                            class="mt-4"
-                            :title="$t('app.empty.engines_title')"
-                            :body="$t('app.empty.engines_body')"
+                        <StackedAreaChart
+                            v-else-if="shareSeries.length"
+                            class="mt-2"
+                            normalized
+                            :label="$t('app.dashboard.voice')"
+                            :categories="categories"
+                            :series="shareSeries"
+                            :until="categories.at(-1)"
+                            :height="200"
                         />
-                        <ul v-else class="mt-4 flex flex-col gap-3">
-                            <li v-for="item in engines" :key="item.key">
-                                <p class="text-sm">{{ item.name }}</p>
-                                <MetricValue :metric="item.visibility" />
-                            </li>
-                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-medium text-shell-text">{{ $t('app.dashboard.sentiment') }}</h3>
+                        <p v-if="sentimentRows.length === 0 && chartData" class="mt-3 text-sm text-shell-muted">
+                            {{ $t('app.dashboard.no_sentiment') }}
+                        </p>
+                        <DivergingBarChart
+                            v-else-if="sentimentRows.length"
+                            class="mt-2"
+                            :label="$t('app.dashboard.sentiment')"
+                            :rows="sentimentRows"
+                        />
                     </div>
                 </section>
 
-                <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
-                    <h3 class="text-sm font-medium">{{ $t('app.dashboard.model_changes') }}</h3>
-                    <EmptyState
-                        v-if="modelChanges.length === 0"
-                        class="mt-3"
-                        :title="$t('app.empty.changes_title')"
-                        :body="$t('app.empty.changes_body')"
-                    />
-                    <ul v-else class="mt-3 flex flex-col gap-2 text-sm">
-                        <li v-for="change in modelChanges" :key="`${change.engine_key}-${change.changed_on}`">
-                            {{
-                                $t('app.dashboard.model_change', {
-                                    engine: change.engine,
-                                    from_model: change.from_model,
-                                    to_model: change.to_model,
-                                })
-                            }}
-                            <span class="block text-xs text-shell-muted">{{ when(change.changed_on) }}</span>
+                <section>
+                    <div class="flex items-baseline justify-between gap-3">
+                        <h3 class="text-sm font-medium text-shell-text">{{ $t('app.library.actions') }}</h3>
+                        <Link :href="route('brands.actions.index', brand.id)" class="text-sm text-shell-accent">
+                            {{ $t('app.dashboard.all_actions') }}
+                        </Link>
+                    </div>
+                    <p v-if="topActions.length === 0" class="mt-2 text-sm text-shell-muted">
+                        {{ $t('app.dashboard.no_actions') }}
+                    </p>
+                    <ul v-else class="mt-2 flex flex-col gap-1 text-sm">
+                        <li v-for="action in topActions" :key="action.id">
+                            <Link
+                                :href="route('brands.actions.show', [brand.id, action.id])"
+                                class="text-shell-text no-underline"
+                            >
+                                {{ action.title }}
+                            </Link>
                         </li>
                     </ul>
                 </section>
