@@ -123,7 +123,7 @@ function dayLabel(day) {
                 >
                     <div>
                         <h3 class="text-sm font-medium text-shell-fg">{{ group.engine }}</h3>
-                        <div class="mt-3 flex flex-wrap gap-1" role="list">
+                        <div class="mt-3 flex flex-wrap gap-1" role="group" :aria-label="group.engine">
                             <button
                                 v-for="day in group.days"
                                 :key="day.date"
