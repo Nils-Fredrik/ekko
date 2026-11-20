@@ -450,7 +450,15 @@ test('a partial filter visit does not invoke the insight writer until its separa
     $this->actingAs($this->owner)->withHeaders($headers)->get($url)->assertOk()
         ->assertJsonPath('props.period.comparison', 'year')->assertJsonMissingPath('props.insight');
     expect($this->writer->requests)->toHaveCount(0);
+    $dashboardScans = 0;
+    DB::listen(function ($query) use (&$dashboardScans) {
+        if (str_contains($query->sql, 'GROUPING SETS')) {
+            $dashboardScans++;
+        }
+    });
     $this->withHeader('X-Inertia-Partial-Data', 'insight')->get($url)->assertOk()
         ->assertJsonPath('props.insight.generated_on', '2026-11-16');
     expect($this->writer->requests)->toHaveCount(1);
+    // The insight builder needs current and previous figures; the controller must not add a third scan.
+    expect($dashboardScans)->toBe(2);
 });
