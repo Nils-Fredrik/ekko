@@ -254,14 +254,14 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `competitor_aliases` | `competitor_id`, `alias`, `match_mode` |
 | `competitor_domains` | `competitor_id`, `domain` |
 | `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active` |
-| `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency` (daily, weekly, every_14_days, every_21_days, monthly, off etter T52), `prompt_scope` (all, core), `repetitions` (1–3, standard 1). |
+| `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency` (daily, weekly, monthly, off). T52 legger til every_14_days og every_21_days. Øvrige valg er `prompt_scope` (all, core) og `repetitions` (1–3, standard 1). |
 | `brand_facts` | `tenant_id`, `brand_id`, `text` (høyst 300 tegn), `is_active` (11.6) |
 | `topics` | `tenant_id`, `brand_id`, `name`, `cross_market_key` (kobler samme tema på tvers av markeder) |
 | `prompts` | `tenant_id`, `market_id`, `topic_id`, `text`, `intent` (category, comparison, brand, problem, local), `funnel_stage` (awareness, consideration, decision), `priority` (core, standard), `is_active`, `text_hash` |
 | `engines` | `key`, `family` (chatgpt, gemini, google_aio, perplexity, claude), `method` (api, ui_scrape, serp), `provider`, `model_id`, `config` (jsonb), `is_enabled` |
 | `engine_prices` | `engine_key`, `valid_from`, `price_per_call_usd`, `price_per_1k_input_tokens_usd`, `price_per_1k_output_tokens_usd`, `price_per_search_usd` |
 
-T53 innfører en standardplan eid av merkevaren og lagrer eksplisitt om et marked arver eller bruker egne valg. To planer med like verdier kan ha ulik arvestatus. Planen og markedsvalgene følger tenant-isolasjonen og kravene til relasjoner i kapittel 6.
+T53 innfører en standardplan eid av merkevaren og lagrer eksplisitt om et marked arver eller bruker egne valg. To planer med like verdier kan ha ulik arvestatus. Planen og markedsvalgene følger tenant-isolasjonen og kravene til relasjoner i kapittel 6. T53 dokumenterer tabeller, kolonner og relasjoner her sammen med migreringen.
 
 Merkevareplan, markedsvalg og pakkegrenser bruker samme frekvensverdier. Rekkefølgen fra sjeldnest til oftest er `off` < `monthly` < `every_21_days` < `every_14_days` < `weekly` < `daily`. Dermed tillater et tak på `every_14_days` også hver tredje uke og månedlig. Den eksisterende regelen for motorspesifikt pakketak i `plans.engine_max_frequencies` og standardtaket i `plans.max_frequency` gjelder i estimat, lagring og kjøring.
 
@@ -492,7 +492,9 @@ I standardoppsettet følger ChatGPT, Gemini og Haiku merkevarens valgte interval
 
 Ved innføring får hver eksisterende merkevare samme standardplan som en ny merkevare i den aktuelle pakken. Bruk motorer og promptutvalg fra 7.4 med én gjentakelse. Sett intervallet til det sjeldneste av motorens standard og pakketaket. Utilgjengelige motorer og motorer utenfor pakken settes til Av. For en merkevare uten pakke er alle motorer av. Denne regelen gjelder også for en merkevare uten markeder.
 
-Alle eksisterende markeder får sitt tidligere oppsett som eksplisitte egne valg, også egne kjerneregler, avslåtte motorer og markeder uten motorer. Administrator kan deretter velge hvilke markeder som skal arve. Planendringer gjelder fremtidig planlegging. Historiske svar beholder tilknytningen til den opprinnelige kjøringen. Førstekjøring, ordinær planlegging og estimat skal bruke samme effektive markedsoppsett. Pakkens motor- og frekvenstak, kvotekontrollen i 7.2 og reglene for pitch og Anthropic-kreditter gjelder fortsatt.
+Alle eksisterende markeder får sitt tidligere oppsett som eksplisitte egne valg, også egne kjerneregler, avslåtte motorer og markeder uten motorer. Administrator kan deretter velge hvilke markeder som skal arve. Planendringer gjelder fremtidig planlegging. Historiske svar beholder tilknytningen til den opprinnelige kjøringen.
+
+Førstekjøringen, dispatcheren og kostnadsestimatet bruker oppsettet som gjelder for hvert marked, enten det arver merkevareplanen eller har egne valg. Det samme gjelder Anthropic-planleggerens grunnlastprognose og tildeling av ekstra Sonnet-kjøringer på nivå 2 (12.5). Merkevareinnstillingene og MCP-verktøyet `list_brands` viser de samme motorene med frekvens, promptutvalg og gjentakelser. Motorfiltrene i merkevareoversikten, på kildesiden og i analysevisningene henter også motorvalg fra dette oppsettet. Pakkens motor- og frekvenstak, kvotekontrollen i 7.2 og reglene for pitch og Anthropic-kreditter gjelder fortsatt.
 
 **Forhåndsvisning før lagring.** Når brukeren endrer et valg, beregner serveren hva det foreslåtte oppsettet vil gi for aktive spørsmål og markeder. Vis resultat per marked og motor, samt total for merkevaren. Estimering skriver ingen plan, legger ingen jobb i kø og bruker ingen betalte modellkall.
 
@@ -1000,7 +1002,7 @@ Kontrakten er dokumentert i [OpenAPI](api.yaml). [ADR 0017](decisions/0017-rest-
 | Tool | Beskrivelse |
 |---|---|
 | `whoami` | Bruker, tenants og roller |
-| `list_brands` | Merkevarer med markeder og motorer |
+| `list_brands` | Merkevarer med markeder og motorer. Etter T53 viser `markets[].engines[]` markedets arvede eller egne regler med `engine`, `frequency` (verdiene i 6.2), `prompt_scope` og `repetitions`. |
 | `get_visibility` | Metrikker for merkevare, marked, motor, tema og periode, med n |
 | `compare_competitors` | Share of voice, posisjon og anbefalingsrate mot konkurrenter (posisjon og anbefalingsrate foreløpig bare for merkevaren, ADR 0016) |
 | `get_prompt_results` | Resultater per prompt, sortert etter endring |
@@ -1653,8 +1655,8 @@ På Ekko-boardet ligger implementeringen (T52–T55) i fasen **Måleplan per mer
 |---|---|
 | T51 · `task:116` | Spesifikasjon i 7.6 og arbeidspakker på Board med ansvar og avhengigheter. |
 | T52 · `task:123` | Felles kalender- og frekvensregler i lagring, pakkegrenser, første kjøring, dispatcher og Anthropic-planlegger. Test begge nye intervaller over årsskifte og sommertid, samt Av, eksisterende uke-/månedsfordeling og gjentatt planlegging samme dag. |
-| T53 · `task:124` | Standardplan, markedsarv og eksplisitte egne valg i datamodell og backend. Test migrering fra ulike eksisterende markeder, endring av standard, tilbakestilling, én kjerneregel per kjøring og atomisk lagring fra innstillinger og veiviser. Test tilgang og tenant-isolasjon med fremmede merkevare- og markeds-ID-er. |
-| T54 · `task:125` | Felles estimat for et utkast i begge innganger med neste måledato, kostnad og kvote etter 7.6. Test regneeksemplene med syntetiske priser, BYOK, manglende pris og inaktive markeder, samt at forhåndsvisning er uten sideeffekter. |
+| T53 · `task:124` | Standardplan, markedsarv og eksplisitte egne valg i datamodell og backend. Test migrering, endring av standard, tilbakestilling, én kjerneregel per kjøring og atomisk lagring fra innstillinger og veiviser. Med ett arvet marked og ett med egne valg skal tester vise at første kjøring, dispatcher, Anthropic-prognose og Sonnet-tildeling følger hvert markeds regler, og at innstillinger, motorfiltre og `list_brands` gjengir dem som angitt i 7.6. Test tilgang og tenant-isolasjon med fremmede merkevare- og markeds-ID-er. |
+| T54 · `task:125` | Felles estimat for et utkast i begge innganger med neste måledato, kostnad og kvote etter 7.6. Test regneeksemplene med syntetiske priser, BYOK, manglende pris og inaktive markeder, samt at forhåndsvisning er uten sideeffekter. Test at kvotevarselet utløses når motorkallene alene er innenfor restkvoten, men summen av motorkall og uttrekk overstiger den. |
 | T55 · `task:126` | Måleplan i innstillingene og veiviseren på nb, sv og en. Nettlesertest med to markeder dekker arv, eget intervall, tilbakeføring til standard, oppdatert estimat ved rask redigering og bekreftelse. Sjekk tastaturbetjening og lesertilgang. |
 
 ---
