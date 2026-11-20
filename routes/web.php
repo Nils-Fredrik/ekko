@@ -13,6 +13,7 @@ use App\Http\Controllers\BrandActionController;
 use App\Http\Controllers\BrandCompetitorController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\BrandCrawlerController;
+use App\Http\Controllers\BrandFactController;
 use App\Http\Controllers\BrandPromptController;
 use App\Http\Controllers\BrandSettingsController;
 use App\Http\Controllers\BrandSourceController;
@@ -91,6 +92,8 @@ Route::middleware([
     Route::get('/dashboard', HomeController::class)->name('dashboard');
     Route::get('/palette', CommandPaletteController::class)->name('palette.search');
     Route::get('/partner', PartnerOverviewController::class)->name('partner.index');
+    Route::get('/pitches', [PitchController::class, 'index'])->name('pitches.index');
+    Route::post('/pitches/{team}/open', [PitchController::class, 'open'])->name('pitches.open');
     Route::post('/partner/pitches', [PitchController::class, 'store'])->name('partner.pitches.store');
     Route::post('/admin/pitches', [PitchController::class, 'adminStore'])->name('admin.pitches.store');
     Route::post('/pitches/{team}/convert', [PitchController::class, 'convert'])->name('pitches.convert');
@@ -114,6 +117,10 @@ Route::middleware([
     Route::post('/brands/{brand}/competitors', [BrandCompetitorController::class, 'store'])->name('brands.competitors.store');
     Route::get('/brands/{brand}/sources', BrandSourceController::class)->name('brands.sources');
     Route::get('/brands/{brand}/crawlers', BrandCrawlerController::class)->name('brands.crawlers');
+    Route::get('/brands/{brand}/facts', [BrandFactController::class, 'index'])->name('brands.facts.index');
+    Route::post('/brands/{brand}/facts', [BrandFactController::class, 'store'])->name('brands.facts.store');
+    Route::patch('/brands/{brand}/facts/{fact}', [BrandFactController::class, 'update'])->name('brands.facts.update');
+    Route::delete('/brands/{brand}/facts/{fact}', [BrandFactController::class, 'destroy'])->name('brands.facts.destroy');
     Route::get('/brands/{brand}/actions', [BrandActionController::class, 'index'])->name('brands.actions.index');
     Route::post('/brands/{brand}/actions', [BrandActionController::class, 'store'])->name('brands.actions.store');
     Route::get('/brands/{brand}/actions/{action}', [BrandActionController::class, 'show'])->name('brands.actions.show');

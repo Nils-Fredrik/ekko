@@ -703,7 +703,9 @@ Tenant-admin legger inn fakta om merkevaren (f.eks. grunnleggelsesår, kontorer,
 - `FactCorrectionSource` lager ett tiltak per merkevare og faktum (merkevarenivå, `market_id` tom) når minst `ekko.actions.fact_correction.min_responses` (2) ulike svar i vinduet (30 hele lokale dager, bare ferdig uttrukne svar) motsier faktumet. Kilden vurderer ikke en merkevare med færre enn 30 svar i vinduet (11.3). Forventet effekt er antall motsigende svar per måned, med andel 1 (hvert slikt svar sier noe galt om merkevaren).
 - Evidensen har faktumet, antall motsigende og bekreftende svar, eksempler på påstander, kildesidene (adresse, domene, eierskap og antall svar) og `source_kind`. Mest siterte side er kilden i teksten. `own` (sitatets domene er merkevarens) gir «rett egen side», `other` «be utgiveren av siden rette», `unknown` en tekst som ikke gjetter.
 - Fakta endres bare gjennom `BrandFactManager` (høyst 50 per merkevare, 300 tegn, ingen like). Tenant-admin og partner-rådgiver endrer; alle roller leser. Teksten står aldri i revisjonsloggen. Påstandene skrives bare av faktasjekken.
-- Veiviseren foreslår høyst 8 fakta (`facts` i forslaget) fra sidene, uten e-postadresser og telefonnumre. De lagres som aktive fakta først når brukeren bekrefter, og bare for en ny merkevare. **Avvik:** T48 leverer backend (forslag i API-svaret og `facts` i bekreftelsen). Veiviser-UI-et (`Wizard.vue`) hører til T49 og viser ikke fakta ennå; til T49 er gjort, kommer forslagene ikke fram til brukeren.
+- Veiviseren foreslår høyst 8 fakta (`facts` i forslaget) fra sidene, uten e-postadresser og telefonnumre. De lagres som aktive fakta først når brukeren bekrefter, og bare for en ny merkevare. Veiviseren (`Wizard.vue`, T49) viser forslagene uten avkrysning; brukeren godkjenner, retter, fjerner eller legger til fakta, og bare de godkjente sendes med bekreftelsen.
+- **Grensesnitt (T49):** `Pages/Brands/Facts.vue` (`brands.facts.*`) legger til, endrer, slår av og sletter fakta gjennom `BrandFactManager`. Fakta som ikke er i bruk (`is_active = false`, f.eks. lagt inn som inaktive via API-et eller slått av), står under «Venter på godkjenning» og godkjennes med ett klikk (slås på). Påstandene vises per vurdering (standard `contradicted`, de 100 nyeste) med faktum, påstand, sitat, motor, dato og lenke til prompten; motsagte påstander viser kildesidene fra samme svar (`source_citation_ids`, bare sitater fra samme svar). Påstandstekst og sitat er motortekst og vises som tekst.
+- **Kølås:** `CheckTenantFacts` legges i køen inne i transaksjoner (veiviseren lagrer flere fakta i samme transaksjon, og en vurdering kan allerede ligge i kø). Den unike låsen bruker derfor `CollectionLocks::uniqueJobCache()` med PostgreSQL-sikker lås (`insertOrIgnore`), fordi databaselagerets egen lås avbryter transaksjonen ved konflikt (funnet i T49).
 - `php artisan ekko:factcheck:eval` kjører vurderingen mot gullsettet (`database/evals/factcheck-gold.json`) med modellen i konfigurasjonen og viser treffsikkerhet, presisjon og treffrate per dom (ADR 0036).
 
 ---
@@ -870,6 +872,7 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google» |
 | `Pages/Home.vue` | Oversikt for valgt tenant: innsiktslinje på tvers av merkevarer, nøkkeltall per merkevare, siste varsler, neste planlagte kjøringer, forbruk mot kvote |
 | `Pages/Partner/Index.vue` | For partner-rådgivere: alle kunde-tenants med synlighet, endring og varsler i én tabell |
+| `Pages/Pitch/Index.vue`, `Pages/Pitch/Report.vue` | Pitch-prosjektene til partneren: opprette, følge (status, dag av sju, prompts og svar) og konvertere, åpne i veiviseren eller på pitch-rapporten (11.5, T49) |
 | `Pages/Brands/Index.vue` | Merkevarer med status og markeder |
 | `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), innsiktslinje, nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
 | `Pages/Brands/Prompts.vue` | Prompt-tabell med resultater per prompt (synlighet, posisjon, stabilitet per motor), inline redigering, aktivering/deaktivering, import og eksport (CSV) |
@@ -878,6 +881,7 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | `Pages/Brands/Sources.vue` | Siterte domener, kildeandel, kildegap mot konkurrenter |
 | `Pages/Brands/Crawlers.vue` | AI-robottreff og AI-trafikk |
 | `Pages/Brands/Actions.vue`, `Pages/Brands/ActionShow.vue` | Tiltaksliste med filtre, detalj, egne tiltak og status (11.3, T44) |
+| `Pages/Brands/Facts.vue` | Fakta (legge til, godkjenne, slå av, endre, slette) og påstander med kilder (11.6, T49) |
 | `Pages/Brands/Settings.vue` | Navn, alias, domener, markeder, motorer, frekvens, gjentakelser, integrasjoner |
 | `Pages/Onboarding/Wizard.vue` | Veiviseren fra kapittel 13 |
 | `Pages/Alerts/Index.vue` | Varsler med kvittering, og regler per merkevare |
@@ -1567,6 +1571,12 @@ Opprettelse fra partner- og adminsidene, pitch-veiviser med 25 prompts, sju dage
 - Evalueringskommando viser treffsikkerhet.
 
 Fra 11.3 (tiltakstypen dette mater): `fact_correction` utløses av påstander som motsies av merkevarens fakta, f.eks. «Svar på 4 prompts oppgir feil grunnleggelsesår. Kilden er side Y.» Slike tiltak rangeres alltid øverst innenfor sin merkevare.
+
+### T49 – Faktasjekk og pitch: grensesnitt
+Side for fakta (legge til, godkjenne forslag, deaktivere) og påstander med kilder, og sider for å opprette, følge og konvertere pitch-prosjekter.
+- Nettlesertest fra nytt pitch-prosjekt til ferdig pitch-rapport.
+
+**Implementasjon:** `Pages/Brands/Facts.vue` (11.6) og faktasteget i veiviseren, der forslagene må godkjennes før de sendes som `facts`. `Pages/Pitch/Index.vue` (`pitches.index`) for partner-rådgivere i partneren: opprette (inntil tre aktive), status, dag av sju, prompts og innsamlede svar lest i pitchens egen RLS, og konvertering med bekreftelse. «Åpne» (`pitches.open`) bytter til pitch-tenanten etter samme regel som tenantvelgeren og går til veiviseren til merkevaren er satt opp, deretter til pitch-rapporten. Plattformadmin oppretter og konverterer fortsatt fra `Admin/Tenants.vue`. Partnersiden lenker til pitchsiden. Nettlesertesten (`tests/Browser/pitch.spec.mjs`) går fra nytt pitch-prosjekt gjennom veiviseren med godkjente faktaforslag, faktasiden og pitch-rapporten til konvertering; innsamling, uttrekk og faktasjekk erstattes av `tests/Browser/pitch-collect.php`, så ingen modell kalles.
 
 ### T44 – Tiltak: grensesnitt og rapportseksjon
 Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning med evidens, konkurrentevidens, berørte prompts og steg som kan hukes av, samt egne tiltak. Status endres fra listen og detaljen. Rapportseksjonen i 11.3 (3–5 åpne, pluss fullførte i perioden med utvikling i synlighet) ligger i PDF-en og på nettversjonen av rapporten, som komponenten `ReportSection` så U13 kan gjenbruke den. Nettversjonen viser seksjonen som ble lagret da PDF-en ble skrevet (`reports.action_section`), så en senere endring av tiltakene ikke skriver om en gammel rapport.
