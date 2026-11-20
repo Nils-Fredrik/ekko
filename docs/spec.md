@@ -254,12 +254,14 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 | `competitor_aliases` | `competitor_id`, `alias`, `match_mode` |
 | `competitor_domains` | `competitor_id`, `domain` |
 | `markets` | `tenant_id`, `brand_id`, `country` (ISO 3166-1), `language` (BCP 47), `location_label` (f.eks. «Oslo»), `is_active` |
-| `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency` (daily, weekly, monthly, off), `prompt_scope` (all, core), `repetitions` (1–3, standard 1) |
+| `market_engines` | `tenant_id`, `market_id`, `engine_key`, `frequency`, `prompt_scope` (all, core), `repetitions` (1–3, standard 1). Måleplanen i 7.6 utvider dagens frekvenser (daily, weekly, monthly, off) med intervaller på 14 og 21 dager. |
 | `brand_facts` | `tenant_id`, `brand_id`, `text` (høyst 300 tegn), `is_active` (11.6) |
 | `topics` | `tenant_id`, `brand_id`, `name`, `cross_market_key` (kobler samme tema på tvers av markeder) |
 | `prompts` | `tenant_id`, `market_id`, `topic_id`, `text`, `intent` (category, comparison, brand, problem, local), `funnel_stage` (awareness, consideration, decision), `priority` (core, standard), `is_active`, `text_hash` |
 | `engines` | `key`, `family` (chatgpt, gemini, google_aio, perplexity, claude), `method` (api, ui_scrape, serp), `provider`, `model_id`, `config` (jsonb), `is_enabled` |
 | `engine_prices` | `engine_key`, `valid_from`, `price_per_call_usd`, `price_per_1k_input_tokens_usd`, `price_per_1k_output_tokens_usd`, `price_per_search_usd` |
+
+T53 innfører en standardplan eid av merkevaren og lagrer eksplisitt om et marked arver eller bruker egne valg. To planer med like verdier kan ha ulik arvestatus. Planen og markedsvalgene følger tenant-isolasjonen og kravene til relasjoner i kapittel 6.
 
 ### 6.3 Innsamling og resultater
 
@@ -324,6 +326,8 @@ Sentimentfordeling og kildetype/eierskap lagres separat i dagsaggregatene for gr
 **Avgrenset aktivering:** Terraform-bryteren `enable_dashboard_schedules` aktiverer `extraction-poll`, `aggregate` og `usage-rollup` uten å aktivere øvrige schedules. Polling kan gjenoppta allerede kølagt innsamling og sende inn betalte uttrekk, men planlegger ikke nye daglige kjøringer. Begge brytere er av som standard; `enable_schedules` aktiverer alle ordinære schedules. Aktivering krever eierens godkjenning og verifisering etter [runbook](runbook.md#automatisk-behandling-av-innsamlede-svar).
 
 **Fordeling over uka:** Ved ukentlig frekvens kjøres et prompt på ukedagen `crc32(prompt_id) % 7`. Ved månedlig frekvens kjøres det på dag `crc32(prompt_id) % 28 + 1`. Prompts med `priority = core` kan ha høyere frekvens enn resten av markedet, begrenset av pakken. Dette gir jevn belastning og jevn kostnad.
+
+T52 legger til hver 14. dag og hver 3. uke. Begge måles i lokale kalenderdager i tenantens tidssone. Bruk en fast referansedato og en stabil forskyvning per prompt over henholdsvis 14 og 21 dager. To ordinære forfall for samme prompt med uendret intervall ligger da nøyaktig 14 eller 21 dager fra hverandre, også ved nyttår og skifte av sommertid. Månedlig betyr fortsatt én gang per kalendermåned. Førstegangskjøringen i kapittel 13 er et eget steg.
 
 Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-autentisering står i [ADR 0020](decisions/0020-dispatch-og-worker.md). Køoppgaver som fortsatt venter seks timer etter den ene nye innsendingen, avsluttes som feilet. Produksjonsstart verifiseres med T10 etter bootstrap. [ADR 0030](decisions/0030-avgrenset-worker-start.md) avgrenser web til en fast poll-jobb og håndhever connector/TLS for Cloud SQL. Et vellykket `extraction-poll`-kall bekrefter oppstart/allerede aktiv dispatcher; senere jobbfeil varsles av T36.
 
@@ -436,7 +440,7 @@ Plattformnøklene brukes som standard. En lagret tenantnøkkel overstyrer bare n
 
 **Konfigurasjon:**
 - Pakken avgjør hvilke motorer en tenant har tilgang til (`plans.allowed_engines`).
-- Hvert marked har én rad per motor i `market_engines` med frekvens, promptutvalg og gjentakelser. Når et marked opprettes, fylles radene med standardoppsettet over.
+- Markedsoppsettet angir frekvens, promptutvalg og gjentakelser per motor. En motor kan ha én regel for alle og en egen kjerneregel. Standardverdiene over er utgangspunkt for nye merkevarer. Med T53 følger nye markeder merkevarens plan etter 7.6.
 - Tenant-admin kan endre frekvens og utvalg innenfor pakken. Veiviseren og innstillingssiden viser estimert månedskostnad for valget.
 
 **Kostnadsspaker som kan brukes uten kodeendring:**
@@ -469,6 +473,31 @@ I henhold til [Googles vilkår for Grounding with Google Search](https://ai.goog
 ### 7.5 Gjentakelser og modellversjoner
 
 Hvert prompt kjøres `market_engines.repetitions` ganger per runde (standard 1), som uavhengige kall. Med daglig frekvens gir hver uke sju svar per prompt og motor, noe som er tilstrekkelig for stabile ukestall. Flere gjentakelser er bare aktuelt for motorer som kjøres ukentlig eller sjeldnere. Modell-ID som leverandøren rapporterer, lagres på hvert svar. Når modell-ID for en motor endrer seg, legges det inn en markør i dashboardet («modellbytte»), slik at sprang i tallene kan forklares. Markøren lagres i `model_changes` av `ekko:aggregate` (første svar på dagen med en annen modell-ID enn forrige svar, én per motor og dag) og leses med `MetricsService::modelChanges()` (ADR 0012).
+
+---
+
+### 7.6 Måleplan per merkevare (T51–T55)
+
+Under **Merkevare → Innstillinger → Måleplan** velger tenant-admin hvilke motorer som skal stille hvilke spørsmål, og hvor ofte. Veiviseren bruker samme plan når en merkevare eller et marked opprettes. Eksisterende tilgang for partner-rådgivere og pakkens grenser gjelder i begge flater.
+
+| Valg | Virkning |
+|---|---|
+| Intervall | Daglig, ukentlig, hver 14. dag, hver 3. uke eller månedlig. **Av** stopper den aktuelle motoren eller regelen. |
+| Motorer og spørsmål | Velg motorer innenfor pakken og la hver motor dekke alle aktive spørsmål eller bare kjernespørsmålene. En valgfri kjerneregel kan gi de viktigste spørsmålene en annen frekvens. For hvert spørsmål på én motor velges nøyaktig én regel. Antall gjentakelser per forfall er 1 som standard og kan endres innenfor pakken. |
+| Standard og egne valg | Nye markeder arver merkevarens plan. «Egne valg» starter med en kopi av markedets gjeldende oppsett. Markedet kan deretter endre motorer, utvalg, intervaller og gjentakelser. Ved endring av merkevareplanen følger arvede markeder den nye planen. «Bruk merkevarens plan» fjerner markedets eget oppsett og tar i bruk dagens standard. Inaktive markeder bidrar med null kjøringer. |
+
+I standardoppsettet følger ChatGPT, Gemini og Haiku merkevarens valgte intervall for alle spørsmål. Sonnet dekker kjernespørsmålene med samme intervall, opptil ukentlig grunnfrekvens. Velges hver 14. dag for merkevaren, får også Sonnet dette intervallet. Brukeren kan se hvilke motorer og spørsmål endringen gjelder før lagring.
+
+Ved innføring beholdes eksisterende markeders faktiske oppsett som egne valg, også egne kjerneregler og avslåtte motorer. Administrator kan deretter velge hvilke markeder som skal arve. Planendringer gjelder fremtidig planlegging. Historiske svar beholder tilknytningen til den opprinnelige kjøringen. Førstekjøring, ordinær planlegging og estimat skal bruke samme effektive markedsoppsett. Pakkens motor- og frekvenstak, kvotekontrollen i 7.2 og reglene for pitch og Anthropic-kreditter gjelder fortsatt.
+
+**Forhåndsvisning før lagring.** Når brukeren endrer et valg, beregner serveren hva det foreslåtte oppsettet vil gi for aktive spørsmål og markeder. Vis resultat per marked og motor, samt total for merkevaren. Estimering skriver ingen plan, legger ingen jobb i kø og bruker ingen betalte modellkall.
+
+- Vis forventede motorsvar per måned og forventet antall kvotebelastende kall, med ett ordinært uttrekk per innhentet svar. Vis hvor mange kall det gjenstår av kundens felles månedskvote når en kvote er satt. Forklar avvik mot kvote og budsjett etter 7.2 og 12. Ekstra kredittstyrte kjøringer og nye forsøk ligger utenfor dette grunnanslaget.
+- Vis innsamlingskostnad, uttrekkskostnad og sum i USD før eventuelle leverandørkreditter. Bruk gjeldende motorpriser, uttrekkets batchpris og riktig betaler (plattform eller BYOK). Oppgi antatt tekstmengde og nettsøk per svar. Et nettsøk er et oppslag motoren gjør på nettet mens den svarer. Antallet er en prisforutsetning og kan variere fra svar til svar.
+- Bruk veiviserens månedsfaktorer på 30 daglige og 4,35 ukentlige runder. For 14 og 21 dager brukes henholdsvis 4,35/2 og 4,35/3, og for månedlig brukes 1. Rund antall motorsvar opp til nærmeste heltall per aktiv regel og marked, etter at promptutvalg og gjentakelser er tatt med. Vis også neste ordinære måledato for et eksisterende eksempelspørsmål, beregnet med kalenderreglene i 7.1.
+- Brukeren kan bekrefte når estimatet gjelder de valgene som nå vises. Manglende pris for en valgt aktiv motor skal vises ved motoren og må avklares før planen lagres. Serveren kontrollerer tilgang, markeds-ID-er, planvalg, pakke og gyldige priser ved lagring og lagrer endringen samlet.
+
+**Regneeksempel for akseptanse.** En merkevare har to aktive markeder med 50 aktive spørsmål i hvert, hvorav 10 er kjerne. Tre motorer dekker alle 50 og Sonnet dekker de 10 kjernespørsmålene. Med én gjentakelse hver 14. dag gir hver av de tre motorene 109 estimerte svar per marked og Sonnet 22. Merkevaren får dermed 698 motorsvar og om lag 1 396 kvotebelastende kall med ett uttrekk per svar. Hvis ett marked får egne valg med månedlig frekvens for de samme motorene, gir det 160 svar der og 349 i markedet som arver, til sammen 509. Kostnaden beregnes fra prisene som gjelder for estimatet.
 
 ---
 
@@ -795,7 +824,7 @@ Veiviseren gjør at en ny merkevare er klar til første kjøring på få minutte
    - 50 prompts på markedets språk, merket med tema, intensjon og trakttrinn, der 10 er foreslått som kjerneprompts
    - høyst 8 forslag til fakta om merkevaren som sidene sier rett ut (grunnleggelsesår, kontorer, tjenester, priser), som brukeren må godkjenne (11.6)
 3. **Redigering:** brukeren redigerer, sletter og legger til i forslagene. Ingenting lagres før brukeren bekrefter.
-4. **Motorer og frekvens:** forhåndsvalgt fra pakken, med kostnadsestimat per måned vist før bekreftelse.
+4. **Måleplan:** en ny merkevare starter med motorene og frekvensene i 7.4 innenfor pakken. Et nytt marked arver merkevarens plan eller får egne valg. Brukeren ser månedsvolum og kostnadsestimat for utkastet før bekreftelse (7.6).
 5. **Integrasjoner (valgfritt):** ClickHouse eller loggopplasting, GA4.
 6. **Første kjøring:** startes umiddelbart for kjerneprompts. Resten følger ordinær plan.
 
@@ -805,6 +834,7 @@ For et nytt marked på en eksisterende merkevare foreslår veiviseren prompts p�
 - Analysen er asynkron: `POST /onboarding/analyses` (ny merkevare) og `POST /brands/{brand}/market-proposals` (nytt marked) svarer `202` med et id, og `GET /onboarding/analyses/{id}` gir status og forslag som strukturert JSON. Forslaget ligger bare i cachen i 24 timer og lagres ikke i konfigurasjonen før brukeren bekrefter.
 - Sonnet-kallet bruker strukturert utdata (`output_config.format`), og sidetekst sendes som data i escapede tagger (16). Telling og lengder håndheves ved parsing: høyst 10 konkurrenter, 8 temaer, 50 prompts, 10 kjerneprompts. Prompts med e-postadresse eller telefonnummer forkastes.
 - Kostnadsestimatet (`POST /onboarding/cost-estimate`) regnes fra `engine_prices`, pakken, egne nøkler og månedens forbruk, og viser avvik fra pakken og kvoten som advarsler.
+- T54 utvider denne beregningen med den effektive merkevareplanen og forutsetningene i 7.6. T55 viser estimatet på nytt når brukeren endrer et valg i veiviseren eller merkevareinnstillingene.
 - Hvert modellkall føres i `usage_events` med `kind = onboarding` (plattformen betaler) og kontrolleres mot kvote og budsjett før start (`429` når de er brukt opp).
 
 ---
@@ -884,7 +914,7 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | `Pages/Brands/Crawlers.vue` | AI-robottreff og AI-trafikk |
 | `Pages/Brands/Actions.vue`, `Pages/Brands/ActionShow.vue` | Tiltaksliste med filtre, detalj, egne tiltak og status (11.3, T44) |
 | `Pages/Brands/Facts.vue` | Fakta (legge til, godkjenne, slå av, endre, slette) og påstander med kilder (11.6, T49) |
-| `Pages/Brands/Settings.vue` | Navn, alias, domener, markeder, motorer, frekvens, gjentakelser, integrasjoner |
+| `Pages/Brands/Settings.vue` | Navn, alias, domener, markeder og integrasjoner. Måleplanen i 7.6 viser merkevarens standard, egne markedsvalg og kostnadsestimat før lagring. |
 | `Pages/Onboarding/Wizard.vue` | Veiviseren fra kapittel 13 |
 | `Pages/Alerts/Index.vue` | Varsler med kvittering, og regler per merkevare |
 | `Pages/Reports/Index.vue`, `Pages/Reports/Show.vue` | Rapportplaner, mottakere, historikk, nedlasting og nettversjon av rapportseksjonen for tiltak (T44) |
@@ -1355,6 +1385,11 @@ Rekkefølgen styres kun av avhengighetene. Alle pakker uten uoppfylte avhengighe
 | T41 | Kredittstyrt planlegging for Anthropic | Codex / GPT-6.1 Sol | T17, T19, T20 |
 | T42 | Kryssreview i GitHub og automatisk mergekø | Codex / GPT-6.1 Terra | T01 |
 | T46 | Delbar rapportlenke | Codex / GPT-6.1 Sol | T32 |
+| T51 | Spesifikasjon for måleplan per merkevare | Codex | – |
+| T52 | Fem måleintervaller i planleggingen | Codex | T51 |
+| T53 | Merkevareplan med arv og egne markedsvalg | Claude Code | T51 |
+| T54 | Kostnadsestimat før lagring av måleplan | Codex | T52, T53 |
+| T55 | Måleplan i merkevareinnstillinger og veiviser | Cursor / Grok 4.7 | T54 |
 
 ### T01 – Repo og fundament
 Laravel med Jetstream (Inertia/Vue, team og API på), Tailwind v4, Pest, Pint, Larastan, ESLint, Ziggy og `laravel-vue-i18n` med samme versjoner og struktur som Varde. Opprett `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/ekko.mdc`, `docs/spec.md`, `docs/decisions/`, PR-mal og `scripts/agent-setup.sh` (19.6).
@@ -1602,6 +1637,18 @@ En rapport kan deles fra rapportsiden som en tidsbegrenset skrivebeskyttet nettv
 ### T50 – API og MCP for tiltak, faktasjekk, rapporter og pitch
 
 Kontraktene i 15.1–15.2 og OpenAPI utvides etter Board #899 (`task:83`). Gjenbruker tiltaksflyt, faktahåndtering, rapportdeling og pitch-kvote. Alle nye ruter og verktøy registreres i isolasjonssuiten, inklusive body-ID-er, rollegrenser og partnerkontekst. Skriving via MCP logges uten innhold eller hemmeligheter. Akseptanse: filtrering/paginering, gyldige statusoverganger, ugyldiggjøring av faktavurderinger, opprettelse/tilbakekalling av delingslenker, partneravgrenset pitch og grønn full testpakke.
+
+---
+
+### T51–T55 – Måleplan per merkevare
+
+| Pakke og Board-oppgave | Leveranse og akseptkriterier |
+|---|---|
+| T51 · `task:116` | Spesifikasjon i 7.6 og arbeidspakker på Board med ansvar og avhengigheter. |
+| T52 · `task:117` | Felles kalender- og frekvensregler i lagring, pakkegrenser, første kjøring, dispatcher og Anthropic-planlegger. Test begge nye intervaller over årsskifte og sommertid, samt Av, eksisterende uke-/månedsfordeling og gjentatt planlegging samme dag. |
+| T53 · `task:118` | Standardplan, markedsarv og eksplisitte egne valg i datamodell og backend. Test migrering fra ulike eksisterende markeder, endring av standard, tilbakestilling, én kjerneregel per kjøring og atomisk lagring fra innstillinger og veiviser. Test tilgang og tenant-isolasjon med fremmede merkevare- og markeds-ID-er. |
+| T54 · `task:119` | Felles estimat for et utkast i begge innganger med neste måledato, kostnad og kvote etter 7.6. Test regneeksemplene med syntetiske priser, BYOK, manglende pris og inaktive markeder, samt at forhåndsvisning er uten sideeffekter. |
+| T55 · `task:120` | Måleplan i innstillingene og veiviseren på nb, sv og en. Nettlesertest med to markeder dekker arv, eget intervall, tilbakeføring til standard, oppdatert estimat ved rask redigering og bekreftelse. Sjekk tastaturbetjening og lesertilgang. |
 
 ---
 
