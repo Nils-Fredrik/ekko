@@ -4,6 +4,8 @@ namespace App\Mcp\Tools;
 
 use App\Api\ActionQuery;
 use App\Api\ProductData;
+use App\Enums\ActionStatus;
+use App\Enums\ActionType;
 use App\Mcp\EkkoTool;
 use App\Mcp\McpContext;
 use App\Mcp\ToolResult;
@@ -23,7 +25,8 @@ class ListActions extends EkkoTool
     public function schema(JsonSchema $schema): array
     {
         return [...$this->tenantArgument($schema), ...$this->brandArgument($schema), ...$this->cursorArgument($schema),
-            'status' => $schema->string(), 'type' => $schema->string(), 'market' => $schema->integer()];
+            'status' => $schema->string()->enum(array_column(ActionStatus::cases(), 'value')),
+            'type' => $schema->string()->enum([...array_column(ActionType::cases(), 'value'), 'own']), 'market' => $schema->integer()];
     }
 
     protected function run(Request $request, McpContext $context, Team $tenant): ToolResult

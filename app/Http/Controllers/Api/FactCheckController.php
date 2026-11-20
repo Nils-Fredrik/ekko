@@ -45,6 +45,7 @@ final class FactCheckController
 
     public function update(Request $request, Brand $brand, BrandFactManager $facts): JsonResponse
     {
+        Gate::authorize('view', $brand);
         Gate::authorize('create', BrandFact::class);
         $data = $request->validate(['id' => ['required', 'integer', 'min:1'], 'text' => ['sometimes', 'required', 'string', 'max:300'], 'is_active' => ['sometimes', 'boolean'], 'tenant_id' => ['prohibited']]);
         $fact = BrandFact::query()->where('brand_id', $brand->id)->findOrFail($data['id']);
@@ -55,6 +56,7 @@ final class FactCheckController
 
     public function destroy(Request $request, Brand $brand, BrandFactManager $facts): Response
     {
+        Gate::authorize('view', $brand);
         Gate::authorize('create', BrandFact::class);
         $data = $request->validate(['id' => ['required', 'integer', 'min:1']]);
         $fact = BrandFact::query()->where('brand_id', $brand->id)->findOrFail($data['id']);

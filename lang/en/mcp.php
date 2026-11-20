@@ -93,7 +93,7 @@ return [
         'get_fact_check' => 'Facts and assessed claims.',
         'get_report' => 'Saved report.',
         'create_report_link' => 'Shareable report link created.',
-        'create_pitch' => 'Pitch project created. Complete setup in the wizard.',
+        'create_pitch' => 'Pitch project created. Add prompts in the prompt editor or via API/MCP, and enable engines in market settings before running.',
 
         'whoami' => ':name has access to :count tenants through Claude.',
         'list_brands' => ':count brands.',

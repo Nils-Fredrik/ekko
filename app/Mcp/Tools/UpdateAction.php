@@ -3,6 +3,8 @@
 namespace App\Mcp\Tools;
 
 use App\Api\ActionInput;
+use App\Enums\ActionStatus;
+use App\Enums\ActionType;
 use App\Enums\TenantPermission;
 use App\Mcp\EkkoTool;
 use App\Mcp\McpContext;
@@ -15,7 +17,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('update_action')]
-#[Description('Oppretter eget tiltak (brand og title) eller endrer status (brand, id og status). Krever skriverett; endringen logges. Utfør bare endringer brukeren ber om.')]
+#[Description('Oppretter eget tiltak (brand og title) eller endrer status (brand, id og status). Med id endres bare status; title, description, steps, type, market_id, topic_id og prompt_ids er kun opprettelsesfelt og ignoreres ved statusendring. Krever skriverett; endringen logges. Utfør bare endringer brukeren ber om.')]
 class UpdateAction extends EkkoTool
 {
     protected bool $writes = true;
@@ -25,9 +27,9 @@ class UpdateAction extends EkkoTool
     public function schema(JsonSchema $schema): array
     {
         return [...$this->tenantArgument($schema), ...$this->brandArgument($schema),
-            'id' => $schema->integer(), 'status' => $schema->string(), 'title' => $schema->string(),
+            'id' => $schema->integer(), 'status' => $schema->string()->enum(array_column(ActionStatus::cases(), 'value')), 'title' => $schema->string(),
             'description' => $schema->string(), 'steps' => $schema->array()->items($schema->string()),
-            'type' => $schema->string(), 'market_id' => $schema->integer(), 'topic_id' => $schema->integer(),
+            'type' => $schema->string()->enum(array_column(ActionType::cases(), 'value')), 'market_id' => $schema->integer(), 'topic_id' => $schema->integer(),
             'prompt_ids' => $schema->array()->items($schema->integer())];
     }
 

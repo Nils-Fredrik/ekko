@@ -94,7 +94,7 @@ return [
         'get_fact_check' => 'Fakta og vurderte påstander.',
         'get_report' => 'Lagret rapport.',
         'create_report_link' => 'Delbar rapportlenke opprettet.',
-        'create_pitch' => 'Pitch-prosjekt opprettet. Fullfør oppsettet i veiviseren.',
+        'create_pitch' => 'Pitch-prosjekt opprettet. Legg til prompts i prompt-editoren eller via API/MCP, og aktiver motorer i markedsinnstillingene før kjøring.',
 
         'whoami' => ':name har tilgang til :count tenanter gjennom Claude.',
         'list_brands' => ':count merkevarer.',

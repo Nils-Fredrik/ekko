@@ -93,7 +93,7 @@ return [
         'get_fact_check' => 'Fakta och bedömda påståenden.',
         'get_report' => 'Sparad rapport.',
         'create_report_link' => 'Delbar rapportlänk skapad.',
-        'create_pitch' => 'Pitchprojekt skapat. Slutför inställningarna i guiden.',
+        'create_pitch' => 'Pitchprojekt skapat. Lägg till prompts i promptredigeraren eller via API/MCP och aktivera motorer i marknadsinställningarna före körning.',
 
         'whoami' => ':name har åtkomst till :count tenanter genom Claude.',
         'list_brands' => ':count varumärken.',
