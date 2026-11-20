@@ -27,8 +27,36 @@ function rankPoints(item) {
     }));
 }
 
+// Series that end on the same point (a shared rank on the same day) would print their end labels on top of each
+// other, so the first of them carries all the names and the others show none.
+function endLabels() {
+    const groups = new Map();
+    const owner = props.series.map((item) => {
+        const points = rankPoints(item);
+        let last = points.length - 1;
+        while (last >= 0 && points[last]?.value == null) {
+            last -= 1;
+        }
+        if (last < 0) {
+            return null;
+        }
+        const key = `${last}:${points[last].value}`;
+        if (!groups.has(key)) {
+            groups.set(key, []);
+        }
+        groups.get(key).push(item.label);
+
+        return key;
+    });
+
+    return owner.map((key, index) =>
+        key !== null && owner.indexOf(key) === index ? groups.get(key).join(', ') : null,
+    );
+}
+
 function option({ palette }) {
     const color = colorFor(palette);
+    const labels = endLabels();
     const series = props.series.flatMap((item, index) =>
         lineSeries({
             id: `r-${item.key}`,
@@ -45,7 +73,12 @@ function option({ palette }) {
                       ...line,
                       // A function, not the name as a string: ECharts treats a string formatter as a
                       // template and would replace {a}, {b}, {c} or {@…} in a brand name.
-                      endLabel: { show: true, formatter: () => item.label, color: palette.text, fontSize: 11 },
+                      endLabel: {
+                          show: labels[index] !== null,
+                          formatter: () => labels[index] ?? '',
+                          color: palette.text,
+                          fontSize: 11,
+                      },
                   },
         ),
     );
