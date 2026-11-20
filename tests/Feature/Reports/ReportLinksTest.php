@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Action;
 use App\Models\AggDaily;
 use App\Models\Report;
 use App\Models\ReportLink;
@@ -291,4 +292,21 @@ test('report data is never read before a valid token for an active link', functi
     $queries = [];
     $this->get($endpoint)->assertNotFound();
     expect($reportReads())->toBe([]);
+});
+
+test('a legacy report without a snapshot never gains current action markers', function () {
+    $world = MetricsWorld::create();
+    $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id, 'locale' => 'en']);
+    $report = Report::factory()->create(['report_schedule_id' => $schedule->id,
+        'period_start' => '2026-10-01', 'period_end' => '2026-10-07', 'web_snapshot' => null, 'action_section' => null]);
+    AggDaily::factory()->create(['market_id' => $world->market->id, 'engine_key' => $world->engine->key,
+        'prompt_id' => $world->p1->id, 'date' => '2026-10-03', 'responses' => 20, 'brand_mentioned' => 10]);
+    Action::factory()->create(['brand_id' => $world->brand->id, 'title' => 'Unpublished current action marker',
+        'started_at' => '2026-10-02 12:00:00', 'completed_at' => '2026-10-04 12:00:00']);
+    $token = bin2hex(random_bytes(32));
+    $link = ReportLink::query()->create(['report_id' => $report->id, 'public_id' => bin2hex(random_bytes(16)),
+        'token_hash' => hash('sha256', $token), 'expires_at' => now()->addDay()]);
+    $this->withHeader('Authorization', 'Bearer '.$token)
+        ->get(route('reports.shared', ['tenant' => $world->tenant->id, 'selector' => $link->public_id]))->assertOk()
+        ->assertDontSee('Unpublished current action marker')->assertDontSee('data-marker-date', false);
 });

@@ -9,6 +9,7 @@ use App\Models\Brand;
 use App\Models\Engine;
 use App\Models\MarketEngine;
 use App\Models\Team;
+use App\Models\User;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
@@ -200,4 +201,23 @@ test('the brand dashboard keeps the three highest open actions and links their m
 
 test('insight text is on unless the environment switches it off', function () {
     expect(config('ekko.insights.enabled'))->toBeTrue();
+});
+
+test('cached action markers follow each users language within the same tenant', function () {
+    $world = MetricsWorld::create();
+    Action::factory()->create(['brand_id' => $world->brand->id, 'started_at' => now()->subDay(), 'completed_at' => now()]);
+    Cache::flush();
+    $users = [];
+    foreach (['en', 'nb', 'sv'] as $locale) {
+        $user = User::factory()->create(['locale' => $locale]);
+        $world->tenant->users()->attach($user, ['role' => 'reader']);
+        $user->switchTeam($world->tenant);
+        $users[$locale] = $user;
+    }
+    foreach (['en', 'nb', 'sv', 'en'] as $locale) {
+        $this->actingAs($users[$locale])->get('/brands/'.$world->brand->id)->assertOk()
+            ->assertInertia(fn ($page) => $page->loadDeferredProps(fn ($data) => $data
+                ->where('chartData.action_markers.0.detail', trans('app.charts.action_started', [], $locale))
+                ->where('chartData.action_markers.1.detail', trans('app.charts.action_completed', [], $locale))));
+    }
 });

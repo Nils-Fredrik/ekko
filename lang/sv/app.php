@@ -495,6 +495,9 @@ return [
         'rank' => 'Nr :rank',
         'previous_period' => 'Föregående period',
         'marker_model' => 'Modellbyte',
+        'markers' => 'Markörer',
+        'action_started' => 'Åtgärd påbörjad',
+        'action_completed' => 'Åtgärd slutförd',
         'marker_action' => 'Åtgärd',
         'sentiment' => [
             'negative' => 'Negativ',
