@@ -172,7 +172,7 @@ const deleteApiToken = () => {
                                     </button>
 
                                     <button
-                                        class="cursor-pointer ms-6 text-sm text-red-500"
+                                        class="cursor-pointer ms-6 text-sm text-error"
                                         @click="confirmApiTokenDeletion(token)"
                                     >
                                         {{ $t('Delete') }}

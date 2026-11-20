@@ -163,6 +163,10 @@
 /* Outside @theme. Tailwind drops unused theme variables, and the charts read these
    from computed style rather than from a utility class. */
 :root {
+    /* Text on the dark shell. The success and error marks are below 4.5:1 there.
+       Kept outside @theme so Tailwind cannot drop the variables. */
+    --color-success-text: #5d8a6a;
+    --color-error-text: #bd6861;
     --shell-scheme: dark;
     --data-own: #e84a38;
     --data-cat-1: #a8805a;
@@ -330,4 +334,28 @@ input[type='radio']:not(:checked) {
     .ekko-skeleton {
         animation: none;
     }
+}
+
+/* White on #e84a38 is 3.84:1. Fills that carry white text use primary-deep (5.23:1). */
+.bg-primary.text-white {
+    background-color: var(--color-primary-deep);
+}
+
+:is(a, button):not(:disabled).bg-primary.text-white:hover {
+    background-color: var(--color-secondary);
+}
+
+/* Primary as text fails on the light shell and on white panels. */
+:root[data-theme='light'] .text-primary,
+:root[data-theme='light'] .hover\:text-primary:hover {
+    color: var(--color-primary-deep);
+}
+
+/* The success and error marks are below 4.5:1 as text on the dark shell. */
+:root:not([data-theme='light']) .text-success {
+    color: var(--color-success-text);
+}
+
+:root:not([data-theme='light']) .text-error {
+    color: var(--color-error-text);
 }
