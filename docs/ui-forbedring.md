@@ -104,6 +104,15 @@ Den første versjonen sendte `{ row }` (`DivergingBarChart`), `{ row, column }` 
 
 `kind` er `rate` (andel 0–1, endring i prosentpoeng), `count` eller `number`. Eksempelsiden `/dev/charts` (`routes/dev.php`) viser alle graftypene med testdata i begge temaer. Ruten registreres bare i `local` og `testing`.
 
+## 7.5 Kilder
+
+`Brands/Sources.vue`, med data fra `App\Dashboard\SourcePage` som utsatt prop (`chartData`, cachet i `GraphCache`).
+
+- **Rangert kildeliste:** de 20 mest siterte domenene etter andel av svarene (`sourceShare`), farget og merket etter eierskap: egen = `--data-own`, konkurrent = konkurrentens `--data-cat`-farge etter fast plass (aktive konkurrenter sortert på navn), tredjepart = `--data-neutral`. Eierskapet følger merkevarens og konkurrentenes domener slik de er satt opp nå (`DomainOwnership`), så samme domene har samme farge på alle sider. Under grafen står domenene som liste med eierskap i tekst.
+- **Kildegap:** de ti største gapene (`sourceGap`). Grafen sammenligner hvor ofte domenet siteres i svar som nevner konkurrenter og ikke merkevaren (n = alle slike svar), med hvor ofte det siteres i svar som nevner merkevaren (n = alle svar som nevner merkevaren). Begge tellingene kommer fra de uttrukne svarene i perioden (`MetricsService::sourceGapComparison`), med samme regel som aggregatoren: et domene sitert som eget teller aldri som gap. Hvert gap lenker til `source_gap`-tiltaket for domenet (T43): et åpent tiltak først, ellers et fullført eller avvist, aldri et utløpt. Med markedsfilter gjelder bare tiltakene i markedet.
+- **Treemap etter kildetype:** siteringer per kildetype fra `citation_distribution` (ADR 0037). Er fordelingen ikke beregnet for alle dager i perioden, vises en forklaring i stedet for en ufullstendig graf. Klikk på en type viser bare domenene av den typen i listen.
+- **Klikk på et domene** (stolpe, gap eller listeelement) laster svarene som siterer det med en delvis Inertia-forespørsel (`?domain=`, prop `citing`): de 20 nyeste uttrukne svarene for merkevaren i perioden og filteret, med prompt, motor, marked, om merkevaren er nevnt og de siterte URL-ene.
+
 ## 9. Ytelse
 
 Dashboardets første HTTP-svar har et mål om p95 under 800 ms, også med ett års data. Tunge grafdata sendes som utsatte Inertia-props og caches per tenant, filterkombinasjon og lokal dag. Isolasjon og tilgangskontroll gjelder også de utsatte forespørslene. Tidsbegrenset cache må samtidig ivareta oppdateringsmålet i `docs/spec.md` kapittel 9.
