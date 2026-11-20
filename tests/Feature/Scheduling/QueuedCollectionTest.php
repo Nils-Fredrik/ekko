@@ -3,6 +3,7 @@
 use App\Engines\EngineCallFailed;
 use App\Engines\QueuedEngineCollector;
 use App\Engines\RawResponseStore;
+use App\Jobs\CollectEngineRun;
 use App\Models\Engine;
 use App\Models\EnginePrice;
 use App\Models\Market;
@@ -70,6 +71,46 @@ test('queued provider submission is billed once, survives polling and persists a
             ->and(UsageEvent::query()->count())->toBe(1)->and($run->provider_submissions)->toBe(1);
     });
     Http::assertSentCount(4);
+});
+
+test('a paid provider task submitted before pitch expiry can be fetched afterwards', function () {
+    [$tenant, $run] = queuedFixture();
+    $tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addMinute()])->save();
+    $id = '11150800-0000-0000-0000-123456789abc';
+    $base = 'https://api.dataforseo.com/v3/ai_optimization/chat_gpt/llm_scraper';
+    Http::preventStrayRequests()->fake([
+        "$base/task_post" => Http::response(EngineFixtures::load('dataforseo', 'created')),
+        "$base/tasks_ready" => Http::response(EngineFixtures::load('dataforseo', 'ready')),
+        "$base/task_get/advanced/$id" => Http::response(EngineFixtures::load('chatgpt_ui', 'no-nb')),
+    ]);
+    $store = Mockery::mock(RawResponseStore::class);
+    $store->expects('put')->once()->andReturn('gs://fixture/queued.json');
+    app()->instance(RawResponseStore::class, $store);
+    collectQueued($tenant, $run);
+    $this->travel(2)->minutes();
+
+    app(TenantContext::class)->run($tenant->id, fn () => app()->call([new CollectEngineRun($tenant->id, $run->id), 'handle']));
+
+    inQueuedTenant($tenant, fn () => expect($run->fresh()->status)->toBe('collected')
+        ->and($run->fresh()->provider_submissions)->toBe(1)->and(UsageEvent::query()->count())->toBe(1));
+    Http::assertSentCount(3);
+});
+
+test('an expired pitch does not resubmit a timed out provider task', function () {
+    [$tenant, $run] = queuedFixture();
+    $tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addMinute()])->save();
+    Http::preventStrayRequests()->fake([
+        '*/task_post' => Http::response(EngineFixtures::load('dataforseo', 'created')),
+        '*/tasks_ready' => Http::response(['status_code' => 20000, 'tasks' => []]),
+    ]);
+    collectQueued($tenant, $run);
+    $this->travel(6)->hours();
+    app(TenantContext::class)->run($tenant->id, fn () => app()->call([new CollectEngineRun($tenant->id, $run->id), 'handle']));
+    inQueuedTenant($tenant, fn () => expect($run->fresh()->status)->toBe('submitted')->and(UsageEvent::query()->count())->toBe(1));
+    Http::assertSentCount(2);
+    $this->travel(6)->hours();
+    expect(fn () => collectQueued($tenant, $run))->toThrow(EngineCallFailed::class, 'provider_task_timeout');
+    Http::assertSentCount(3);
 });
 
 test('a pending provider task is resubmitted at six hours only once and both submissions are billed', function () {

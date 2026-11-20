@@ -53,7 +53,7 @@ test('guests are refused', function (string $key) {
     $request = ($access->foreign ?? $access->own ?? fn () => [])($this->s);
 
     foreach (RouteRegister::methods(RouteRegister::route($key)) as $method) {
-        $status = callRoute($this, $method, $key, $request)->status();
+        $status = callRoute($this, $method, $key, $request)->getStatusCode();
 
         expect($status)->toBeIn([401, 403], "{$method} {$key} answered {$status} to a guest");
     }
@@ -68,7 +68,7 @@ test('no user of tenant A can reach tenant B or another user, whatever the role'
     foreach (RouteAccess::TENANT_ROLES as $role) {
         foreach (RouteRegister::methods(RouteRegister::route($key)) as $method) {
             $this->actingAs($this->s->userWithRole($role))->withSession(['auth.password_confirmed_at' => time()]);
-            $status = callRoute($this, $method, $key, ($access->foreign)($this->s))->status();
+            $status = callRoute($this, $method, $key, ($access->foreign)($this->s))->getStatusCode();
 
             expect($status)->toBeIn([403, 404], "{$method} {$key} as {$role} answered {$status} for another tenant's resource");
             expect($this->s->snapshotOfB())->toBe($before, "{$method} {$key} as {$role} changed tenant B");
@@ -91,7 +91,7 @@ test('the allowed request succeeds, so a 403 or 404 elsewhere means something', 
         }
 
         $this->actingAs($user)->withSession(['auth.password_confirmed_at' => time()]);
-        $status = callRoute($this, $method, $key, ($access->own ?? fn () => [])($this->s))->status();
+        $status = callRoute($this, $method, $key, ($access->own ?? fn () => [])($this->s))->getStatusCode();
 
         // Below 400: a 422 or 409 could come from validation before authorization, or from
         // outdated data in the register, and would say nothing about the policy.
@@ -104,7 +104,7 @@ test('roles without the right in their own tenant get 403', function (string $ke
 
     foreach (RouteRegister::methods(RouteRegister::route($key)) as $method) {
         $this->actingAs($this->s->userWithRole($role))->withSession(['auth.password_confirmed_at' => time()]);
-        $status = callRoute($this, $method, $key, ($access->own)($this->s))->status();
+        $status = callRoute($this, $method, $key, ($access->own)($this->s))->getStatusCode();
 
         expect($status)->toBe(403, "{$method} {$key} answered {$status} for role {$role}");
     }
@@ -125,7 +125,7 @@ test('platform admin routes refuse everyone else', function (string $key, string
 
     foreach (RouteRegister::methods(RouteRegister::route($key)) as $method) {
         $this->actingAs($this->s->userWithRole($role))->withSession(['auth.password_confirmed_at' => time()]);
-        $status = callRoute($this, $method, $key, $request)->status();
+        $status = callRoute($this, $method, $key, $request)->getStatusCode();
 
         expect($status)->toBe(403, "{$method} {$key} answered {$status} for role {$role}");
     }
@@ -162,7 +162,7 @@ test('no signed-in page shows anything from another tenant', function () {
                 : $this->get(RouteRegister::url($route, $request['params'] ?? [], $access->signed ? null : $access));
             $content = (string) $response->getContent();
 
-            expect($response->status())->toBeLessThan(500, "GET {$key} as {$role} answered {$response->status()}");
+            expect($response->getStatusCode())->toBeLessThan(500, "GET {$key} as {$role} answered {$response->getStatusCode()}");
             expect(stripos($content, $this->s->marker))->toBeFalse("GET {$key} as {$role} showed data from tenant B");
             $checked++;
         }

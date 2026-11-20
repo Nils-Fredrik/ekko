@@ -195,7 +195,8 @@ final class InsightWriter
     {
         DB::transaction(function () use ($operation, $cost, $allocationId, $inputTokens, $outputTokens): void {
             if (! UsageEvent::query()->where('anthropic_operation', $operation)->exists()) {
-                UsageEvent::query()->create([
+                $claim = AnthropicInsightAllocation::query()->findOrFail($allocationId);
+                UsageEvent::recordAtOrigin([
                     'occurred_at' => CarbonImmutable::now('UTC'),
                     'kind' => 'pdf',
                     'engine_key' => 'claude_sonnet',
@@ -205,7 +206,7 @@ final class InsightWriter
                     'cost_usd' => $cost,
                     'billed_to' => 'platform',
                     'anthropic_operation' => $operation,
-                ]);
+                ], $claim->consumed_at);
             }
             AnthropicInsightAllocation::query()->whereKey($allocationId)->update([
                 'consumed_at' => CarbonImmutable::now('UTC'),

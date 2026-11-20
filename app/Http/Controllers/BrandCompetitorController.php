@@ -8,6 +8,7 @@ use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\Brand;
 use App\Models\Competitor;
+use App\Models\Team;
 use App\Prompts\UnknownBrands;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -72,11 +73,17 @@ class BrandCompetitorController extends Controller
         ])['name']);
 
         DB::transaction(function () use ($brand, $name): void {
+            // Conversion and onboarding take this same lock before changing pitch state.
+            $tenant = Team::query()->whereKey(current_tenant_id())->lock('for no key update')->firstOrFail();
             // One lock per brand, so two clicks cannot both pass the duplicate check.
             Brand::query()->whereKey($brand->id)->lockForUpdate()->first();
 
             if ($name === '' || isset(UnknownBrands::knownNames($brand)[mb_strtolower($name)])) {
                 throw ValidationException::withMessages(['name' => __('app.library.duplicate')]);
+            }
+
+            if ($tenant->kind === 'pitch' && $brand->competitors()->count() >= 3) {
+                throw ValidationException::withMessages(['name' => __('pitch.limits')]);
             }
 
             $competitor = $brand->competitors()->create([

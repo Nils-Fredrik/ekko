@@ -22,6 +22,7 @@ return [
     'missing_markup' => 'Angi påslag for alle linjer før eksport. Et tomt felt betyr uavklart; 0 er et eksplisitt påslag på null prosent.',
     'invalid_month' => 'Velg en gyldig måned på formen ÅÅÅÅ-MM.',
     'csv' => [
+        'project_kind' => 'project_kind',
         'unassigned_cost_usd' => 'unassigned_cost_usd',
         'month' => 'month',
         'account_id' => 'account_id',

@@ -1,6 +1,8 @@
 <script setup>
+import { useForm, usePage } from '@inertiajs/vue3';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import PitchCreateForm from '@/Components/PitchCreateForm.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -8,6 +10,9 @@ const props = defineProps({
     clients: { type: Array, required: true },
     portfolioGraphs: { type: Array, default: null },
 });
+
+const page = usePage();
+const convert = useForm({});
 
 function sparkline(clientId) {
     return props.portfolioGraphs?.find((row) => row.id === clientId)?.series ?? [];
@@ -21,6 +26,7 @@ function sparkline(clientId) {
         </template>
         <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
             <p class="text-sm text-shell-muted">{{ $t('app.partner.intro', { days: period.days }) }}</p>
+            <PitchCreateForm class="mt-6" />
             <EmptyState
                 v-if="clients.length === 0"
                 class="mt-6"
@@ -38,7 +44,24 @@ function sparkline(clientId) {
                     </thead>
                     <tbody>
                         <tr v-for="client in clients" :key="client.id" class="border-b border-line last:border-0">
-                            <td class="px-4 py-3">{{ client.name }}</td>
+                            <td class="px-4 py-3">
+                                {{ client.name }}
+                                <span
+                                    v-if="page.props.pitchProjects.includes(client.id)"
+                                    class="block text-xs text-shell-muted"
+                                >
+                                    {{ $t('pitch.kind_pitch') }}
+                                </span>
+                                <button
+                                    v-if="page.props.pitchProjects.includes(client.id)"
+                                    type="button"
+                                    class="text-sm text-primary"
+                                    :disabled="convert.processing"
+                                    @click="convert.post(route('pitches.convert', client.id))"
+                                >
+                                    {{ $t('pitch.convert') }}
+                                </button>
+                            </td>
                             <td class="min-w-56 px-4 py-3">
                                 <KpiCard
                                     size="secondary"

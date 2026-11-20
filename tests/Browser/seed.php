@@ -9,6 +9,7 @@ use App\Models\Plan;
 use App\Models\ReportLink;
 use App\Models\ReportSchedule;
 use App\Models\Team;
+use App\Models\UsageEvent;
 use App\Models\User;
 use App\Reports\DueReport;
 use App\Reports\ReportPublisher;
@@ -71,6 +72,21 @@ $engine = Engine::factory()->create(['key' => 'browser_wizard', 'provider' => 'o
 EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subDay(), 'price_per_call_usd' => '0.01000000']);
 $plan = Plan::factory()->create(['allowed_engines' => [$engine->key], 'max_brands' => 5, 'max_markets_per_brand' => 3, 'max_frequency' => 'weekly', 'max_repetitions' => 1, 'monthly_call_quota' => 1000, 'monthly_budget_usd' => '100']);
 $team->forceFill(['plan_id' => $plan->id])->save();
+$billingAdmin = User::factory()->platformAdmin()->create([
+    'email' => 'browser-billing@example.test', 'password' => Hash::make($password), 'locale' => 'en',
+]);
+$team->users()->attach($billingAdmin, ['role' => 'reader']);
+$billingAdmin->switchTeam($team);
+// A converted tenant has two invoice rows, but only one tenant-wide markup.
+$billingTenant = Team::factory()->tenant()->create(['name' => 'Billing fixture', 'billing_markup_percent' => '10']);
+app(TenantContext::class)->run($billingTenant->id, function (): void {
+    foreach (['customer', 'pitch'] as $kind) {
+        UsageEvent::recordForProject([
+            'kind' => 'engine_call', 'occurred_at' => '2026-10-15T12:00:00Z',
+            'cost_usd' => '10.00', 'billed_to' => 'platform', 'calls' => 1,
+        ], $kind);
+    }
+});
 $values = ['SMOKE_EMAIL' => $user->email, 'SMOKE_PASSWORD' => $password, 'SMOKE_TENANT_ID' => (string) $team->id, 'SMOKE_BRAND_ID' => (string) $brand->id, 'SMOKE_WIZARD_EMAIL' => $owner->email, 'SMOKE_REPORT_TOKEN' => $reportToken, 'SMOKE_REPORT_SELECTOR' => $reportSelector, 'SMOKE_REPORT_NB_TOKEN' => $norwegianToken, 'SMOKE_REPORT_NB_SELECTOR' => $norwegianSelector];
 // The integrated T33/T34 contracts are exercised by the deployment smoke test.
 if (class_exists(TokenTenant::class)) {

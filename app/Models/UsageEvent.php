@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use App\Observers\AnthropicSpendObserver;
 use App\Observers\UsageWorkObserver;
+use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Database\Factories\UsageEventFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +21,50 @@ class UsageEvent extends Model
 
     /** @use HasFactory<UsageEventFactory> */
     use HasFactory;
+
+    private ?CarbonImmutable $projectOriginAt = null;
+
+    private ?string $projectOriginKind = null;
+
+    /**
+     * Preserve the project type at operation start when an asynchronous result is billed later.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public static function recordAtOrigin(array $attributes, ?CarbonImmutable $at): self
+    {
+        $event = new self($attributes);
+        $event->projectOriginAt = $at;
+        $event->save();
+
+        return $event;
+    }
+
+    /** @param array<string, mixed> $attributes */
+    public static function recordForProject(array $attributes, string $kind): self
+    {
+        $event = new self($attributes);
+        $event->projectOriginKind = $kind;
+        $event->save();
+
+        return $event;
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (UsageEvent $event): void {
+            $team = Team::query()->findOrFail(app(TenantContext::class)->require());
+            $projectKind = $event->projectOriginKind ?? $team->kind;
+            if ($event->projectOriginKind === null && $projectKind !== 'pitch' && $team->pitch_converted_at !== null) {
+                // A collected run can be booked after conversion; use its creation time to retain provenance.
+                $started = $event->projectOriginAt ?? ($event->run_id === null ? $event->occurred_at : Run::query()->whereKey($event->run_id)->value('created_at'));
+                if ($started !== null && CarbonImmutable::parse($started)->lessThan($team->pitch_converted_at)) {
+                    $projectKind = 'pitch';
+                }
+            }
+            $event->setAttribute('project_kind', $projectKind);
+        });
+    }
 
     /** @var list<string> */
     protected $fillable = [

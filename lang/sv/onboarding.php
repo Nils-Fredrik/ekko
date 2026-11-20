@@ -14,6 +14,7 @@ return [
         'quota_reached' => 'Månadens kvot eller budget är förbrukad. Analysen kan inte startas.',
         'busy' => 'En analys startas redan för den här kunden. Försök igen om en stund.',
         'brand_gone' => 'Varumärket finns inte längre.',
+        'pitch_expired' => 'Pitchprojektet har löpt ut.',
         'fetch_invalid_url' => 'Adressen är inte giltig. Guiden hämtar bara sidor över https.',
         'fetch_blocked_address' => 'Adressen pekar på en intern eller privat IP-adress och kan inte hämtas.',
         'fetch_dns' => 'Domänen kunde inte slås upp.',

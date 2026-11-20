@@ -14,6 +14,7 @@ return [
         'quota_reached' => 'Månedens kvote eller budsjett er brukt opp. Analysen kan ikke startes.',
         'busy' => 'Det startes allerede en analyse for denne tenanten. Prøv igjen om litt.',
         'brand_gone' => 'Merkevaren finnes ikke lenger.',
+        'pitch_expired' => 'Pitch-prosjektet er utløpt.',
         'fetch_invalid_url' => 'Adressen er ikke gyldig. Veiviseren henter bare sider over https.',
         'fetch_blocked_address' => 'Adressen peker til en intern eller privat IP-adresse og kan ikke hentes.',
         'fetch_dns' => 'Domenet kunne ikke slås opp.',

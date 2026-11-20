@@ -8,6 +8,7 @@ use App\Engines\Credentials\TenantApiKeys;
 use App\Engines\EnginePricing;
 use App\Enums\TenantStatus;
 use App\Jobs\CollectEngineRun;
+use App\Jobs\GenerateTenantActions;
 use App\Jobs\SubmitExtractionBatch;
 use App\Models\AnthropicBudgetPlan;
 use App\Models\Market;
@@ -74,7 +75,11 @@ final class Dispatcher
                         }
 
                         $this->refreshBatches();
-                        if (Run::query()->where('status', 'collected')->exists()) {
+                        $collected = Run::query()->where('status', 'collected');
+                        if ($tenant->kind === 'pitch' && ! $tenant->mayStartProjectWorkAt($now)) {
+                            $collected->where('created_at', '<', $tenant->pitch_expires_at ?? $now);
+                        }
+                        if ($collected->exists()) {
                             SubmitExtractionBatch::dispatch($tenant->id)->onConnection('database')->afterCommit();
                         }
 
@@ -128,12 +133,16 @@ final class Dispatcher
 
     private function plan(Team $tenant, CarbonImmutable $now): void
     {
+        if (! $tenant->mayCollectAt($now)) {
+            return;
+        }
         $plan = $tenant->plan;
         if ($plan === null) {
             return;
         }
         $day = $now->setTimezone($tenant->timezone)->startOfDay();
         $candidates = [];
+        $pitchActionsQueued = false;
         $budget = app(Account::class);
         $additions = $this->budgetPlanned && $budget->configured() ? (AnthropicBudgetPlan::query()->where('day', $now->utc()->toDateString())->first()->additions ?? []) : [];
         foreach (Market::query()->where('is_active', true)->whereHas('brand', fn ($q) => $q->where('status', 'active'))->with(['marketEngines.engine', 'prompts' => fn ($q) => $q->where('is_active', true)->orderByRaw("CASE WHEN priority = 'core' THEN 0 ELSE 1 END")->orderBy('id')])->orderBy('id')->get() as $market) {
@@ -141,14 +150,25 @@ final class Dispatcher
             if (! $batch->wasRecentlyCreated) {
                 continue;
             }
+            if ($tenant->kind === 'pitch' && ! $pitchActionsQueued) {
+                // The daily market batch is the durable once-per-day marker; queue and marker commit together.
+                Queue::connection('database')->push(new GenerateTenantActions($tenant->id, force: true));
+                $pitchActionsQueued = true;
+            }
             foreach ($market->prompts as $prompt) {
                 foreach ($market->marketEngines->groupBy('engine_key') as $key => $settings) {
+                    if ($tenant->kind === 'pitch' && ! in_array($key, ['chatgpt_api', 'gemini_api', 'claude_haiku'], true)) {
+                        continue;
+                    }
                     $setting = ($prompt->priority === 'core' ? $settings->firstWhere('prompt_scope', 'core') : null) ?? $settings->firstWhere('prompt_scope', 'all');
                     if ($setting === null || ! $setting->engine->isAvailable() || ! $plan->allowsEngine($key)) {
                         continue;
                     }
                     $ranks = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
                     $frequency = $ranks[$setting->frequency] <= $ranks[$plan->maxFrequencyForEngine($key)] ? $setting->frequency : $plan->maxFrequencyForEngine($key);
+                    if ($tenant->kind === 'pitch' && $frequency !== 'off' && $plan->maxFrequencyForEngine($key) === 'daily') {
+                        $frequency = 'daily';
+                    }
                     $platformClaude = $budget->configured() && in_array($key, ['claude_haiku', 'claude_sonnet'], true) && $this->keys->forEngine($tenant, $setting->engine) === null;
                     if ($platformClaude && $key === 'claude_sonnet' && $frequency === 'daily') {
                         $frequency = 'weekly';

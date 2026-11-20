@@ -13,6 +13,7 @@ use App\Models\BrandFact;
 use App\Models\Citation;
 use App\Models\Claim;
 use App\Models\Response;
+use App\Models\Team;
 use App\Models\UsageEvent;
 use App\Tenancy\Rls\TenantRls;
 use Carbon\CarbonImmutable;
@@ -67,7 +68,7 @@ final class FactChecker
      */
     public function run(int $tenantId, int $deadline): string
     {
-        if (! $this->available()) {
+        if (! $this->available() || ! Team::query()->findOrFail($tenantId)->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
             return self::DONE;
         }
         if (! DB::selectOne('select pg_try_advisory_lock(?, ?) as locked', [self::LOCK_NAMESPACE, $tenantId])->locked) {
@@ -91,6 +92,10 @@ final class FactChecker
         foreach (array_slice($pending, 0, $limit) as $item) {
             if (CarbonImmutable::now()->getTimestamp() >= $deadline) {
                 return self::MORE;
+            }
+            $project = Team::query()->findOrFail($tenantId);
+            if (! $project->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+                return self::DONE;
             }
             $outcome = $this->call($tenantId, $item['request']);
             if ($outcome === 'stop') {
@@ -160,6 +165,14 @@ final class FactChecker
             return 'stop';
         }
 
+        $project = Team::query()->findOrFail($tenantId);
+        if (! $project->mayStartProjectWorkAt(CarbonImmutable::now('UTC'))) {
+            if ($configured) {
+                Account::independent()->settle($operation);
+            }
+
+            return 'stop';
+        }
         try {
             // Resolved here: without ANTHROPIC_API_KEY the container cannot build the client.
             $result = app(FactJudge::class)->judge($request);
@@ -186,6 +199,7 @@ final class FactChecker
             Account::independent()->settleKnown($operation, $this->cost->of($result->inputTokens, $result->outputTokens));
         }
         $result->operation = $operation;
+        $result->projectKind = $project->kind;
 
         return $result;
     }
@@ -209,7 +223,7 @@ final class FactChecker
 
         $this->rls->run([$tenantId], function () use ($item, $result, $claims): void {
             if ($result !== null) {
-                UsageEvent::query()->create([
+                UsageEvent::recordForProject([
                     'kind' => 'factcheck',
                     'engine_key' => null,
                     'occurred_at' => CarbonImmutable::now('UTC'),
@@ -220,7 +234,7 @@ final class FactChecker
                     'cost_usd' => $this->cost->of($result->inputTokens, $result->outputTokens),
                     'billed_to' => 'platform',
                     'anthropic_operation' => $result->operation,
-                ]);
+                ], $result->projectKind ?? throw new \LogicException('Missing project type for fact check'));
             }
             // A fact removed, switched off or reworded while the call ran gets no claim: the verdict was given on the
             // text in the request. The rows are locked, so an edit cannot slip in between this check and the insert

@@ -13,6 +13,21 @@ use App\Models\UsageEvent;
 use App\Models\User;
 use App\Tenancy\TenantContext;
 
+it('keeps the internal pitch plan when editing and only converts through the pitch flow', function () {
+    $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
+    $pitchPlan = Plan::query()->where('is_pitch_plan', true)->sole();
+    $ordinaryPlan = Plan::factory()->create(['is_pitch_plan' => false]);
+    $pitch = Team::factory()->tenant()->withPlan($pitchPlan)->create(['kind' => 'pitch']);
+    $customer = Team::factory()->tenant()->withPlan($ordinaryPlan)->create();
+    $payload = ['name' => 'Renamed', 'plan_id' => $pitchPlan->id, 'status' => 'active'];
+
+    $this->actingAs($admin)->put(route('admin.tenants.update', $pitch), $payload)->assertRedirect()->assertSessionHasNoErrors();
+    expect($pitch->fresh()->name)->toBe('Renamed')->and($pitch->fresh()->plan_id)->toBe($pitchPlan->id);
+    $this->put(route('admin.tenants.update', $pitch), [...$payload, 'plan_id' => $ordinaryPlan->id])->assertSessionHasErrors('plan_id');
+    $this->put(route('admin.tenants.update', $customer), $payload)->assertSessionHasErrors('plan_id');
+    $this->post(route('admin.tenants.store'), ['name' => 'Invalid', 'plan_id' => $pitchPlan->id])->assertSessionHasErrors('plan_id');
+});
+
 it('lets a platform admin manage tenants, plans and engines', function () {
     $admin = User::factory()->platformAdmin()->withPersonalTeam()->create();
     $plan = Plan::factory()->create(['name' => 'Basis']);

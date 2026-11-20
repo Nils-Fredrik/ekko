@@ -83,9 +83,22 @@ final class Planner
      */
     private function catalog(Team $tenant, CarbonImmutable $now, int $days): array
     {
+        if ($tenant->kind === 'pitch') {
+            // The daily dispatcher runs at this UTC time; exclude dates after expiry.
+            $eligibleDays = 0;
+            for ($offset = 0; $offset < $days; $offset++) {
+                if ($tenant->mayCollectAt($now->addDays($offset))) {
+                    $eligibleDays++;
+                }
+            }
+            $days = $eligibleDays;
+        }
         $platformPaid = $this->estimator->platformPaid($now, $days);
         $baseline = $platformPaid;
         $offers = [];
+        if ($days === 0) {
+            return ['baseline' => 0, 'platform_paid' => 0, 'offers' => []];
+        }
         $plan = $tenant->plan;
         if ($plan === null) {
             return ['baseline' => $baseline, 'platform_paid' => $platformPaid, 'offers' => $offers];
@@ -100,6 +113,9 @@ final class Planner
             }
             foreach ($market->prompts as $prompt) {
                 foreach ($market->marketEngines->groupBy('engine_key') as $key => $settings) {
+                    if ($tenant->kind === 'pitch' && ! in_array($key, ['chatgpt_api', 'gemini_api', 'claude_haiku'], true)) {
+                        continue;
+                    }
                     $core = $prompt->priority === 'core';
                     $setting = ($core ? $settings->firstWhere('prompt_scope', 'core') : null) ?? $settings->firstWhere('prompt_scope', 'all');
                     if ($setting === null || ! $setting->engine->isAvailable() || ! $plan->allowsEngine($key)) {
@@ -107,6 +123,9 @@ final class Planner
                     }
                     $ranks = ['off' => 0, 'monthly' => 1, 'weekly' => 2, 'daily' => 3];
                     $frequency = $ranks[$setting->frequency] <= $ranks[$plan->maxFrequencyForEngine($key)] ? $setting->frequency : $plan->maxFrequencyForEngine($key);
+                    if ($tenant->kind === 'pitch' && $frequency !== 'off' && $plan->maxFrequencyForEngine($key) === 'daily') {
+                        $frequency = 'daily';
+                    }
                     $platform = $this->keys->forEngine($tenant, $setting->engine) === null;
                     $claude = in_array($key, ['claude_haiku', 'claude_sonnet'], true) && $platform;
                     if ($claude && $key === 'claude_sonnet' && $frequency === 'daily') {

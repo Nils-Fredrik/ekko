@@ -11,6 +11,15 @@ import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({ month: String, rows: Array, accounts: Array });
 const filter = useForm({ month: props.month });
+// The markup belongs to the tenant, even when usage spans pitch and customer rows.
+const tenantRows = computed(() => {
+    const groups = new Map();
+    for (const row of props.rows) {
+        if (!groups.has(row.tenant_id)) groups.set(row.tenant_id, []);
+        groups.get(row.tenant_id).push(row);
+    }
+    return [...groups.values()];
+});
 const ready = computed(() => props.rows.length > 0 && props.rows.every((row) => row.invoice_total_usd !== null));
 </script>
 
@@ -73,11 +82,18 @@ const ready = computed(() => props.rows.length > 0 && props.rows.every((row) => 
                             <th class="p-3">{{ $t('billing.total') }}</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <tr v-for="row in rows" :key="row.tenant_id" class="border-t border-line-soft">
+                    <tbody v-for="group in tenantRows" :key="group[0].tenant_id">
+                        <tr
+                            v-for="(row, index) in group"
+                            :key="`${row.tenant_id}-${row.project_kind}`"
+                            class="border-t border-line-soft"
+                        >
                             <td class="p-3">
                                 <span class="block font-medium">{{ row.tenant_name }}</span>
                                 <span class="block text-xs text-shell-muted">{{ row.plan }}</span>
+                                <span class="block text-xs text-shell-muted">
+                                    {{ $t(`pitch.kind_${row.project_kind}`) }}
+                                </span>
                                 <span class="block text-xs text-shell-muted">
                                     {{ $t('billing.recipient', { name: row.account_name }) }}
                                 </span>
@@ -85,7 +101,7 @@ const ready = computed(() => props.rows.length > 0 && props.rows.every((row) => 
                             <td class="p-3 tabular-nums">{{ row.calls }}</td>
                             <td class="p-3 tabular-nums">{{ row.platform_cost_usd }}</td>
                             <td class="p-3 tabular-nums">{{ row.byok_cost_usd }}</td>
-                            <td class="p-3">
+                            <td v-if="index === 0" :rowspan="group.length" class="p-3">
                                 <BillingMarkupForm
                                     :tenant-id="row.tenant_id"
                                     :name="row.tenant_name"

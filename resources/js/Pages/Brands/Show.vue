@@ -16,6 +16,7 @@ import { computed, ref } from 'vue';
 
 const props = defineProps({
     canCreateMarket: { type: Boolean, default: false },
+    hasPitchReport: { type: Boolean, default: false },
     brand: { type: Object, required: true },
     period: { type: Object, required: true },
     filters: { type: Object, required: true },
@@ -267,6 +268,9 @@ function openMarker(marker) {
         <div class="py-4">
             <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 sm:px-6 lg:px-8">
                 <BrandNav :brand-id="brand.id" />
+                <Link v-if="hasPitchReport" :href="route('pitches.report', brand.id)" class="text-sm text-primary">
+                    {{ $t('pitch.report') }}
+                </Link>
                 <Link
                     v-if="canCreateMarket"
                     :href="route('brands.markets.create', brand.id)"

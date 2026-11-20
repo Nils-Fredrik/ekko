@@ -99,6 +99,19 @@ class HandleInertiaRequests extends Middleware
 
                 return app(TenantAccess::class)->advisesPartner($user, $team);
             },
+            'pitchProjects' => function () use ($request): array {
+                if (! $request->routeIs('partner.index')) {
+                    return [];
+                }
+                $user = $request->user();
+                $partner = $user?->currentTeam;
+                if (! $user instanceof User || ! $partner instanceof Team || ! app(TenantAccess::class)->advisesPartner($user, $partner)) {
+                    return [];
+                }
+
+                return Team::query()->where('partner_team_id', $partner->id)->where('kind', 'pitch')
+                    ->where('status', '!=', 'closed')->pluck('id')->map(fn ($id): int => (int) $id)->all();
+            },
             // Only the team page. Secrets stay on the server: the webhook and API keys are present or absent.
             'teamProfile' => fn () => $this->teamProfile($request),
         ];
