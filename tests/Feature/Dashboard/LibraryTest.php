@@ -253,10 +253,10 @@ test('deleting a competitor stops new detection and preserves historical measure
     $index = route('brands.competitors.index', [$world->brand, 'from' => '2026-11-10', 'to' => '2026-11-10']);
     app(DailyAggregator::class)->aggregate('2026-11-10');
     $this->actingAs($owner)->get($index)->assertInertia(fn ($page) => $page->loadDeferredProps(fn ($data) => $data
-        ->where('chartData.series.0.entities', fn ($entities) => collect($entities)->pluck('name')->contains($competitor->name))));
+        ->where('chartData.ranking.0.entities', fn ($entities) => collect($entities)->pluck('name')->contains($competitor->name))));
     $this->delete(route('brands.competitors.destroy', [$world->brand, $competitor]))->assertRedirect();
     $this->get($index)->assertInertia(fn ($page) => $page->loadDeferredProps(fn ($data) => $data
-        ->where('chartData.series.0.entities', fn ($entities) => collect($entities)->pluck('name')->doesntContain($competitor->name))));
+        ->where('chartData.ranking.0.entities', fn ($entities) => collect($entities)->pluck('name')->doesntContain($competitor->name))));
 
     $catalog = DetectionCatalog::load();
     expect($catalog->aliases)->toBeEmpty()
