@@ -6,7 +6,7 @@ import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
 import SmallMultiplesChart from '@/Components/Charts/SmallMultiplesChart.vue';
 import StackedAreaChart from '@/Components/Charts/StackedAreaChart.vue';
 import TrendLineChart from '@/Components/Charts/TrendLineChart.vue';
-import { alignByOffset, periodBuckets } from '@/Components/Charts/support/data.js';
+import { alignComparison, periodBuckets } from '@/Components/Charts/support/data.js';
 import { formatValue } from '@/Components/Charts/support/format.js';
 import { pickLeadingEngine } from './leadingEngine.js';
 import InsightLine from '@/Components/Dashboard/InsightLine.vue';
@@ -166,8 +166,12 @@ const previousTrend = computed(() => {
     const values = buckets.map((bucket) => byPeriod.get(bucket) ?? point(null));
 
     return {
-        label: trans('app.charts.previous_period'),
-        points: alignByOffset(categories.value, buckets, values, point(null)),
+        label: trans(props.period.comparison === 'year' ? 'filters.year' : 'app.charts.previous_period'),
+        points: alignComparison(categories.value, buckets, values, {
+            comparison: props.period.comparison,
+            grain: grain.value,
+            missing: point(null),
+        }),
     };
 });
 

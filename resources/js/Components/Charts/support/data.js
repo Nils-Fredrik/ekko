@@ -99,6 +99,32 @@ export function alignByOffset(currentBuckets, previousBuckets, previousValues, m
     return currentBuckets.map((_, index) => values[index] ?? missing);
 }
 
+/**
+ * Daily year comparisons match calendar dates, clipping Feb 29 to Feb 28 like DashboardPeriod.
+ * Months match the same month. Weekly values are already aggregated on different Monday boundaries
+ * in each year, so keep whole weeks in window order rather than repeat or discard a partial week.
+ */
+export function alignComparison(
+    currentBuckets,
+    previousBuckets,
+    previousValues,
+    { comparison = 'previous', grain = 'day', missing = null } = {},
+) {
+    if (comparison !== 'year' || grain === 'week') {
+        return alignByOffset(currentBuckets, previousBuckets, previousValues, missing);
+    }
+    const byDate = new Map(previousBuckets.map((date, index) => [date, previousValues[index] ?? missing]));
+
+    return currentBuckets.map((date) => {
+        const parsed = parseIso(date);
+        const month = parsed.getUTCMonth();
+        parsed.setUTCFullYear(parsed.getUTCFullYear() - 1);
+        if (parsed.getUTCMonth() !== month) parsed.setUTCDate(0);
+
+        return byDate.get(bucketStart(formatIso(parsed), grain)) ?? missing;
+    });
+}
+
 function bucketStart(date, grain) {
     const parsed = parseIso(date);
     if (grain === 'week') {

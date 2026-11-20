@@ -18,6 +18,8 @@ Konkurrentfilteret velger trendens sammenligningsserier, med egen merkevare beho
 
 URL-er inneholder valg, aldri en privat visnings-ID som mottakeren må ha tilgang til. Brukere kan derfor dele filtrene uten å dele de lagrede visningene. Relative perioder fortsetter å være relative; eksplisitte datoer forblir faste.
 
+Daglige grafpunkter ved årssammenligning kobles på kalenderdato med samme 29. februar-avkorting som datovinduet; mars forskyves ikke av skuddårsdagen. Månedene kobles på kalendermåned. Ferdig aggregerte ukebøtter beholder rekkefølgen innen hvert datovindu, siden mandagsgrensene er ulike mellom år og deluker ellers ville blitt duplisert.
+
 ## Konsekvenser
 
 Filterendringer henter utsatte grafdata i samme delvise svar. Innsiktsteksten hentes i en separat forespørsel etter at grafene er oppdatert, slik at modellkall ikke forsinker tallene (ADR 0038). Tidligere innsiktstekst tømmes og gamle forespørsler avbrytes ved neste filterskifte. Full navigasjon mellom analysesider er fortsatt vanlig Inertia-navigasjon. Historiske innsiktstekster med gammel cacheidentitet blir ikke gjenbrukt for et annet vindu. Ingen eksterne modellkall gjøres i nettlesertestene.
