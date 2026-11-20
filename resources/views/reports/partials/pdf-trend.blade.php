@@ -45,7 +45,7 @@
             <text x="40" y="190" font-size="10">{{ $from }}</text>
             <text x="560" y="190" font-size="10" text-anchor="end">{{ $to }}</text>
             @foreach ($plottedMarkers as $marker)
-                <line data-marker-date="{{ $marker['date'] }}" x1="{{ $marker['x'] }}" y1="10" x2="{{ $marker['x'] }}" y2="170" stroke="{{ $marker['kind'] === 'action' ? '#647c6a' : '#857b6b' }}" @if ($marker['kind'] !== 'action') stroke-dasharray="4 3" @endif>
+                <line data-marker-date="{{ $marker['date'] }}" x1="{{ $marker['x'] }}" y1="10" x2="{{ $marker['x'] }}" y2="170" stroke="{{ $marker['kind'] === 'action' ? '#c46b7a' : '#a85e2e' }}" @if ($marker['kind'] !== 'action') stroke-dasharray="4 3" @endif>
                     <title>{{ $marker['date'] }} · {{ $marker['label'] }} · {{ $marker['detail'] ?? '' }}</title>
                 </line>
             @endforeach
