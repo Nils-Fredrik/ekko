@@ -114,6 +114,9 @@ jobs:
             - name: Performance measurement contract
               run: python3 -m unittest discover -s tests/performance -v
 
+            - name: Chart selection contracts
+              run: node --test tests/charts/*.test.mjs
+
             - name: Browser login and dashboard (isolated test database)
               run: npm run test:browser
 

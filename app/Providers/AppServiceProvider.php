@@ -14,6 +14,7 @@ use App\Extraction\AnthropicExtractionClient;
 use App\Extraction\ExtractionClient;
 use App\FactCheck\Judge\AnthropicFactJudge;
 use App\FactCheck\Judge\FactJudge;
+use App\Insights\InsightTextWriter;
 use App\Logging\LogContext;
 use App\Mcp\McpTokens;
 use App\Onboarding\Analysis;
@@ -70,6 +71,7 @@ class AppServiceProvider extends ServiceProvider
         // The wizard (ADR 0018): the model client is resolved lazily for the same reason.
         $this->app->bind(OnboardingModelClient::class, fn (): OnboardingModelClient => AnthropicOnboardingClient::fromConfig());
         $this->app->bind(ActionWriter::class, fn (): ActionWriter => AnthropicActionWriter::fromConfig());
+        $this->app->bind(InsightTextWriter::class, fn (): InsightTextWriter => AnthropicActionWriter::fromConfig(settings: 'insight'));
         $this->app->bind(FactJudge::class, fn (): FactJudge => AnthropicFactJudge::fromConfig());
         $this->app->bind(HostResolver::class, DnsHostResolver::class);
         $this->app->bind(PageTransport::class, HttpPageTransport::class);

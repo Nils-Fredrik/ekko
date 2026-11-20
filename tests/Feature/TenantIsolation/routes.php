@@ -9,6 +9,7 @@ use App\Models\Market;
 use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\Report;
+use App\Models\ReportLink;
 use App\Models\ReportSchedule;
 use App\Models\Response;
 use App\Models\Run;
@@ -41,6 +42,20 @@ use Tests\Support\Onboarding\OnboardingFakes;
 function isolationBrandId(int $tenantId): int
 {
     return app(TenantContext::class)->run($tenantId, fn () => Brand::factory()->create()->id);
+}
+
+/** @return array{report: int, link: int} */
+function isolationReportLink(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $report = Report::factory()->create();
+        $link = ReportLink::query()->create([
+            'report_id' => $report->id, 'public_id' => bin2hex(random_bytes(16)), 'token_hash' => hash('sha256', random_bytes(32)),
+            'expires_at' => now()->addDay(),
+        ]);
+
+        return ['report' => $report->id, 'link' => $link->id];
+    });
 }
 
 /** @return array{brand: int, action: int, step: int} */
@@ -298,6 +313,17 @@ return [
         deniedRoles: ['editor', 'reader'],
     ),
     'reports.index' => RouteAccess::user(),
+    'reports.shared' => RouteAccess::public()->withoutForeignCheck('Public bearer credential is tested separately with two tenants.'),
+    'reports.links.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['report' => isolationReportLink($s->tenantB->id)['report']], 'data' => ['days' => 1]],
+        own: fn (Scenario $s) => ['params' => ['report' => isolationReportLink($s->tenantA->id)['report']], 'data' => ['days' => 1]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'reports.links.destroy' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationReportLink($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationReportLink($s->tenantA->id)],
+        deniedRoles: ['editor', 'reader'],
+    ),
     'reports.schedules.store' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['data' => [
             'brand_id' => $brandOf($s, true), 'cadence' => 'weekly', 'recipients' => ['reports@example.test'], 'locale' => 'nb', 'branding' => 'tenant',

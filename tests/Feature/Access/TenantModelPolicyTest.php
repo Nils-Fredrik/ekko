@@ -45,6 +45,8 @@ function tenantModelRights(): array
 
         // Alerts and reports (6.5): set by the admin, seen by everyone.
         Models\AlertRule::class => $edit(POLICY_EVERY_ROLE, POLICY_ADMINS),
+        Models\ReportLink::class => $edit(POLICY_ADMINS, POLICY_ADMINS),
+        Models\ReportLinkView::class => $system(POLICY_ADMINS),
         // Alerts and reports are made by the system; the admin acknowledges or removes them.
         Models\Alert::class => ['read' => POLICY_EVERY_ROLE, 'create' => POLICY_NO_ROLE, 'change' => POLICY_ADMINS],
         Models\AlertEvaluation::class => $system(POLICY_ADMINS),
@@ -77,6 +79,8 @@ function tenantModelRights(): array
         Models\Action::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\ActionPrompt::class => $system(POLICY_EVERY_ROLE),
         Models\ActionGeneration::class => $system(POLICY_NO_ROLE),
+        // Insight texts on the dashboards (14.2, ADR 0038): written by the system, read like the dashboards they sit on.
+        Models\Insight::class => $system(POLICY_EVERY_ROLE),
 
         // Usage (6.5): "se forbruk" is the admin's.
         Models\AnthropicBudgetPlan::class => $system(POLICY_ADMINS),

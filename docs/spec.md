@@ -290,7 +290,7 @@ Sentimentfordeling og kildetype/eierskap lagres separat i dagsaggregatene for gr
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf, actions, factcheck), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
+| `usage_events` | `tenant_id`, `occurred_at`, `kind` (engine_call, extraction, onboarding, pdf, actions, factcheck, insight), `engine_key`, `calls`, `input_tokens`, `output_tokens`, `search_calls`, `cost_usd`, `billed_to` (platform, byok), `run_id` |
 | `usage_monthly` | `tenant_id`, `month`, `calls`, `cost_usd`, `quota_calls`, `budget_usd`, `byok_cost_usd`, `byok_budget_usd`, `quota_alerted_threshold`, `status` (ok, warning, capped) |
 | `alert_rules` | `tenant_id`, `brand_id`, `type`, `threshold`, `channels` (jsonb), `is_active` |
 | `alerts` | `tenant_id`, `alert_rule_id`, `subject`, `triggered_at`, `payload` (jsonb), `digest_date`, `deliveries` (jsonb, kvittering per kanal), `delivered_at`, `acknowledged_by`, `acknowledged_at` |
@@ -672,6 +672,12 @@ Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen
 - Tilleggskolonner: `engine_keys` (motorer), `impact_score` (effekten bak nivået), `text_source` (template, model, user), `locale` (språktaggen teksten står på, inntil 35 tegn), `unsupported_generations`, `last_generated_at`. `action_prompts` har også `tenant_id` (6). Egne tiltak kan mangle type.
 - Statusflyt for brukere i `ActionWorkflow`: `started_at` settes første gang tiltaket går til `in_progress`, `completed_at` når det går til `done`, og nullstilles hvis det åpnes igjen. Tenant-admin, partner-rådgiver og redaktør endrer tiltak; alle roller ser dem.
 
+### 11.4 Delbar rapportlenke
+
+Rapporter kan deles som en skrivebeskyttet nettversjon uten innlogging. En tenant-admin eller partnerrådgiver oppretter og trekker tilbake lenker fra rapportsiden; levetiden velges i dager (standard 90). Hver lenke har minst 32 tilfeldige tegn, gjelder én rapport, og utløp eller tilbakekall gir 404 ved oppslag. Sidene har `noindex`, `Referrer-Policy: no-referrer` og hver visning logges med tidspunkt. Lenkehemmeligheten lagres bare som SHA-256-hash og vises én gang ved oppretting. Den ligger i URL-fragmentet og sendes i `Authorization` for å unngå hemmeligheter i URL-logger. Oppslag bruker angitt tenant med RLS og validerer token før rapporten leses. En separat tilfeldig identifikator i URL-stien kontrollerer utløp og tilbakekall allerede ved første sidelast; selve rapporten krever fortsatt tokenet. Før tokenet er kontrollert bruker lasteside og 404 mottakerens nettleserspråk, uten å hente rapportinnhold; etter kontroll brukes rapportens publiseringsspråk.
+
+Nye PDF-er lagrer et øyeblikksbilde av innholdet og publiseringsspråket i `reports.web_snapshot`, inkludert daglige metrikker med utvalgstall fra `MetricsService::series`. Nettversjonen bruker rapportmalen og viser den lagrede synlighetsserien med `TrendLineChart`, hover, klikk og tilgjengelig tabellvisning. Dager uten data holdes åpne. Øyeblikksbilder uten lagret språk bruker gjeldende rapportspråk. Eldre rapporter har ikke lagret dette innholdet: nettversjonen rekonstrueres fra tilgjengelige periodedata og publiserte tiltak, uten å dikte opp tidligere innsikt, og merkes synlig som rekonstruert. `report_links` har tenant, rapport, tokenhash, utløp, tilbakekall, oppretter, visningsantall og siste visning. `report_link_views` lagrer tidspunkt for hver vellykkede visning, uten IP-adresse. PDF-en viser samme lagrede synlighetsserie som en statisk graf.
+
 ### 11.6 Faktasjekk
 
 Tenant-admin legger inn fakta om merkevaren (f.eks. grunnleggelsesår, kontorer, tjenester, priser). Ekko sjekker påstander i AI-svarene mot faktaene.
@@ -761,7 +767,7 @@ Ekko bruker de månedlige API-kredittene som følger med konsernets Claude Team-
 - Ledig beløp ut over prognosen fordeles på nivå 2-tiltakene i rekkefølgen over, fordelt jevnt på dagene som gjenstår.
 - De siste 3 dagene i perioden kan bufferen også brukes.
 
-Implementasjonen er presisert i ADR 0023: faktureringsankeret er i UTC, korte måneder avkorter dag 29–31 uten varig forskyvning, og ventende kall reserverer estimert kapasitet. Pakkegrenser overstyres ikke av tillegg. Variasjon måles som variasjon i merkevareomtale siste 14 dager. Månedlig innsikt tildeles én gang per merkevare/periode og konsumeres av T32. Plattformens anonyme kostnadsbok beholdes ved tenantsletting. Console-grensen og deaktivert automatisk påfylling er fortsatt den harde ytre grensen; simuleringsbeviset gjelder estimert planlegging, ikke en feilkonfigurert leverandørkonto.
+Implementasjonen er presisert i ADR 0023: faktureringsankeret er i UTC, korte måneder avkorter dag 29–31 uten varig forskyvning, og ventende kall reserverer estimert kapasitet. Pakkegrenser overstyres ikke av tillegg. Variasjon måles som variasjon i merkevareomtale siste 14 dager. Månedlig innsikt tildeles én gang per merkevare/periode og konsumeres av T32. Den daglige innsiktsteksten på dashboardene (U12) har ingen egen tildeling: den bruker reservasjon og redusert modus (ADR 0038, åpent eierspørsmål Board #1060). Plattformens anonyme kostnadsbok beholdes ved tenantsletting. Console-grensen og deaktivert automatisk påfylling er fortsatt den harde ytre grensen; simuleringsbeviset gjelder estimert planlegging, ikke en feilkonfigurert leverandørkonto.
 
 `Admin/Usage.vue` viser forbruk mot pott i inneværende periode, prognose, hva som er lagt inn som tillegg og om redusert modus er aktiv.
 
@@ -857,10 +863,10 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | Komponent | Innhold |
 |---|---|
 | `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google» |
-| `Pages/Home.vue` | Oversikt for valgt tenant: nøkkeltall per merkevare, siste varsler, neste planlagte kjøringer, forbruk mot kvote |
+| `Pages/Home.vue` | Oversikt for valgt tenant: innsiktslinje på tvers av merkevarer, nøkkeltall per merkevare, siste varsler, neste planlagte kjøringer, forbruk mot kvote |
 | `Pages/Partner/Index.vue` | For partner-rådgivere: alle kunde-tenants med synlighet, endring og varsler i én tabell |
 | `Pages/Brands/Index.vue` | Merkevarer med status og markeder |
-| `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
+| `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), innsiktslinje, nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
 | `Pages/Brands/Prompts.vue` | Prompt-tabell med resultater per prompt (synlighet, posisjon, stabilitet per motor), inline redigering, aktivering/deaktivering, import og eksport (CSV) |
 | `Pages/Brands/PromptShow.vue` | Ett prompt: alle svar over tid per motor, svartekst med uthevede nevnelser, kildeliste, råsvar-lenke |
 | `Pages/Brands/Competitors.vue` | Konkurrenter, alias og domener, samt foreslåtte ukjente merkevarer |
@@ -880,6 +886,8 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | `Pages/Mcp/Authorize.vue`, `Pages/Mcp/Connections.vue` | OAuth-samtykke og oversikt over tilkoblede MCP-klienter (som i Varde) |
 | `Pages/API/Index.vue` | API-tokens (Jetstream) |
 | `Pages/Profile/Show.vue` | Profil, passord, 2FA, språk, tema |
+
+**Innsiktslinjen (U12, ADR 0038).** Oversikten og merkevaredashboardet har en kort tekst om hva som har endret seg, skrevet av Claude Sonnet 5.5 (modell-ID i `ekko.anthropic.insight.model`). Modellen får strukturerte endringstall (nøkkeltall, største bevegelser per motor, prompt og konkurrent, modellbytter og fullførte tiltak) som retninger og plassholdere, aldri tallene, og skriver en tekst med plassholdere. Koden fyller dem inn fra databasen hver gang teksten vises. Bare tall siden selv viser får plassholder (nøkkeltall med endring, verdi per motor, og per merkevare på oversikten); konkurrenter, prompts, modellbytter og fullførte tiltak nevnes med navn og retning, uten tall, så teksten viser alltid samme tall som siden. Teksten lagres per tenant, merkevare (eller oversikt), filterkombinasjon, språk og lokalt døgn (`insights`) og lages ikke på nytt ved sidevisning. En endring med færre enn `ekko.insights.min_n` svar i en av periodene omtales ikke som funn. Kallet reserverer på Anthropic-kontoen (12.5), hoppes over i redusert modus (avvik fra 12.5: den daglige dashboardteksten har ingen egen post i nivå 2, bare reservasjon og redusert modus, i påvente av eierspørsmål på Board #1060; se ADR 0038), bokføres som `kind = insight` og teller mot tenantens kallkvote (eierbeslutning, Board #1014); det gir én logglinje med interne ID-er. Faller teksten bort (redusert modus, kvote, feil eller avvist tekst), vises ingen innsiktslinje i stedet for en feilmelding. Propen `insight` er `null` eller `{ text, label, generated_on }` og vises med `Components/Dashboard/InsightLine.vue`.
 
 ---
 
@@ -1299,6 +1307,7 @@ Rekkefølgen styres kun av avhengighetene. Alle pakker uten uoppfylte avhengighe
 | T40 | Ende-til-ende i produksjon | Claude Code / Opus 5.5 og eier | alle |
 | T41 | Kredittstyrt planlegging for Anthropic | Codex / GPT-6.1 Sol | T17, T19, T20 |
 | T42 | Kryssreview i GitHub og automatisk mergekø | Codex / GPT-6.1 Terra | T01 |
+| T46 | Delbar rapportlenke | Codex / GPT-6.1 Sol | T32 |
 
 ### T01 – Repo og fundament
 Laravel med Jetstream (Inertia/Vue, team og API på), Tailwind v4, Pest, Pint, Larastan, ESLint, Ziggy og `laravel-vue-i18n` med samme versjoner og struktur som Varde. Opprett `AGENTS.md`, `CLAUDE.md`, `.cursor/rules/ekko.mdc`, `docs/spec.md`, `docs/decisions/`, PR-mal og `scripts/agent-setup.sh` (19.6).
@@ -1518,6 +1527,12 @@ Fra 11.3 (tiltakstypen dette mater): `fact_correction` utløses av påstander so
 Tiltaksliste per merkevare med filtre på status, type og tema, detaljvisning med evidens, konkurrentevidens, berørte prompts og steg som kan hukes av, samt egne tiltak. Status endres fra listen og detaljen. Rapportseksjonen i 11.3 (3–5 åpne, pluss fullførte i perioden med utvikling i synlighet) ligger i PDF-en og på nettversjonen av rapporten, som komponenten `ReportSection` så U13 kan gjenbruke den. Nettversjonen viser seksjonen som ble lagret da PDF-en ble skrevet (`reports.action_section`), så en senere endring av tiltakene ikke skriver om en gammel rapport.
 - Status kan endres fra listen og detaljvisningen.
 - Rapporten viser 3–5 åpne tiltak og fullførte tiltak med utvikling.
+
+---
+
+### T46 – Delbar rapportlenke
+
+En rapport kan deles fra rapportsiden som en tidsbegrenset skrivebeskyttet nettversjon etter 11.4. Token er tilfeldig, lagres hashet og kan trekkes tilbake. Tokenoppslag for utløpt, ugyldig eller tilbaketrukket lenke gir 404. Visninger registreres og svaret har `noindex` og `Referrer-Policy: no-referrer`. Isolasjonstestene skal vise at et token aldri gir tilgang til andre rapporter eller tenants.
 
 ---
 

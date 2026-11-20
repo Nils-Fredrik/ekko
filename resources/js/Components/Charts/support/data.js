@@ -76,7 +76,7 @@ export function splitLowSample(points) {
 /**
  * The payload of the `select` event, the same shape in every chart type (docs/ui-forbedring.md 5):
  * `{ key }` is the key of what was clicked (row, bar, tile or panel), as the page passed it in.
- * A chart with a second dimension adds it: `column` (heatmap) or `category` (small multiples,
+ * A chart with a second dimension adds it: `column` (heatmap) or `category` (trend lines and small multiples,
  * the bucket date of the clicked point). Context fields without a value are left out.
  * Aliases kept for pages written against the first version are passed in `context` as well.
  *
@@ -93,4 +93,26 @@ export function selection(key, context = {}) {
     }
 
     return payload;
+}
+
+/** Convert an ECharts line click to the public series key and bucket date. */
+export function trendSelection(params, categories, series) {
+    if (
+        params?.componentType !== 'series' ||
+        params.seriesType !== 'line' ||
+        !Number.isInteger(params.seriesIndex) ||
+        !Number.isInteger(params.dataIndex)
+    ) {
+        return null;
+    }
+    // lineSeries adds a second ECharts series when a line contains low-sample points.
+    // Previous-period and marker series follow these and must not select a current series.
+    const rendered = series.flatMap((item) => (splitLowSample(item.points).hasLow ? [item, item] : [item]));
+    const item = rendered[params.seriesIndex];
+    const category = categories[params.dataIndex];
+    if (item?.key == null || category == null || item.points[params.dataIndex]?.value == null) {
+        return null;
+    }
+
+    return selection(item.key, { category });
 }
