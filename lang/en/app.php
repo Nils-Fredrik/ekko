@@ -63,6 +63,8 @@ return [
         'change_points' => ':change pp',
         'change_up' => 'up :change',
         'change_down' => 'down :change',
+        'change_better' => 'better by :change',
+        'change_worse' => 'worse by :change',
         'change_flat' => 'unchanged',
         'change_points_spoken' => ':change percentage points',
         'visibility' => 'Visibility',

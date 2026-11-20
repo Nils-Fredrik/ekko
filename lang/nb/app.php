@@ -63,6 +63,8 @@ return [
         'change_points' => ':change pp',
         'change_up' => 'opp :change',
         'change_down' => 'ned :change',
+        'change_better' => 'bedre med :change',
+        'change_worse' => 'dårligere med :change',
         'change_flat' => 'uendret',
         'change_points_spoken' => ':change prosentpoeng',
         'visibility' => 'Synlighet',
