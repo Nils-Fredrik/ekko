@@ -16,6 +16,7 @@ use App\Reports\ReportPublisher;
 use App\Tenancy\TenantContext;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
@@ -28,6 +29,10 @@ $adminDatabase = DB::connection('pgsql_admin')->getDatabaseName();
 if (getenv('EKKO_BROWSER_TEST') !== '1' || ! $app->environment('local', 'testing') || ! is_string($database) || ! str_ends_with($database, '_testing') || $database !== env('DB_TEST_DATABASE') || $adminDatabase !== $database) {
     fwrite(STDERR, "Browser fixtures require local/testing and a dedicated _testing database.\n");
     exit(1);
+}
+if (getenv('EKKO_UI_QUALITY') === '1') {
+    Date::setTestNow('2026-10-16 12:00:00 UTC');
+    fake()->seed(1500);
 }
 Artisan::call('migrate:fresh', ['--force' => true]);
 $password = bin2hex(random_bytes(24));
@@ -95,5 +100,8 @@ if (class_exists(TokenTenant::class)) {
 if (class_exists(McpClient::class)) {
     $client = McpClient::query()->create(['id' => 'ekko-browser-smoke', 'name' => 'Browser smoke', 'redirect_uris' => ['http://127.0.0.1:8765/callback']]);
     $values['SMOKE_MCP_CLIENT_ID'] = $client->id;
+}
+if (getenv('EKKO_UI_QUALITY') === '1') {
+    require __DIR__.'/visual/seed.php';
 }
 echo json_encode($values, JSON_THROW_ON_ERROR);

@@ -226,6 +226,7 @@ function save() {
                         <select
                             v-if="canManage"
                             class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
+                            :aria-label="$t('app.dashboard.status')"
                             :value="action.status"
                             @change="changeStatus(action, $event.target.value)"
                         >

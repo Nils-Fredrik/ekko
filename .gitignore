@@ -51,3 +51,7 @@ __pycache__/
 # Authoritative production tfvars bookkeeping (scripts/terraform-vars.sh)
 *.tfvars.generation
 *.local-backup
+
+# Disposable UI test sessions (never upload with screenshots).
+/.ui-auth/
+/ui-quality-results/

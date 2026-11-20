@@ -50,7 +50,7 @@ Skjelettet har samme form som kortene og grafen, og vises mens en ny side lastes
 
 ## 5. Grafbibliotek
 
-Apache ECharts, importert modulvis fra `echarts/core` og tegnet som SVG. Begrunnelsen står i [ADR 0035](decisions/0035-echarts-grafbibliotek.md). Bare `support/echarts.js` importerer ECharts, og den lastes med `import()` første gang en graf er nær skjermen. Vite legger biblioteket i en egen chunk (ca. 620 kB, 212 kB gzip), og sider uten grafer laster den ikke. `tests/Feature/Frontend/ChartBundleTest.php` sjekker byggemanifestet, og nettlesertesten `tests/Browser/charts.spec.mjs` sjekker nettverkskallene. Budsjettet i CI kommer i U15.
+Apache ECharts, importert modulvis fra `echarts/core` og tegnet som SVG. Begrunnelsen står i [ADR 0035](decisions/0035-echarts-grafbibliotek.md). Bare `support/echarts.js` importerer ECharts, og den lastes med `import()` første gang en graf er nær skjermen. Vite legger biblioteket i en egen chunk (ca. 620 kB, 212 kB gzip), og sider uten grafer laster den ikke. `tests/Feature/Frontend/ChartBundleTest.php` sjekker byggemanifestet, og nettlesertesten `tests/Browser/charts.spec.mjs` sjekker nettverkskallene. U15 håndhever et gzip-budsjett på 240 000 byte for grafbiblioteket i CI.
 
 Alle grafer går gjennom `<EkkoChart>` i `resources/js/Components/Charts/`. Den eier:
 
@@ -143,3 +143,11 @@ Kort oppsummering per merkevare og periode (7.2, under filterlinjen) og på tver
 - Ingen tall i teksten avviker fra tallene på siden (automatisk test). Bare tall siden viser får plassholder.
 - Propen `insight` på `Brands/Show` og `Home` er utsatt (gruppen `insight`) og er `null` eller `{ text, label, generated_on }`. `<InsightLine :insight="insight" />` viser den og tegner ingenting for `null`.
 - Faller generering bort (redusert modus, kvote eller feil), vises ingen innsiktslinje.
+
+## U15 – Visuell regresjon, ytelsesbudsjett og tilgjengelighet
+
+Alle aktive sider har skjermbilder og axe-kontroll i lys/mørk modus og desktop/mobil. Referansene tas med låst Linux/Chromium og faste syntetiske data. CI stopper ved visuelle avvik, kritiske axe-funn og overskridelser av gzip-budsjetter for app, første sidelasting, ECharts og samlet JavaScript. HTML-rapporten viser sidebilder, feil og referanseendringer mot PR-ens basecommit. Sideregisteret må oppdateres når nye sider legges til.
+
+Detaljer, grenser og kommandoer står i [UI-kvalitet](ui-quality.md). Kritiske axe-funn er den automatiske minimumssperren; WCAG 2.2 AA og manuell tastatur-/skjermleserkontroll er fortsatt mål for produktet. HTTP- og LCP-målene må måles separat på representative data, enheter og nettverk.
+
+**Åpent tilgjengelighetsavvik:** U15s første fullkjøring er fri for kritiske axe-funn, men har serious-funn for tekstkontrast og robotsidens rullefelt. [U01-F1 / task:112](https://board.maksimer.com/b/vn4w66vc/work?task=112) følger opp disse mot WCAG 2.2 AA.

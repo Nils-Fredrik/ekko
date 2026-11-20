@@ -50,6 +50,7 @@ function toggle(index, done) {
                     <select
                         v-if="canManage"
                         class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm"
+                        :aria-label="$t('app.dashboard.status')"
                         :value="action.status"
                         @change="changeStatus($event.target.value)"
                     >
@@ -102,6 +103,7 @@ function toggle(index, done) {
                                 v-if="canManage"
                                 type="checkbox"
                                 :checked="step.done"
+                                :aria-label="step.text"
                                 @change="toggle(index, $event.target.checked)"
                             />
                             <span :class="step.done ? 'text-shell-muted line-through' : ''">{{ step.text }}</span>
