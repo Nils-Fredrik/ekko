@@ -50,6 +50,31 @@ resource "google_artifact_registry_repository" "images" {
   description   = "Ekko application images"
   format        = "DOCKER"
   depends_on    = [google_project_service.api]
+
+  # CI tags every image with its commit SHA, so an untagged-only policy would
+  # free nothing. Versions older than the retention age are deleted whatever
+  # their tags, but the newest var.artifact_keep_count versions of each image
+  # (web, jobs) are always kept: KEEP wins over DELETE. The live web revision
+  # and the jobs run the newest digest, and rollback targets must be within
+  # the kept window (docs/runbook.md).
+  cleanup_policy_dry_run = var.artifact_cleanup_dry_run
+
+  cleanup_policies {
+    id     = "keep-recent-versions"
+    action = "KEEP"
+    most_recent_versions {
+      keep_count = var.artifact_keep_count
+    }
+  }
+
+  cleanup_policies {
+    id     = "delete-old-versions"
+    action = "DELETE"
+    condition {
+      tag_state  = "ANY"
+      older_than = "${var.artifact_delete_after_days * 86400}s"
+    }
+  }
 }
 
 resource "google_artifact_registry_repository_iam_member" "ci_push" {

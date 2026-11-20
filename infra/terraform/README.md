@@ -158,3 +158,30 @@ settings (seeding preserves them), enter approved `engine_prices`, and confirm
 quotas before enabling schedules. Gemini remains disabled until Google's
 Search-grounding terms are resolved; set `gemini_grounding_approved=true` and
 explicitly enable the engine only then. This does not require new secrets.
+
+## Artifact Registry cleanup (T10-F5)
+
+The `ekko` repository has cleanup policies managed by Terraform
+(`foundation.tf`). CI tags every image with its commit SHA, so the delete rule
+uses `tag_state = "ANY"`. It deletes versions older than
+`artifact_delete_after_days` (default 1 day). The keep rule always keeps the
+newest `artifact_keep_count` (default 20) versions of each image (`web`,
+`jobs`), and KEEP wins over DELETE. The running web revision and all jobs use
+the newest digest, so they are always kept. The window also bounds rollback:
+only web revisions whose image is among the 20 newest can start new instances.
+
+`artifact_cleanup_dry_run` defaults to `true`, so the policies only log what
+they would delete. Cleanup runs about once a day. Read the result in Cloud
+Logging (Logs Explorer, project `ekko-514612`):
+
+```
+protoPayload.serviceName="artifactregistry.googleapis.com"
+protoPayload.methodName="Dry run : Delete Versions"
+```
+
+Each entry lists the versions that would be deleted. Check that the digest of
+the revision with traffic (`gcloud run services describe ekko-web`), of every
+job (`gcloud run jobs describe <job>`) and of the intended rollback targets is
+absent. Only then set `artifact_cleanup_dry_run = false` in
+`production.auto.tfvars` in a separate, reviewed change and apply it. Deleted
+versions cannot be restored.
