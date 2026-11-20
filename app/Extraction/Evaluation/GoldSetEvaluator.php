@@ -3,6 +3,7 @@
 namespace App\Extraction\Evaluation;
 
 use App\Detection\AliasPattern;
+use App\Detection\DomainOwnership;
 use App\Detection\EntityMatcher;
 use App\Detection\UrlNormalizer;
 use App\Extraction\AssembledExtraction;
@@ -12,6 +13,7 @@ use App\Extraction\ExtractionPromptBuilder;
 use App\Extraction\ExtractionRequest;
 use App\Extraction\ExtractionResult;
 use App\Extraction\ExtractionRunner;
+use App\Extraction\SourceTypeRules;
 use Brick\Math\BigDecimal;
 use Closure;
 use InvalidArgumentException;
@@ -33,6 +35,7 @@ final class GoldSetEvaluator
         private readonly EntityMatcher $matcher = new EntityMatcher,
         private readonly UrlNormalizer $urls = new UrlNormalizer,
         private readonly ExtractionCost $cost = new ExtractionCost,
+        private readonly SourceTypeRules $sourceTypeRules = new SourceTypeRules,
     ) {}
 
     /**
@@ -45,7 +48,7 @@ final class GoldSetEvaluator
             throw new InvalidArgumentException('The gold set file is missing or invalid.');
         }
 
-        [$aliases, $entityIds] = $this->catalog($gold['catalog']);
+        [$aliases, $entityIds, $domains] = $this->catalog($gold['catalog']);
 
         $requests = [];
         $deterministic = [];
@@ -70,6 +73,8 @@ final class GoldSetEvaluator
         $model = ['recommended' => new Metric, 'position' => new Metric];
         $assembled = ['recommended' => new Metric, 'position' => new Metric];
         $sourceTypes = ['correct' => 0, 'total' => 0];
+        $storedSourceTypes = ['correct' => 0, 'total' => 0];
+        $sourceTypeMisses = [];
         $byLanguage = [];
         $retried = 0;
         $failed = [];
@@ -106,25 +111,38 @@ final class GoldSetEvaluator
                 if (! isset($citation['source_type'])) {
                     continue;
                 }
+                $modelType = $this->sourceType($attempt->result, $citation['normalized']);
                 $sourceTypes['total']++;
-                $sourceTypes['correct'] += $this->sourceType($attempt->result, $citation['normalized']) === $citation['source_type'] ? 1 : 0;
+                $sourceTypes['correct'] += $modelType === $citation['source_type'] ? 1 : 0;
+
+                // What is stored: the deterministic rules over the model's type, as in ExtractionWriter.
+                $domain = (string) ($this->urls->normalize($citation['url'])['domain'] ?? '');
+                $stored = $this->sourceTypeRules->resolve($domain, $domains->classify($domain)['ownership'], $modelType);
+                $storedSourceTypes['total']++;
+                if ($stored === $citation['source_type']) {
+                    $storedSourceTypes['correct']++;
+                } else {
+                    $sourceTypeMisses[] = "{$id} {$citation['normalized']}: ".($stored ?? '-')." ≠ {$citation['source_type']}";
+                }
             }
         }
 
         return new EvaluationReport(
             count($gold['responses']), $byLanguage, $model, $assembled, $sourceTypes, $retried, $failed,
-            $tokens[0], $tokens[1], (string) $cost->toScale(8),
+            $tokens[0], $tokens[1], (string) $cost->toScale(8), $storedSourceTypes, $sourceTypeMisses,
         );
     }
 
     /**
      * @param  array<string, mixed>  $catalog
-     * @return array{0: list<AliasPattern>, 1: array<string, array<string, array{type: string, id: int}>>}
+     * @return array{0: list<AliasPattern>, 1: array<string, array<string, array{type: string, id: int}>>, 2: DomainOwnership}
      */
     private function catalog(array $catalog): array
     {
         $aliases = [];
         $ids = ['brand' => [], 'competitor' => []];
+        $brandDomains = [];
+        $competitorDomains = [];
 
         foreach (['brand' => $catalog['brands'], 'competitor' => $catalog['competitors']] as $type => $rows) {
             foreach (array_values($rows) as $index => $row) {
@@ -133,10 +151,17 @@ final class GoldSetEvaluator
                 foreach ($row['aliases'] as $alias) {
                     $aliases[] = new AliasPattern($type, $id, $alias['alias'], $alias['mode']);
                 }
+                foreach ($row['domains'] ?? [] as $domain) {
+                    if ($type === 'brand') {
+                        $brandDomains[] = ['domain' => $domain['domain'], 'include_subdomains' => (bool) $domain['include_subdomains']];
+                    } else {
+                        $competitorDomains[] = ['domain' => $domain, 'competitor_id' => $id];
+                    }
+                }
             }
         }
 
-        return [$aliases, $ids];
+        return [$aliases, $ids, new DomainOwnership($brandDomains, $competitorDomains)];
     }
 
     /**

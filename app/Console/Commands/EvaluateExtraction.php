@@ -74,11 +74,16 @@ class EvaluateExtraction extends Command
             ],
         );
 
-        $sources = $report->sourceTypes;
-        $this->line(__('extraction.eval.source_type', [
-            'correct' => $sources['correct'], 'total' => $sources['total'],
-            'rate' => $this->percent($sources['total'] === 0 ? null : $sources['correct'] / $sources['total']),
-        ]));
+        foreach (['model' => $report->sourceTypes, 'assembled' => $report->storedSourceTypes] as $stage => $sources) {
+            $this->line(__('extraction.eval.source_type', [
+                'stage' => __('extraction.eval.'.$stage),
+                'correct' => $sources['correct'], 'total' => $sources['total'],
+                'rate' => $this->percent($sources['total'] === 0 ? null : $sources['correct'] / $sources['total']),
+            ]));
+        }
+        foreach ($report->sourceTypeMisses as $miss) {
+            $this->line('  '.__('extraction.eval.source_type_miss', ['miss' => $miss]));
+        }
         $this->line(__('extraction.eval.retried', ['count' => $report->retried, 'failed' => count($report->failedIds)]));
         $this->line(__('extraction.eval.usage', [
             'input' => $report->inputTokens, 'output' => $report->outputTokens, 'cost' => $report->costUsd,

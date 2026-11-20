@@ -56,8 +56,8 @@ it('reports precision and hit rate for is_recommended and list_position against 
     $recommended = $report->model['recommended'];
     $position = $report->model['position'];
 
-    expect($report->responses)->toBe(80)
-        ->and($report->responsesByLanguage)->toBe(['nb' => 39, 'nn' => 13, 'sv' => 28])
+    expect($report->responses)->toBe(90)
+        ->and($report->responsesByLanguage)->toBe(['nb' => 44, 'nn' => 13, 'sv' => 33])
         // The recording has one false positive and two misses for is_recommended, and the failed answer.
         ->and([$recommended->truePositives, $recommended->predicted, $recommended->expected])->toBe([68, 69, 70])
         ->and(round($recommended->precision(), 3))->toBe(0.986)
@@ -69,7 +69,11 @@ it('reports precision and hit rate for is_recommended and list_position against 
         // The stored list position is the deterministic one, so it is exact.
         ->and($report->assembled['position']->precision())->toBe(1.0)
         ->and($report->assembled['position']->hitRate())->toBe(1.0)
-        ->and($report->sourceTypes)->toBe(['correct' => 15, 'total' => 16])
+        // The recording has ten wrong source types. The deterministic rules fix nine of them (own and competitor
+        // sites are other, well-known hosts have a fixed type); a single company's shop called marketplace remains.
+        ->and($report->sourceTypes)->toBe(['correct' => 36, 'total' => 46])
+        ->and($report->storedSourceTypes)->toBe(['correct' => 45, 'total' => 46])
+        ->and($report->sourceTypeMisses)->toBe(['nb-44 https://kaffehusetsentrum.no/kverner: marketplace ≠ other'])
         ->and($report->retried)->toBe(3)
         ->and($report->failedIds)->toBe(['nn-09'])
         ->and($report->inputTokens)->toBeGreaterThan(0)
@@ -83,7 +87,7 @@ it('sends every gold answer to the provider once, in batches, with the retry onl
 
     (new GoldSetEvaluator)->evaluate(goldPath(), new ExtractionRunner($client));
 
-    expect(array_map('count', $client->batches))->toBe([30, 30, 20])
+    expect(array_map('count', $client->batches))->toBe([30, 30, 30])
         ->and($client->retries)->toBe(['nb-17', 'nn-09', 'sv-07']);
 });
 
@@ -91,9 +95,9 @@ it('prints the report from the artisan command, offline with a recording', funct
     expect(Artisan::call('ekko:extraction:eval', ['--recorded' => recordingPath()]))->toBe(0);
     $output = Artisan::output();
 
-    expect($output)->toContain('80')->toContain('is_recommended')->toContain('list_position')
+    expect($output)->toContain('90')->toContain('is_recommended')->toContain('list_position')
         ->toContain('98.6 %')->toContain('97.1 %')->toContain('95.9 %')->toContain('94.0 %')->toContain('100.0 %')
-        ->toContain('source_type');
+        ->toContain('source_type')->toContain('78.3 %')->toContain('97.8 %')->toContain('kaffehusetsentrum.no/kverner');
 });
 
 it('records the model output of a run so that it can be replayed', function () {
