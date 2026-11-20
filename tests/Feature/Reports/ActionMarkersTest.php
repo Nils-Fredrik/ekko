@@ -3,6 +3,7 @@
 use App\Actions\ActionMarkers;
 use App\Models\Action;
 use App\Models\Brand;
+use App\Models\Engine;
 use App\Models\ModelChange;
 use App\Models\ReportSchedule;
 use App\Reports\DueReport;
@@ -70,12 +71,15 @@ test('reports freeze action descriptions and dates without private links and PDF
 
 test('reports retain model change markers beside action markers', function () {
     $world = MetricsWorld::create();
-    $change = ModelChange::factory()->create(['engine_key' => $world->engine->key, 'changed_on' => '2026-10-02']);
+    $engine = Engine::factory()->create(['key' => 'chatgpt_api']);
+    $change = ModelChange::factory()->create(['engine_key' => $engine->key, 'changed_on' => '2026-10-02']);
     Action::factory()->create(['brand_id' => $world->brand->id, 'started_at' => '2026-10-02 12:00:00']);
     $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id]);
     $data = app(ReportPublisher::class)->viewData($world->tenant, $schedule, '2026-10-01', '2026-10-03', null);
     expect(array_column($data['markers'], 'kind'))->toBe(['action', 'model'])
         ->and($data['markers'][1]['key'])->toBe('model:'.$change->id)
         ->and($data['markers'][1]['date'])->toBe('2026-10-02')
+        ->and($data['markers'][1]['label'])->toBe('ChatGPT API')
+        ->and($data['markers'][1]['label'])->not->toBe($engine->key)
         ->and($data['markers'][1]['detail'])->toBe('model-a → model-b');
 });

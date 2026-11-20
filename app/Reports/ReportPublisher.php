@@ -3,6 +3,7 @@
 namespace App\Reports;
 
 use App\Actions\ActionMarkers;
+use App\Dashboard\DashboardLabels;
 use App\Metrics\Metric;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
@@ -225,7 +226,7 @@ final class ReportPublisher
                 ...$this->metrics->modelChanges($from, $to)->map(fn ($change): array => [
                     'key' => 'model:'.$change->id,
                     'date' => $change->changed_on->toDateString(), 'kind' => 'model',
-                    'label' => $change->engine_key, 'detail' => $change->from_model.' → '.$change->to_model,
+                    'label' => DashboardLabels::engine($change->engine_key), 'detail' => $change->from_model.' → '.$change->to_model,
                 ])->all(),
             ],
             'engines' => $this->engines($current),
