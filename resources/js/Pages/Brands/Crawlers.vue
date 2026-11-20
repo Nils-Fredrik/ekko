@@ -384,7 +384,7 @@ const hasFunnel = computed(() => steps.value.some((step) => step.value !== null)
                                     >
                                         <td class="py-2 pe-3 break-all">
                                             <span class="text-shell-muted">{{ page.domain }}</span>
-                                            {{ page.path }}
+                                            <span>{{ page.path }}</span>
                                         </td>
                                         <td class="py-2 pe-3 text-right tabular-nums">
                                             {{ formatValue(page.hits, 'count') }}
