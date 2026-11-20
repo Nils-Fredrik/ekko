@@ -202,6 +202,9 @@ const panels = computed(() => {
 
 const panelMarkers = computed(() => {
     const grouped = {};
+    for (const panel of panels.value) {
+        grouped[panel.key] = [...(props.chartData?.action_markers ?? [])];
+    }
     for (const change of props.modelChanges) {
         grouped[change.engine_key] ??= [];
         grouped[change.engine_key].push(modelMarker(change));

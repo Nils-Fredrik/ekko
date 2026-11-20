@@ -656,7 +656,7 @@ Ekko gjør funn om til en rangert liste over konkrete tiltak, hver med evidensen
 
 **Statuser:** `new`, `planned`, `in_progress`, `done`, `declined`, `expired`. Tiltak som ikke lenger støttes av data etter to genereringer, settes til `expired`. Brukere kan opprette egne tiltak (`planned`).
 
-**Tiltaksmarkører:** når et tiltak går til `in_progress` eller `done`, lagres datoen. Trendgrafene i grensesnittet og rapporten viser markører for disse datoene, på samme måte som modellbytte-markørene, slik at effekten av arbeidet kan leses direkte av grafen.
+**Tiltaksmarkører:** når et tiltak går til `in_progress` eller `done`, lagres datoen. Trendgrafene i grensesnittet og rapporten viser markører for disse datoene, på samme måte som modellbytte-markørene, slik at effekten av arbeidet kan leses direkte av grafen. T45 bruker tenantens lokale kalenderdato, også ved sommer-/vintertid. Dag-, uke- og månedsvisning plasserer markøren i datoens tidsbøtte; forklaringen beholder den eksakte datoen og skiller startet fra fullført. Tiltakslenkene finnes også som en tastaturtilgjengelig liste når flere markører overlapper. Rapporten fryser markørene og teksten sammen med dataene ved publisering. Delte rapporter og PDF viser disse uten private tiltakslenker; gamle øyeblikksbilder uten markører får ikke dagens tiltak lagt til.
 
 **I rapporten:** de 3–5 høyest rangerte åpne tiltakene, pluss tiltak som er fullført i perioden med utvikling i synlighet siden de ble fullført.
 

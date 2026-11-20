@@ -2,6 +2,7 @@
 
 namespace App\Reports;
 
+use App\Actions\ActionMarkers;
 use App\Metrics\Metric;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
@@ -218,6 +219,15 @@ final class ReportPublisher
                 'period' => $point['period'],
                 ...$point['summary']->toArray(),
             ], $this->metrics->series($current)),
+            // Snapshot descriptions and dates along with the metrics, without private action links.
+            'markers' => [
+                ...app(ActionMarkers::class)->forPeriod($schedule->brand_id, $from, $to, $this->timezone($tenant), links: false),
+                ...$this->metrics->modelChanges($from, $to)->map(fn ($change): array => [
+                    'key' => 'model:'.$change->id,
+                    'date' => $change->changed_on->toDateString(), 'kind' => 'model',
+                    'label' => $change->engine_key, 'detail' => $change->from_model.' → '.$change->to_model,
+                ])->all(),
+            ],
             'engines' => $this->engines($current),
             'prompts' => $this->prompts($current, $previous),
             'competitors' => $this->competitors($current),

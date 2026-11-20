@@ -4,6 +4,7 @@
     $end = \Carbon\CarbonImmutable::parse($to)->startOfDay();
     $days = (int) $start->diffInDays($end);
     $points = [];
+    $plottedMarkers = [];
     if ($days >= 0 && $days <= 366) {
         foreach ($trend as $item) {
             $value = data_get($item, 'visibility.value');
@@ -24,9 +25,16 @@
             ];
         }
         ksort($points);
+        foreach ($markers ?? [] as $marker) {
+            $date = \Carbon\CarbonImmutable::parse($marker['date'])->startOfDay();
+            $day = (int) $start->diffInDays($date, false);
+            if ($day >= 0 && $day <= $days) {
+                $plottedMarkers[] = [...$marker, 'x' => 40 + 520 * $day / max(1, $days)];
+            }
+        }
     }
 @endphp
-@if ($points !== [])
+@if ($points !== [] || $plottedMarkers !== [])
     <section data-testid="pdf-report-trend">
         <h2>{{ __('reports.trend') }}</h2>
         <svg viewBox="0 0 580 200" role="img" aria-label="{{ __('reports.trend') }}" style="width: 100%; max-height: 200px">
@@ -36,6 +44,11 @@
             <text x="15" y="174" font-size="10">0%</text>
             <text x="40" y="190" font-size="10">{{ $from }}</text>
             <text x="560" y="190" font-size="10" text-anchor="end">{{ $to }}</text>
+            @foreach ($plottedMarkers as $marker)
+                <line data-marker-date="{{ $marker['date'] }}" x1="{{ $marker['x'] }}" y1="10" x2="{{ $marker['x'] }}" y2="170" stroke="{{ $marker['kind'] === 'action' ? '#647c6a' : '#857b6b' }}" @if ($marker['kind'] !== 'action') stroke-dasharray="4 3" @endif>
+                    <title>{{ $marker['date'] }} · {{ $marker['label'] }} · {{ $marker['detail'] ?? '' }}</title>
+                </line>
+            @endforeach
             @php $previous = null; @endphp
             @foreach ($points as $day => $point)
                 @if ($previous !== null && $day === $previous['day'] + 1)
@@ -45,6 +58,14 @@
                 @php $previous = ['day' => $day, ...$point]; @endphp
             @endforeach
         </svg>
+        @if ($plottedMarkers !== [])
+            <h3>{{ __('app.charts.markers') }}</h3>
+            <ul data-testid="pdf-trend-markers">
+                @foreach ($plottedMarkers as $marker)
+                    <li>{{ $marker['date'] }} · {{ __($marker['kind'] === 'action' ? 'app.charts.marker_action' : 'app.charts.marker_model') }}: {{ $marker['label'] }} · {{ $marker['detail'] ?? '' }}</li>
+                @endforeach
+            </ul>
+        @endif
         <table data-testid="pdf-trend-values">
             <thead><tr><th>{{ __('reports.changed_on') }}</th><th>{{ __('reports.visibility') }}</th><th>{{ __('reports.sample_size') }}</th></tr></thead>
             <tbody>

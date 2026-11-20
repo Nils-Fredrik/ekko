@@ -5,6 +5,7 @@
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
+import MarkerList from './MarkerList.vue';
 import { bucketMarkers, trendSelection } from './support/data.js';
 import { axisFormatter, formatChange, formatDate, formatValue, isLowSample, tooltipHtml } from './support/format.js';
 import { firstAndLast, lineSeries, pointRows, timeTable } from './support/lines.js';
@@ -161,13 +162,16 @@ const summary = computed(() => {
 </script>
 
 <template>
-    <EkkoChart
-        :label="label"
-        :description="summary"
-        :table="table"
-        :height="height"
-        :option="option"
-        @marker="emit('marker', $event)"
-        @select="select"
-    />
+    <div>
+        <EkkoChart
+            :label="label"
+            :description="summary"
+            :table="table"
+            :height="height"
+            :option="option"
+            @marker="emit('marker', $event)"
+            @select="select"
+        />
+        <MarkerList :markers="[...buckets.values()].flat()" />
+    </div>
 </template>

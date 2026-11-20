@@ -43,7 +43,7 @@
         @endif
         @if (($shared ?? false) && ! empty($trend))
             @php
-                $chartData = ['trend' => $trend, 'brand' => $brand, 'from' => $from, 'to' => $to, 'label' => __('reports.trend')];
+                $chartData = ['trend' => $trend, 'markers' => $markers ?? [], 'brand' => $brand, 'from' => $from, 'to' => $to, 'label' => __('reports.trend')];
             @endphp
             <div id="shared-report-chart"></div>
             <script type="application/json" id="shared-report-chart-data">@json($chartData)</script>
