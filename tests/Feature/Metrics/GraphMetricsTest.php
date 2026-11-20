@@ -46,6 +46,10 @@ test('heatmap, engine series and daily dots keep dimensions, samples and date li
 
     expect($cells[$w->p1->id]['visibility'])->toBe(['value' => 0.4, 'n' => 10, 'low_sample' => false])
         ->and($cells[$w->p2->id]['visibility'])->toBe(['value' => 0.0, 'n' => 1, 'low_sample' => true]);
+    $daily = collect($service->visibilityByPromptSeries($filter))->where('prompt_id', $w->p1->id)->values();
+    expect($daily)->toHaveCount(2)
+        ->and($daily[0]['visibility'])->toBe(['value' => 0.25, 'n' => 4, 'low_sample' => true])
+        ->and($daily[1]['visibility'])->toBe(['value' => 0.5, 'n' => 6, 'low_sample' => true]);
     $weekly = $service->visibilityByEngineSeries($filter, 'week');
     expect($weekly)->toHaveCount(2)
         ->and($weekly[0]['visibility'])->toBe(['value' => 0.4, 'n' => 10, 'low_sample' => false]);
