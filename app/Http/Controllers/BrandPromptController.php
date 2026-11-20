@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Dashboard\AnalysisFilters;
 use App\Dashboard\BrandPage;
 use App\Dashboard\DashboardLabels;
+use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
 use App\Engines\RawResponseStore;
 use App\Metrics\Metric;
@@ -40,11 +42,13 @@ class BrandPromptController extends Controller
     {
         BrandPage::authorizeView($brand);
         $brand->load(['markets', 'topics']);
-        $period = BrandPage::period($request);
-        $marketIds = BrandPage::marketIds($brand, $request);
+        $query = AnalysisFilters::query($brand, $request->query(), 'brands.prompts.index');
+        $period = DashboardPeriod::fromInput($query);
+        $selection = AnalysisFilters::selection($query);
+        $marketIds = $selection['marketIds'];
         $promptMarketIds = $marketIds === [] ? $brand->markets->pluck('id')->all() : $marketIds;
-        $filter = new MetricsFilter($brand->id, $period->from, $period->to, marketIds: $marketIds);
-        $dotsFilter = new MetricsFilter($brand->id, CarbonImmutable::parse($period->to)->subDays(13), $period->to, marketIds: $marketIds);
+        $filter = $period->filter($brand->id, ...$selection);
+        $dotsFilter = new MetricsFilter($brand->id, CarbonImmutable::parse($period->to)->subDays(13), $period->to, ...$selection);
         $byPrompt = $metrics->breakdown($filter, 'prompt');
         $stability = [];
         foreach ($metrics->stabilityByPromptEngine($filter) as $cell) {
@@ -64,6 +68,8 @@ class BrandPromptController extends Controller
 
         $prompts = Prompt::query()
             ->whereIn('market_id', $promptMarketIds)
+            ->when($filter->topicIds !== [], fn ($q) => $q->whereIn('topic_id', $filter->topicIds))
+            ->when($filter->intents !== [], fn ($q) => $q->whereIn('intent', $filter->intents))
             ->with(['market', 'topic'])
             ->orderBy('text')
             ->get()
@@ -94,8 +100,9 @@ class BrandPromptController extends Controller
 
         return Inertia::render('Brands/Prompts', [
             'brand' => BrandPage::payload($brand),
-            'period' => ['days' => $period->days],
-            'filters' => ['market' => $marketIds[0] ?? null],
+            'period' => $period->toArray(),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.prompts.index', $query),
+            'filters' => $query,
             'markets' => BrandPage::markets($brand),
             'prompts' => $prompts,
             'intents' => array_map(fn (string $intent): array => ['value' => $intent, 'label' => DashboardLabels::intent($intent)], Prompt::INTENTS),
@@ -104,7 +111,8 @@ class BrandPromptController extends Controller
             'importResult' => session('prompt_import'),
             'personalData' => (bool) session('personal_data'),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
-                'brand.prompts', $filter, $period->timezone, fn (): array => [
+                'brand.prompts.u11', $filter, $period->timezone, fn (): array => [
+                    'topics' => AnalysisFilters::topicBars($brand, $metrics, $filter),
                     'heatmap' => $metrics->visibilityByPromptEngine($filter),
                     'stability' => $metrics->stabilityDots($dotsFilter),
                 ],
@@ -187,14 +195,16 @@ class BrandPromptController extends Controller
     {
         BrandPage::authorizeView($brand);
         $prompt = $this->promptOf($brand, $prompt);
-        $period = BrandPage::period($request);
-        $filter = new MetricsFilter($brand->id, $period->from, $period->to, promptIds: [$prompt->id]);
+        $viewQuery = AnalysisFilters::query($brand, $request->query(), 'brands.prompts.show');
+        $period = DashboardPeriod::fromInput($viewQuery);
+        $filter = new MetricsFilter($brand->id, $period->from, $period->to, engineKeys: isset($viewQuery['engine']) ? [(string) $viewQuery['engine']] : [], promptIds: [$prompt->id]);
         $from = CarbonImmutable::parse($period->from.' 00:00:00', $period->timezone)->utc();
         $to = CarbonImmutable::parse($period->to.' 23:59:59', $period->timezone)->utc();
 
         $query = Response::query()
             ->whereHas('run', fn ($run) => $run->where('prompt_id', $prompt->id))
             ->whereBetween('collected_at', [$from, $to])
+            ->when($filter->engineKeys !== [], fn ($q) => $q->whereIn('engine_key', $filter->engineKeys))
             ->with([
                 'mentions' => fn ($mentions) => $mentions->orderBy('first_char_offset')->orderBy('id'),
                 'citations',
@@ -239,7 +249,8 @@ class BrandPromptController extends Controller
                 'priority' => DashboardLabels::priority($prompt->priority),
                 'is_active' => $prompt->is_active,
             ],
-            'period' => ['days' => $period->days],
+            'period' => $period->toArray(),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.prompts.show', $viewQuery),
             'series' => array_map(fn (array $point): array => [
                 'period' => $point['period'],
                 'visibility' => $point['summary']->visibility->toArray(),

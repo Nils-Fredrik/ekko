@@ -1,4 +1,6 @@
 <script setup>
+import RankedBarChart from '@/Components/Charts/RankedBarChart.vue';
+import { crossFilter } from '@/Components/Brand/filters.js';
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
@@ -12,6 +14,8 @@ const props = defineProps({
     brand: { type: Object, required: true },
     period: { type: Object, required: true },
     filters: { type: Object, required: true },
+    analysisFilters: { type: Object, required: true },
+    chartData: { type: Object, default: null },
     markets: { type: Array, required: true },
     prompts: { type: Array, required: true },
     intents: { type: Array, required: true },
@@ -21,6 +25,10 @@ const props = defineProps({
     personalData: { type: Boolean, default: false },
 });
 
+function selectTopic(event) {
+    if (event?.key)
+        crossFilter(route('brands.prompts.index', props.brand.id), props.analysisFilters.query, 'topic', event.key);
+}
 const editing = ref(null);
 const form = useForm({ text: '', intent: '', priority: '', is_active: true });
 const toggleError = ref({ id: null, message: '' });
@@ -84,12 +92,15 @@ function importCsv(event) {
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
                 <BrandNav :brand-id="brand.id" />
-                <PeriodFilters
-                    :brand-id="brand.id"
-                    route-name="brands.prompts.index"
-                    :days="period.days"
-                    :markets="markets"
-                    :market="filters.market"
+                <PeriodFilters :brand-id="brand.id" route-name="brands.prompts.index" />
+
+                <RankedBarChart
+                    v-if="chartData?.topics?.length"
+                    :label="$t('filters.topics_chart')"
+                    :bars="chartData.topics"
+                    :groups="[{ key: 'own', label: brand.name, color: 'own' }]"
+                    kind="rate"
+                    @select="selectTopic"
                 />
 
                 <div v-if="canManage" class="flex flex-wrap items-center gap-3">

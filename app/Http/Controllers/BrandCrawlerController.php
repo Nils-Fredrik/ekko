@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Dashboard\AnalysisFilters;
 use App\Dashboard\BrandPage;
+use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
-use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\Brand;
 use Illuminate\Http\Request;
@@ -19,12 +20,15 @@ class BrandCrawlerController extends Controller
     public function __invoke(Request $request, Brand $brand, MetricsService $metrics): Response
     {
         BrandPage::authorizeView($brand);
-        $period = BrandPage::period($request);
-        $filter = new MetricsFilter($brand->id, $period->from, $period->to);
+        $query = AnalysisFilters::query($brand, $request->query(), 'brands.crawlers');
+        $period = DashboardPeriod::fromInput($query);
+        $selection = AnalysisFilters::selection($query);
+        $filter = $period->filter($brand->id, ...$selection);
 
         return Inertia::render('Brands/Crawlers', [
             'brand' => BrandPage::payload($brand),
-            'period' => ['days' => $period->days],
+            'period' => $period->toArray(),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.crawlers', $query),
             'bots' => $metrics->botHits($filter),
             'traffic' => $metrics->aiTraffic($filter),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
