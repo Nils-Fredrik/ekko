@@ -87,6 +87,7 @@ class BrandController extends Controller
                 'to' => $period->to,
                 'previous_from' => $period->previousFrom,
                 'previous_to' => $period->previousTo,
+                'grain' => $grain,
             ],
             'filters' => [
                 'market' => $selection['marketIds'][0] ?? null,
@@ -104,6 +105,10 @@ class BrandController extends Controller
             'voice' => $this->voice($dashboard['voice'], $brand),
             'engines' => $this->engines($dashboard['engines']),
             'modelChanges' => $this->modelChanges($metrics, $period, $selection['engineKeys']),
+            'topActions' => Action::query()->where('brand_id', $brand->id)->open()->ranked()->limit(3)
+                ->get(['id', 'title'])->map(fn (Action $action): array => [
+                    'id' => $action->id, 'title' => $action->title,
+                ])->all(),
             // The insight line (U12, ADR 0038): null, or {text, label, generated_on}. Deferred in its own group: a
             // missing text must not delay the graphs, and the first view of a day may make the model call.
             'insight' => Inertia::defer(fn (): ?array => app(InsightService::class)->forBrand($brand, $period, $filter, $previous), 'insight'),
@@ -256,7 +261,7 @@ class BrandController extends Controller
     /**
      * Actions are brand-level context; their stored timestamps are converted to the tenant's local day.
      *
-     * @return list<array{key: string, date: string, kind: string, label: string, action_id: int}>
+     * @return list<array{key: string, date: string, kind: string, label: string, href: string, action_id: int}>
      */
     private function actionMarkers(Brand $brand, DashboardPeriod $period): array
     {
@@ -276,7 +281,8 @@ class BrandController extends Controller
                 }
                 $markers[] = ['key' => 'action:'.$action->id.':'.$field,
                     'date' => $when->copy()->setTimezone($period->timezone)->toDateString(),
-                    'kind' => 'action', 'label' => $action->title, 'action_id' => $action->id];
+                    'kind' => 'action', 'label' => $action->title,
+                    'href' => route('brands.actions.show', [$brand, $action]), 'action_id' => $action->id];
             }
         }
         usort($markers, fn (array $a, array $b): int => [$a['date'], $a['key']] <=> [$b['date'], $b['key']]);

@@ -58,6 +58,83 @@ export function bucketMarkers(markers, categories, until = null) {
 }
 
 /**
+ * Every bucket start from `from` through `to`, including days without answers.
+ * Week buckets start on Monday and month buckets on the first, matching Postgres
+ * date_trunc, so a partial first bucket can start before `from`.
+ *
+ * @param {string} from
+ * @param {string} to
+ * @param {string} grain
+ * @returns {string[]}
+ */
+export function periodBuckets(from, to, grain = 'day') {
+    if (!ISO_DATE.test(from) || !ISO_DATE.test(to) || from > to) {
+        return [];
+    }
+    const start = bucketStart(from, grain);
+    const end = bucketStart(to, grain);
+    const buckets = [];
+    let cursor = start;
+    while (cursor <= end && buckets.length < 400) {
+        buckets.push(cursor);
+        cursor = nextBucket(cursor, grain);
+    }
+
+    return buckets;
+}
+
+/**
+ * Previous-period values on the current buckets, by offset rather than by calendar date.
+ * A bucket with no answers stays null so a missing first day does not shift the rest.
+ *
+ * @param {string[]} currentBuckets
+ * @param {string[]} previousBuckets
+ * @param {unknown[]} previousValues values aligned with previousBuckets
+ * @param {unknown} missing
+ * @returns {unknown[]}
+ */
+export function alignByOffset(currentBuckets, previousBuckets, previousValues, missing = null) {
+    const values = previousBuckets.map((_, index) => previousValues[index] ?? missing);
+
+    return currentBuckets.map((_, index) => values[index] ?? missing);
+}
+
+function bucketStart(date, grain) {
+    const parsed = parseIso(date);
+    if (grain === 'week') {
+        const day = parsed.getUTCDay();
+        parsed.setUTCDate(parsed.getUTCDate() - (day === 0 ? 6 : day - 1));
+    } else if (grain === 'month') {
+        parsed.setUTCDate(1);
+    }
+
+    return formatIso(parsed);
+}
+
+function nextBucket(date, grain) {
+    const parsed = parseIso(date);
+    if (grain === 'week') {
+        parsed.setUTCDate(parsed.getUTCDate() + 7);
+    } else if (grain === 'month') {
+        parsed.setUTCMonth(parsed.getUTCMonth() + 1);
+    } else {
+        parsed.setUTCDate(parsed.getUTCDate() + 1);
+    }
+
+    return formatIso(parsed);
+}
+
+function parseIso(value) {
+    const [year, month, day] = value.split('-').map(Number);
+
+    return new Date(Date.UTC(year, month - 1, day));
+}
+
+function formatIso(date) {
+    return date.toISOString().slice(0, 10);
+}
+
+/**
  * Splits values into a solid series and a dashed one for low-n stretches. A segment is low when
  * one of its two points has low n; such a point is left out of the solid series, so the solid line
  * never bridges a low segment. The dashed series is drawn below the solid one.

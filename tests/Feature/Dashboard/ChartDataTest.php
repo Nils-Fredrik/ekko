@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\ActionStatus;
+use App\Enums\ActionType;
 use App\Models\Action;
 use App\Models\AggDaily;
 use App\Models\BotHitDaily;
@@ -150,4 +152,52 @@ test('dashboard comparison follows weekly and monthly grain while the sparkline 
                 ->where('chartData.engines.0.period', $current)
                 ->where('chartData.competitors.0.period', $current)));
     }
+});
+
+test('the brand dashboard keeps the three highest open actions and links their markers', function () {
+    $world = MetricsWorld::create();
+    $otherBrand = Brand::factory()->create();
+    $fact = Action::factory()->create([
+        'brand_id' => $world->brand->id, 'type' => ActionType::FactCorrection, 'title' => 'Fact',
+        'impact_level' => 1, 'impact_score' => 1, 'status' => ActionStatus::New, 'started_at' => now(),
+    ]);
+    $high = Action::factory()->create([
+        'brand_id' => $world->brand->id, 'title' => 'High', 'impact_level' => 5, 'impact_score' => 1,
+        'status' => ActionStatus::Planned, 'started_at' => now(),
+    ]);
+    $mid = Action::factory()->create([
+        'brand_id' => $world->brand->id, 'title' => 'Mid', 'impact_level' => 4, 'impact_score' => 1,
+        'status' => ActionStatus::InProgress, 'started_at' => now(),
+    ]);
+    Action::factory()->create([
+        'brand_id' => $world->brand->id, 'title' => 'Low', 'impact_level' => 2, 'impact_score' => 9,
+        'status' => ActionStatus::New,
+    ]);
+    Action::factory()->create([
+        'brand_id' => $world->brand->id, 'title' => 'Done', 'impact_level' => 5, 'impact_score' => 9,
+        'status' => ActionStatus::Done, 'completed_at' => now(),
+    ]);
+    Action::factory()->create([
+        'brand_id' => $otherBrand->id, 'title' => 'Other brand', 'impact_level' => 5, 'impact_score' => 9,
+    ]);
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    Cache::flush();
+
+    $this->actingAs($owner)->get('/brands/'.$world->brand->id)
+        ->assertOk()->assertInertia(function ($page) use ($world, $fact, $high, $mid) {
+            $page->has('topActions', 3)
+                ->where('topActions.0.id', $fact->id)
+                ->where('topActions.1.id', $high->id)
+                ->where('topActions.2.id', $mid->id)
+                ->loadDeferredProps(function ($deferred) use ($world, $fact) {
+                    $markers = $deferred->toArray()['props']['chartData']['action_markers'];
+                    $match = collect($markers)->firstWhere('action_id', $fact->id);
+                    expect($match['href'] ?? null)->toBe(route('brands.actions.show', [$world->brand, $fact]));
+                });
+        });
+});
+
+test('insight text is on unless the environment switches it off', function () {
+    expect(config('ekko.insights.enabled'))->toBeTrue();
 });

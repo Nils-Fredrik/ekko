@@ -1,4 +1,5 @@
 <script setup>
+import InsightLine from '@/Components/Dashboard/InsightLine.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -14,6 +15,7 @@ const props = defineProps({
     usage: { type: Object, default: null },
     botLogUploadsUrl: { type: String, default: null },
     chartData: { type: Array, default: null },
+    insight: { type: Object, default: null },
 });
 
 function sparkline(brandId) {
@@ -46,6 +48,7 @@ function when(value) {
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
                 <p class="text-sm text-shell-text/70">{{ $t('app.dashboard.period_days', { days: period.days }) }}</p>
+                <InsightLine :insight="insight" />
 
                 <Link v-if="botLogUploadsUrl" :href="botLogUploadsUrl" class="text-sm text-shell-accent underline">
                     {{ $t('bot_logs.title') }}

@@ -130,7 +130,7 @@ ECharts fra `echarts/core` med SVG-tegning, ett tema bygget fra tokens som bytte
 
 - Temabytte endrer grafene uten ny lasting.
 - Grafbiblioteket lastes ikke på sider uten grafer.
-- `TrendChart` og `VoiceChart` er erstattet og Chart.js fjernet når U05–U10 er ferdige.
+- `VoiceChart` er fjernet i U05. `TrendChart` står igjen på promptsiden, og Chart.js fjernes sammen med den når den siden er bygget om.
 
 ## 7.9 Kommandopalett
 
@@ -152,3 +152,20 @@ Kort oppsummering per merkevare og periode (7.2, under filterlinjen) og på tver
 - Ingen tall i teksten avviker fra tallene på siden (automatisk test). Bare tall siden viser får plassholder.
 - Propen `insight` på `Brands/Show` og `Home` er utsatt (gruppen `insight`) og er `null` eller `{ text, label, generated_on }`. `<InsightLine :insight="insight" />` viser den og tegner ingenting for `null`.
 - Faller generering bort (redusert modus, kvote eller feil), vises ingen innsiktslinje.
+
+## U05 – Merkevare-dashboard
+
+Merkevaresiden svarer på om noe har endret seg, og hvilken motor som driver endringen, uten å scrolle på 1440×900. Tallene er periodens tall fra `MetricsService`, med n ved siden av prosenten (`docs/spec.md` kapittel 9).
+
+- Fire primære kort med endring og minigraf: synlighet, share of voice, snittposisjon (lavere er bedre) og sitering. Sekundært: anbefaling, førsteplass og sentiment.
+- Setningen om ledende motor nevner bare en motor med n ≥ 10, og viser den motorens periodesynlighet og n. Finnes ingen slik motor, vises setningen ikke.
+- Småmultipler per motor viser periodens synlighet og n i hodet, samme tall som innsiktsteksten. Lav n er dempet. Tekstbeskrivelsen bruker periodeverdien, ikke endringen fra første til siste bøtte.
+- Trend med egen serie, konkurrenter i fast farge, stiplet forrige periode justert etter offset, og markører for modellbytte og tiltak gjennom periodens slutt.
+- Share of voice som normalisert areal. Sentiment som diverging bar. Rader med n = 0 tegnes ikke. Mangler fordelingen, står det at sentimenttallene mangler.
+- De tre høyest rangerte åpne tiltakene, med lenke til listen og fra markøren til tiltaket.
+
+Avvik fra rekkefølgen i oppgaven:
+
+- Motorsammenligningen står over trenden, så begge svarene får plass på første skjerm.
+- Modellbytter er markører på trenden og motorpanelet, ikke en egen liste.
+- Innsiktslinjen ligger også på oversikten, så `ekko.insights.enabled` kan være på. U10 eier fortsatt ombyggingen av oversikten.
