@@ -4,6 +4,7 @@ import { databaseEnv } from './tests/Browser/database.mjs';
 const port = Number(process.env.BROWSER_PORT ?? 8010);
 export default defineConfig({
     testDir: './tests/Browser',
+    testIgnore: '**/visual/**',
     globalSetup: './tests/Browser/setup.mjs',
     workers: 1,
     retries: 0,

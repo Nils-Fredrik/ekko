@@ -103,7 +103,12 @@ function add() {
                     @submit.prevent="save(row)"
                 >
                     <p class="text-sm font-medium">{{ row.brand }}</p>
-                    <select v-model="row.form.cadence" :disabled="!canManage" :class="field">
+                    <select
+                        v-model="row.form.cadence"
+                        :aria-label="$t('app.workspace.cadence')"
+                        :disabled="!canManage"
+                        :class="field"
+                    >
                         <option value="weekly">{{ $t('app.workspace.cadence_weekly') }}</option>
                         <option value="monthly">{{ $t('app.workspace.cadence_monthly') }}</option>
                     </select>
@@ -120,13 +125,23 @@ function add() {
                     </label>
                     <p class="text-xs text-shell-muted">{{ $t('app.workspace.recipients_help') }}</p>
                     <InputError :message="recipientError(row.form.errors)" />
-                    <select v-model="row.form.locale" :disabled="!canManage" :class="field">
+                    <select
+                        v-model="row.form.locale"
+                        :aria-label="$t('app.workspace.locale')"
+                        :disabled="!canManage"
+                        :class="field"
+                    >
                         <option v-for="locale in reportLocales" :key="locale" :value="locale">
                             {{ $t(`app.locales.${locale}`) }}
                         </option>
                     </select>
                     <InputError :message="row.form.errors.locale" />
-                    <select v-model="row.form.branding" :disabled="!canManage" :class="field">
+                    <select
+                        v-model="row.form.branding"
+                        :aria-label="$t('app.workspace.branding')"
+                        :disabled="!canManage"
+                        :class="field"
+                    >
                         <option value="tenant">{{ $t('app.workspace.branding_tenant') }}</option>
                         <option value="partner">{{ $t('app.workspace.branding_partner') }}</option>
                     </select>
@@ -138,24 +153,29 @@ function add() {
 
                 <form v-if="canManage" class="grid gap-2 border-t border-line pt-3" @submit.prevent="add">
                     <h4 class="text-sm font-medium">{{ $t('app.workspace.add_schedule') }}</h4>
-                    <select v-model="created.brand_id" :class="field">
+                    <select v-model="created.brand_id" :aria-label="$t('app.workspace.brand')" :class="field">
                         <option v-for="brand in brands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
                     </select>
                     <InputError :message="created.errors.brand_id" />
-                    <select v-model="created.cadence" :class="field">
+                    <select v-model="created.cadence" :aria-label="$t('app.workspace.cadence')" :class="field">
                         <option value="weekly">{{ $t('app.workspace.cadence_weekly') }}</option>
                         <option value="monthly">{{ $t('app.workspace.cadence_monthly') }}</option>
                     </select>
                     <InputError :message="created.errors.cadence" />
-                    <textarea v-model="created.recipients" :class="field" rows="3" />
+                    <textarea
+                        v-model="created.recipients"
+                        :aria-label="$t('app.workspace.recipients')"
+                        :class="field"
+                        rows="3"
+                    />
                     <InputError :message="recipientError(created.errors)" />
-                    <select v-model="created.locale" :class="field">
+                    <select v-model="created.locale" :aria-label="$t('app.workspace.locale')" :class="field">
                         <option v-for="locale in reportLocales" :key="locale" :value="locale">
                             {{ $t(`app.locales.${locale}`) }}
                         </option>
                     </select>
                     <InputError :message="created.errors.locale" />
-                    <select v-model="created.branding" :class="field">
+                    <select v-model="created.branding" :aria-label="$t('app.workspace.branding')" :class="field">
                         <option value="tenant">{{ $t('app.workspace.branding_tenant') }}</option>
                         <option value="partner">{{ $t('app.workspace.branding_partner') }}</option>
                     </select>

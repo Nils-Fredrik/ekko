@@ -50,3 +50,6 @@ eslint.config.js
 test-results
 playwright-report
 playwright.config.mjs
+playwright.visual.config.mjs
+.ui-auth
+ui-quality-results

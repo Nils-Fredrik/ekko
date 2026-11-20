@@ -50,6 +50,7 @@ function render() {
             ],
         },
         options: {
+            maintainAspectRatio: false,
             animation: chartAnimation(chartIntroPending('trend')),
             interaction: { mode: 'index', intersect: false },
             plugins: {
@@ -109,5 +110,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <canvas ref="canvas" class="h-56 w-full"></canvas>
+    <div class="relative aspect-[2/1] w-full">
+        <canvas ref="canvas"></canvas>
+    </div>
 </template>

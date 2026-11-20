@@ -19,7 +19,7 @@ jobs:
     test:
         name: test
         runs-on: ubuntu-latest
-        timeout-minutes: 20
+        timeout-minutes: 40
 
         services:
             postgres:
@@ -117,8 +117,42 @@ jobs:
             - name: Chart selection contracts
               run: node --test tests/charts/*.test.mjs
 
+            - name: UI coverage and bundle budget contracts
+              run: npm run test:ui:contracts
+
+            - name: JavaScript and chart size budgets
+              run: npm run test:budget
+
             - name: Browser login and dashboard (isolated test database)
               run: npm run test:browser
+
+            - name: Visual regression and accessibility (pinned Linux Chromium)
+              run: npm run test:ui
+
+            - name: Show committed baseline changes
+              if: always()
+              env:
+                  UI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+              run: node scripts/ui-quality/compare-baselines.mjs
+
+            - name: Preserve UI reports and image differences
+              id: ui-report
+              if: always()
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: ui-quality-${{ github.run_id }}-${{ github.run_attempt }}
+                  path: |
+                      playwright-report/ui-quality/
+                      test-results/ui-quality/
+                      ui-quality-results/
+                  retention-days: 14
+                  if-no-files-found: warn
+
+            - name: Link UI reports in the run summary
+              if: always() && steps.ui-report.outputs.artifact-url != ''
+              env:
+                  UI_REPORT_URL: ${{ steps.ui-report.outputs.artifact-url }}
+              run: printf '\n[Download UI screenshots, accessibility findings and baseline differences](%s)\n' "$UI_REPORT_URL" >> "$GITHUB_STEP_SUMMARY"
 
     image:
         name: container build

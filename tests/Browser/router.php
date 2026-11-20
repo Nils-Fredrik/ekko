@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Tests\Browser\Visual\FreezeClock;
 use Tests\Support\Onboarding\OnboardingFakes;
 
 // Only the disposable browser server loads fakes. Production contains neither this router nor tests.
@@ -21,6 +22,11 @@ $app->booted(function () use ($app): void {
     $database = DB::connection()->getDatabaseName();
     if (! $app->environment('local', 'testing') || ! str_ends_with($database, '_testing') || $database !== env('DB_TEST_DATABASE')) {
         throw new RuntimeException('Browser server requires the dedicated test database.');
+    }
+    if (getenv('EKKO_UI_QUALITY') === '1') {
+        require_once __DIR__.'/visual/FreezeClock.php';
+        $app['router']->pushMiddlewareToGroup('web', FreezeClock::class);
+        config(['ekko.insights.enabled' => false]);
     }
     Http::preventStrayRequests();
     OnboardingFakes::bind(Request::capture()->is('brands/*/market-proposals') ? OnboardingFakes::marketJson(['running_shoes', 'shoe_stores']) : null);

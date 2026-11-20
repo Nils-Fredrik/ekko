@@ -1047,6 +1047,7 @@ T50 bruker de samme tjenestene og valideringsreglene som REST. Skriving krever b
   - Pint, Larastan, ESLint
   - Pest med isolasjonstester
   - nettlesertester for innlogging, veiviser og dashboard
+  - U15: visuell regresjon og kritiske axe-funn på alle aktive sider i lys/mørk modus og desktop/mobil, samt gzip-budsjetter for JavaScript og grafbibliotek ([kjøring og grenser](ui-quality.md))
   - bygg av image
 - **Ved merge til `main`** utrulles automatisk til produksjon:
   1. Bygg og push av image til Artifact Registry.
@@ -1055,6 +1056,8 @@ T50 bruker de samme tjenestene og valideringsreglene som REST. Skriving krever b
   4. Røyktest mot revisjonsadressen: innlogging, dashboard, API og MCP svarer uten feil.
   5. Består testen, flyttes all trafikk til ny revisjon, og jobbene oppdateres til nytt image. Feiler den, beholder forrige revisjon trafikken og deployen stopper.
 - **Tilbakerulling:** trafikken flyttes tilbake til forrige revisjon med én kommando, dokumentert i `docs/runbook.md`.
+
+**CI-tilgang til image-tagger:** CI har Artifact Registry writer på Ekko-repoet og en Terraform-styrt tilleggsrolle med kun `artifactregistry.tags.delete`, bundet på samme repo. Dette er nødvendig fordi `gcloud artifacts docker tags add` flytter en eksisterende `live`-tag med delete/create. Rollen gir ikke sletting av bilder eller repositories. Rettingen ble tatt med i U15 som avvik fra UI-omfanget fordi en feilet main-utrulling blokkerte mergekøen (Board task:98 og task:111).
 
 **Produksjonsstatus i T10 (PR #31):** Containerbygg, deployrekkefølge og tilbakeføring er implementert. Deploy-jobben ligger i CI og er aktivert med `EKKO_DEPLOY_ENABLED=true` etter bootstrap og offentlig produksjonsvalidering. CI overfører de kontrollerte web- og jobbimagene som et sjekksumkontrollert artifact fra samme workflow-kjøring; deploy bygger dem ikke på nytt. Første automatiske utrulling fra main gjenstår til eierens merge; denne er ikke erklært verifisert på forhånd. Den autentiserte røyktesten bruker en syntetisk lesebruker, faktisk innlogging og rendret dashboard, REST-metrikker og OAuth/PKCE med MCP initialize/whoami. Den krever T33 og T34 i samme kandidatimage samt ferdig bootstrap av tjenester, IAM/WIF og testidentitet. Røyktesten skriver ingen svartekster eller hemmeligheter til logger og tilbakekaller sin midlertidige MCP-tilkobling.
 
@@ -1139,6 +1142,10 @@ T36 implementerer policyene i `infra/terraform/monitoring.tf`. `ekko:monitor-hea
 - **Metrikker:** enhetstester for alle formler i kapittel 9 med kjente datasett.
 - **Kvoter:** tester for 80 %, 100 %, kjerneprompt-prioritering og egne API-nøkler.
 - **Nettlesertester:** innlogging, tenant-bytte, veiviser til første kjøring, dashboard-filtre, temabytte.
+
+**UI-kvalitet (U15):** Låst Linux/Chromium og syntetiske data brukes til versjonerte referansebilder. Nye Inertia-sider må inn i sideregisteret. Visuelle avvik, kritiske axe-funn og overskredne bundlebudsjetter stopper CI. Rapporten viser også endringer i referansebildene mot PR-ens basecommit. Se [ADR 0040](decisions/0040-visuell-regresjon-i-ci.md) og [UI-kvalitet](ui-quality.md).
+
+**Åpent UI-avvik:** Full WCAG 2.2 AA er ikke verifisert. Kontrast og tastaturtilgang til robotsidens rullefelt, avdekket av U15, følges opp i [U01-F1 / task:112](https://board.maksimer.com/b/vn4w66vc/work?task=112).
 
 **Generelle krav til kode:**
 - Larastan nivå 6 uten unntak i ny kode.

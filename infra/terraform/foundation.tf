@@ -103,6 +103,22 @@ resource "google_artifact_registry_repository_iam_member" "ci_push" {
   member     = "serviceAccount:${google_service_account.component["ci"].email}"
 }
 
+# gcloud moves an existing Docker tag by deleting and recreating it. Writer
+# permits the latter only; do not grant image deletion or repository admin.
+resource "google_project_iam_custom_role" "ci_artifact_tags" {
+  role_id     = "ekkoCiArtifactTags"
+  title       = "Ekko CI move Artifact Registry tags"
+  description = "Complements repository writer for moving deployment live tags."
+  permissions = ["artifactregistry.tags.delete"]
+}
+
+resource "google_artifact_registry_repository_iam_member" "ci_artifact_tags" {
+  location   = google_artifact_registry_repository.images.location
+  repository = google_artifact_registry_repository.images.name
+  role       = google_project_iam_custom_role.ci_artifact_tags.name
+  member     = "serviceAccount:${google_service_account.component["ci"].email}"
+}
+
 resource "google_sql_database_instance" "postgres" {
   name                = "ekko-postgres"
   region              = var.region

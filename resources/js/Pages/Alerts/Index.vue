@@ -105,7 +105,12 @@ const editable = props.rules.map((rule) => ({
                         {{ rule.brand ?? $t('app.workspace.tenant_wide') }} ·
                         {{ $t(`app.alert_types.${rule.type}`) }}
                     </p>
-                    <input v-model="rule.form.threshold" :disabled="!canManage" :class="field" />
+                    <input
+                        v-model="rule.form.threshold"
+                        :aria-label="$t('app.workspace.threshold')"
+                        :disabled="!canManage"
+                        :class="field"
+                    />
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="rule.form.is_active" :disabled="!canManage" type="checkbox" />
                         {{ $t('app.workspace.active') }}
@@ -121,12 +126,17 @@ const editable = props.rules.map((rule) => ({
 
                 <form v-if="canManage" class="grid gap-2 border-t border-line pt-3" @submit.prevent="addRule">
                     <h4 class="text-sm font-medium">{{ $t('app.workspace.add_rule') }}</h4>
-                    <select v-if="!tenantWide" v-model="form.brand_id" :class="field">
+                    <select
+                        v-if="!tenantWide"
+                        v-model="form.brand_id"
+                        :aria-label="$t('app.workspace.brand')"
+                        :class="field"
+                    >
                         <option v-for="brand in brands" :key="brand.id" :value="brand.id">{{ brand.name }}</option>
                     </select>
                     <p v-else class="text-sm text-shell-muted">{{ $t('app.workspace.tenant_wide') }}</p>
                     <InputError :message="form.errors.brand_id" />
-                    <select v-model="form.type" :class="field">
+                    <select v-model="form.type" :aria-label="$t('app.workspace.type')" :class="field">
                         <option value="visibility_drop">{{ $t('app.alert_types.visibility_drop') }}</option>
                         <option value="competitor_takeover">{{ $t('app.alert_types.competitor_takeover') }}</option>
                         <option value="citation_lost">{{ $t('app.alert_types.citation_lost') }}</option>
@@ -136,7 +146,12 @@ const editable = props.rules.map((rule) => ({
                         <option value="integration_error">{{ $t('app.alert_types.integration_error') }}</option>
                     </select>
                     <InputError :message="form.errors.type" />
-                    <input v-model="form.threshold" :class="field" :placeholder="$t('app.workspace.threshold')" />
+                    <input
+                        v-model="form.threshold"
+                        :aria-label="$t('app.workspace.threshold')"
+                        :class="field"
+                        :placeholder="$t('app.workspace.threshold')"
+                    />
                     <InputError :message="form.errors.threshold" />
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="form.is_active" type="checkbox" />

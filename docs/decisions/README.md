@@ -48,4 +48,5 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0037: Fordelinger i dagsaggregatene for grafdata](0037-grafdata-fordelinger.md)
 - [0038: Innsiktstekst på dashboardene](0038-innsiktstekst.md)
 - [0039: Produkt-API og MCP for tiltak, fakta, rapporter og pitch](0039-produkt-api-og-mcp.md)
+- [0040: Låst Linux-nettleser for visuell regresjon](0040-visuell-regresjon-i-ci.md)
 - [0041: Analysefiltre og lagrede visninger](0041-analysefiltre-og-lagrede-visninger.md)

@@ -146,7 +146,8 @@ function toggle(form, key) {
                             v-if="row.form.allowed_engines.includes(engine.key)"
                             v-model="row.form.engine_max_frequencies[engine.key]"
                             :class="field"
-                            class="!mt-0"
+                            class="!mt-0 !w-32"
+                            :aria-label="`${engine.key}: ${$t('admin.plans.frequency')}`"
                         >
                             <option value="">{{ $t(`admin.plans.frequencies.${row.form.max_frequency}`) }}</option>
                             <option v-for="frequency in frequencies" :key="frequency" :value="frequency">

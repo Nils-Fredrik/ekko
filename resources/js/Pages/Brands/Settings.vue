@@ -81,8 +81,18 @@ function save() {
             <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.aliases') }}</h3>
                 <div v-for="(row, index) in form.aliases" :key="index" class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                    <input v-model="row.alias" :disabled="!can.manage" :class="field" />
-                    <select v-model="row.match_mode" :disabled="!can.manage" :class="field">
+                    <input
+                        v-model="row.alias"
+                        :aria-label="$t('app.workspace.alias')"
+                        :disabled="!can.manage"
+                        :class="field"
+                    />
+                    <select
+                        v-model="row.match_mode"
+                        :aria-label="$t('app.workspace.match_mode')"
+                        :disabled="!can.manage"
+                        :class="field"
+                    >
                         <option value="exact_word">{{ $t('app.workspace.match_exact') }}</option>
                         <option value="case_insensitive">{{ $t('app.workspace.match_ignore_case') }}</option>
                     </select>
@@ -113,7 +123,12 @@ function save() {
             <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('app.workspace.domains') }}</h3>
                 <div v-for="(row, index) in form.domains" :key="index" class="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                    <input v-model="row.domain" :disabled="!can.manage" :class="field" />
+                    <input
+                        v-model="row.domain"
+                        :aria-label="$t('app.workspace.domain')"
+                        :disabled="!can.manage"
+                        :class="field"
+                    />
                     <label class="flex items-center gap-2 text-sm">
                         <input v-model="row.include_subdomains" :disabled="!can.manage" type="checkbox" />
                         {{ $t('app.workspace.include_subdomains') }}
@@ -169,17 +184,32 @@ function save() {
                 <h3 class="font-medium">{{ $t('app.workspace.engines') }}</h3>
                 <div v-for="(row, index) in form.engines" :key="row.id" class="grid gap-2 sm:grid-cols-4">
                     <p class="text-sm sm:col-span-4">{{ engines[index].market }} · {{ engines[index].name }}</p>
-                    <select v-model="row.frequency" :disabled="!can.manage" :class="field">
+                    <select
+                        v-model="row.frequency"
+                        :aria-label="$t('app.workspace.frequency')"
+                        :disabled="!can.manage"
+                        :class="field"
+                    >
                         <option value="daily">{{ $t('app.workspace.freq_daily') }}</option>
                         <option value="weekly">{{ $t('app.workspace.freq_weekly') }}</option>
                         <option value="monthly">{{ $t('app.workspace.freq_monthly') }}</option>
                         <option value="off">{{ $t('app.workspace.freq_off') }}</option>
                     </select>
-                    <select v-model="row.prompt_scope" :disabled="!can.manage" :class="field">
+                    <select
+                        v-model="row.prompt_scope"
+                        :aria-label="$t('app.workspace.prompt_scope')"
+                        :disabled="!can.manage"
+                        :class="field"
+                    >
                         <option value="all">{{ $t('app.workspace.scope_all') }}</option>
                         <option value="core">{{ $t('app.workspace.scope_core') }}</option>
                     </select>
-                    <select v-model.number="row.repetitions" :disabled="!can.manage" :class="field">
+                    <select
+                        v-model.number="row.repetitions"
+                        :aria-label="$t('app.workspace.repetitions')"
+                        :disabled="!can.manage"
+                        :class="field"
+                    >
                         <option v-for="count in [1, 2, 3]" :key="count" :value="count">{{ count }}</option>
                     </select>
                     <InputError
