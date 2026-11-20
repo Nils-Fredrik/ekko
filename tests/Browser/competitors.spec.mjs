@@ -39,7 +39,10 @@ test('ranking, table, sentiment and suggestions use the dashboard colors', async
     await expect(ranking).toBeVisible();
     expect(await strokes(ranking)).toContain(firstCompetitorColor);
     // Tied today: one end label carries both names instead of two labels on top of each other.
-    await expect(ranking.locator('svg text', { hasText: 'Browser competitors brand, Alpha rival' })).toHaveCount(1);
+    // A long label wraps over several text lines, so the lines are read together.
+    const labels = (await ranking.locator('svg text').allTextContents()).join('');
+    expect(labels).toContain('Browser competitors brand, Alpha rival');
+    expect(labels.split('Alpha rival')).toHaveLength(2);
 
     const table = page.getByTestId('competitor-table');
     const alpha = table.getByRole('row', { name: /Alpha rival/ });

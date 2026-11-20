@@ -81,6 +81,9 @@ function option({ palette }) {
                           formatter: () => labels[index]?.text ?? '',
                           color: palette.text,
                           fontSize: 11,
+                          // Inside the grid's right margin: long or combined names wrap instead of being cut off.
+                          width: 88,
+                          overflow: 'break',
                       },
                   },
         ),
