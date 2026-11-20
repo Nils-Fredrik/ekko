@@ -71,7 +71,7 @@ test('the funnel shows the measured figures and how each step is measured', asyn
     expect(errors).toEqual([]);
 });
 
-test('a period of one day still draws the robot chart and lists the hits', async ({ page }) => {
+test('filtering to one day refreshes the funnel and shows the recorded robot hits', async ({ page }) => {
     const { brand, day, email } = fixture();
     const errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -82,7 +82,28 @@ test('a period of one day still draws the robot chart and lists the hits', async
     await page.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(/\/dashboard$/);
 
-    await page.goto(`/brands/${brand}/crawlers?from=${day}&to=${day}`);
+    await page.goto(`/brands/${brand}/crawlers`);
+    const cards = page.getByTestId('crawler-kpis').getByTestId('kpi-card');
+    await expect(cards.first().getByText('47', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Add or change filters' }).click();
+    await page.getByRole('combobox', { name: 'Period', exact: true }).selectOption('custom');
+    await page.getByLabel('From', { exact: true }).fill(day);
+    await page.getByLabel('To', { exact: true }).fill(day);
+    const filtered = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return (
+            url.pathname.endsWith('/crawlers') &&
+            url.searchParams.get('from') === day &&
+            response.request().headers()['x-inertia-partial-data']?.includes('period')
+        );
+    });
+    await page.getByRole('button', { name: 'Apply', exact: true }).click();
+    const { props } = await (await filtered).json();
+    expect(props.funnel?.current.fetched.value).toBe(35);
+    await expect(page).toHaveURL(new RegExp(`from=${day}`));
+    await expect(cards.first().getByText('35', { exact: true })).toBeVisible();
+    await expect(cards.nth(2).getByText('8', { exact: true })).toBeVisible();
+
     const robots = page.getByTestId('crawler-robots');
     await robots.locator('figure').scrollIntoViewIfNeeded();
     await expect(robots.locator('figure[data-chart-ready="true"]')).toBeVisible();
