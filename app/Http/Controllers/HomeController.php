@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
+use App\Dashboard\OverviewTimeline;
 use App\Insights\InsightService;
 use App\Metrics\MetricsService;
 use App\Models\Action;
@@ -20,12 +21,13 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * The tenant overview (docs/spec.md 14.2): one line per brand, the latest alerts, the next
- * scheduled runs and usage against the quota. Every figure comes from MetricsService.
+ * The tenant overview (docs/spec.md 14.2, docs/ui-forbedring.md 7.1): the insight line, one card per brand,
+ * «Hva har skjedd» as one timeline, the next scheduled runs and usage against the quota. Every figure comes
+ * from MetricsService.
  */
 class HomeController extends Controller
 {
-    public function __invoke(MetricsService $metrics): Response
+    public function __invoke(MetricsService $metrics, OverviewTimeline $timeline): Response
     {
         $period = DashboardPeriod::forCurrentTenant(28);
 
@@ -38,7 +40,7 @@ class HomeController extends Controller
             return Inertia::render('Home', [
                 'period' => ['days' => $period->days, 'from' => $period->from, 'to' => $period->to],
                 'brands' => [],
-                'alerts' => [],
+                'timeline' => [],
                 'runs' => [],
                 'usage' => null,
                 'botLogUploadsUrl' => null,
@@ -63,7 +65,7 @@ class HomeController extends Controller
         return Inertia::render('Home', [
             'period' => ['days' => $period->days, 'from' => $period->from, 'to' => $period->to],
             'brands' => $brands,
-            'alerts' => $this->alerts(),
+            'timeline' => $timeline->forPeriod($period),
             'runs' => $this->runs(),
             'usage' => $this->usage($period->timezone),
             // The insight line across brands (U12, ADR 0038): null, or {text, label, generated_on}.
@@ -85,24 +87,6 @@ class HomeController extends Controller
                 ? route('bot-log-uploads.index', ['team' => current_tenant_id()])
                 : null,
         ]);
-    }
-
-    /**
-     * @return list<array{id: int, brand: string, type: string, triggered_at: string}>
-     */
-    private function alerts(): array
-    {
-        return Alert::query()
-            ->with('alertRule.brand')
-            ->latest('triggered_at')
-            ->limit(5)
-            ->get()
-            ->map(fn (Alert $alert) => [
-                'id' => $alert->id,
-                'brand' => $alert->alertRule->brand->name,
-                'type' => DashboardLabels::alertType($alert->alertRule->type),
-                'triggered_at' => $alert->triggered_at->toIso8601String(),
-            ])->all();
     }
 
     /**

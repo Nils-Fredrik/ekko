@@ -199,6 +199,22 @@ Promptlisten åpner med heatmapen prompts × motorer, gruppert etter tema. Klikk
 
 Inline redigering, aktivering og CSV-import og -eksport er uendret. `TrendChart` og Chart.js er fjernet.
 
+## U10 – Oversikt og partneroversikt
+
+Oversikt etter 7.1 med samlet tidslinje, og partneroversikt etter 7.7.
+
+- Partneroversikten viser 50 kunder uten merkbar forsinkelse.
+
+Slik er det løst:
+
+- **Oversikt (`Home.vue`):** innsiktslinjen (U12) står øverst. Merkevarekortene viser synlighet med minigraf, endring og n (U04), og antall åpne tiltak fra den utsatte propen `chartData`, med skjelett til den er lastet. «Hva har skjedd» (`App\Dashboard\OverviewTimeline`) samler varsler, modellbytter, fullførte tiltak og nye aktive konkurrenter i periodens 28 dager, nyeste først, høyst ti hendelser. Hver kilde leses bare når rollen kan liste den. Hendelsen har en typemerkelapp i tekst, ikke bare farge. Forbruket er en fremdriftslinje mot kvoten (og mot budsjettet når det finnes), med status i tekst. «Neste kjøringer» står igjen ved siden av, fordi det er fremtid og ikke hører hjemme i «Hva har skjedd».
+- **Partneroversikt (`Partner/Index.vue`):** første svar inneholder bare kundenavnene. Synlighet, minigraf, endring, åpne varsler og åpne tiltak kommer i én utsatt prop (`portfolioGraphs`, U03), cachet per kunde og merkevare i `GraphCache`, med skjelett i radene til den er lastet. Første svar leser derfor ingen aggregater, og den utsatte forespørselen leser høyst to per merkevare med kald cache og ingen med varm (`tests/Feature/Dashboard/PartnerPortfolioTest.php`, 50 kunder). Tabellen sorteres etter størst nedgang som standard; kunder uten sammenligning står sist. Kolonnene kan sorteres (`aria-sort`). Klikk på en rad eller kundenavnet bytter til kunden og åpner kundens oversikt.
+
+Avvik:
+
+- Varselsprikken teller åpne (ikke kvitterte) varsler, ikke alle varsler i perioden som den gamle tabellen gjorde. Prikken står alltid sammen med tekst («2 åpne», «Ingen»).
+- «Kundens dashboard» er kundens oversikt (`/dashboard` etter tenantbytte), fordi en kunde kan ha flere merkevarer.
+
 ## 7.8 Filterlinje
 
 Alle merkevarens analysesider bruker `PeriodFilters`: oversikt, promptliste/-detalj, konkurrenter, kilder og crawlere. Aktive dimensjoner er brikker som fjernes enkeltvis. Nye valg gjøres i en popover på desktop og i `BottomSheet` på mobil.

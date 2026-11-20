@@ -872,8 +872,8 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 | Komponent | Innhold |
 |---|---|
 | `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google» |
-| `Pages/Home.vue` | Oversikt for valgt tenant: innsiktslinje på tvers av merkevarer, nøkkeltall per merkevare, siste varsler, neste planlagte kjøringer, forbruk mot kvote |
-| `Pages/Partner/Index.vue` | For partner-rådgivere: alle kunde-tenants med synlighet, endring og varsler i én tabell |
+| `Pages/Home.vue` | Oversikt for valgt tenant: innsiktslinje på tvers av merkevarer, merkevarekort med minigraf, endring og åpne tiltak, «Hva har skjedd» (varsler, modellbytter, fullførte tiltak og nye konkurrenter i én tidslinje), neste planlagte kjøringer, forbruk som fremdriftslinje mot kvote (U10) |
+| `Pages/Partner/Index.vue` | For partner-rådgivere: alle kunde-tenants i én porteføljetabell med synlighet og minigraf, endring, varselsprikk med tekst og åpne tiltak, sortert etter størst nedgang. En rad åpner kundens oversikt (U10) |
 | `Pages/Pitch/Index.vue`, `Pages/Pitch/Report.vue` | Pitch-prosjektene til partneren: opprette, følge (status, dag av sju, prompts og svar) og konvertere, åpne i veiviseren eller på pitch-rapporten (11.5, T49) |
 | `Pages/Brands/Index.vue` | Merkevarer med status og markeder |
 | `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), innsiktslinje, nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |

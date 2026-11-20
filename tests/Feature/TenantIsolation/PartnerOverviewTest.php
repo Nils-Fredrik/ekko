@@ -65,9 +65,15 @@ test('a partner advisor sees only the clients linked to the current partner', fu
             ->has('clients', 1)
             ->where('clients.0.id', $client->id)
             ->where('clients.0.name', 'Kunde')
-            ->where('clients.0.visibility.value', 0.25)
-            ->where('clients.0.visibility.n', 40)
-            ->where('clients.0.alerts', 1))
+            // The first response only names the clients; the figures are deferred (U10).
+            ->missing('clients.0.visibility')
+            ->missing('portfolioGraphs')
+            ->loadDeferredProps(fn ($page) => $page
+                ->has('portfolioGraphs', 1)
+                ->where('portfolioGraphs.0.id', $client->id)
+                ->where('portfolioGraphs.0.visibility.value', 0.25)
+                ->where('portfolioGraphs.0.visibility.n', 40)
+                ->where('portfolioGraphs.0.open_alerts', 1)))
         ->assertDontSee($otherClient->name)
         ->assertDontSee($unrelated->name);
 
