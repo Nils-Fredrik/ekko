@@ -562,6 +562,36 @@ return [
         foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
         own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
     ),
+    // Forwards to today's page until the setup page is built (docs/ux-arbeidsflate.md 6.1).
+    'brands.setup.prompts' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
+    ),
+    // Forwards to today's page until the setup page is built (docs/ux-arbeidsflate.md 6.1).
+    'brands.setup.competitors' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
+    ),
+    // Forwards to today's page until the setup page is built (docs/ux-arbeidsflate.md 6.1).
+    'brands.setup.markets' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
+    ),
+    // Forwards to today's page until the setup page is built (docs/ux-arbeidsflate.md 6.1).
+    'brands.setup.identity' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
+    ),
+    // Forwards to today's page until the setup page is built (docs/ux-arbeidsflate.md 6.1).
+    'brands.setup.integrations' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
+    ),
+    // Forwards to today's page until the setup page is built (docs/ux-arbeidsflate.md 6.1).
+    'brands.setup.notifications' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
+    ),
     'brands.settings.update' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)], 'data' => ['name' => 'Other']],
         own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)], 'data' => ['name' => 'Renamed']],
@@ -638,6 +668,8 @@ return [
         deniedRoles: ['editor', 'reader'],
     ),
     'alerts.index' => RouteAccess::user(),
+    // No resource id. Forwards to alerts.index until the inbox (U26) is built.
+    'inbox.index' => RouteAccess::user(),
     'alerts.rules.store' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['data' => ['brand_id' => $brandOf($s, true), 'type' => 'quota', 'is_active' => true]],
         own: fn (Scenario $s) => ['data' => ['brand_id' => $brandOf($s, false), 'type' => 'quota', 'is_active' => true]],

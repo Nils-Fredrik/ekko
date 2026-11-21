@@ -201,6 +201,21 @@ export function formatDate(value, { now = new Date(), year } = {}) {
     }).format(parsed.date);
 }
 
+/** A year-month as the month name, «november»; the year is added outside the current year. */
+export function formatMonth(value, { now = new Date() } = {}) {
+    const match = typeof value === 'string' ? /^(\d{4})-(\d{2})$/.exec(value) : null;
+    if (!match) {
+        return empty();
+    }
+    const showYear = Number(match[1]) !== parts(now, settings.timeZone).year;
+
+    return formatter('DateTimeFormat', intlLocale(), {
+        month: 'long',
+        ...(showYear ? { year: 'numeric' } : {}),
+        timeZone: 'UTC',
+    }).format(new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, 1)));
+}
+
 /** 21. nov. 02:14 in the tenant's time zone; the year is added outside the current year. */
 export function formatDateTime(value, { now = new Date() } = {}) {
     const parsed = toDate(value);

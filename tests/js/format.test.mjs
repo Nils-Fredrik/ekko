@@ -8,6 +8,7 @@ import {
     formatDate,
     formatDateTime,
     formatDecimal,
+    formatMonth,
     formatNumber,
     formatPercent,
     formatPoints,
@@ -168,6 +169,17 @@ test('the tenant time zone decides the calendar day and the hour', () => {
 test('a year and month is the month name', () => {
     inLocale('nb');
     assert.equal(plain(formatDate('2026-10')), 'oktober 2026');
+});
+
+test('a month alone leaves out the current year', () => {
+    inLocale('nb');
+    assert.equal(formatMonth('2026-11', { now }), 'november');
+    assert.equal(plain(formatMonth('2025-12', { now })), 'desember 2025');
+    assert.equal(formatMonth('2026-11-01', { now }), '–');
+    inLocale('sv');
+    assert.equal(formatMonth('2026-11', { now }), 'november');
+    inLocale('en');
+    assert.equal(formatMonth('2026-11', { now }), 'November');
 });
 
 test('the year is shown outside the current year, and a whole year can be forced', () => {

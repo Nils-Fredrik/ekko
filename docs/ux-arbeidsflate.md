@@ -235,6 +235,24 @@ Hver agent får fire oppgaver.
 - Hele sidemenyen kan brukes med tastatur. `⌘K` åpner paletten.
 - Referansebildene er oppdatert for alle sider, og axe gir ingen kritiske funn.
 
+**Slik U17 er bygget:**
+
+- **Komponenter:** `Layouts/AppLayout.vue` har sidemenyen i en egen kolonne (248 px, `sticky`, egen rulling) og under 768 px en toppstripe med logo, sidetittel og menyknapp som åpner sidemenyen som skuff (Headless UI `Dialog` med fokusfelle). Sidemenyen er `Components/Workspace/WorkspaceSidebar.vue` med `ScopeSelector`, `TenantMenu` og `UserMenu` (Headless UI `Menu`, piltaster og `Esc`). `BrandNav`, `NavLink`, `Dropdown` og `DropdownLink` er fjernet. `CommandPalette` har ikke lenger egen knapp; søkeknappen i sidemenyen og `⌘K`/`Ctrl+K` åpner den.
+- **Regler:** lenkene, aktiv side, merketall, markedsomfang og bytte av merkevare står som rene funksjoner i `Components/Workspace/workspaceNav.js`, testet i `tests/js/workspace-nav.test.mjs`. `Composables/useWorkspace.js` holder forrige `workspace` for samme tenant og merkevare mens den utsatte propen lastes, så sidemenyen ikke blinker ved hvert besøk.
+- **Marked:** sidemenyen leser markedet fra `?market` i URL-en på klienten, ikke fra `workspace.market_id`. Filterlinjen gjør delvise besøk (`only: analysisProps`) som ikke laster `workspace` på nytt. Lenkene tar med `market` til `brands.show`, `brands.prompts.index`, `brands.competitors.index`, `brands.sources`, `brands.setup.prompts` og `brands.setup.competitors`. Analyselenkene tar i tillegg med perioden og filtrene fra filterlinjen, som `BrandNav` gjorde.
+- **Bytte av merkevare** åpner samme side for den nye merkevaren (en detaljside går til listen) med markedet fra `localStorage`. Valg av marked lagres når brukeren velger i omfangsvelgeren og når URL-en har et marked.
+- **`workspace`** er utsatt i egen gruppe (`Inertia::defer(..., 'workspace')`), så sidemenyen ikke venter på grafene. `App\Workspace\Workspace` bygger propen. Den har i tillegg `role` (språknøkkel for rollen under brukernavnet). `usage` er `null` for roller uten `usage.view`, og `percent` er `null` uten kvote.
+- **Tallene:** `App\Workspace\WorkspaceCounts::for(Team, ?Brand)`. `inbox` er ukvitterte varsler siste 30 dager i hele tenanten, og `entities_pending` er `count(EntityQueue::pending($brand))` (U21 er merget). Lagring eller sletting av `Alert`, `Action`, `Integration`, `EntityDecision`, `Competitor`, `CompetitorAlias` og `BrandAlias` nullstiller tenantens tall (versjonsnøkkel i hurtiglageret). Skriving uten modellhendelser, for eksempel `update()` på en spørring, slår inn etter 60 sekunder.
+- **Ruter:** `App\Http\Controllers\WorkspaceRedirectController` sender videre som beskrevet over. `setup.prompts` og `setup.competitors` beholder `market` når markedet hører til merkevaren.
+- **Kommandopaletten** viser nå gruppen «Handlinger» fra 4.6, fordi `workspace` og rutene `brands.setup.*` og `inbox.index` finnes.
+- **Aktiv side:** `brands.settings` markerer «Identitet», og `brands.markets.create` markerer «Markeder og måleplan», til U24 bygger oppsettssidene. Innboks er markert på `alerts.*`.
+
+**Avvik i U17:**
+
+- **Globale lenker:** sidemenyen har også «Rapporter» (`reports.index`) og, for partner-rådgivere, «Pitch» (`pitches.index`). «Alle merkevarer» (`brands.index`) står i merkevaremenyen. Uten dette mister `/reports`, `/pitches` og `/brands` inngangen fra menyen før U26 og U27.
+- **Logo:** sidemenyen beholder dagens logomerke i stedet for «e» fra skissen.
+- **Overskrifter:** sidene beholder sine egne overskrifter. Brødsmulen og tittelen i kapittel 5 lages av oppgaven som eier hver side.
+
 ### 4.2 Formatering (U18)
 
 Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-for-arbeidsflaten.md`).

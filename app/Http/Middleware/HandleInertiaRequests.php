@@ -11,8 +11,10 @@ use App\Onboarding\Analysis;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
+use App\Workspace\Workspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -66,6 +68,9 @@ class HandleInertiaRequests extends Middleware
             },
             // The active tenant's time zone, for resources/js/format.js (docs/ux-arbeidsflate.md 4.2).
             'tenant' => fn (): ?array => $this->tenant($request),
+            // The shell's brand, market, counts and usage (docs/ux-arbeidsflate.md 4.1). Deferred in a group
+            // of its own, so the page renders first and the sidebar does not wait for the charts.
+            'workspace' => Inertia::defer(fn (): ?array => $this->workspace($request), 'workspace'),
             // Providers with credentials; the login page shows a button for each.
             'ssoProviders' => fn (): array => $this->configuredSsoProviders(),
             // Providers the signed-in user can confirm with instead of a password (T07-F2).
@@ -135,6 +140,16 @@ class HandleInertiaRequests extends Middleware
             : Team::query()->whereKey($tenantId)->value('timezone');
 
         return ['timezone' => is_string($timezone) && $timezone !== '' ? $timezone : 'Europe/Oslo'];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function workspace(Request $request): ?array
+    {
+        $tenantId = app(TenantContext::class)->id();
+
+        return $tenantId === null ? null : app(Workspace::class)->payload($request, $tenantId);
     }
 
     /**

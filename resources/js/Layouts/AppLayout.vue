@@ -1,29 +1,32 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { trans } from 'laravel-vue-i18n';
-import { ChevronUpDownIcon } from '@heroicons/vue/20/solid';
+import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { Dialog, DialogPanel, TransitionChild, TransitionRoot } from '@headlessui/vue';
+import { XMarkIcon } from '@heroicons/vue/24/outline';
+import { Head, Link, router } from '@inertiajs/vue3';
 import ActingAsBanner from '@/Components/ActingAsBanner.vue';
 import Banner from '@/Components/Banner.vue';
 import CommandPalette from '@/Components/CommandPalette.vue';
 import UndoToast from '@/Components/UI/UndoToast.vue';
 import PageSkeleton from '@/Components/UI/PageSkeleton.vue';
-import BottomSheet from '@/Components/UI/BottomSheet.vue';
-import Dropdown from '@/Components/Dropdown.vue';
-import DropdownLink from '@/Components/DropdownLink.vue';
-import NavLink from '@/Components/NavLink.vue';
-import { useLocale } from '@/Composables/useLocale';
-import { applyTheme, currentTheme } from '@/theme';
+import WorkspaceSidebar from '@/Components/Workspace/WorkspaceSidebar.vue';
 
 defineProps({
     title: String,
 });
 
-const page = usePage();
-const menuOpen = ref(false);
+// The workspace shell (docs/ux-arbeidsflate.md 4.1): the sidebar on the left, and below 768 px a top
+// strip with a menu button that opens the sidebar as a drawer.
+const drawerOpen = ref(false);
+const palette = ref(null);
 const navigating = ref(false);
 let stopNavigationStart;
 let stopNavigationFinish;
+let stopNavigate;
+
+function openPalette() {
+    drawerOpen.value = false;
+    palette.value?.show();
+}
 
 onMounted(() => {
     stopNavigationStart = router.on('start', (event) => {
@@ -39,44 +42,17 @@ onMounted(() => {
     stopNavigationFinish = router.on('finish', () => {
         navigating.value = false;
     });
+    // The drawer closes when a link in it leads somewhere.
+    stopNavigate = router.on('navigate', () => {
+        drawerOpen.value = false;
+    });
 });
 
 onBeforeUnmount(() => {
     stopNavigationStart?.();
     stopNavigationFinish?.();
+    stopNavigate?.();
 });
-const { locale, locales, setLocale } = useLocale();
-
-const user = computed(() => page.props.auth.user);
-const initials = computed(() =>
-    (user.value?.name || '?')
-        .split(' ')
-        .map((part) => part.charAt(0))
-        .slice(0, 2)
-        .join('')
-        .toUpperCase(),
-);
-
-const theme = ref(currentTheme());
-const themes = [
-    { code: 'dark', label: () => trans('app.nav.themes.dark') },
-    { code: 'light', label: () => trans('app.nav.themes.light') },
-    { code: 'system', label: () => trans('app.nav.themes.system') },
-];
-
-const setTheme = (option) => {
-    theme.value = option;
-    applyTheme(option);
-    window.dispatchEvent(new CustomEvent('ekko:theme', { detail: option }));
-};
-
-const switchToTeam = (team) => {
-    router.put(route('current-team.update'), { team_id: team.id }, { preserveState: false });
-};
-
-const logout = () => {
-    router.post(route('logout'));
-};
 </script>
 
 <template>
@@ -87,510 +63,110 @@ const logout = () => {
 
         <Banner />
 
-        <div class="min-h-screen bg-shell text-shell-text">
-            <nav class="sticky top-0 z-30 border-b border-shell-fg/10 bg-shell/90 backdrop-blur">
-                <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div class="flex h-16 justify-between">
-                        <div class="flex items-center">
-                            <Link :href="route('dashboard')" class="flex items-center gap-2.5 no-underline">
-                                <span
-                                    class="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-shell-panel"
-                                >
-                                    <img
-                                        src="/images/maksimer-m-square.svg"
-                                        alt=""
-                                        class="logo-mark h-[19px] w-[19px]"
-                                    />
-                                </span>
-                                <span class="text-[15px] font-semibold text-shell-fg">{{ $t('app.name') }}</span>
-                            </Link>
-
-                            <div class="ms-8 hidden sm:flex">
-                                <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
-                                    {{ $t('Dashboard') }}
-                                </NavLink>
-                                <NavLink
-                                    v-if="page.props.canViewPartner"
-                                    :href="route('partner.index')"
-                                    :active="route().current('partner.index')"
-                                >
-                                    {{ $t('app.nav.partner') }}
-                                </NavLink>
-                                <NavLink
-                                    v-if="page.props.canViewPartner"
-                                    :href="route('pitches.index')"
-                                    :active="route().current('pitches.index')"
-                                >
-                                    {{ $t('pitch.ui.nav') }}
-                                </NavLink>
-                                <NavLink :href="route('brands.index')" :active="route().current('brands.*')">
-                                    {{ $t('app.nav.brands') }}
-                                </NavLink>
-                                <NavLink
-                                    v-if="page.props.canOnboard"
-                                    :href="route('onboarding.wizard')"
-                                    :active="route().current('onboarding.wizard')"
-                                >
-                                    {{ $t('app.nav.wizard') }}
-                                </NavLink>
-                                <NavLink :href="route('alerts.index')" :active="route().current('alerts.*')">
-                                    {{ $t('app.nav.alerts') }}
-                                </NavLink>
-                                <NavLink :href="route('reports.index')" :active="route().current('reports.*')">
-                                    {{ $t('app.nav.reports') }}
-                                </NavLink>
-                                <NavLink
-                                    v-if="page.props.canViewUsage"
-                                    :href="route('usage.index')"
-                                    :active="route().current('usage.index')"
-                                >
-                                    {{ $t('app.nav.usage') }}
-                                </NavLink>
-                            </div>
-                        </div>
-
-                        <CommandPalette class="ms-auto" />
-
-                        <div class="hidden sm:ms-6 sm:flex sm:items-center">
-                            <div
-                                v-if="$page.props.jetstream.hasTeamFeatures && user.current_team"
-                                class="relative ms-3"
-                            >
-                                <Dropdown align="right" width="60">
-                                    <template #trigger>
-                                        <button
-                                            type="button"
-                                            class="inline-flex items-center gap-2 rounded-lg border border-shell-fg/10 bg-shell-fg/[.04] px-3 py-2 text-sm text-shell-fg hover:bg-shell-fg/[.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-                                        >
-                                            <span class="max-w-40 truncate">{{ user.current_team.name }}</span>
-                                            <ChevronUpDownIcon class="size-4 flex-none text-shell-text/40" />
-                                        </button>
-                                    </template>
-
-                                    <template #content>
-                                        <div class="w-60">
-                                            <div class="block px-4 py-2 text-xs text-shell-muted">
-                                                {{ $t('Manage Team') }}
-                                            </div>
-
-                                            <DropdownLink :href="route('teams.show', user.current_team)">
-                                                {{ $t('Team Settings') }}
-                                            </DropdownLink>
-
-                                            <DropdownLink
-                                                v-if="$page.props.jetstream.canCreateTeams"
-                                                :href="route('teams.create')"
-                                            >
-                                                {{ $t('Create New Team') }}
-                                            </DropdownLink>
-
-                                            <template v-if="user.all_teams.length > 1 && !page.props.actingAs">
-                                                <div class="border-t border-line-soft" />
-
-                                                <div class="block px-4 py-2 text-xs text-shell-muted">
-                                                    {{ $t('Switch Teams') }}
-                                                </div>
-
-                                                <form
-                                                    v-for="team in user.all_teams"
-                                                    :key="team.id"
-                                                    @submit.prevent="switchToTeam(team)"
-                                                >
-                                                    <DropdownLink as="button">
-                                                        <div class="flex items-center justify-between gap-3">
-                                                            <span class="truncate">{{ team.name }}</span>
-                                                            <span
-                                                                v-if="team.id == user.current_team_id"
-                                                                class="h-1.5 w-1.5 flex-none rounded-full bg-primary"
-                                                            ></span>
-                                                        </div>
-                                                    </DropdownLink>
-                                                </form>
-                                            </template>
-                                        </div>
-                                    </template>
-                                </Dropdown>
-                            </div>
-
-                            <div class="relative ms-3">
-                                <Dropdown align="right" width="60">
-                                    <template #trigger>
-                                        <button
-                                            type="button"
-                                            data-testid="account-menu"
-                                            class="inline-flex items-center gap-2 rounded-lg px-1.5 py-1 text-sm text-shell-fg hover:bg-shell-fg/[.06] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-                                        >
-                                            <span
-                                                class="flex h-[34px] w-[34px] flex-none items-center justify-center rounded-full bg-secondary text-[13px] font-semibold text-white"
-                                            >
-                                                {{ initials }}
-                                            </span>
-                                            <ChevronUpDownIcon class="size-4 text-shell-text/40" />
-                                        </button>
-                                    </template>
-
-                                    <template #content>
-                                        <div class="block px-4 py-2 text-xs text-shell-muted">
-                                            {{ $t('Manage Account') }}
-                                        </div>
-
-                                        <DropdownLink :href="route('profile.show')">{{ $t('Profile') }}</DropdownLink>
-
-                                        <DropdownLink
-                                            v-if="$page.props.jetstream.hasApiFeatures"
-                                            :href="route('api-tokens.index')"
-                                        >
-                                            {{ $t('API Tokens') }}
-                                        </DropdownLink>
-
-                                        <DropdownLink
-                                            v-if="user.is_platform_admin"
-                                            :href="route('admin.tenants.index')"
-                                        >
-                                            {{ $t('admin.nav.tenants') }}
-                                        </DropdownLink>
-
-                                        <DropdownLink v-if="user.is_platform_admin" :href="route('admin.plans.index')">
-                                            {{ $t('admin.nav.plans') }}
-                                        </DropdownLink>
-
-                                        <DropdownLink
-                                            v-if="user.is_platform_admin"
-                                            :href="route('admin.engines.index')"
-                                        >
-                                            {{ $t('admin.nav.engines') }}
-                                        </DropdownLink>
-
-                                        <DropdownLink v-if="user.is_platform_admin" :href="route('admin.usage')">
-                                            {{ $t('admin.nav.usage') }}
-                                        </DropdownLink>
-
-                                        <DropdownLink
-                                            v-if="$page.props.auth.user.is_platform_admin"
-                                            :href="route('admin.billing.index')"
-                                        >
-                                            {{ $t('billing.title') }}
-                                        </DropdownLink>
-                                        <DropdownLink :href="route('mcp.connections')">
-                                            {{ $t('mcp.nav') }}
-                                        </DropdownLink>
-
-                                        <div class="border-t border-line-soft" />
-
-                                        <div
-                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase"
-                                        >
-                                            {{ $t('app.nav.theme') }}
-                                        </div>
-                                        <button
-                                            v-for="option in themes"
-                                            :key="option.code"
-                                            type="button"
-                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-shell-muted hover:bg-shell-text/10 hover:text-shell-text"
-                                            @click="setTheme(option.code)"
-                                        >
-                                            {{ option.label() }}
-                                            <span
-                                                v-if="option.code === theme"
-                                                class="h-1.5 w-1.5 rounded-full bg-primary"
-                                            ></span>
-                                        </button>
-
-                                        <div class="border-t border-line-soft" />
-
-                                        <div
-                                            class="px-4 py-2 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase"
-                                        >
-                                            {{ $t('app.nav.language') }}
-                                        </div>
-                                        <button
-                                            v-for="item in locales"
-                                            :key="item.code"
-                                            type="button"
-                                            class="flex w-full items-center justify-between px-4 py-1.5 text-start text-sm text-shell-muted hover:bg-shell-text/10 hover:text-shell-text"
-                                            @click="setLocale(item.code)"
-                                        >
-                                            {{ item.label }}
-                                            <span
-                                                v-if="item.code === locale"
-                                                class="h-1.5 w-1.5 rounded-full bg-primary"
-                                            ></span>
-                                        </button>
-
-                                        <div class="border-t border-line-soft" />
-
-                                        <form @submit.prevent="logout">
-                                            <DropdownLink as="button">{{ $t('Log Out') }}</DropdownLink>
-                                        </form>
-                                    </template>
-                                </Dropdown>
-                            </div>
-                        </div>
-
-                        <div class="-me-2 flex items-center sm:hidden">
-                            <button
-                                type="button"
-                                class="inline-flex h-11 w-11 items-center justify-center rounded-lg text-shell-text/70 hover:bg-shell-fg/[.06] hover:text-shell-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-                                :aria-label="$t('app.nav.open_menu')"
-                                :aria-expanded="menuOpen"
-                                @click="menuOpen = true"
-                            >
-                                <svg
-                                    width="20"
-                                    height="20"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    stroke-width="1.8"
-                                    stroke-linecap="round"
-                                >
-                                    <line x1="3" y1="6" x2="21" y2="6" />
-                                    <line x1="3" y1="12" x2="21" y2="12" />
-                                    <line x1="3" y1="18" x2="21" y2="18" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
+        <div class="min-h-screen bg-shell text-shell-text md:flex">
+            <aside class="hidden w-[248px] flex-none border-e border-line-soft md:block">
+                <div class="sticky top-0 h-screen overflow-y-auto">
+                    <WorkspaceSidebar @search="openPalette" />
                 </div>
-            </nav>
+            </aside>
 
-            <BottomSheet :show="menuOpen" :title="$t('app.nav.menu')" @close="menuOpen = false">
-                <div class="flex flex-col gap-1 py-2">
-                    <Link
-                        :href="route('dashboard')"
-                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="
-                            route().current('dashboard')
-                                ? 'bg-shell-text/10 font-medium text-shell-text'
-                                : 'text-shell-muted'
-                        "
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('Dashboard') }}
-                    </Link>
-                    <Link
-                        :href="route('brands.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="
-                            route().current('brands.*')
-                                ? 'bg-shell-text/10 font-medium text-shell-text'
-                                : 'text-shell-muted'
-                        "
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('app.nav.brands') }}
-                    </Link>
-                    <Link
-                        v-if="page.props.canOnboard"
-                        :href="route('onboarding.wizard')"
-                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="
-                            route().current('onboarding.wizard')
-                                ? 'bg-shell-text/10 font-medium text-shell-text'
-                                : 'text-shell-muted'
-                        "
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('app.nav.wizard') }}
-                    </Link>
-                    <Link
-                        v-if="page.props.canViewPartner"
-                        :href="route('partner.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="
-                            route().current('partner.index')
-                                ? 'bg-shell-text/10 font-medium text-shell-text'
-                                : 'text-shell-muted'
-                        "
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('app.nav.partner') }}
-                    </Link>
-                    <Link
-                        v-if="page.props.canViewPartner"
-                        :href="route('pitches.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="
-                            route().current('pitches.index')
-                                ? 'bg-shell-text/10 font-medium text-shell-text'
-                                : 'text-shell-muted'
-                        "
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('pitch.ui.nav') }}
-                    </Link>
-                    <Link
-                        :href="route('alerts.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="
-                            route().current('alerts.*')
-                                ? 'bg-shell-text/10 font-medium text-shell-text'
-                                : 'text-shell-muted'
-                        "
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('app.nav.alerts') }}
-                    </Link>
-                    <Link
-                        :href="route('reports.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="
-                            route().current('reports.*')
-                                ? 'bg-shell-text/10 font-medium text-shell-text'
-                                : 'text-shell-muted'
-                        "
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('app.nav.reports') }}
-                    </Link>
-                    <Link
-                        v-if="page.props.canViewUsage"
-                        :href="route('usage.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm no-underline"
-                        :class="
-                            route().current('usage.index')
-                                ? 'bg-shell-text/10 font-medium text-shell-text'
-                                : 'text-shell-muted'
-                        "
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('app.nav.usage') }}
-                    </Link>
-                    <Link
-                        :href="route('profile.show')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('Profile') }}
-                    </Link>
-                    <Link
-                        v-if="$page.props.jetstream.hasApiFeatures"
-                        :href="route('api-tokens.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('API Tokens') }}
-                    </Link>
-                    <Link
-                        v-if="$page.props.auth.user.is_platform_admin"
-                        :href="route('admin.tenants.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('admin.nav.tenants') }}
-                    </Link>
-                    <Link
-                        v-if="$page.props.auth.user.is_platform_admin"
-                        :href="route('admin.billing.index')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('billing.title') }}
-                    </Link>
-                    <Link
-                        :href="route('mcp.connections')"
-                        class="rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('mcp.nav') }}
-                    </Link>
-                </div>
-
-                <div
-                    v-if="$page.props.jetstream.hasTeamFeatures && user.current_team"
-                    class="border-t border-line-soft py-3"
-                >
-                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase">
-                        {{ $t('Switch Teams') }}
-                    </div>
-                    <div class="px-3 py-1.5 text-sm text-shell-text">{{ user.current_team.name }}</div>
-                    <form
-                        v-for="team in page.props.actingAs ? [] : user.all_teams"
-                        :key="team.id"
-                        @submit.prevent="switchToTeam(team)"
-                    >
-                        <button
-                            v-if="team.id != user.current_team_id"
-                            type="submit"
-                            class="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted hover:bg-shell-text/10"
-                        >
-                            {{ team.name }}
-                        </button>
-                    </form>
-                    <Link
-                        :href="route('teams.show', user.current_team)"
-                        class="block rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('Team Settings') }}
-                    </Link>
-                    <Link
-                        v-if="$page.props.jetstream.canCreateTeams"
-                        :href="route('teams.create')"
-                        class="block rounded-lg px-3 py-2.5 text-sm text-shell-muted no-underline"
-                        @click="menuOpen = false"
-                    >
-                        {{ $t('Create New Team') }}
-                    </Link>
-                </div>
-
-                <div class="border-t border-line-soft py-3">
-                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase">
-                        {{ $t('app.nav.theme') }}
-                    </div>
-                    <button
-                        v-for="option in themes"
-                        :key="option.code"
-                        type="button"
-                        class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted"
-                        @click="setTheme(option.code)"
-                    >
-                        {{ option.label() }}
-                        <span v-if="option.code === theme" class="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                    </button>
-                </div>
-
-                <div class="border-t border-line-soft py-3">
-                    <div class="px-3 pb-1 text-[11px] font-semibold tracking-[.07em] text-shell-muted uppercase">
-                        {{ $t('app.nav.language') }}
-                    </div>
-                    <button
-                        v-for="item in locales"
-                        :key="item.code"
-                        type="button"
-                        class="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted"
-                        @click="setLocale(item.code)"
-                    >
-                        {{ item.label }}
-                        <span v-if="item.code === locale" class="h-1.5 w-1.5 rounded-full bg-primary"></span>
-                    </button>
-                </div>
-
-                <form class="border-t border-line-soft py-3" @submit.prevent="logout">
-                    <button
-                        type="submit"
-                        class="block w-full rounded-lg px-3 py-2.5 text-start text-sm text-shell-muted"
-                    >
-                        {{ $t('Log Out') }}
-                    </button>
-                </form>
-            </BottomSheet>
-
-            <header
-                v-if="$slots.header"
-                class="border-b border-shell-fg/10 px-4 py-5 text-shell-fg sm:px-6 lg:px-8 [&_h2]:font-medium [&_h2]:tracking-tight [&_h2]:text-shell-fg"
+            <div
+                class="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line-soft bg-shell/90 px-4 backdrop-blur md:hidden"
             >
-                <div class="mx-auto max-w-7xl">
-                    <slot name="header" />
-                </div>
-            </header>
+                <Link :href="route('dashboard')" class="flex flex-none items-center no-underline">
+                    <span class="flex size-7 items-center justify-center rounded-lg bg-shell-panel">
+                        <img src="/images/maksimer-m-square.svg" alt="" class="logo-mark size-[17px]" />
+                    </span>
+                    <span class="sr-only">{{ $t('app.name') }}</span>
+                </Link>
+                <span class="min-w-0 flex-1 truncate text-[15px] font-medium text-shell-fg">
+                    {{ title || $t('app.name') }}
+                </span>
+                <button
+                    type="button"
+                    class="inline-flex size-11 flex-none items-center justify-center rounded-lg text-shell-muted hover:bg-row-hover hover:text-shell-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    :aria-label="$t('app.nav.open_menu')"
+                    :aria-expanded="drawerOpen"
+                    data-testid="open-menu"
+                    @click="drawerOpen = true"
+                >
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.8"
+                        stroke-linecap="round"
+                        aria-hidden="true"
+                    >
+                        <line x1="3" y1="6" x2="21" y2="6" />
+                        <line x1="3" y1="12" x2="21" y2="12" />
+                        <line x1="3" y1="18" x2="21" y2="18" />
+                    </svg>
+                </button>
+            </div>
 
-            <main>
-                <PageSkeleton v-if="navigating" />
-                <div v-show="!navigating">
-                    <slot />
-                </div>
-            </main>
+            <TransitionRoot :show="drawerOpen" as="template">
+                <Dialog class="relative z-50 md:hidden" @close="drawerOpen = false">
+                    <TransitionChild
+                        as="template"
+                        enter="transition-opacity duration-200"
+                        enter-from="opacity-0"
+                        enter-to="opacity-100"
+                        leave="transition-opacity duration-150"
+                        leave-from="opacity-100"
+                        leave-to="opacity-0"
+                    >
+                        <div class="fixed inset-0 bg-black/60" aria-hidden="true"></div>
+                    </TransitionChild>
+                    <TransitionChild
+                        as="template"
+                        enter="transition-transform duration-200 ease-out"
+                        enter-from="-translate-x-full"
+                        enter-to="translate-x-0"
+                        leave="transition-transform duration-150 ease-in"
+                        leave-from="translate-x-0"
+                        leave-to="-translate-x-full"
+                    >
+                        <DialogPanel
+                            class="fixed inset-y-0 start-0 flex w-[min(300px,88vw)] flex-col overflow-y-auto border-e border-line-soft bg-shell text-shell-text"
+                            :aria-label="$t('workspace.shell.main_nav')"
+                        >
+                            <div class="flex justify-end px-2 pt-2">
+                                <button
+                                    type="button"
+                                    class="inline-flex size-11 items-center justify-center rounded-lg text-shell-muted hover:bg-row-hover hover:text-shell-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                                    :aria-label="$t('workspace.shell.close_menu')"
+                                    @click="drawerOpen = false"
+                                >
+                                    <XMarkIcon class="size-5" aria-hidden="true" />
+                                </button>
+                            </div>
+                            <WorkspaceSidebar class="flex-1 pt-0" @search="openPalette" />
+                        </DialogPanel>
+                    </TransitionChild>
+                </Dialog>
+            </TransitionRoot>
+
+            <div class="min-w-0 flex-1">
+                <header
+                    v-if="$slots.header"
+                    class="px-4 pt-5 text-shell-fg sm:px-6 lg:px-8 [&_h2]:font-medium [&_h2]:tracking-tight [&_h2]:text-shell-fg"
+                >
+                    <div class="mx-auto max-w-7xl">
+                        <slot name="header" />
+                    </div>
+                </header>
+
+                <main>
+                    <PageSkeleton v-if="navigating" />
+                    <div v-show="!navigating">
+                        <slot />
+                    </div>
+                </main>
+            </div>
+            <CommandPalette ref="palette" />
             <UndoToast />
         </div>
     </div>

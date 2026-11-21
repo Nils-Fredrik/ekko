@@ -36,9 +36,11 @@ use App\Work\NullWorkPublisher;
 use App\Work\QueueWorkPublisher;
 use App\Work\WorkPublisher;
 use App\Work\WorkSignals;
+use App\Workspace\WorkspaceCounts;
 use Google\Cloud\Storage\StorageClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
@@ -110,6 +112,18 @@ class AppServiceProvider extends ServiceProvider
                 app(DatabaseRoleCheck::class)->assertSafe();
             }
         });
+
+        // A change behind the sidebar counts forgets the tenant's cached counts (docs/ux-arbeidsflate.md 4.1).
+        foreach (WorkspaceCounts::SOURCES as $model) {
+            foreach (['saved', 'deleted'] as $event) {
+                Event::listen("eloquent.{$event}: {$model}", function (Model $changed): void {
+                    $tenantId = $changed->getAttribute('tenant_id');
+                    if (is_numeric($tenantId)) {
+                        WorkspaceCounts::flush((int) $tenantId);
+                    }
+                });
+            }
+        }
 
         // The wizard's proposals are not models, so their policy is registered by hand (ADR 0009, ADR 0018).
         Gate::policy(Analysis::class, OnboardingPolicy::class);

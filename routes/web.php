@@ -37,6 +37,7 @@ use App\Http\Controllers\SavedViewController;
 use App\Http\Controllers\SharedReportController;
 use App\Http\Controllers\TeamSettingsController;
 use App\Http\Controllers\UsageController;
+use App\Http\Controllers\WorkspaceRedirectController;
 use App\Http\Middleware\AuthenticateSessionAcrossGuards;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\SharedReportThrottle;
@@ -127,6 +128,14 @@ Route::middleware([
     Route::post('/brands/{brand}/views', [SavedViewController::class, 'store'])->name('brands.views.store');
     Route::delete('/brands/{brand}/views/{savedView}', [SavedViewController::class, 'destroy'])->name('brands.views.destroy');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+    // The workspace's setup pages and inbox (docs/ux-arbeidsflate.md 6.1), forwarding until their pages exist.
+    Route::get('/brands/{brand}/setup/prompts', [WorkspaceRedirectController::class, 'prompts'])->name('brands.setup.prompts');
+    Route::get('/brands/{brand}/setup/competitors', [WorkspaceRedirectController::class, 'competitors'])->name('brands.setup.competitors');
+    Route::get('/brands/{brand}/setup/markets', [WorkspaceRedirectController::class, 'markets'])->name('brands.setup.markets');
+    Route::get('/brands/{brand}/setup/identity', [WorkspaceRedirectController::class, 'identity'])->name('brands.setup.identity');
+    Route::get('/brands/{brand}/setup/integrations', [WorkspaceRedirectController::class, 'integrations'])->name('brands.setup.integrations');
+    Route::get('/brands/{brand}/setup/notifications', [WorkspaceRedirectController::class, 'notifications'])->name('brands.setup.notifications');
+    Route::get('/inbox', [WorkspaceRedirectController::class, 'inbox'])->name('inbox.index');
 
     Route::get('/alerts', [AlertController::class, 'index'])->name('alerts.index');
     Route::post('/alerts/rules', [AlertController::class, 'storeRule'])->name('alerts.rules.store');
