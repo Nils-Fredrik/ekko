@@ -198,6 +198,8 @@ const manyColumns = computed(() => [
 ]);
 
 const statusStates = ['idle', 'saving', 'saved', 'error'];
+// Off by default: a table that stays aria-busy would keep the visual tests waiting for it to settle.
+const showLoading = ref(false);
 </script>
 
 <template>
@@ -413,7 +415,20 @@ const statusStates = ['idle', 'saving', 'saved', 'error'];
                 </section>
                 <section class="min-w-0 space-y-3">
                     <h2 class="text-sm font-medium text-shell-fg">{{ $t('workspace.dev.loading_title') }}</h2>
-                    <DataTable :rows="[]" :columns="manyColumns" :label="$t('workspace.dev.loading_label')" loading />
+                    <label class="flex items-center gap-2 text-sm text-shell-text">
+                        <input
+                            v-model="showLoading"
+                            type="checkbox"
+                            class="rounded border-line bg-shell-panel text-primary focus:ring-primary"
+                        />
+                        {{ $t('workspace.dev.toggle_loading') }}
+                    </label>
+                    <DataTable
+                        :rows="[]"
+                        :columns="manyColumns"
+                        :label="$t('workspace.dev.loading_label')"
+                        :loading="showLoading"
+                    />
                 </section>
             </div>
 

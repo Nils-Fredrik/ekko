@@ -73,6 +73,7 @@ return [
         'empty_body' => 'Legg til den første prompten for dette markedet.',
         'empty_action' => 'Ny prompt',
         'loading_title' => 'Tabell som laster',
+        'toggle_loading' => 'Vis lasting',
         'loading_label' => 'Tabell som laster',
         'search' => 'Søk i prompter',
         'columns' => [

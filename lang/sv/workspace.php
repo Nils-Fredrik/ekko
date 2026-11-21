@@ -73,6 +73,7 @@ return [
         'empty_body' => 'Lägg till den första prompten för den här marknaden.',
         'empty_action' => 'Ny prompt',
         'loading_title' => 'Tabell som laddas',
+        'toggle_loading' => 'Visa laddning',
         'loading_label' => 'Tabell som laddas',
         'search' => 'Sök i promptar',
         'columns' => [

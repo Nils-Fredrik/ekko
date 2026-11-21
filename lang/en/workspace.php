@@ -73,6 +73,7 @@ return [
         'empty_body' => 'Add the first prompt for this market.',
         'empty_action' => 'New prompt',
         'loading_title' => 'Loading table',
+        'toggle_loading' => 'Show loading',
         'loading_label' => 'Loading table',
         'search' => 'Search prompts',
         'columns' => [
