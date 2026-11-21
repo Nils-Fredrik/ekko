@@ -298,9 +298,13 @@ function onKeydown(event) {
     run(action, event);
 }
 
-// j and k also work while the focus is in the detail panel next to the table.
+// j and k also work while the focus is in the detail panel (Drawer, data-detail-panel).
 function onWindowKeydown(event) {
     if (event.defaultPrevented || isTyping(event.target) || grid.value?.contains(event.target)) {
+        return;
+    }
+    // Only from the detail panel (Drawer marks itself), not from the menu or the rest of the page.
+    if (!(event.target instanceof Element) || !event.target.closest('[data-detail-panel]')) {
         return;
     }
     const action = keyAction(event, { panelOpen: props.activeRow !== null });

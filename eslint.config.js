@@ -75,12 +75,26 @@ const formatThroughFormatJs = {
     create(context) {
         const methods = new Set(['toFixed', 'toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']);
         const visitor = {
+            // Intl as a value anywhere: Intl.X, const { NumberFormat } = Intl, f(Intl).
+            Identifier(node) {
+                if (node.name !== 'Intl') {
+                    return;
+                }
+                const parent = node.parent;
+                const isKey =
+                    (parent.type === 'MemberExpression' && parent.property === node && !parent.computed) ||
+                    (parent.type === 'Property' && parent.key === node && !parent.computed && parent.value !== node);
+                if (!isKey) {
+                    context.report({ node, messageId: 'banned', data: { what: 'Intl.' } });
+                }
+            },
             MemberExpression(node) {
-                if (node.object.type === 'Identifier' && node.object.name === 'Intl') {
+                const name = node.computed ? node.property.value : node.property.name;
+                // globalThis.Intl, window.Intl, self['Intl']
+                if (name === 'Intl') {
                     context.report({ node, messageId: 'banned', data: { what: 'Intl.' } });
                     return;
                 }
-                const name = node.computed ? node.property.value : node.property.name;
                 if (methods.has(name) && node.parent.type === 'CallExpression' && node.parent.callee === node) {
                     context.report({ node, messageId: 'banned', data: { what: `${name}(` } });
                 }

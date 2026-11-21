@@ -58,6 +58,10 @@ export function createAutosave({
     const errors = reactive({});
     const latest = {};
     const timers = {};
+    // The last value the server accepted per field, and which save it came from. A failed save
+    // rolls back to it, never to a value that is still waiting for its answer.
+    const confirmed = {};
+    const confirmedToken = {};
 
     function status(field) {
         return statuses[field] ?? 'idle';
@@ -67,7 +71,10 @@ export function createAutosave({
         if (Object.is(values[field], value) && status(field) !== 'error') {
             return true;
         }
-        const previous = values[field];
+        if (!(field in confirmed)) {
+            confirmed[field] = values[field];
+            confirmedToken[field] = latest[field] ?? 0;
+        }
         const token = (latest[field] ?? 0) + 1;
         latest[field] = token;
         clearTimer(timers[field]);
@@ -77,6 +84,10 @@ export function createAutosave({
 
         try {
             await request(method, toValue(url), { [field]: value }, { only });
+            if (token > confirmedToken[field]) {
+                confirmed[field] = value;
+                confirmedToken[field] = token;
+            }
             if (latest[field] !== token) {
                 return true;
             }
@@ -92,7 +103,7 @@ export function createAutosave({
             if (latest[field] !== token) {
                 return false;
             }
-            values[field] = previous;
+            values[field] = confirmed[field];
             statuses[field] = 'error';
             const messages = error instanceof SaveError ? error.errors : {};
             const message = messages[field] ?? Object.values(messages)[0];
@@ -122,6 +133,10 @@ export function createAutosave({
             delete statuses[field];
             delete errors[field];
             latest[field] = (latest[field] ?? 0) + 1;
+        }
+        for (const field of Object.keys(confirmed)) {
+            delete confirmed[field];
+            delete confirmedToken[field];
         }
     }
 

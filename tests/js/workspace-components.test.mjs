@@ -135,6 +135,39 @@ test('an unchanged value is not sent, and only the latest answer for a field cou
     assert.equal(autosave.status('name'), 'saved');
 });
 
+test('overlapping saves that both fail roll back to the last accepted value', async () => {
+    const first = deferred();
+    const second = deferred();
+    const answers = [first, second];
+    const values = reactive({ name: 'A' });
+    const autosave = createAutosave({ url: '/x', values, request: () => answers.shift().promise, ...fakeTimers() });
+
+    const one = autosave.save('name', 'B');
+    const two = autosave.save('name', 'C');
+    first.reject(new SaveError({ name: 'B er ugyldig' }));
+    await one;
+    second.reject(new SaveError({ name: 'C er ugyldig' }));
+    await two;
+    assert.equal(values.name, 'A');
+    assert.equal(autosave.errors.name, 'C er ugyldig');
+});
+
+test('after an accepted save, a later failure rolls back to the accepted value', async () => {
+    const first = deferred();
+    const second = deferred();
+    const answers = [first, second];
+    const values = reactive({ name: 'A' });
+    const autosave = createAutosave({ url: '/x', values, request: () => answers.shift().promise, ...fakeTimers() });
+
+    const one = autosave.save('name', 'B');
+    const two = autosave.save('name', 'C');
+    first.resolve();
+    await one;
+    second.reject(new SaveError({ name: 'C er ugyldig' }));
+    await two;
+    assert.equal(values.name, 'B');
+});
+
 test('reset clears the statuses when the panel shows another row', async () => {
     const autosave = createAutosave({ url: '/x', request: () => Promise.resolve(), ...fakeTimers() });
     await autosave.save('name', 'B');

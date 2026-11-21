@@ -65,6 +65,7 @@ function onAsideKey(event) {
 <template>
     <aside
         v-if="open && wide"
+        data-detail-panel
         :aria-labelledby="`${id}-title`"
         class="sticky top-4 flex max-h-[calc(100vh-2rem)] min-w-0 max-w-[420px] flex-[1_1_360px] flex-col overflow-y-auto rounded-2xl border border-line bg-shell-surface p-4 text-shell-text"
         @keydown="onAsideKey"
@@ -138,6 +139,7 @@ function onAsideKey(event) {
                     leave-to="opacity-0"
                 >
                     <DialogPanel
+                        data-detail-panel
                         class="flex h-full w-full max-w-[480px] flex-col overflow-y-auto border-l border-line bg-shell-surface p-4 text-shell-text"
                     >
                         <div class="flex items-center gap-3">

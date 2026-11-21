@@ -28,6 +28,20 @@ test('Intl, toFixed and toLocaleString are stopped in scripts', async () => {
     assert.equal(found.length, 4);
 });
 
+test('Intl is also stopped when it is destructured or read from the global object', async () => {
+    const found = await messages(
+        [
+            'const { NumberFormat } = Intl;',
+            'export const a = new globalThis.Intl.NumberFormat("nb");',
+            'export const b = window["Intl"];',
+            'export const c = NumberFormat;',
+            '',
+        ].join('\n'),
+        'resources/js/Pages/Example.js',
+    );
+    assert.equal(found.length, 3);
+});
+
 test('the rule also reads Vue templates', async () => {
     const found = await messages(
         '<script setup>\nconst value = 2;\n</script>\n<template>\n    <p>{{ value.toFixed(1) }}</p>\n</template>\n',
@@ -58,7 +72,7 @@ test('an exception needs a reason after --', async () => {
 
 test('names that only look alike are allowed', async () => {
     const found = await messages(
-        'const Intl2 = {}; export const a = Intl2.x; export const b = { toFixed: 1 }.toFixed;\n',
+        'const Intl2 = {}; export const a = Intl2.x; export const b = { toFixed: 1 }.toFixed; export const c = { Intl: 1 }.Intl2;\n',
         'resources/js/Pages/Example.js',
     );
     assert.equal(found.length, 0);
