@@ -14,7 +14,7 @@ final class PitchReportMetrics
 {
     public function __construct(private DailyAggregator $aggregator) {}
 
-    /** @return array{visibility: array{value: float|null, n: int, low_sample: bool}, competitors: list<array{name: string, visibility: array{value: float|null, n: int, low_sample: bool}}>, sources: list<array{domain: string, citations: int}>, reduced_quality: int} */
+    /** @return array{visibility: array{value: float|null, n: int, low_sample: bool}, mentions: int, competitors: list<array{name: string, mentions: int, visibility: array{value: float|null, n: int, low_sample: bool}}>, sources: list<array{domain: string, citations: int}>, reduced_quality: int} */
     public function forWindow(Brand $brand, CarbonImmutable $start, CarbonImmutable $end, CarbonImmutable $runCreatedBefore): array
     {
         [$daily, $sources] = $this->aggregator->compute($start, $end, $runCreatedBefore);
@@ -28,7 +28,7 @@ final class PitchReportMetrics
             $competitors[] = ['name' => $competitor->name, 'count' => $count, 'visibility' => (new Metric(Formulas::ratio($count, $responses), $responses))->toArray()];
         }
         usort($competitors, fn (array $a, array $b): int => ($b['count'] <=> $a['count']) ?: strcmp($a['name'], $b['name']));
-        $competitors = array_map(fn (array $row): array => ['name' => $row['name'], 'visibility' => $row['visibility']], $competitors);
+        $competitors = array_map(fn (array $row): array => ['name' => $row['name'], 'mentions' => $row['count'], 'visibility' => $row['visibility']], $competitors);
 
         $domains = [];
         foreach ($sources as $row) {
@@ -43,6 +43,7 @@ final class PitchReportMetrics
 
         return [
             'visibility' => (new Metric(Formulas::ratio($mentioned, $responses), $responses))->toArray(),
+            'mentions' => $mentioned,
             'competitors' => $competitors,
             'sources' => $domains,
             'reduced_quality' => Response::query()->where('llm_failed', true)

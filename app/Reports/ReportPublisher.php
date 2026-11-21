@@ -236,6 +236,9 @@ final class ReportPublisher
             'gaps' => $this->metrics->sourceGap($current, 15),
             'bots' => $this->metrics->botHits($current),
             'traffic' => $this->metrics->aiTraffic($current),
+            'funnel' => $this->funnel($current),
+            'competitor_series' => $this->competitorSeries($current, $schedule->brand->name),
+            'heatmap' => $this->heatmap($current),
             'models' => $this->metrics->modelChanges($from, $to)->map(fn ($change): array => [
                 'engine' => $change->engine_key,
                 'on' => $change->changed_on->toDateString(),
@@ -243,6 +246,115 @@ final class ReportPublisher
                 'to' => $change->to_model,
             ])->all(),
             'actions' => $this->actions->section($schedule->brand_id, $from, $to),
+        ];
+    }
+
+    /**
+     * @return list<array{label: string, value: int|null, low: bool}>
+     */
+    private function funnel(MetricsFilter $filter): array
+    {
+        $funnel = $this->metrics->trafficFunnel($filter);
+
+        return array_map(fn (string $key): array => [
+            'label' => __('app.crawlers.'.$key),
+            'value' => $funnel[$key]['value'],
+            'low' => $funnel[$key]['low_sample'],
+        ], ['fetched', 'cited', 'visits']);
+    }
+
+    /**
+     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, points: list<float|null>, lows: list<bool>, ns: list<int>, ranks: list<int|null>}>}
+     */
+    private function competitorSeries(MetricsFilter $filter, string $brand): array
+    {
+        $series = $this->metrics->competitorVisibilitySeries($filter);
+        $lines = [];
+        foreach ($series as $point) {
+            foreach ($point['entities'] as $entity) {
+                $id = $entity['id'];
+                $lines[$id] ??= [
+                    'name' => $id === 'brand' ? $brand : (string) $entity['name'],
+                    'own' => $id === 'brand',
+                    'points' => [],
+                    'lows' => [],
+                    'ns' => [],
+                    'ranks' => [],
+                    'latest' => $entity['share_of_voice']['value'],
+                ];
+                $lines[$id]['points'][] = $entity['share_of_voice']['value'];
+                $lines[$id]['lows'][] = (bool) $entity['share_of_voice']['low_sample'];
+                $lines[$id]['ns'][] = (int) $entity['share_of_voice']['n'];
+                $lines[$id]['ranks'][] = $entity['rank'];
+                $lines[$id]['latest'] = $entity['share_of_voice']['value'];
+            }
+        }
+        $own = $lines['brand'] ?? null;
+        unset($lines['brand']);
+        uasort($lines, fn (array $a, array $b): int => ($b['latest'] ?? -1) <=> ($a['latest'] ?? -1));
+        $chosen = array_slice(array_values($lines), 0, 5);
+        if ($own !== null) {
+            array_unshift($chosen, $own);
+        }
+        foreach ($chosen as &$line) {
+            unset($line['latest']);
+        }
+        unset($line);
+
+        return ['periods' => array_column($series, 'period'), 'lines' => $chosen];
+    }
+
+    /**
+     * @return array{engines: list<string>, rows: list<array{prompt: string, cells: list<array{text: string, low: bool, value: float|null}>}>}
+     */
+    private function heatmap(MetricsFilter $filter): array
+    {
+        $cells = $this->metrics->visibilityByPromptEngine($filter);
+        $totals = [];
+        $counts = [];
+        foreach ($cells as $cell) {
+            if (! is_numeric($cell['visibility']['value'])) {
+                continue;
+            }
+            $id = $cell['prompt_id'];
+            $totals[$id] = ($totals[$id] ?? 0) + $cell['visibility']['value'];
+            $counts[$id] = ($counts[$id] ?? 0) + 1;
+        }
+        $averages = [];
+        foreach ($totals as $id => $sum) {
+            $averages[$id] = $sum / $counts[$id];
+        }
+        arsort($averages);
+        $promptIds = array_slice(array_map(intval(...), array_keys($averages)), 0, 20);
+        $grid = [];
+        foreach ($cells as $cell) {
+            $grid[$cell['prompt_id']][$cell['engine_key']] = $cell['visibility'];
+        }
+        $engines = [];
+        foreach ($promptIds as $id) {
+            foreach (array_keys($grid[$id] ?? []) as $engine) {
+                $engines[$engine] = true;
+            }
+        }
+        $engines = array_keys($engines);
+        sort($engines);
+        $labels = DashboardLabels::engines($engines);
+        $names = Prompt::query()->whereIn('id', $promptIds)->pluck('text', 'id');
+
+        return [
+            'engines' => array_map(fn (string $engine): string => $labels[$engine], $engines),
+            'rows' => array_map(fn (int $id): array => [
+                'prompt' => (string) ($names[$id] ?? $id),
+                'cells' => array_map(function (string $engine) use ($grid, $id): array {
+                    $visibility = $grid[$id][$engine] ?? null;
+                    if (! is_array($visibility)) {
+                        return ['text' => __('reports.empty_value'), 'low' => true, 'value' => null];
+                    }
+                    $sample = $this->sample(new Metric($visibility['value'], $visibility['n']), true);
+
+                    return ['text' => $sample['text'], 'low' => $sample['low'], 'value' => $sample['ratio']];
+                }, $engines),
+            ], $promptIds),
         ];
     }
 
@@ -262,7 +374,7 @@ final class ReportPublisher
     /**
      * A percentage keeps its sample size, and a small sample is faded (docs/spec.md 9).
      *
-     * @return array{text: string, low: bool}
+     * @return array{text: string, low: bool, ratio: float|null}
      */
     private function sample(Metric $metric, bool $rate): array
     {
@@ -271,10 +383,11 @@ final class ReportPublisher
         return [
             'text' => $value.' '.__('reports.sample', ['n' => $metric->n]),
             'low' => $metric->isLowSample(),
+            'ratio' => $metric->value,
         ];
     }
 
-    /** @return list<array{engine: string, visibility: array{text: string, low: bool}, share_of_voice: array{text: string, low: bool}}> */
+    /** @return list<array{engine: string, visibility: array{text: string, low: bool, ratio: float|null}, share_of_voice: array{text: string, low: bool, ratio: float|null}}> */
     private function engines(MetricsFilter $filter): array
     {
         $rows = $this->metrics->breakdown($filter, 'engine');
@@ -290,7 +403,7 @@ final class ReportPublisher
         return $engines;
     }
 
-    /** @return list<array{prompt: string, visibility: array{text: string, low: bool}, change: string}> */
+    /** @return list<array{prompt: string, visibility: array{text: string, low: bool, ratio: float|null}, change: string}> */
     private function prompts(MetricsFilter $current, MetricsFilter $previous): array
     {
         $now = $this->metrics->breakdown($current, 'prompt');
@@ -318,7 +431,7 @@ final class ReportPublisher
         ], $ranked);
     }
 
-    /** @return list<array{name: string, mentions: int, visibility: array{text: string, low: bool}, share_of_voice: array{text: string, low: bool}}> */
+    /** @return list<array{name: string, mentions: int, visibility: array{text: string, low: bool, ratio: float|null}, share_of_voice: array{text: string, low: bool, ratio: float|null}}> */
     private function competitors(MetricsFilter $filter): array
     {
         return array_map(fn (array $row): array => [

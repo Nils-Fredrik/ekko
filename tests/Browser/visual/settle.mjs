@@ -38,7 +38,7 @@ export async function settleCharts(page, { inertia = true, shared = false } = {}
             () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
         );
     }
-    if (shared) await expect(page.getByTestId('shared-report-trend').locator('figure')).toHaveCount(1);
+    if (shared) await expect(page.getByTestId('pdf-report-trend')).toBeVisible();
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
     await page.waitForLoadState('networkidle');
     await page.evaluate(() => document.fonts.ready);

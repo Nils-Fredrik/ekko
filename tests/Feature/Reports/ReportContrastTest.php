@@ -1,6 +1,11 @@
 <?php
 
+use App\Models\AggDaily;
+use App\Models\Engine;
+use App\Models\ReportSchedule;
 use App\Reports\ReadableColor;
+use App\Reports\ReportPublisher;
+use Tests\Support\Metrics\MetricsWorld;
 
 test('the shared report darkens a brand color that is too light on white', function () {
     $html = reportHtml('#e84a38');
@@ -11,6 +16,193 @@ test('the shared report darkens a brand color that is too light on white', funct
         ->and($header[1])->not->toBe('#e84a38')
         ->and(ReadableColor::contrast('#ffffff', $header[1]))->toBeGreaterThanOrEqual(ReadableColor::MINIMUM)
         ->and($html)->toContain('min-height: 24px');
+});
+
+test('section bars are the same markup on the web page and in the pdf', function () {
+    $base = [
+        'brand' => 'Northwind',
+        'from' => '2026-10-01',
+        'to' => '2026-10-31',
+        'profile' => ['name' => 'Northwind', 'color' => '#112233', 'logo' => null],
+        'insight' => null,
+        'responses' => 10,
+        'headlines' => [],
+        'engines' => [[
+            'engine' => 'ChatGPT',
+            'visibility' => ['text' => '40 % n 10', 'low' => false, 'ratio' => 0.4],
+            'share_of_voice' => ['text' => '20 % n 10', 'low' => false, 'ratio' => 0.2],
+        ]],
+        'prompts' => [],
+        'competitors' => [],
+        'sources' => [['domain' => 'example.com', 'citations' => 4]],
+        'gaps' => [],
+        'bots' => [],
+        'traffic' => [],
+        'models' => [],
+        'actions' => [
+            'title' => 'Actions',
+            'open_title' => 'Open',
+            'done_title' => 'Done',
+            'empty_open' => 'None open',
+            'empty_done' => 'None done',
+            'change_label' => 'Change',
+            'open' => [],
+            'completed' => [],
+        ],
+    ];
+
+    $charts = [
+        'competitor_series' => [
+            'periods' => ['2026-10-01', '2026-10-02'],
+            'lines' => [['name' => 'Northwind', 'own' => true, 'points' => [0.2, 0.4], 'ranks' => [1, 2]]],
+        ],
+        'heatmap' => [
+            'engines' => ['ChatGPT'],
+            'rows' => [['prompt' => 'Who leads?', 'cells' => [['text' => '50,0 % n 10', 'low' => false, 'value' => 0.5]]]],
+        ],
+        'funnel' => [
+            ['label' => 'Fetched', 'value' => 12, 'low' => false],
+            ['label' => 'Cited', 'value' => 4, 'low' => true],
+            ['label' => 'Visits', 'value' => null, 'low' => true],
+        ],
+    ];
+    $pdf = view('reports.pdf', [...$base, ...$charts])->render();
+    $shared = view('reports.pdf', [...$base, ...$charts, 'shared' => true])->render();
+
+    expect($pdf)->toContain('data-testid="report-competitor-lines"')
+        ->toContain('data-testid="report-competitor-ranks"')
+        ->toContain('points="40,10 57.3,150"')
+        ->toContain('data-testid="report-prompt-heatmap"')
+        ->toContain('background-color: rgba(182, 43, 27, 0.24)')
+        ->toContain('50,0 % n 10')
+        ->toContain(__('reports.share_over_time'))
+        ->toContain(__('reports.rank'))
+        ->toContain('data-testid="report-competitor-values"')
+        ->toContain('ChatGPT · 40%')
+        ->toContain('data-testid="report-bars-funnel"')
+        ->toContain('<td>12</td>')
+        ->and($shared)->toContain('data-testid="report-competitor-lines"')
+        ->toContain('data-testid="report-prompt-heatmap"')
+        ->toContain('data-testid="report-bars-funnel"')
+        ->and($pdf)->toContain('data-testid="report-bars-engines"')
+        ->toContain('data-testid="report-bars-sources"')
+        ->and($shared)->toContain('data-testid="report-bars-engines"')
+        ->toContain('data-testid="report-bars-sources"');
+});
+
+test('competitor lines leave days without answers open', function () {
+    $html = view('reports.pdf', [
+        'brand' => 'Northwind',
+        'from' => '2026-10-01',
+        'to' => '2026-10-03',
+        'profile' => ['name' => 'Northwind', 'color' => '#112233', 'logo' => null],
+        'insight' => null,
+        'responses' => 12,
+        'headlines' => [],
+        'engines' => [],
+        'prompts' => [],
+        'competitors' => [],
+        'sources' => [],
+        'gaps' => [],
+        'bots' => [],
+        'traffic' => [],
+        'models' => [],
+        'actions' => [
+            'title' => 'Actions', 'open_title' => 'Open', 'done_title' => 'Done',
+            'empty_open' => 'None open', 'empty_done' => 'None done', 'change_label' => 'Change',
+            'open' => [], 'completed' => [],
+        ],
+        'competitor_series' => [
+            'periods' => ['2026-10-01', '2026-10-03'],
+            'lines' => [[
+                'name' => 'Northwind', 'own' => true,
+                'points' => [0.2, 0.4], 'ranks' => [1, 2], 'ns' => [4, 8], 'lows' => [true, false],
+            ]],
+        ],
+    ])->render();
+
+    expect($html)->not->toContain('<polyline')
+        ->and($html)->toContain('cx="40"')
+        ->and($html)->toContain('cx="560"')
+        ->and($html)->toContain('2026-10-01 · 20% · n 4');
+});
+
+test('report charts keep sample size, rank and distinguishable engine names', function () {
+    $world = MetricsWorld::create();
+    $world->engine->forceFill(['key' => 'chatgpt_api', 'family' => 'chatgpt'])->save();
+    $web = Engine::factory()->create(['key' => 'chatgpt_ui', 'family' => 'chatgpt']);
+    $world->p1->forceFill(['text' => 'Who leads the category?'])->save();
+    $base = ['market_id' => $world->market->id, 'prompt_id' => $world->p1->id];
+    AggDaily::factory()->create([...$base, 'engine_key' => 'chatgpt_api', 'date' => '2026-11-02', 'responses' => 4, 'brand_mentioned' => 1,
+        'competitor_mentions' => [$world->c1->id => 2]]);
+    AggDaily::factory()->create([...$base, 'engine_key' => 'chatgpt_ui', 'date' => '2026-11-02', 'responses' => 10, 'brand_mentioned' => 5,
+        'competitor_mentions' => [$world->c1->id => 1]]);
+    AggDaily::factory()->create([...$base, 'engine_key' => 'chatgpt_api', 'date' => '2026-11-03', 'responses' => 2, 'brand_mentioned' => 0,
+        'competitor_mentions' => [$world->c1->id => 1]]);
+    $schedule = ReportSchedule::factory()->create(['brand_id' => $world->brand->id]);
+    app()->setLocale('nb');
+
+    $data = app(ReportPublisher::class)->viewData($world->tenant, $schedule, '2026-11-01', '2026-11-08', null);
+    $html = view('reports.pdf', $data)->render();
+    $shared = view('reports.pdf', [...$data, 'shared' => true])->render();
+    $brand = collect($data['competitor_series']['lines'])->firstWhere('own', true);
+    $heatmap = collect($data['heatmap']['rows'])->firstWhere('prompt', 'Who leads the category?');
+    $cells = array_combine($data['heatmap']['engines'], $heatmap['cells']);
+
+    expect($data['heatmap']['engines'])->toBe(['ChatGPT API', 'ChatGPT'])
+        ->and($cells['ChatGPT API']['text'])->toBe('16,7 % n 6')
+        ->and($cells['ChatGPT API']['low'])->toBeTrue()
+        ->and($cells['ChatGPT']['text'])->toBe('50,0 % n 10')
+        ->and($cells['ChatGPT']['low'])->toBeFalse()
+        ->and($brand['ranks'])->toBe([1, 2])
+        ->and($brand['lows'])->toBe([false, true])
+        ->and($data['funnel'])->toHaveCount(3)
+        ->and($html)->toContain('16,7 % n 6')->toContain('data-low-sample')
+        ->and($shared)->toContain('16,7 % n 6')->toContain('data-low-sample')
+        ->and($shared)->not->toContain('shared-report.js');
+});
+
+test('a snapshot stored before ratio was saved does not draw empty rate bars', function () {
+    $html = reportHtml('#112233');
+    $legacy = view('reports.pdf', [
+        'brand' => 'Northwind',
+        'from' => '2026-10-01',
+        'to' => '2026-10-31',
+        'profile' => ['name' => 'Northwind', 'color' => '#112233', 'logo' => null],
+        'insight' => null,
+        'responses' => 10,
+        'headlines' => [],
+        'engines' => [[
+            'engine' => 'ChatGPT',
+            'visibility' => ['text' => '40 % n 10', 'low' => false],
+            'share_of_voice' => ['text' => '20 % n 10', 'low' => false],
+        ]],
+        'prompts' => [],
+        'competitors' => [[
+            'name' => 'Nordlys',
+            'mentions' => 4,
+            'visibility' => ['text' => '40 % n 10', 'low' => false],
+            'share_of_voice' => ['text' => '40 % n 10', 'low' => false],
+        ]],
+        'sources' => [['domain' => 'example.com', 'citations' => 4]],
+        'gaps' => [],
+        'bots' => [],
+        'traffic' => [],
+        'models' => [],
+        'actions' => [
+            'title' => 'Actions', 'open_title' => 'Open', 'done_title' => 'Done',
+            'empty_open' => 'None open', 'empty_done' => 'None done', 'change_label' => 'Change',
+            'open' => [], 'completed' => [],
+        ],
+        'shared' => true,
+    ])->render();
+
+    expect($html)->not->toContain('data-testid="report-bars-engines"')
+        ->and($legacy)->toContain('40 % n 10')
+        ->and($legacy)->not->toContain('data-testid="report-bars-engines"')
+        ->and($legacy)->not->toContain('data-testid="report-bars-competitors"')
+        ->and($legacy)->toContain('data-testid="report-bars-sources"')
+        ->and($legacy)->toContain('width="360"');
 });
 
 test('a brand color that already clears AA is rendered unchanged', function () {
