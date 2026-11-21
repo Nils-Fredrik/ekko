@@ -1,6 +1,7 @@
 <script setup>
 // The overview (docs/ui-forbedring.md 7.1, U10): the insight line first, one card per brand with minigraph,
 // change and open actions, «Hva har skjedd» as one timeline, and usage as progress against the quota.
+import { formatDate, formatDateTime } from '@/format';
 import InsightLine from '@/Components/Dashboard/InsightLine.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
@@ -35,20 +36,8 @@ function sparkline(brandId) {
     }));
 }
 
-function locale() {
-    return document.documentElement.lang || 'nb';
-}
-
 function when(value, dateOnly = false) {
-    if (dateOnly) {
-        const [year, month, day] = value.split('-').map(Number);
-
-        return new Intl.DateTimeFormat(locale(), { dateStyle: 'medium', timeZone: 'UTC' }).format(
-            new Date(Date.UTC(year, month - 1, day)),
-        );
-    }
-
-    return new Intl.DateTimeFormat(locale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+    return dateOnly ? formatDate(value) : formatDateTime(value);
 }
 
 function eventText(item) {

@@ -1,13 +1,11 @@
 <script setup>
 import MeasurementPlan from '@/Components/Brand/MeasurementPlan.vue';
-import { useDateTime } from '@/Composables/useDateTime';
+import { formatDateTime } from '@/format';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useForm } from '@inertiajs/vue3';
-
-const { dateTime } = useDateTime();
 
 const props = defineProps({
     brand: { type: Object, required: true },
@@ -235,7 +233,7 @@ function save() {
                         <p class="text-shell-muted">
                             {{
                                 integration.last_sync_at
-                                    ? $t('app.workspace.last_sync', { time: dateTime(integration.last_sync_at) })
+                                    ? $t('app.workspace.last_sync', { time: formatDateTime(integration.last_sync_at) })
                                     : $t('app.workspace.never_synced')
                             }}
                         </p>

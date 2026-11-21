@@ -6,6 +6,7 @@ import { ChevronUpDownIcon } from '@heroicons/vue/20/solid';
 import ActingAsBanner from '@/Components/ActingAsBanner.vue';
 import Banner from '@/Components/Banner.vue';
 import CommandPalette from '@/Components/CommandPalette.vue';
+import UndoToast from '@/Components/UI/UndoToast.vue';
 import PageSkeleton from '@/Components/UI/PageSkeleton.vue';
 import BottomSheet from '@/Components/UI/BottomSheet.vue';
 import Dropdown from '@/Components/Dropdown.vue';
@@ -590,6 +591,7 @@ const logout = () => {
                     <slot />
                 </div>
             </main>
+            <UndoToast />
         </div>
     </div>
 </template>

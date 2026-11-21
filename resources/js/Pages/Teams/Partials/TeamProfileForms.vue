@@ -1,5 +1,5 @@
 <script setup>
-import { useDateTime } from '@/Composables/useDateTime';
+import { formatDateTime } from '@/format';
 import ActionMessage from '@/Components/ActionMessage.vue';
 import FormSection from '@/Components/FormSection.vue';
 import InputError from '@/Components/InputError.vue';
@@ -8,8 +8,6 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { useForm, usePage } from '@inertiajs/vue3';
 import { computed } from 'vue';
-
-const { dateTime } = useDateTime();
 
 const props = defineProps({
     team: { type: Object, required: true },
@@ -150,7 +148,7 @@ function saveBudget() {
                         {{
                             item.configured
                                 ? item.verified_at
-                                    ? $t('app.workspace.verified', { time: dateTime(item.verified_at) })
+                                    ? $t('app.workspace.verified', { time: formatDateTime(item.verified_at) })
                                     : $t('app.workspace.not_set')
                                 : $t('app.workspace.not_set')
                         }}

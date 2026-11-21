@@ -2,6 +2,7 @@
 // The partner portfolio (docs/ui-forbedring.md 7.7, U10): one row per client with visibility and minigraph,
 // change, an alert dot with text and open actions, sorted by the largest drop first. A row opens the client's
 // dashboard. The names come first; the figures are one deferred prop with a skeleton until they arrive.
+import { compareText, formatNumber } from '@/format';
 import SparklineChart from '@/Components/Charts/SparklineChart.vue';
 import { formatChange, formatN, formatValue, isMissing } from '@/Components/Charts/support/format.js';
 import EmptyState from '@/Components/UI/EmptyState.vue';
@@ -56,17 +57,16 @@ function sortValue(row, key) {
 const sorted = computed(() => {
     const { key, direction } = sort.value;
     const factor = direction === 'asc' ? 1 : -1;
-    const collator = new Intl.Collator(document.documentElement.lang || 'nb');
 
     return [...rows.value].sort((a, b) => {
         const left = sortValue(a, key);
         const right = sortValue(b, key);
         if (isMissing(left) || isMissing(right)) {
-            return isMissing(left) === isMissing(right) ? collator.compare(a.name, b.name) : isMissing(left) ? 1 : -1;
+            return isMissing(left) === isMissing(right) ? compareText(a.name, b.name) : isMissing(left) ? 1 : -1;
         }
-        const order = typeof left === 'string' ? collator.compare(left, right) : left - right;
+        const order = typeof left === 'string' ? compareText(left, right) : left - right;
 
-        return order === 0 ? collator.compare(a.name, b.name) : order * factor;
+        return order === 0 ? compareText(a.name, b.name) : order * factor;
     });
 });
 
@@ -116,9 +116,7 @@ function spokenChange(change) {
     if (change === 0) {
         return trans('app.dashboard.change_flat');
     }
-    const amount = new Intl.NumberFormat(document.documentElement.lang || 'nb', { maximumFractionDigits: 1 }).format(
-        Math.abs(change * 100),
-    );
+    const amount = formatNumber(Math.abs(change * 100), { maximumFractionDigits: 1 });
 
     return trans(change > 0 ? 'app.dashboard.change_up' : 'app.dashboard.change_down', {
         change: trans('app.dashboard.change_points_spoken', { change: amount }),

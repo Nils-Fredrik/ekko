@@ -61,6 +61,50 @@ const noHardcodedColor = {
     },
 };
 
+// Numbers, money, shares and dates go through resources/js/format.js (docs/ux-arbeidsflate.md 4.2).
+// An exception needs a reason: // eslint-disable-next-line ekko/format-through-format-js -- why
+const formatThroughFormatJs = {
+    meta: {
+        type: 'problem',
+        schema: [],
+        messages: {
+            banned: 'Format through resources/js/format.js instead of {{what}}.',
+            reason: 'An exception to ekko/format-through-format-js needs a reason after "--".',
+        },
+    },
+    create(context) {
+        const methods = new Set(['toFixed', 'toLocaleString', 'toLocaleDateString', 'toLocaleTimeString']);
+        const visitor = {
+            MemberExpression(node) {
+                if (node.object.type === 'Identifier' && node.object.name === 'Intl') {
+                    context.report({ node, messageId: 'banned', data: { what: 'Intl.' } });
+                    return;
+                }
+                const name = node.computed ? node.property.value : node.property.name;
+                if (methods.has(name) && node.parent.type === 'CallExpression' && node.parent.callee === node) {
+                    context.report({ node, messageId: 'banned', data: { what: `${name}(` } });
+                }
+            },
+        };
+        const programVisitor = {
+            ...visitor,
+            Program() {
+                for (const comment of context.sourceCode.getAllComments()) {
+                    if (
+                        /eslint-disable[\w-]*\s[^]*ekko\/format-through-format-js/.test(comment.value) &&
+                        !/\s--\s*\S/.test(comment.value)
+                    ) {
+                        context.report({ loc: comment.loc, messageId: 'reason' });
+                    }
+                }
+            },
+        };
+        const defineTemplateBodyVisitor = context.sourceCode.parserServices?.defineTemplateBodyVisitor;
+
+        return defineTemplateBodyVisitor ? defineTemplateBodyVisitor(visitor, programVisitor) : programVisitor;
+    },
+};
+
 export default [
     { ignores: ['public/**', 'vendor/**', 'node_modules/**', 'bootstrap/ssr/**'] },
     js.configs.recommended,
@@ -104,11 +148,19 @@ export default [
             ekko: {
                 rules: {
                     'no-hardcoded-color': noHardcodedColor,
+                    'format-through-format-js': formatThroughFormatJs,
                 },
             },
         },
         rules: {
             'ekko/no-hardcoded-color': 'error',
+            'ekko/format-through-format-js': 'error',
+        },
+    },
+    {
+        files: ['resources/js/format.js'],
+        rules: {
+            'ekko/format-through-format-js': 'off',
         },
     },
 ];

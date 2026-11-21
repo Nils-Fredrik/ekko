@@ -1,12 +1,11 @@
 import { computed } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
-
-const BCP47 = { nb: 'nb-NO', sv: 'sv-SE', en: 'en-GB' };
+import { intlLocale as toIntlLocale } from '@/format';
 
 export function useLocale() {
     const page = usePage();
     const locale = computed(() => page.props.locale ?? 'nb');
-    const intlLocale = computed(() => BCP47[locale.value] ?? 'nb-NO');
+    const intlLocale = computed(() => toIntlLocale(locale.value));
 
     const setLocale = (code) =>
         router.put(

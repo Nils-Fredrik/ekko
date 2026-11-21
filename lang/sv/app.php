@@ -529,7 +529,6 @@ return [
         'open' => 'Sök',
         'placeholder' => 'Sök bland varumärken, prompter, konkurrenter och sidor',
         'empty' => 'Inga träffar.',
-        'create_report' => 'Skapa rapport',
         'switch_team' => 'Byt till :name',
         'groups' => [
             'actions' => 'Snabbval',

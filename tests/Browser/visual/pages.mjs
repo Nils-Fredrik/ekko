@@ -62,6 +62,8 @@ export const pages = [
     ['admin-billing', 'Admin/Billing', 'admin', () => '/admin/billing?month=2026-10'],
     ['pitch-report', 'Pitch/Report', 'pitch', () => `/brands/${env('UI_PITCH_BRAND_ID')}/pitch-report`],
     ['chart-gallery', 'Dev/Charts', 'reader', () => '/dev/charts'],
+    ['components', 'Dev/Components', 'reader', () => '/dev/components'],
+    ['components-drawer', 'Dev/Components', 'reader', () => '/dev/components?open=3'],
     [
         'shared-report',
         null,

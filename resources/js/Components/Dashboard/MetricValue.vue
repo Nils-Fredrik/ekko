@@ -1,6 +1,6 @@
 <script setup>
+import { formatNumber, formatPercent } from '@/format';
 import { computed } from 'vue';
-import { usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
     metric: { type: Object, required: true },
@@ -8,20 +8,16 @@ const props = defineProps({
     previous: { type: Object, default: null },
 });
 
-const locale = computed(() => usePage().props.locale || 'nb');
-
 const text = computed(() => {
     if (props.metric.value === null || props.metric.value === undefined) {
         return null;
     }
 
     if (props.kind === 'rate') {
-        return new Intl.NumberFormat(locale.value, { style: 'percent', maximumFractionDigits: 1 }).format(
-            props.metric.value,
-        );
+        return formatPercent(props.metric.value, { maximumFractionDigits: 1 });
     }
 
-    return new Intl.NumberFormat(locale.value, { maximumFractionDigits: 1 }).format(props.metric.value);
+    return formatNumber(props.metric.value, { maximumFractionDigits: 1 });
 });
 
 const points = computed(() => {
@@ -37,10 +33,7 @@ const change = computed(() => {
         return null;
     }
 
-    return new Intl.NumberFormat(locale.value, {
-        maximumFractionDigits: 1,
-        signDisplay: 'exceptZero',
-    }).format(points.value);
+    return formatNumber(points.value, { maximumFractionDigits: 1, signDisplay: 'exceptZero' });
 });
 
 const changeClass = computed(() => {

@@ -2,6 +2,7 @@
 // Sources (docs/ui-forbedring.md 7.5, U08): the most cited domains colored and labeled by ownership, the source
 // gap with a link to the action generated for each gap (T43), and the citations by source type. Clicking a domain
 // in a chart or in the list loads the answers that cite it (partial reload of `citing`).
+import { formatDateTime } from '@/format';
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import GapBarChart from '@/Components/Charts/GapBarChart.vue';
@@ -169,10 +170,7 @@ function when(value) {
         return '';
     }
 
-    return new Intl.DateTimeFormat(document.documentElement.lang || 'nb', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
+    return formatDateTime(value);
 }
 
 // A rate with its n, and "low n" in words when the sample is small (docs/ui-forbedring.md 5).

@@ -1,4 +1,5 @@
 <script setup>
+import { formatDate } from '@/format';
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -84,11 +85,7 @@ function filter(verdict) {
 }
 
 function date(value) {
-    return value
-        ? new Intl.DateTimeFormat(document.documentElement.lang || 'nb', { dateStyle: 'medium' }).format(
-              new Date(value),
-          )
-        : '';
+    return value ? formatDate(value) : '';
 }
 </script>
 

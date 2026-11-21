@@ -1,14 +1,11 @@
 import { trans } from 'laravel-vue-i18n';
+import { formatDate as formatCalendarDate, formatNumber, formatPercent } from '@/format';
 
 export { isLowSample, LOW_SAMPLE_N } from './data.js';
 
 // Formatting and the shared tooltip (value, change and n) for every chart.
 // Kinds: 'rate' is a share from 0 to 1, 'count' a whole number, 'number' a decimal
 // (sentiment, average position).
-
-function locale() {
-    return document.documentElement.lang || 'nb';
-}
 
 export function isMissing(value) {
     return value === null || value === undefined || Number.isNaN(value);
@@ -19,13 +16,13 @@ export function formatValue(value, kind = 'rate', digits) {
         return trans('app.charts.empty');
     }
     if (kind === 'rate') {
-        return new Intl.NumberFormat(locale(), { style: 'percent', maximumFractionDigits: digits ?? 1 }).format(value);
+        return formatPercent(value, { maximumFractionDigits: digits ?? 1 });
     }
     if (kind === 'count') {
-        return new Intl.NumberFormat(locale(), { maximumFractionDigits: 0 }).format(value);
+        return formatNumber(value);
     }
 
-    return new Intl.NumberFormat(locale(), { maximumFractionDigits: digits ?? 1 }).format(value);
+    return formatNumber(value, { maximumFractionDigits: digits ?? 1 });
 }
 
 /** Change against the previous value. A rate changes in percentage points. */
@@ -34,27 +31,24 @@ export function formatChange(change, kind = 'rate') {
         return trans('app.charts.empty');
     }
     const amount = kind === 'rate' ? change * 100 : change;
-    const number = new Intl.NumberFormat(locale(), {
+    const number = formatNumber(amount, {
         maximumFractionDigits: kind === 'count' ? 0 : 1,
         signDisplay: 'exceptZero',
-    }).format(amount);
+    });
 
     return kind === 'rate' ? trans('app.charts.change_points', { change: number }) : number;
 }
 
 export function formatN(n) {
-    return trans('app.charts.n', { n: new Intl.NumberFormat(locale()).format(n ?? 0) });
+    return trans('app.charts.n', { n: formatNumber(n ?? 0, { maximumFractionDigits: 3 }) });
 }
 
 export function formatDate(value) {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
         return value ?? '';
     }
-    const [year, month, day] = value.split('-').map(Number);
 
-    return new Intl.DateTimeFormat(locale(), { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(
-        new Date(Date.UTC(year, month - 1, day)),
-    );
+    return formatCalendarDate(value, { year: false });
 }
 
 export function escapeHtml(value) {
