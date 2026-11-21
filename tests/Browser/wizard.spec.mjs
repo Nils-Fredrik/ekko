@@ -62,6 +62,19 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     expect(saved.jobs).toBe(saved.due);
     expect(saved.competitors).toBe(3);
 
+    // Keep the real wizard request and new-market price, while simulating an unrelated unpriced saved market.
+    let expectedMarketCost;
+    await page.route('**/measurement-plan/estimate', async (route) => {
+        const response = await route.fetch();
+        const estimate = await response.json();
+        expect(route.request().postDataJSON().new_market.plan_mode).toBe('own');
+        expectedMarketCost = estimate.markets.find((market) => market.id === null).total_cost_usd;
+        const existing = estimate.markets.find((market) => market.id !== null);
+        existing.total_cost_usd = null;
+        estimate.total_cost_usd = null;
+        estimate.issues.push({ market_id: existing.id, code: 'no_price', message: 'Unpriced existing market' });
+        await route.fulfill({ response, json: estimate });
+    });
     await page.getByRole('link', { name: 'Add market', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'New market', exact: true })).toBeVisible();
     await expect(page.getByLabel('Name', { exact: true })).toHaveCount(0);
@@ -75,6 +88,9 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await expect(page.getByLabel('Country', { exact: true })).toBeDisabled();
     await expect(page.getByLabel('Language', { exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
+    await expect(page.getByText(/Estimated monthly cost for this market/)).toBeVisible();
+    await expect(page.getByText(`Estimated monthly cost for this market is ${expectedMarketCost} USD.`)).toBeVisible();
+    await expect(page.getByText('Unpriced existing market')).toHaveCount(0);
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: 'Save and start the first run' }).click();
     await expect(page).toHaveURL(/\/brands\/\d+$/);

@@ -125,7 +125,7 @@ final class CostEstimator
             $issues[] = ['code' => $code, 'message' => __("onboarding.issues.{$code}")];
         }
 
-        return $totals + [
+        $result = $totals + [
             'markets' => $estimates,
             'engines' => $this->byEngine($allRows, $extractionPrice),
             'issues' => $issues,
@@ -141,6 +141,32 @@ final class CostEstimator
                 'extractions_per_answer' => 1,
             ],
         ];
+        if ($legacyProposal) {
+            // This endpoint historically quoted only priced engines, rounding each rule before adding its cost.
+            // Keep its original summary alongside the complete volume and market breakdown.
+            $priced = [];
+            $result['engine_totals'] = $result['engines'];
+            $result['engines'] = [];
+            foreach ($allRows as $row) {
+                if ($catalog[$row['engine_key']]['price'] === null || $row['collection_cost_usd'] === null) {
+                    continue;
+                }
+                $row['collection_cost_usd'] = (string) BigDecimal::of($row['collection_cost_usd'])->toScale(2, RoundingMode::HalfUp);
+                $priced[] = $row;
+                $result['engines'][] = ['engine_key' => $row['engine_key'], 'calls' => $row['answers'], 'cost_usd' => $row['collection_cost_usd'], 'billed_to' => $row['billed_to']];
+            }
+            $subtotal = $this->totals($priced, $extractionPrice);
+            $result['calls'] = $subtotal['answers'];
+            unset($subtotal['answers'], $subtotal['quota_calls']);
+            $result = array_replace($result, $subtotal);
+            $result['issues'] = array_map(static function (array $issue): array {
+                unset($issue['market_id']);
+
+                return $issue;
+            }, $issues);
+        }
+
+        return $result;
     }
 
     /**

@@ -147,3 +147,34 @@ test('brand totals accumulate sub-cent prices across markets before rounding and
         ->assertJsonPath('markets.1.engine_cost_usd', '0.00')->assertJsonPath('engine_cost_usd', '0.01');
     expect(array_column($response->json('issues'), 'code'))->toContain('exceeds_budget');
 });
+
+test('a priced new market with own choices can proceed alongside an unpriced saved market', function () {
+    planCatalogue();
+    [$tenant, $owner] = planTenant();
+    $world = planWorld($tenant, [planRule('chatgpt_api', 'monthly')], []);
+    EnginePrice::query()->where('engine_key', 'chatgpt_api')->delete();
+    $new = [
+        'plan_mode' => 'own', 'engines' => [planRule('gemini_api', 'monthly')],
+        'prompt_count' => 5, 'core_prompt_count' => 2,
+    ];
+    $url = route('brands.plan.estimate', $world['brand']);
+    $this->actingAs($owner)->postJson($url, ['new_market' => $new])->assertOk()
+        ->assertJsonPath('total_cost_usd', null)->assertJsonPath('issues.0.market_id', $world['a']->id)
+        ->assertJsonPath('markets.2.id', null)->assertJsonPath('markets.2.total_cost_usd', '0.05')
+        ->assertJsonPath('markets.2.answers', 5);
+    $new['plan_mode'] = 'inherit';
+    $this->postJson($url, ['new_market' => $new])->assertUnprocessable()->assertJsonValidationErrors('new_market.engines');
+});
+
+test('stored rules use the current engine cap and weekly shared Sonnet baseline', function () {
+    planCatalogue();
+    config(['ekko.anthropic.monthly_pool_usd' => '100']);
+    [$tenant, $owner] = planTenant();
+    $daily = [planRule('chatgpt_api', 'daily', 'all', 3), planRule('claude_sonnet', 'daily', 'core')];
+    $world = planWorld($tenant, $daily, []);
+    $tenant->plan->update(['engine_max_frequencies' => ['chatgpt_api' => 'every_21_days'], 'max_repetitions' => 1]);
+    $this->actingAs($owner)->postJson(route('brands.plan.estimate', $world['brand']))->assertOk()
+        ->assertJsonPath('markets.0.rules.0.frequency', 'every_21_days')->assertJsonPath('markets.0.rules.0.repetitions', 1)
+        ->assertJsonPath('markets.0.rules.0.answers', 3)
+        ->assertJsonPath('markets.0.rules.1.frequency', 'weekly')->assertJsonPath('markets.0.rules.1.answers', 5);
+});

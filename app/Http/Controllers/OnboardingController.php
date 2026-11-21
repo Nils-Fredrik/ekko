@@ -30,7 +30,6 @@ use App\Usage\MonthlyUsage;
 use App\Usage\PlannedRun;
 use App\Usage\QuotaGuard;
 use Brick\Math\BigDecimal;
-use Brick\Math\RoundingMode;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
@@ -283,18 +282,6 @@ class OnboardingController extends Controller
             'id' => $market?->id, 'is_active' => $market->is_active ?? true, 'plan_mode' => $market->plan_mode ?? Market::PLAN_INHERIT,
             'engines' => $setup, 'prompts' => new PromptPopulation($count, $core, $population?->coreExample, $population?->standardExample),
         ]], legacyProposal: $legacy);
-
-        if ($legacy) {
-            // Keep the original wizard's per-rule prices and field names for existing callers.
-            $result['engine_totals'] = $result['engines'];
-            $result['engines'] = [];
-            $unknown = array_column(array_filter($result['issues'], fn ($issue) => $issue['code'] === 'unknown_engine'), 'engine_key');
-            foreach ($result['markets'][0]['rules'] as $row) {
-                if ($row['collection_cost_usd'] !== null && ! in_array($row['engine_key'], $unknown, true)) {
-                    $result['engines'][] = ['engine_key' => $row['engine_key'], 'calls' => $row['answers'], 'cost_usd' => (string) BigDecimal::of($row['collection_cost_usd'])->toScale(2, RoundingMode::HalfUp), 'billed_to' => $row['billed_to']];
-                }
-            }
-        }
 
         return response()->json($result + ['calls' => $result['answers'], 'prompt_count' => $count, 'core_prompt_count' => $core]);
     }

@@ -216,7 +216,9 @@ it('reports an engine without a price as an issue and leaves it out of the sum',
     estimate($this, $owner, ['prompt_count' => 10, 'engines' => [['engine_key' => 'est_noprice', 'frequency' => 'daily']]])
         ->assertOk()
         ->assertJsonPath('engines', [])
-        ->assertJsonPath('issues.0.code', 'no_price');
+        ->assertJsonPath('issues.0.code', 'no_price')->assertJsonMissingPath('issues.0.market_id')
+        ->assertJsonPath('calls', 0)->assertJsonPath('total_cost_usd', '0.00')
+        ->assertJsonPath('markets.0.total_cost_usd', null);
 });
 
 it('validates the setup', function (array $data, string $field) {

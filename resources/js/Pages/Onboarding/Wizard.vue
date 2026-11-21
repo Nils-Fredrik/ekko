@@ -206,8 +206,13 @@ const estimatePayload = computed(() => ({
 }));
 const noActiveEngines = computed(() => !estimatePayload.value.engines.some((engine) => engine.frequency !== 'off'));
 const payloadKey = computed(() => JSON.stringify(estimatePayload.value));
+const proposedMarket = computed(() => estimate.value?.markets.find((market) => market.id === null));
+const estimateIssues = computed(() => (estimate.value?.issues ?? []).filter((issue) => issue.market_id == null));
 const estimateCurrent = computed(
-    () => !estimating.value && estimatedPayload.value === payloadKey.value && estimate.value?.total_cost_usd != null,
+    () =>
+        !estimating.value &&
+        estimatedPayload.value === payloadKey.value &&
+        proposedMarket.value?.total_cost_usd != null,
 );
 watch([payloadKey, step], () => {
     if (['engines', 'integrations'].includes(step.value) && !estimateCurrent.value) loadEstimate();
@@ -514,12 +519,12 @@ function confirm() {
                 <p v-if="noActiveEngines" role="status" class="text-sm">{{ $t('onboarding.ui.no_active_engines') }}</p>
                 <InputError :message="estimateError" />
                 <p v-if="estimating" class="text-sm">{{ $t('onboarding.ui.estimating') }}</p>
-                <p v-if="estimate?.total_cost_usd != null" class="text-sm">
-                    {{ $t('onboarding.ui.cost', { amount: estimate.total_cost_usd }) }}
+                <p v-if="proposedMarket?.total_cost_usd != null" class="text-sm">
+                    {{ $t('onboarding.ui.cost', { amount: proposedMarket.total_cost_usd }) }}
                 </p>
-                <ul v-if="estimate?.issues?.length" class="list-disc pl-5 text-sm">
+                <ul v-if="estimateIssues.length" class="list-disc pl-5 text-sm">
                     <li
-                        v-for="issue in estimate.issues"
+                        v-for="issue in estimateIssues"
                         :key="`${issue.market_id ?? ''}:${issue.engine_key ?? ''}:${issue.code}`"
                     >
                         {{ issue.message }}
@@ -616,8 +621,8 @@ function confirm() {
                     />
                     <InputError :message="form.errors.ga4_private_key" />
                 </label>
-                <p v-if="estimate?.total_cost_usd != null" class="text-sm">
-                    {{ $t('onboarding.ui.cost', { amount: estimate.total_cost_usd }) }}
+                <p v-if="proposedMarket?.total_cost_usd != null" class="text-sm">
+                    {{ $t('onboarding.ui.cost', { amount: proposedMarket.total_cost_usd }) }}
                 </p>
                 <p v-if="noActiveEngines" role="status" class="text-sm">{{ $t('onboarding.ui.no_active_engines') }}</p>
                 <InputError :message="estimateError" />

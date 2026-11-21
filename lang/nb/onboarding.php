@@ -101,7 +101,7 @@ return [
         'confirm' => 'Lagre og start første kjøring',
         'back' => 'Tilbake',
         'next' => 'Neste',
-        'cost' => ':amount USD',
+        'cost' => 'Anslått månedskostnad for dette markedet er :amount USD.',
         'estimate_unavailable' => 'Kostnadsestimatet kunne ikke hentes.',
     ],
 ];

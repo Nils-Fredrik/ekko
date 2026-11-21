@@ -100,7 +100,7 @@ return [
         'confirm' => 'Save and start the first run',
         'back' => 'Back',
         'next' => 'Next',
-        'cost' => ':amount USD',
+        'cost' => 'Estimated monthly cost for this market is :amount USD.',
         'estimate_unavailable' => 'The cost estimate could not be loaded.',
     ],
 ];

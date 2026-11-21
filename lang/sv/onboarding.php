@@ -101,7 +101,7 @@ return [
         'confirm' => 'Spara och starta första körningen',
         'back' => 'Tillbaka',
         'next' => 'Nästa',
-        'cost' => ':amount USD',
+        'cost' => 'Den beräknade månadskostnaden för den här marknaden är :amount USD.',
         'estimate_unavailable' => 'Kostnadsberäkningen kunde inte hämtas.',
     ],
 ];
