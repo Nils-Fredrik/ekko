@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\Metrics\MetricsWorld;
 
-test('brand settings save aliases domains and markets and ignore a retired engine payload', function () {
+test('brand settings save aliases domains and markets and reject a retired engine payload', function () {
     $world = MetricsWorld::create();
     $engine = MarketEngine::factory()->create([
         'market_id' => $world->market->id,
@@ -38,7 +38,6 @@ test('brand settings save aliases domains and markets and ignore a retired engin
         'aliases' => [['alias' => 'Fjord', 'match_mode' => 'exact_word']],
         'domains' => [['domain' => 'Shop.Fjordkaffe.example', 'include_subdomains' => true]],
         'markets' => [['id' => $world->market->id, 'location_label' => 'Oslo', 'is_active' => false]],
-        'engines' => [['id' => $engine->id, 'frequency' => 'weekly', 'prompt_scope' => 'core', 'repetitions' => 3]],
     ])->assertRedirect();
 
     $brand = $world->brand->fresh();
@@ -53,6 +52,14 @@ test('brand settings save aliases domains and markets and ignore a retired engin
         ->and($engine->fresh()->frequency)->toBe('monthly')
         ->and($engine->fresh()->prompt_scope)->toBe('all')
         ->and($engine->fresh()->repetitions)->toBe(1);
+
+    $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
+        'engines' => [['id' => $engine->id, 'frequency' => 'weekly', 'prompt_scope' => 'core', 'repetitions' => 3]],
+    ])->assertSessionHasErrors('engines');
+    expect($engine->fresh()->frequency)->toBe('monthly')
+        ->and($engine->fresh()->prompt_scope)->toBe('all')
+        ->and($engine->fresh()->repetitions)->toBe(1)
+        ->and($world->brand->fresh()->name)->toBe('Fjordkaffe AS');
 });
 
 test('a blank alert threshold uses the default', function () {

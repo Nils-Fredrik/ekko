@@ -100,6 +100,7 @@ class BrandSettingsController extends Controller
             'markets.*.id' => ['required', 'integer'],
             'markets.*.location_label' => ['nullable', 'string', 'max:255'],
             'markets.*.is_active' => ['required', 'boolean'],
+            'engines' => ['prohibited'],
             ...$this->integrations->rules(),
         ], [], [
             'name' => __('app.workspace.name'),
