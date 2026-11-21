@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<title>Prompts og temaer</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:'Suisse Intl';src:url(/_blob/1d5a3d16d2ab810dcb12c452971b6878) format('woff2');font-weight:300;font-display:swap}
+@font-face{font-family:'Suisse Intl';src:url(/_blob/a979a707982a6daf3b3a4e0d24242939) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Suisse Intl';src:url(/_blob/16c4048bd67e90c950628fbaf3af4412) format('woff2');font-weight:450;font-display:swap}
+@font-face{font-family:'Suisse Intl';src:url(/_blob/a1667c29807316cf8e7900eb72611b0f) format('woff2');font-weight:500;font-display:swap}
+body{margin:0;background:#000}
+a{color:#ffb6c3;text-decoration:none}a:hover{color:#ffffff}
+</style>
+</helmet>
+<div style="min-height: 1080px; display: flex; flex-wrap: wrap; background: #000000; color: #f5ede4; font-family: 'Suisse Intl', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.45;">
+
+<nav aria-label="Hovedmeny" style="flex: 1 1 248px; box-sizing: border-box; border-right: 1px solid #2e2624; padding: 16px 12px; display: flex; flex-direction: column; gap: 16px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 6px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 7px; background: #c73823; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 500; font-size: 13px;">e</span>
+      <span style="font-size: 15px; font-weight: 500; color: #ffffff; letter-spacing: -0.01em;">Ekko</span>
+    </div>
+    <button type="button" style="font: inherit; font-size: 12px; color: #c4b6a8; background: transparent; border: 1px solid #2e2624; border-radius: 999px; padding: 3px 10px; cursor: pointer;">Fjordbyrå AS ▾</button>
+  </div>
+  <button type="button" style="font: inherit; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 10px; border: 1px solid #4a3f3a; background: #0b0909; color: #c4b6a8; font-size: 13px; cursor: pointer;">
+    <span style="display: flex; align-items: center; gap: 8px;"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>Søk eller kjør handling</span>
+    <span style="font-size: 11px; border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px;">⌘K</span>
+  </button>
+  <div style="display: flex; flex-direction: column; gap: 2px;">
+    <sc-for list="{{nav.global}}" as="item" hint-placeholder-count="2">
+      <a href="{{item.href}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; font-size: 13.5px; background: {{item.bg}}; color: {{item.fg}}; font-weight: {{item.weight}};"><span>{{item.t}}</span><sc-if value="{{item.hasBadge}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: #c73823; color: #ffffff;">{{item.badge}}</span></sc-if></a>
+    </sc-for>
+  </div>
+  <div style="border: 1px solid #4a3f3a; border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 2px; background: #0b0909;">
+    <button type="button" style="font: inherit; display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: #ffffff; font-size: 13.5px; font-weight: 500; cursor: pointer; text-align: left;"><span><span style="display: block; font-size: 11px; color: #a8998c; font-weight: 400;">Merkevare</span>Fjordbyrå</span><span aria-hidden="true" style="color: #a8998c;">▾</span></button>
+    <div style="height: 1px; background: #2e2624; margin: 0 6px;"></div>
+    <button type="button" style="font: inherit; display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: #ffffff; font-size: 13.5px; cursor: pointer; text-align: left;"><span><span style="display: block; font-size: 11px; color: #a8998c;">Marked</span>{{market}}</span><span aria-hidden="true" style="color: #a8998c;">▾</span></button>
+  </div>
+  <sc-for list="{{nav.groups}}" as="group" hint-placeholder-count="3">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #a8998c; padding: 0 10px 4px; font-weight: 500;">{{group.label}}</div>
+      <sc-for list="{{group.items}}" as="item" hint-placeholder-count="4">
+        <a href="{{item.href}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; font-size: 13.5px; background: {{item.bg}}; color: {{item.fg}}; font-weight: {{item.weight}};"><span>{{item.t}}</span><sc-if value="{{item.hasBadge}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: #2e2624; color: #f5ede4;">{{item.badge}}</span></sc-if></a>
+      </sc-for>
+    </div>
+  </sc-for>
+  <div style="flex-grow: 1;"></div>
+  <div style="padding: 0 10px; display: flex; flex-direction: column; gap: 6px;">
+    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #c4b6a8;"><span>Forbruk november</span><span style="font-variant-numeric: tabular-nums;">28 %</span></div>
+    <div style="height: 4px; border-radius: 999px; background: #2e2624; overflow: hidden;"><div style="width: 28%; height: 4px; background: #e84a38;"></div></div>
+    <div style="font-size: 12px; color: #a8998c; font-variant-numeric: tabular-nums;">1 412 av 5 000 kall · 16,54 USD</div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px 0; border-top: 1px solid #2e2624;">
+    <span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 999px; background: #2e2624; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500;">KL</span>
+    <div style="display: flex; flex-direction: column;"><span style="font-size: 13px; color: #ffffff;">Kari Lunde</span><span style="font-size: 12px; color: #a8998c;">Tenant-admin</span></div>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 20px 24px 32px 32px; display: flex; flex-direction: column; gap: 16px;">
+  <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px;">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <span style="font-size: 12px; color: #a8998c;">Fjordbyrå · Oppsett · Norge</span>
+      <h1 style="margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -0.01em; color: #ffffff;">Prompts og temaer</h1>
+    </div>
+    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+      <span style="font-size: 12.5px; color: #c4b6a8; font-variant-numeric: tabular-nums; margin-right: 4px;">46 av 50 prompts i pakken</span>
+      <button type="button" style="font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Importer CSV</button>
+      <button type="button" style="font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Foreslå prompts</button>
+      <button type="button" style="font: inherit; font-size: 13px; font-weight: 500; padding: 7px 16px; border-radius: 999px; border: 0; background: #c73823; color: #ffffff; cursor: pointer;">Ny prompt</button>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;">
+
+    <aside aria-label="Temaer" style="flex: 1 1 200px; max-width: 100%; display: flex; flex-direction: column; gap: 2px;">
+      <sc-for list="{{topics}}" as="tp" hint-placeholder-count="7">
+        <button type="button" style="font: inherit; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border: 0; border-radius: 8px; background: {{tp.bg}}; color: {{tp.fg}}; font-size: 13px; cursor: pointer; text-align: left;">
+          <span style="display: flex; flex-direction: column;"><span>{{tp.name}}</span><span style="font-size: 11.5px; color: #a8998c;">{{tp.meta}}</span></span>
+          <span style="font-size: 12px; color: #c4b6a8; font-variant-numeric: tabular-nums;">{{tp.n}}</span>
+        </button>
+      </sc-for>
+      <button type="button" style="font: inherit; margin-top: 6px; padding: 7px 10px; border: 1px dashed #4a3f3a; border-radius: 8px; background: transparent; color: #c4b6a8; font-size: 13px; cursor: pointer; text-align: left;">+ Nytt tema</button>
+      <p style="margin: 8px 10px 0; font-size: 11.5px; color: #a8998c;">Dra et tema over et annet for å slå dem sammen.</p>
+    </aside>
+
+    <section aria-label="Prompts" style="flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+        <label style="display: flex; align-items: center; gap: 8px; flex: 1 1 220px; padding: 6px 10px; border: 1px solid #4a3f3a; border-radius: 10px; background: #0b0909; color: #a8998c; font-size: 13px;"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input type="search" placeholder="Søk i prompts" aria-label="Søk i prompts" style="font: inherit; border: 0; outline: none; background: transparent; color: #f5ede4; width: 100%;"></label>
+        <span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; border: 1px solid #2e2624; color: #c4b6a8;">Intensjon ▾</span>
+        <span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; border: 1px solid #2e2624; color: #c4b6a8;">Trakttrinn ▾</span>
+        <span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; background: #1a1412; border: 1px solid #4a3f3a;">Aktive</span>
+        <span style="font-size: 12.5px; padding: 4px 10px; border-radius: 999px; border: 1px solid #2e2624; color: #c4b6a8;">Kolonner ▾</span>
+      </div>
+
+      <div style="border: 1px solid #4a3f3a; border-radius: 14px; overflow-x: auto;">
+        <div role="table" aria-label="Prompts i Norge" style="min-width: 640px;">
+          <div role="row" style="display: grid; grid-template-columns: 40px minmax(0, 1fr) 150px 60px 132px; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #4a3f3a; font-size: 11.5px; color: #a8998c; font-weight: 500;">
+            <span role="columnheader"><input type="checkbox" aria-label="Velg alle" checked="{{allChecked}}" onChange="{{toggleAll}}" style="accent-color: #e84a38;"></span>
+            <span role="columnheader">Prompt</span>
+            <span role="columnheader">Tema</span>
+            <span role="columnheader">Kjerne</span>
+            <span role="columnheader" style="display: grid; grid-template-columns: repeat(4, 28px); gap: 4px;"><span>GPT</span><span>Gem</span><span>Hai</span><span>Son</span></span>
+          </div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="10">
+            <div role="row" style="display: grid; grid-template-columns: 40px minmax(0, 1fr) 150px 60px 132px; gap: 8px; align-items: center; padding: 9px 12px; border-bottom: 1px solid #2e2624; background: {{r.bg}};">
+              <span role="cell"><input type="checkbox" aria-label="Velg prompt" checked="{{r.checked}}" onChange="{{r.toggle}}" style="accent-color: #e84a38;"></span>
+              <span role="cell" style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <button type="button" onClick="{{r.open}}" style="font: inherit; padding: 0; border: 0; background: transparent; color: {{r.fg}}; font-size: 13.5px; text-align: left; cursor: pointer;">{{r.text}}</button>
+                <span style="font-size: 12px; color: #a8998c;">{{r.intent}} · {{r.funnel}}</span>
+              </span>
+              <span role="cell" style="font-size: 12.5px; color: #c4b6a8;">{{r.topic}}</span>
+              <span role="cell" style="font-size: 12px;"><sc-if value="{{r.core}}" hint-placeholder-val="{{false}}"><span style="padding: 2px 8px; border-radius: 999px; background: #301411; color: #ffb6c3;">Kjerne</span></sc-if></span>
+              <span role="cell" style="display: grid; grid-template-columns: repeat(4, 28px); gap: 4px;">
+                <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="4">
+                  <span role="img" aria-label="{{c.label}}" style="height: 22px; border-radius: 5px; background: {{c.bg}}; border: 1px solid #2e2624; display: flex; align-items: center; justify-content: center; font-size: 10px; color: {{c.fg}}; font-variant-numeric: tabular-nums;">{{c.txt}}</span>
+                </sc-for>
+              </span>
+            </div>
+          </sc-for>
+          <div style="padding: 9px 12px 9px 60px; font-size: 13px; color: #a8998c;">+ Ny prompt i Norge · Shopify-migrering <span style="font-size: 11px; border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px; margin-left: 6px;">N</span></div>
+        </div>
+      </div>
+
+      <sc-if value="{{hasSelection}}" hint-placeholder-val="{{true}}">
+        <div role="toolbar" aria-label="Handlinger for valgte prompts" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px 8px 16px; border-radius: 14px; background: #1a1412; border: 1px solid #4a3f3a;">
+          <span style="font-size: 13px; color: #ffffff; font-weight: 500; font-variant-numeric: tabular-nums; margin-right: 6px;">{{selCount}} valgt</span>
+          <button type="button" style="font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Flytt til tema ▾</button>
+          <button type="button" style="font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Sett som kjerne</button>
+          <button type="button" style="font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Endre intensjon ▾</button>
+          <button type="button" style="font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Deaktiver</button>
+          <button type="button" style="font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #bd6861; cursor: pointer;">Arkiver</button>
+          <span style="flex-grow: 1;"></span>
+          <button type="button" onClick="{{clearSel}}" aria-label="Fjern valget" style="font: inherit; font-size: 14px; padding: 4px 10px; border: 0; background: transparent; color: #a8998c; cursor: pointer;">×</button>
+        </div>
+      </sc-if>
+    </section>
+
+    <sc-if value="{{drawerOpen}}" hint-placeholder-val="{{true}}">
+      <aside aria-label="Detaljer for prompt" style="flex: 1 1 360px; max-width: 100%; box-sizing: border-box; border: 1px solid #4a3f3a; border-radius: 16px; background: #0b0909; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+          <span style="font-size: 12px; color: #a8998c;">Prompt · Norge</span>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="display: flex; align-items: center; gap: 4px; font-size: 12px; color: #5d8a6a;"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 12.5 4.5 4.5L19 7.5"></path></svg>Lagret</span>
+            <button type="button" onClick="{{closeDrawer}}" aria-label="Lukk" style="font: inherit; font-size: 16px; border: 0; background: transparent; color: #a8998c; cursor: pointer; padding: 0 4px;">×</button>
+          </div>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #a8998c;">Tekst
+          <textarea rows="3" value="{{cur.text}}" readOnly="{{true}}" style="font: inherit; font-size: 14px; color: #ffffff; background: #000000; border: 1px solid #4a3f3a; border-radius: 10px; padding: 8px 10px; resize: vertical;"></textarea>
+        </label>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #a8998c;">Tema<select style="font: inherit; font-size: 13px; color: #f5ede4; background: #000000; border: 1px solid #4a3f3a; border-radius: 10px; padding: 6px 8px;"><option>{{cur.topic}}</option></select></label>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #a8998c;">Intensjon<select style="font: inherit; font-size: 13px; color: #f5ede4; background: #000000; border: 1px solid #4a3f3a; border-radius: 10px; padding: 6px 8px;"><option>{{cur.intent}}</option></select></label>
+          <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #a8998c;">Trakttrinn<select style="font: inherit; font-size: 13px; color: #f5ede4; background: #000000; border: 1px solid #4a3f3a; border-radius: 10px; padding: 6px 8px;"><option>{{cur.funnel}}</option></select></label>
+          <div style="display: flex; flex-direction: column; gap: 8px; font-size: 13px; padding-top: 18px;">
+            <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" checked="{{cur.core}}" readOnly="{{true}}" style="accent-color: #e84a38;">Kjerneprompt</label>
+            <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" checked="{{cur.active}}" readOnly="{{true}}" style="accent-color: #e84a38;">Aktiv</label>
+          </div>
+        </div>
+        <div role="tablist" style="display: flex; gap: 4px; border-bottom: 1px solid #2e2624;">
+          <button type="button" role="tab" aria-selected="true" style="font: inherit; font-size: 13px; padding: 6px 10px; border: 0; border-bottom: 2px solid #e84a38; background: transparent; color: #ffffff; cursor: pointer;">Resultater</button>
+          <button type="button" role="tab" aria-selected="false" style="font: inherit; font-size: 13px; padding: 6px 10px; border: 0; background: transparent; color: #a8998c; cursor: pointer;">Siste svar</button>
+          <button type="button" role="tab" aria-selected="false" style="font: inherit; font-size: 13px; padding: 6px 10px; border: 0; background: transparent; color: #a8998c; cursor: pointer;">Historikk</button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          <sc-for list="{{cur.results}}" as="e" hint-placeholder-count="4">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px;">
+              <span style="flex: 0 0 104px; color: #ffffff;">{{e.name}}</span>
+              <span style="display: flex; gap: 3px;" role="img" aria-label="{{e.aria}}">
+                <sc-for list="{{e.days}}" as="d" hint-placeholder-count="7"><span style="width: 9px; height: 9px; border-radius: 999px; background: {{d.bg}}; border: 1px solid #4a3f3a;"></span></sc-for>
+              </span>
+              <span style="flex: 1 1 auto; text-align: right; color: #c4b6a8; font-variant-numeric: tabular-nums;">{{e.summary}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="border-top: 1px solid #2e2624; padding-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 12px; color: #a8998c;">Siste svar · ChatGPT · i natt 02:14</span>
+          <p style="margin: 0; font-size: 13px; line-height: 1.55; color: #f5ede4;">For en migrering fra Magento til Shopify nevnes <mark style="background: #551f19; color: #ffffff; padding: 0 3px; border-radius: 3px;">Fjordbyrå</mark> og <mark style="background: #2e2624; color: #ffffff; padding: 0 3px; border-radius: 3px;">Brygge Digital</mark> ofte. Begge har erfaring med store produktkataloger og integrasjon mot ERP …</p>
+          <a href="#" style="font-size: 12.5px;">Åpne promptsiden →</a>
+        </div>
+      </aside>
+    </sc-if>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { selected: { 2: true, 7: true, 8: true }, open: 1 };
+  }
+  nav(active) {
+    const mk = (key, t, href, badge) => ({
+      t: t, href: href, badge: badge || '', hasBadge: !!badge,
+      bg: key === active ? '#1a1412' : 'transparent',
+      fg: key === active ? '#ffffff' : '#c4b6a8',
+      weight: key === active ? '500' : '400'
+    });
+    return {
+      global: [mk('portfolio', 'Portefølje', '#'), mk('inbox', 'Innboks', 'Inbox.dc.html', '9')],
+      groups: [
+        { label: 'Analyse', items: [mk('main', 'Oversikt', 'Main.dc.html'), mk('a-prompts', 'Prompts', '#'), mk('a-comp', 'Konkurrenter', '#'), mk('sources', 'Kilder', '#'), mk('crawlers', 'Roboter og trafikk', '#')] },
+        { label: 'Arbeid', items: [mk('actions', 'Tiltak', '#', '3'), mk('facts', 'Faktasjekk', '#')] },
+        { label: 'Oppsett', items: [mk('prompts', 'Prompts og temaer', 'Prompts.dc.html'), mk('triage', 'Konkurrenter og merkevarer', 'Triage.dc.html', '23'), mk('plan', 'Markeder og måleplan', 'Plan.dc.html'), mk('identity', 'Identitet', '#'), mk('integrations', 'Integrasjoner', '#', '1'), mk('alerts', 'Varsler og rapporter', '#')] }
+      ]
+    };
+  }
+  data() {
+    return [
+      { id: 1, text: 'Hvilket byrå bør jeg velge for å flytte nettbutikken fra Magento til Shopify?', topic: 'Shopify-migrering', intent: 'Sammenligning', funnel: 'Beslutning', core: true, active: true, v: [71, 43, 29, 86] },
+      { id: 2, text: 'Hva koster det å bytte fra WooCommerce til Shopify?', topic: 'Shopify-migrering', intent: 'Problem', funnel: 'Vurdering', core: false, active: true, v: [29, 14, 0, null] },
+      { id: 3, text: 'Beste Shopify-byrå i Oslo', topic: 'Shopify-migrering', intent: 'Lokal', funnel: 'Beslutning', core: true, active: true, v: [57, 43, 43, 71] },
+      { id: 4, text: 'Hvilke norske byråer er gode på B2B-netthandel?', topic: 'B2B-netthandel', intent: 'Kategori', funnel: 'Vurdering', core: true, active: true, v: [43, 29, 14, 57] },
+      { id: 5, text: 'Hvordan integrerer jeg nettbutikken med Visma?', topic: 'Integrasjoner og ERP', intent: 'Problem', funnel: 'Bevissthet', core: false, active: true, v: [14, 0, 0, null] },
+      { id: 6, text: 'Fjordbyrå erfaringer', topic: 'Nettbutikk-byrå', intent: 'Merkevare', funnel: 'Beslutning', core: true, active: true, v: [100, 86, 71, 100] },
+      { id: 7, text: 'Anbefal et byrå for WooCommerce-utvikling', topic: 'WooCommerce', intent: 'Kategori', funnel: 'Vurdering', core: false, active: true, v: [43, 57, 29, null] },
+      { id: 8, text: 'Hva er forskjellen på Shopify Plus og Adobe Commerce for B2B?', topic: 'B2B-netthandel', intent: 'Sammenligning', funnel: 'Vurdering', core: false, active: true, v: [14, 29, 0, null] },
+      { id: 9, text: 'Hvilket byrå lager de beste nettbutikkene i Norge?', topic: 'Nettbutikk-byrå', intent: 'Kategori', funnel: 'Bevissthet', core: true, active: true, v: [57, 43, 29, 71] },
+      { id: 10, text: 'Trenger jeg et byrå for å lage nettbutikk?', topic: 'Uten tema', intent: 'Problem', funnel: 'Bevissthet', core: false, active: false, v: [null, null, null, null] }
+    ];
+  }
+  renderVals() {
+    const SEQ = ['#0b0909', '#301411', '#551f19', '#7a2a20', '#9e3428', '#c33f30', '#e84a38'];
+    const ENG = ['ChatGPT', 'Gemini', 'Claude Haiku', 'Claude Sonnet'];
+    const sel = this.state.selected;
+    const rows = this.data();
+    const toCells = (v) => v.map((x, i) => x === null
+      ? { label: ENG[i] + ': ikke målt', bg: '#000000', fg: '#a8998c', txt: '–' }
+      : { label: ENG[i] + ': nevnt i ' + x + ' % av svarene', bg: SEQ[Math.round(x / 100 * 6)], fg: x >= 50 ? '#ffffff' : '#c4b6a8', txt: String(x) });
+    const outRows = rows.map((r) => ({
+      text: r.text, topic: r.topic, intent: r.intent, funnel: r.funnel, core: r.core,
+      checked: !!sel[r.id],
+      bg: this.state.open === r.id ? '#1a1412' : (sel[r.id] ? '#120d0c' : 'transparent'),
+      fg: r.active ? '#ffffff' : '#a8998c',
+      cells: toCells(r.v),
+      toggle: () => { const s = Object.assign({}, this.state.selected); if (s[r.id]) { delete s[r.id]; } else { s[r.id] = true; } this.setState({ selected: s }); },
+      open: () => this.setState({ open: r.id })
+    }));
+    const count = Object.keys(sel).length;
+    const cur = rows.find((r) => r.id === this.state.open) || rows[0];
+    const results = cur.v.map((x, i) => {
+      if (x === null) {
+        return { name: ENG[i], aria: 'Ikke målt', days: [0, 0, 0, 0, 0, 0, 0].map(() => ({ bg: 'transparent' })), summary: 'Ikke målt (bare kjerne)' };
+      }
+      const hit = Math.round(x / 100 * 7);
+      return { name: ENG[i], aria: 'Nevnt ' + hit + ' av 7 dager', days: [0, 1, 2, 3, 4, 5, 6].map((d) => ({ bg: d >= 7 - hit ? '#e84a38' : 'transparent' })), summary: 'nevnt ' + hit + ' av 7 dager' };
+    });
+    return {
+      nav: this.nav('prompts'),
+      market: 'Norge',
+      topics: [
+        { name: 'Alle temaer', meta: 'Norge', n: '46', bg: '#1a1412', fg: '#ffffff' },
+        { name: 'Shopify-migrering', meta: 'Norge · Sverige · 52 %', n: '9', bg: 'transparent', fg: '#f5ede4' },
+        { name: 'Nettbutikk-byrå', meta: 'Norge · Sverige · 61 %', n: '12', bg: 'transparent', fg: '#f5ede4' },
+        { name: 'WooCommerce', meta: 'Norge · 38 %', n: '8', bg: 'transparent', fg: '#f5ede4' },
+        { name: 'B2B-netthandel', meta: 'Norge · Sverige · 29 %', n: '7', bg: 'transparent', fg: '#f5ede4' },
+        { name: 'Integrasjoner og ERP', meta: 'Norge · 9 %', n: '6', bg: 'transparent', fg: '#f5ede4' },
+        { name: 'Uten tema', meta: 'Bør få tema', n: '4', bg: 'transparent', fg: '#c4b6a8' }
+      ],
+      rows: outRows,
+      allChecked: count === rows.length,
+      toggleAll: () => { if (count === rows.length) { this.setState({ selected: {} }); } else { const s = {}; rows.forEach((r) => { s[r.id] = true; }); this.setState({ selected: s }); } },
+      hasSelection: count > 0,
+      selCount: String(count),
+      clearSel: () => this.setState({ selected: {} }),
+      drawerOpen: this.state.open !== null,
+      closeDrawer: () => this.setState({ open: null }),
+      cur: { text: cur.text, topic: cur.topic, intent: cur.intent, funnel: cur.funnel, core: cur.core, active: cur.active, results: results }
+    };
+  }
+}
+</script>
+</body>
+</html>

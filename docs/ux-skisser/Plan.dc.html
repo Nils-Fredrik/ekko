@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<title>Markeder og måleplan</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:'Suisse Intl';src:url(/_blob/1d5a3d16d2ab810dcb12c452971b6878) format('woff2');font-weight:300;font-display:swap}
+@font-face{font-family:'Suisse Intl';src:url(/_blob/a979a707982a6daf3b3a4e0d24242939) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Suisse Intl';src:url(/_blob/16c4048bd67e90c950628fbaf3af4412) format('woff2');font-weight:450;font-display:swap}
+@font-face{font-family:'Suisse Intl';src:url(/_blob/a1667c29807316cf8e7900eb72611b0f) format('woff2');font-weight:500;font-display:swap}
+body{margin:0;background:#000}
+a{color:#ffb6c3;text-decoration:none}a:hover{color:#ffffff}
+</style>
+</helmet>
+<div style="min-height: 1080px; display: flex; flex-wrap: wrap; background: #000000; color: #f5ede4; font-family: 'Suisse Intl', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.45;">
+
+<nav aria-label="Hovedmeny" style="flex: 1 1 248px; box-sizing: border-box; border-right: 1px solid #2e2624; padding: 16px 12px; display: flex; flex-direction: column; gap: 16px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 6px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 7px; background: #c73823; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 500; font-size: 13px;">e</span>
+      <span style="font-size: 15px; font-weight: 500; color: #ffffff; letter-spacing: -0.01em;">Ekko</span>
+    </div>
+    <button type="button" style="font: inherit; font-size: 12px; color: #c4b6a8; background: transparent; border: 1px solid #2e2624; border-radius: 999px; padding: 3px 10px; cursor: pointer;">Fjordbyrå AS ▾</button>
+  </div>
+  <button type="button" style="font: inherit; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 10px; border: 1px solid #4a3f3a; background: #0b0909; color: #c4b6a8; font-size: 13px; cursor: pointer;">
+    <span style="display: flex; align-items: center; gap: 8px;"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>Søk eller kjør handling</span>
+    <span style="font-size: 11px; border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px;">⌘K</span>
+  </button>
+  <div style="display: flex; flex-direction: column; gap: 2px;">
+    <sc-for list="{{nav.global}}" as="item" hint-placeholder-count="2">
+      <a href="{{item.href}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; font-size: 13.5px; background: {{item.bg}}; color: {{item.fg}}; font-weight: {{item.weight}};"><span>{{item.t}}</span><sc-if value="{{item.hasBadge}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: #c73823; color: #ffffff;">{{item.badge}}</span></sc-if></a>
+    </sc-for>
+  </div>
+  <div style="border: 1px solid #4a3f3a; border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 2px; background: #0b0909;">
+    <button type="button" style="font: inherit; display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: #ffffff; font-size: 13.5px; font-weight: 500; cursor: pointer; text-align: left;"><span><span style="display: block; font-size: 11px; color: #a8998c; font-weight: 400;">Merkevare</span>Fjordbyrå</span><span aria-hidden="true" style="color: #a8998c;">▾</span></button>
+    <div style="height: 1px; background: #2e2624; margin: 0 6px;"></div>
+    <button type="button" style="font: inherit; display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: #ffffff; font-size: 13.5px; cursor: pointer; text-align: left;"><span><span style="display: block; font-size: 11px; color: #a8998c;">Marked</span>{{market}}</span><span aria-hidden="true" style="color: #a8998c;">▾</span></button>
+  </div>
+  <sc-for list="{{nav.groups}}" as="group" hint-placeholder-count="3">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #a8998c; padding: 0 10px 4px; font-weight: 500;">{{group.label}}</div>
+      <sc-for list="{{group.items}}" as="item" hint-placeholder-count="4">
+        <a href="{{item.href}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; font-size: 13.5px; background: {{item.bg}}; color: {{item.fg}}; font-weight: {{item.weight}};"><span>{{item.t}}</span><sc-if value="{{item.hasBadge}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: #2e2624; color: #f5ede4;">{{item.badge}}</span></sc-if></a>
+      </sc-for>
+    </div>
+  </sc-for>
+  <div style="flex-grow: 1;"></div>
+  <div style="padding: 0 10px; display: flex; flex-direction: column; gap: 6px;">
+    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #c4b6a8;"><span>Forbruk november</span><span style="font-variant-numeric: tabular-nums;">28 %</span></div>
+    <div style="height: 4px; border-radius: 999px; background: #2e2624; overflow: hidden;"><div style="width: 28%; height: 4px; background: #e84a38;"></div></div>
+    <div style="font-size: 12px; color: #a8998c; font-variant-numeric: tabular-nums;">1 412 av 5 000 kall · 16,54 USD</div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px 0; border-top: 1px solid #2e2624;">
+    <span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 999px; background: #2e2624; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500;">KL</span>
+    <div style="display: flex; flex-direction: column;"><span style="font-size: 13px; color: #ffffff;">Kari Lunde</span><span style="font-size: 12px; color: #a8998c;">Tenant-admin</span></div>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 20px 32px 0; display: flex; flex-direction: column; gap: 18px;">
+  <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px;">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <span style="font-size: 12px; color: #a8998c;">Fjordbyrå · Oppsett</span>
+      <h1 style="margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -0.01em; color: #ffffff;">Markeder og måleplan</h1>
+    </div>
+    <button type="button" style="font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Nytt marked</button>
+  </div>
+
+  <section aria-label="Markeder" style="border: 1px solid #4a3f3a; border-radius: 14px; overflow-x: auto;">
+    <div role="table" style="min-width: 680px;">
+      <div role="row" style="display: grid; grid-template-columns: minmax(0, 1.4fr) 90px 110px minmax(0, 1fr) 150px; gap: 10px; padding: 8px 14px; border-bottom: 1px solid #4a3f3a; font-size: 11.5px; color: #a8998c; font-weight: 500;">
+        <span role="columnheader">Marked</span><span role="columnheader">Status</span><span role="columnheader">Prompts</span><span role="columnheader">Plan</span><span role="columnheader">Neste måling</span>
+      </div>
+      <sc-for list="{{markets}}" as="m" hint-placeholder-count="3">
+        <div role="row" style="display: grid; grid-template-columns: minmax(0, 1.4fr) 90px 110px minmax(0, 1fr) 150px; gap: 10px; align-items: center; padding: 10px 14px; border-bottom: 1px solid #2e2624; font-size: 13px;">
+          <span role="cell" style="display: flex; flex-direction: column;"><span style="color: #ffffff;">{{m.name}}</span><span style="font-size: 12px; color: #a8998c;">{{m.meta}}</span></span>
+          <span role="cell" style="color: {{m.statusColor}};">{{m.status}}</span>
+          <span role="cell" style="font-variant-numeric: tabular-nums; color: #c4b6a8;">{{m.prompts}}</span>
+          <span role="cell" style="color: #c4b6a8;">{{m.plan}}</span>
+          <span role="cell" style="color: #c4b6a8;">{{m.next}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </section>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;">
+    <section aria-label="Måleplan" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap;">
+        <h2 style="margin: 0; font-size: 15px; font-weight: 500; color: #ffffff;">Måleplan</h2>
+        <span style="font-size: 12px; color: #a8998c;">Klikk en celle for å endre intervall, utvalg og gjentakelser</span>
+      </div>
+      <div style="border: 1px solid #4a3f3a; border-radius: 14px; overflow-x: auto;">
+        <div role="table" aria-label="Motorer per marked" style="min-width: 760px;">
+          <div role="row" style="display: grid; grid-template-columns: 160px repeat(3, minmax(0, 1fr)); border-bottom: 1px solid #4a3f3a;">
+            <span role="columnheader" style="padding: 12px 14px; font-size: 11.5px; color: #a8998c; font-weight: 500;">Motor</span>
+            <span role="columnheader" style="padding: 10px 14px; border-left: 1px solid #2e2624; display: flex; flex-direction: column; gap: 2px;"><span style="font-size: 13px; color: #ffffff; font-weight: 500;">Merkevarens standard</span><span style="font-size: 12px; color: #a8998c;">Nye markeder arver denne</span></span>
+            <span role="columnheader" style="padding: 10px 14px; border-left: 1px solid #2e2624; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 13px; color: #ffffff; font-weight: 500;">Norge</span>
+              <span role="group" aria-label="Plan for Norge" style="display: inline-flex; align-self: flex-start; border: 1px solid #4a3f3a; border-radius: 999px; padding: 2px;">
+                <button type="button" onClick="{{setInherit}}" aria-pressed="{{noInherit}}" style="font: inherit; font-size: 12px; padding: 2px 10px; border: 0; border-radius: 999px; background: {{inhBg}}; color: {{inhFg}}; cursor: pointer;">Arver</button>
+                <button type="button" onClick="{{setOwn}}" aria-pressed="{{noOwn}}" style="font: inherit; font-size: 12px; padding: 2px 10px; border: 0; border-radius: 999px; background: {{ownBg}}; color: {{ownFg}}; cursor: pointer;">Egne valg</button>
+              </span>
+            </span>
+            <span role="columnheader" style="padding: 10px 14px; border-left: 1px solid #2e2624; display: flex; flex-direction: column; gap: 6px;">
+              <span style="font-size: 13px; color: #ffffff; font-weight: 500;">Sverige</span>
+              <span role="group" aria-label="Plan for Sverige" style="display: inline-flex; align-self: flex-start; border: 1px solid #4a3f3a; border-radius: 999px; padding: 2px;">
+                <button type="button" aria-pressed="false" style="font: inherit; font-size: 12px; padding: 2px 10px; border: 0; border-radius: 999px; background: transparent; color: #c4b6a8; cursor: pointer;">Arver</button>
+                <button type="button" aria-pressed="true" style="font: inherit; font-size: 12px; padding: 2px 10px; border: 0; border-radius: 999px; background: #2e2624; color: #ffffff; cursor: pointer;">Egne valg</button>
+              </span>
+            </span>
+          </div>
+          <sc-for list="{{matrix}}" as="row" hint-placeholder-count="6">
+            <div role="row" style="display: grid; grid-template-columns: 160px repeat(3, minmax(0, 1fr)); border-bottom: 1px solid #2e2624;">
+              <span role="rowheader" style="padding: 12px 14px; display: flex; flex-direction: column;"><span style="font-size: 13px; color: #ffffff;">{{row.engine}}</span><span style="font-size: 11.5px; color: #a8998c;">{{row.note}}</span></span>
+              <sc-for list="{{row.cells}}" as="c" hint-placeholder-count="3">
+                <button type="button" style="font: inherit; text-align: left; padding: 10px 14px; border: 0; border-left: 1px solid #2e2624; background: {{c.bg}}; color: {{c.fg}}; cursor: pointer; display: flex; flex-direction: column; gap: 2px; outline: {{c.outline}}; outline-offset: -2px;">
+                  <span style="font-size: 13px;">{{c.main}}</span>
+                  <span style="font-size: 12px; color: {{c.subColor}};">{{c.sub}}</span>
+                  <span style="font-size: 11.5px; color: #a8998c; font-variant-numeric: tabular-nums;">{{c.est}}</span>
+                </button>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 12px; color: #a8998c;">Et kjernespørsmål bruker kjerneregelen når den finnes, ellers regelen for alle. Svar per måned er rundet opp per regel og marked (7.6).</p>
+    </section>
+
+    <aside aria-label="Rediger regel" style="flex: 1 1 300px; max-width: 100%; box-sizing: border-box; border: 1px solid #4a3f3a; border-radius: 16px; background: #0b0909; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 12px; color: #a8998c;">Redigerer</span>
+        <h2 style="margin: 0; font-size: 17px; font-weight: 500; color: #ffffff;">ChatGPT · Sverige</h2>
+      </div>
+      <fieldset style="border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px;">
+        <legend style="font-size: 12px; color: #a8998c; padding: 0 0 6px;">Alle spørsmål · intervall</legend>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+          <sc-for list="{{freqs}}" as="q" hint-placeholder-count="6">
+            <button type="button" aria-pressed="{{q.on}}" disabled="{{q.locked}}" style="font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid {{q.border}}; background: {{q.bg}}; color: {{q.fg}}; cursor: pointer;">{{q.t}}</button>
+          </sc-for>
+        </div>
+        <span style="font-size: 11.5px; color: #a8998c;">Daglig er sperret av pakken (tak: ukentlig).</span>
+      </fieldset>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #a8998c;">Utvalg<select style="font: inherit; font-size: 13px; color: #f5ede4; background: #000000; border: 1px solid #4a3f3a; border-radius: 10px; padding: 6px 8px;"><option>Alle spørsmål</option><option>Bare kjerne</option></select></label>
+        <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #a8998c;">Gjentakelser<select style="font: inherit; font-size: 13px; color: #f5ede4; background: #000000; border: 1px solid #4a3f3a; border-radius: 10px; padding: 6px 8px;"><option>1</option><option>2</option><option>3</option></select></label>
+      </div>
+      <div style="border-top: 1px solid #2e2624; padding-top: 12px; display: flex; flex-direction: column; gap: 6px;">
+        <span style="font-size: 12px; color: #a8998c;">Kjerneregel</span>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 13px;"><span style="color: #ffffff;">Ukentlig · 2× · 10 kjernespørsmål</span><button type="button" style="font: inherit; font-size: 12.5px; padding: 0; border: 0; background: transparent; color: #ffb6c3; cursor: pointer;">Fjern</button></div>
+      </div>
+      <div style="border-top: 1px solid #2e2624; padding-top: 12px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: #c4b6a8;">
+        <span>Denne motoren i Sverige: <strong style="font-weight: 500; color: #ffffff;">148 svar per måned</strong></span>
+        <span>Neste måling: tor. 26. nov. · «Vilken byrå ska jag välja för att flytta webbutiken till Shopify?»</span>
+      </div>
+    </aside>
+  </div>
+
+  <div style="flex-grow: 1;"></div>
+
+  <div role="region" aria-label="Estimat og lagring" style="position: sticky; bottom: 0; margin: 0 -32px; padding: 12px 32px; border-top: 1px solid #4a3f3a; background: #0b0909; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px;">
+    <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ffffff;"><span aria-hidden="true" style="width: 8px; height: 8px; border-radius: 999px; background: #c97b3e;"></span>{{changes}}</span>
+    <span style="display: flex; flex-direction: column;"><span style="font-size: 11.5px; color: #a8998c;">Svar per måned</span><span style="font-size: 15px; color: #ffffff; font-variant-numeric: tabular-nums;">{{answers}} <span style="font-size: 12px; color: #5d8a6a;">{{answersDelta}}</span></span></span>
+    <span style="display: flex; flex-direction: column;"><span style="font-size: 11.5px; color: #a8998c;">Kvotebelastende kall</span><span style="font-size: 15px; color: #ffffff; font-variant-numeric: tabular-nums;">{{calls}}</span></span>
+    <span style="display: flex; flex-direction: column;"><span style="font-size: 11.5px; color: #a8998c;">Kostnad per måned</span><span style="font-size: 15px; color: #ffffff; font-variant-numeric: tabular-nums;">{{cost}}</span></span>
+    <span style="display: flex; flex-direction: column;"><span style="font-size: 11.5px; color: #a8998c;">Igjen av kvoten i november</span><span style="font-size: 15px; color: #ffffff; font-variant-numeric: tabular-nums;">3 588 av 5 000</span></span>
+    <span style="font-size: 12.5px; color: #5d8a6a;">Innenfor kvote og budsjett</span>
+    <span style="flex-grow: 1;"></span>
+    <button type="button" onClick="{{discard}}" style="font: inherit; font-size: 13px; padding: 7px 14px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Forkast</button>
+    <button type="button" style="font: inherit; font-size: 13px; font-weight: 500; padding: 7px 18px; border-radius: 999px; border: 0; background: #c73823; color: #ffffff; cursor: pointer;">Lagre plan</button>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { inherit: true };
+  }
+  nav(active) {
+    const mk = (key, t, href, badge) => ({
+      t: t, href: href, badge: badge || '', hasBadge: !!badge,
+      bg: key === active ? '#1a1412' : 'transparent',
+      fg: key === active ? '#ffffff' : '#c4b6a8',
+      weight: key === active ? '500' : '400'
+    });
+    return {
+      global: [mk('portfolio', 'Portefølje', '#'), mk('inbox', 'Innboks', 'Inbox.dc.html', '9')],
+      groups: [
+        { label: 'Analyse', items: [mk('main', 'Oversikt', 'Main.dc.html'), mk('a-prompts', 'Prompts', '#'), mk('a-comp', 'Konkurrenter', '#'), mk('sources', 'Kilder', '#'), mk('crawlers', 'Roboter og trafikk', '#')] },
+        { label: 'Arbeid', items: [mk('actions', 'Tiltak', '#', '3'), mk('facts', 'Faktasjekk', '#')] },
+        { label: 'Oppsett', items: [mk('prompts', 'Prompts og temaer', 'Prompts.dc.html'), mk('triage', 'Konkurrenter og merkevarer', 'Triage.dc.html', '23'), mk('plan', 'Markeder og måleplan', 'Plan.dc.html'), mk('identity', 'Identitet', '#'), mk('integrations', 'Integrasjoner', '#', '1'), mk('alerts', 'Varsler og rapporter', '#')] }
+      ]
+    };
+  }
+  renderVals() {
+    const inh = this.state.inherit;
+    const std = (main, sub) => ({ main: main, sub: sub, est: '', bg: 'transparent', fg: '#ffffff', subColor: '#c4b6a8', outline: 'none' });
+    const no = (main, sub, est) => inh
+      ? { main: main, sub: sub, est: est + ' · arvet', bg: '#050404', fg: '#a8998c', subColor: '#a8998c', outline: 'none' }
+      : { main: main, sub: sub, est: est, bg: 'transparent', fg: '#ffffff', subColor: '#c4b6a8', outline: 'none' };
+    const se = (main, sub, est, active, changed) => ({ main: main, sub: sub, est: est + (changed ? ' · endret' : ''), bg: active ? '#1a1412' : 'transparent', fg: '#ffffff', subColor: '#c4b6a8', outline: active ? '2px solid #e84a38' : 'none' });
+    const locked = { main: 'Ikke i pakken', sub: '', est: '', bg: '#050404', fg: '#a8998c', subColor: '#a8998c', outline: 'none' };
+    const off = (sub) => ({ main: 'Av', sub: sub || '', est: '', bg: 'transparent', fg: '#a8998c', subColor: '#a8998c', outline: 'none' });
+    return {
+      nav: this.nav('plan'),
+      market: 'Alle markeder',
+      markets: [
+        { name: 'Norge', meta: 'Norsk bokmål · Oslo', status: 'Aktiv', statusColor: '#5d8a6a', prompts: '46 · 12 kjerne', plan: inh ? 'Arver merkevarens plan' : 'Egne valg (ikke lagret)', next: 'tir. 24. nov.' },
+        { name: 'Sverige', meta: 'Svensk · Stockholm', status: 'Aktiv', statusColor: '#5d8a6a', prompts: '38 · 10 kjerne', plan: 'Egne valg', next: 'tor. 26. nov.' },
+        { name: 'Danmark', meta: 'Dansk · København', status: 'Inaktiv', statusColor: '#a8998c', prompts: '0', plan: 'Arver merkevarens plan', next: '–' }
+      ],
+      matrix: [
+        { engine: 'ChatGPT', note: 'chatgpt_api', cells: [std('Ukentlig · alle', '1 gjentakelse'), no('Ukentlig · alle', '1 gjentakelse', '201 svar/mnd'), se('Hver 14. dag · alle', '+ kjerne ukentlig 2×', '148 svar/mnd', true, true)] },
+        { engine: 'Gemini', note: 'gemini_api', cells: [std('Ukentlig · alle', '1 gjentakelse'), no('Ukentlig · alle', '1 gjentakelse', '201 svar/mnd'), se('Hver 14. dag · alle', '1 gjentakelse', '83 svar/mnd', false, false)] },
+        { engine: 'Claude Haiku', note: 'claude_haiku', cells: [std('Ukentlig · alle', '1 gjentakelse'), no('Ukentlig · alle', '1 gjentakelse', '201 svar/mnd'), off('Slått av i Sverige')] },
+        { engine: 'Claude Sonnet', note: 'claude_sonnet', cells: [std('Ukentlig · kjerne', '1 gjentakelse'), no('Ukentlig · kjerne', '1 gjentakelse', '53 svar/mnd'), se('Ukentlig · kjerne', '1 gjentakelse', '44 svar/mnd', false, false)] },
+        { engine: 'Perplexity', note: 'Krever større pakke', cells: [locked, locked, locked] },
+        { engine: 'Google AI Overviews', note: 'google_aio', cells: [off(''), off(''), off('')] }
+      ],
+      freqs: [
+        { t: 'Daglig', on: 'false', locked: true, border: '#2e2624', bg: 'transparent', fg: '#6b5d55' },
+        { t: 'Ukentlig', on: 'false', locked: false, border: '#4a3f3a', bg: 'transparent', fg: '#f5ede4' },
+        { t: 'Hver 14. dag', on: 'true', locked: false, border: '#e84a38', bg: '#301411', fg: '#ffffff' },
+        { t: 'Hver 3. uke', on: 'false', locked: false, border: '#4a3f3a', bg: 'transparent', fg: '#f5ede4' },
+        { t: 'Månedlig', on: 'false', locked: false, border: '#4a3f3a', bg: 'transparent', fg: '#f5ede4' },
+        { t: 'Av', on: 'false', locked: false, border: '#4a3f3a', bg: 'transparent', fg: '#f5ede4' }
+      ],
+      inhBg: inh ? '#2e2624' : 'transparent', inhFg: inh ? '#ffffff' : '#c4b6a8',
+      ownBg: inh ? 'transparent' : '#2e2624', ownFg: inh ? '#c4b6a8' : '#ffffff',
+      noInherit: inh ? 'true' : 'false', noOwn: inh ? 'false' : 'true',
+      setInherit: () => this.setState({ inherit: true }),
+      setOwn: () => this.setState({ inherit: false }),
+      discard: () => this.setState({ inherit: true }),
+      changes: inh ? '2 endringer ikke lagret' : '3 endringer ikke lagret',
+      answers: '931',
+      answersDelta: '−87 mot lagret plan',
+      calls: '≈ 1 862',
+      cost: '22,40 USD'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -273,3 +273,16 @@ Alle aktive sider har skjermbilder og axe-kontroll i lys/mørk modus og desktop/
 Detaljer, grenser og kommandoer står i [UI-kvalitet](ui-quality.md). Kritiske axe-funn er den automatiske minimumssperren; WCAG 2.2 AA og manuell tastatur-/skjermleserkontroll er fortsatt mål for produktet. HTTP- og LCP-målene må måles separat på representative data, enheter og nettverk.
 
 **Tilgjengelighet (U01-F1):** U15s 544 serious-funn (kontrast, lenke i tekst, treffflate og robotsidens rullefelt) er borte. CI 44783234593 skannet 168 sidevarianter uten axe-funn. Hvit tekst på primær bruker `--color-primary-deep`, lys primærtekst bruker samme token, og suksess- og feiltekst i mørkt tema bruker `--color-success-text` og `--color-error-text`. Robotsidens tabeller kan fokuseres og rulles med tastatur. Full manuell WCAG 2.2 AA er fortsatt ikke sertifisert.
+
+## U16–U27 – Arbeidsflaten
+
+Neste del av UI-arbeidet gjelder vedlikehold og arbeidsflyt:
+
+- sidemeny med valg av merkevare og marked
+- felles datatabell, detaljpanel og automatisk lagring
+- prompts og temaer
+- behandling av ukjente merkevarer
+- måleplan som matrise
+- innboks
+
+Spesifikasjon, agentfordeling og rekkefølge står i [Arbeidsflaten](ux-arbeidsflate.md). Skissene ligger i `docs/ux-skisser/`.
