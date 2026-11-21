@@ -5,7 +5,7 @@ import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { usePlanEstimate } from '@/Composables/usePlanEstimate';
-import { clonePlan, estimateCanConfirm } from '@/measurementPlan';
+import { estimateCanConfirm, normalizePlan } from '@/measurementPlan';
 import { useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
@@ -36,7 +36,16 @@ const basisFields = computed(() =>
 );
 const draft = ref(emptyDraft());
 const planMode = ref('inherit');
-const rules = ref(clonePlan(props.measurementPlan.standard ?? []));
+
+function presentedPlan(rules) {
+    return normalizePlan(
+        rules ?? [],
+        props.measurementPlan.options.engines,
+        props.measurementPlan.options.max_repetitions,
+    );
+}
+
+const rules = ref(presentedPlan(props.measurementPlan.standard));
 
 const form = useForm({
     name: '',
@@ -217,7 +226,7 @@ const estimateReady = computed(() => fresh.value && estimateCanConfirm(estimate.
 const estimateSteps = ['engines', 'integrations'];
 watch(planMode, (mode, previous) => {
     if (props.brand && mode === 'own' && previous !== 'own') {
-        rules.value = clonePlan(props.measurementPlan.standard ?? []);
+        rules.value = presentedPlan(props.measurementPlan.standard);
     }
 });
 watch(estimateRequest, () => {

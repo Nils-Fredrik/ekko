@@ -11,22 +11,22 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:modelValue']);
-const rows = ref(rulesToRows(props.modelValue, props.catalog));
+const rows = ref(rulesToRows(props.modelValue, props.catalog, props.maxRepetitions));
 const field =
     'w-full rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text disabled:opacity-50';
 
 watch(
     () => JSON.stringify(props.modelValue),
     () => {
-        if (JSON.stringify(rowsToRules(rows.value)) === JSON.stringify(props.modelValue)) {
+        if (JSON.stringify(rowsToRules(rows.value, props.maxRepetitions)) === JSON.stringify(props.modelValue)) {
             return;
         }
-        rows.value = rulesToRows(props.modelValue, props.catalog);
+        rows.value = rulesToRows(props.modelValue, props.catalog, props.maxRepetitions);
     },
 );
 
 function commit() {
-    const next = rowsToRules(rows.value);
+    const next = rowsToRules(rows.value, props.maxRepetitions);
     if (JSON.stringify(next) === JSON.stringify(props.modelValue)) {
         return;
     }

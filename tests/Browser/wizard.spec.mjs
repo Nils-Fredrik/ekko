@@ -158,6 +158,9 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await expect(page.getByRole('group', { name: 'NO / nb' }).getByText('Inherits the brand plan')).toBeVisible();
     await expect(page.getByRole('group', { name: 'SE / sv' }).getByText('Inherits the brand plan')).toBeVisible();
     const standardInterval = page.getByRole('combobox', { name: 'Interval for ChatGPT', exact: true }).first();
+    await expect(page.getByRole('combobox', { name: 'Interval for ChatGPT API', exact: true }).first()).toHaveValue(
+        'off',
+    );
     await expect(standardInterval.locator('option')).toHaveText([
         'Off',
         'Monthly',
@@ -231,6 +234,14 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await expect(
         page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Own choices' }),
     ).toBeChecked();
+    await expect(
+        page
+            .getByRole('group', { name: 'SE / sv' })
+            .getByRole('combobox', { name: 'Interval for ChatGPT', exact: true })
+            .first(),
+    ).toHaveValue('monthly');
+    await page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Use the brand plan' }).check();
+    await page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Own choices' }).check();
     await expect(
         page
             .getByRole('group', { name: 'SE / sv' })

@@ -3,7 +3,7 @@ import PlanPreview from '@/Components/Brand/PlanPreview.vue';
 import PlanRules from '@/Components/Brand/PlanRules.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { usePlanEstimate } from '@/Composables/usePlanEstimate';
-import { clonePlan, estimateCanConfirm, rulesLackPrice } from '@/measurementPlan';
+import { estimateCanConfirm, normalizePlan, rulesLackPrice } from '@/measurementPlan';
 import { router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -13,7 +13,9 @@ const props = defineProps({
     canManage: { type: Boolean, required: true },
 });
 
-const standardRules = ref(clonePlan(props.plan.standard));
+const standardRules = ref(
+    normalizePlan(props.plan.standard, props.plan.options.engines, props.plan.options.max_repetitions),
+);
 const markets = ref(
     props.plan.markets.map((market) => ({
         id: market.id,
@@ -22,7 +24,7 @@ const markets = ref(
         location_label: market.location_label,
         is_active: market.is_active,
         plan_mode: market.plan_mode,
-        rules: clonePlan(market.engines),
+        rules: normalizePlan(market.engines, props.plan.options.engines, props.plan.options.max_repetitions),
     })),
 );
 const saving = ref(false);
@@ -65,7 +67,9 @@ function marketLabel(market) {
 
 function setMode(market, mode) {
     if (mode === 'own' && market.plan_mode !== 'own') {
-        market.rules = clonePlan(standardRules.value);
+        const stored = props.plan.markets.find((item) => item.id === market.id);
+        const source = stored?.plan_mode === 'own' ? stored.engines : standardRules.value;
+        market.rules = normalizePlan(source, props.plan.options.engines, props.plan.options.max_repetitions);
     }
     market.plan_mode = mode;
 }

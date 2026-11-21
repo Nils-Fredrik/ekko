@@ -5,17 +5,13 @@ export function allowsFrequency(frequency, cap) {
     return (FREQUENCY_RANK[frequency] ?? 99) <= (FREQUENCY_RANK[cap] ?? 0);
 }
 
-export function clonePlan(value) {
-    return JSON.parse(JSON.stringify(value));
-}
-
 /**
  * One editor row per catalogue engine. A core rule beside an "all" rule is the optional core frequency.
  *
  * @param {Array<Record<string, unknown>>} rules
  * @param {Array<Record<string, unknown>>} catalog
  */
-export function rulesToRows(rules, catalog) {
+export function rulesToRows(rules, catalog, maxRepetitions = 3) {
     const byEngine = new Map();
     for (const rule of rules ?? []) {
         const list = byEngine.get(rule.engine_key) ?? [];
@@ -41,31 +37,32 @@ export function rulesToRows(rules, catalog) {
         const all = list.find((rule) => rule.prompt_scope === 'all');
         const core = list.find((rule) => rule.prompt_scope === 'core');
         const primary = all ?? core;
+        const selectable = engine.selectable === true && engine.max_frequency !== 'off';
 
         return {
             engine_key: key,
             name: engine.name ?? key,
-            selectable: engine.selectable === true && engine.max_frequency !== 'off',
+            selectable,
             has_price: engine.has_price !== false,
             max_frequency: engine.max_frequency ?? 'off',
-            frequency: primary?.frequency ?? 'off',
-            prompt_scope: all || !core ? 'all' : 'core',
-            repetitions: primary?.repetitions ?? 1,
-            core_frequency: all && core ? core.frequency : '',
-            core_repetitions: all && core ? core.repetitions : (primary?.repetitions ?? 1),
+            frequency: selectable ? (primary?.frequency ?? 'off') : 'off',
+            prompt_scope: selectable && !all && core ? 'core' : 'all',
+            repetitions: selectable ? clampRepetitions(primary?.repetitions, maxRepetitions) : 1,
+            core_frequency: selectable && all && core ? core.frequency : '',
+            core_repetitions: selectable && all && core ? clampRepetitions(core.repetitions, maxRepetitions) : 1,
         };
     });
 }
 
 /** @param {Array<Record<string, unknown>>} rows */
-export function rowsToRules(rows) {
+export function rowsToRules(rows, maxRepetitions = 3) {
     const rules = [];
     for (const row of rows) {
         if (!row.selectable || row.frequency === 'off') {
             rules.push({ engine_key: row.engine_key, prompt_scope: 'all', frequency: 'off', repetitions: 1 });
             continue;
         }
-        const repetitions = clampRepetitions(row.repetitions);
+        const repetitions = clampRepetitions(row.repetitions, maxRepetitions);
         if (row.prompt_scope === 'core') {
             rules.push({ engine_key: row.engine_key, prompt_scope: 'core', frequency: row.frequency, repetitions });
             continue;
@@ -76,7 +73,7 @@ export function rowsToRules(rows) {
                 engine_key: row.engine_key,
                 prompt_scope: 'core',
                 frequency: row.core_frequency,
-                repetitions: clampRepetitions(row.core_repetitions),
+                repetitions: clampRepetitions(row.core_repetitions, maxRepetitions),
             });
         }
     }
@@ -84,13 +81,19 @@ export function rowsToRules(rows) {
     return rules;
 }
 
-function clampRepetitions(value) {
+function clampRepetitions(value, maxRepetitions = 3) {
     const count = Number(value);
+    const cap = Math.min(3, Math.max(1, Number(maxRepetitions) || 1));
     if (!Number.isInteger(count) || count < 1) {
         return 1;
     }
 
-    return Math.min(count, 3);
+    return Math.min(count, cap);
+}
+
+/** The editor state that will be saved: unavailable engines are off, and repetitions stay inside the package. */
+export function normalizePlan(rules, catalog, maxRepetitions = 3) {
+    return rowsToRules(rulesToRows(rules, catalog, maxRepetitions), maxRepetitions);
 }
 
 /** An active rule whose engine has no current price cannot be saved. */
