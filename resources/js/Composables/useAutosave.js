@@ -60,10 +60,12 @@ export function inertiaRequest(method, url, data, { only = [] } = {}, client = r
  * The rules behind useAutosave, without Inertia or a component, so tests/js can run them.
  * `values` is the model the view shows; it changes before the answer and rolls back on an error.
  *
- * Saves to one field go one at a time, so the server always gets them in order: while a save is
- * on its way, a newer value waits, and only the newest waiting value is sent next. Different
- * fields save at the same time. A save resolves with the outcome of the last value sent for its
- * field, once nothing more waits.
+ * Saves to one field of one row go one at a time, so the server always gets them in order: while
+ * a save is on its way, a newer value waits, and only the newest waiting value is sent next. Each
+ * row and field (URL and field) has its own lane, so different fields and rows save at the same
+ * time. A save resolves with the outcome of the last value sent for its field, once nothing more
+ * waits. reset() (another row in the panel) detaches the screen from the old row: its waiting
+ * values are still sent to the old row's URL, in order, but no longer change the view.
  */
 export function createAutosave({
     url,
@@ -77,14 +79,13 @@ export function createAutosave({
     const statuses = reactive({});
     const errors = reactive({});
     const timers = {};
-    // Per field: the last value the server accepted (a failure rolls back to it), whether a save is
-    // on its way, the newest value waiting for it, the callers waiting for the outcome, and a
-    // generation that reset() bumps so a save still on its way for an old row changes nothing.
+    // Per field on screen: the last value the server accepted (a failure rolls back to it), the
+    // callers waiting for the outcome, and a generation that reset() bumps.
     const confirmed = {};
-    const inFlight = {};
-    const waiting = {};
     const waiters = {};
     const generation = {};
+    // Per URL and field: whether a save is on its way, and the newest value waiting for it.
+    const lanes = new Map();
 
     function status(field) {
         return statuses[field] ?? 'idle';
@@ -114,13 +115,12 @@ export function createAutosave({
         callers.forEach((resolve) => resolve(outcome === 'saved'));
     }
 
-    async function send(field, value) {
-        const gen = generation[field];
-        inFlight[field] = true;
+    async function send(key, lane, field, value, gen) {
+        lane.inFlight = true;
         let outcome = 'saved';
         let failure = null;
         try {
-            await request(method, toValue(url), { [field]: value }, { only });
+            await request(method, lane.url, { [field]: value }, { only });
             if (generation[field] === gen) {
                 confirmed[field] = value;
             }
@@ -128,15 +128,15 @@ export function createAutosave({
             outcome = error instanceof SaveCancelled ? 'cancelled' : 'failed';
             failure = error;
         }
-        inFlight[field] = false;
-        // A waiting value is always the newest, also for a new row after reset(): send it.
-        if (field in waiting) {
-            const next = waiting[field];
-            delete waiting[field];
-            send(field, next);
+        lane.inFlight = false;
+        if (lane.waiting) {
+            const next = lane.waiting;
+            lane.waiting = null;
+            send(key, lane, field, next.value, next.gen);
 
             return;
         }
+        lanes.delete(key);
         if (generation[field] === gen) {
             finish(field, outcome, failure);
         }
@@ -147,6 +147,7 @@ export function createAutosave({
             return Promise.resolve(true);
         }
         generation[field] ??= 0;
+        const gen = generation[field];
         if (!(field in confirmed)) {
             confirmed[field] = values[field];
         }
@@ -157,10 +158,17 @@ export function createAutosave({
         const outcome = new Promise((resolve) => {
             (waiters[field] ??= []).push(resolve);
         });
-        if (inFlight[field]) {
-            waiting[field] = value;
+        const target = toValue(url);
+        const key = `${target}\u0000${field}`;
+        let lane = lanes.get(key);
+        if (!lane) {
+            lane = { url: target, inFlight: false, waiting: null };
+            lanes.set(key, lane);
+        }
+        if (lane.inFlight) {
+            lane.waiting = { value, gen };
         } else {
-            send(field, value);
+            send(key, lane, field, value, gen);
         }
 
         return outcome;
@@ -179,7 +187,10 @@ export function createAutosave({
     });
     const error = computed(() => Object.values(errors)[0] ?? '');
 
-    /** Clears the statuses, for example when the panel shows another row. */
+    /**
+     * Clears the statuses when the panel shows another row. Saves still on their way or waiting for
+     * the old row are sent as before; they just no longer change the view.
+     */
     function reset() {
         const fields = new Set([...Object.keys(statuses), ...Object.keys(confirmed), ...Object.keys(waiters)]);
         for (const field of fields) {
@@ -187,7 +198,6 @@ export function createAutosave({
             generation[field] = (generation[field] ?? 0) + 1;
             (waiters[field] ?? []).forEach((resolve) => resolve(false));
             delete waiters[field];
-            delete waiting[field];
             delete confirmed[field];
             delete statuses[field];
             delete errors[field];

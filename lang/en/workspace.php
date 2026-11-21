@@ -53,6 +53,7 @@ return [
         'all_markets' => 'All markets',
         'open_inbox' => 'Open inbox',
         'create_report' => 'Create report now',
+        'current' => 'Current',
         'back' => 'Back',
         'markets' => 'Markets',
         'brands' => 'Brands',

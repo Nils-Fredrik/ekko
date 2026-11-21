@@ -53,6 +53,7 @@ return [
         'all_markets' => 'Alla marknader',
         'open_inbox' => 'Öppna inkorgen',
         'create_report' => 'Skapa rapport nu',
+        'current' => 'Vald nu',
         'back' => 'Tillbaka',
         'markets' => 'Marknader',
         'brands' => 'Varumärken',

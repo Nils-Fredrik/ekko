@@ -118,7 +118,7 @@ function queuedRequest() {
         calls,
         request: (method, url, data) => {
             const answer = deferred();
-            calls.push({ data, answer });
+            calls.push({ url, data, answer });
 
             return answer.promise;
         },
@@ -213,27 +213,63 @@ test('a newer value that succeeds after an older failure leaves no error', async
     assert.equal(autosave.status('name'), 'saved');
 });
 
-test('after reset, a save still on its way for the old row changes nothing, and the new row saves', async () => {
+test('after reset, saves for the old row still reach it in order, and leave the new row alone', async () => {
     const { calls, request } = queuedRequest();
-    const values = reactive({ name: 'A' });
-    const autosave = createAutosave({ url: () => `/rows/${values.row ?? 1}`, values, request, ...fakeTimers() });
+    const values = reactive({ name: 'A', row: 1 });
+    const autosave = createAutosave({ url: () => `/rows/${values.row}`, values, request, ...fakeTimers() });
 
-    autosave.save('name', 'B');
+    const b = autosave.save('name', 'B');
+    autosave.save('name', 'C');
     autosave.reset();
+    assert.equal(await b, false);
+
     values.row = 2;
     values.name = 'X';
     const y = autosave.save('name', 'Y');
+    // The new row does not wait for the old one.
+    assert.deepEqual(
+        calls.map((call) => [call.url, call.data.name]),
+        [
+            ['/rows/1', 'B'],
+            ['/rows/2', 'Y'],
+        ],
+    );
+
     calls[0].answer.reject(new SaveError({ name: 'gammel rad' }));
     await settle();
+    // C, the newest value for the old row, is still sent to the old row.
+    assert.deepEqual(calls[2] && [calls[2].url, calls[2].data.name], ['/rows/1', 'C']);
     assert.equal(values.name, 'Y');
     assert.equal(autosave.errors.name, undefined);
-    assert.deepEqual(
-        calls.map((call) => call.data),
-        [{ name: 'B' }, { name: 'Y' }],
-    );
+    calls[2].answer.resolve();
+    await settle();
+    assert.equal(values.name, 'Y');
+    assert.equal(autosave.status('name'), 'saving');
+
     calls[1].answer.reject(new SaveError({ name: 'Y er ugyldig' }));
     assert.equal(await y, false);
     assert.equal(values.name, 'X');
+});
+
+test('reopening the same row keeps its saves in one lane, in order', async () => {
+    const { calls, request } = queuedRequest();
+    const values = reactive({ name: 'A' });
+    const autosave = createAutosave({ url: '/rows/1', values, request, ...fakeTimers() });
+
+    autosave.save('name', 'B');
+    autosave.reset();
+    values.name = 'B';
+    const c = autosave.save('name', 'C');
+    assert.equal(calls.length, 1);
+    calls[0].answer.resolve();
+    await settle();
+    assert.deepEqual(
+        calls.map((call) => call.data.name),
+        ['B', 'C'],
+    );
+    calls[1].answer.resolve();
+    assert.equal(await c, true);
+    assert.equal(autosave.status('name'), 'saved');
 });
 
 // A stand-in for the Inertia router: it keeps every visit, so a test can answer them in any order.

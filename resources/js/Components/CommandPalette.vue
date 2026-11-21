@@ -9,6 +9,7 @@ import {
     TransitionChild,
     TransitionRoot,
 } from '@headlessui/vue';
+import { CheckIcon } from '@heroicons/vue/20/solid';
 import { router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -166,7 +167,10 @@ async function search() {
 }
 
 function resetQuery() {
+    clearTimeout(timer);
+    controller?.abort();
     query.value = '';
+    results.value = { brands: [], prompts: [], competitors: [] };
     if (input.value?.$el) {
         input.value.$el.value = '';
     }
@@ -267,7 +271,13 @@ defineExpose({ show });
                                             class="mx-2 cursor-pointer rounded-lg px-3 py-2 text-sm"
                                             :class="active ? 'bg-shell-text/10' : ''"
                                         >
-                                            <span class="block">{{ item.label }}</span>
+                                            <span class="flex items-center gap-2">
+                                                <span>{{ item.label }}</span>
+                                                <template v-if="item.current">
+                                                    <CheckIcon class="h-4 w-4 text-success-text" aria-hidden="true" />
+                                                    <span class="sr-only">{{ $t('workspace.palette.current') }}</span>
+                                                </template>
+                                            </span>
                                             <span v-if="item.detail" class="block text-xs text-shell-muted">
                                                 {{ item.detail }}
                                             </span>
