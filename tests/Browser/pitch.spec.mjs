@@ -50,6 +50,11 @@ test('a new pitch project goes through the wizard to a finished pitch report and
     await factFields.nth(2).fill('Eksempel AS har 40 ansatte.');
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await expect(page.getByText(/USD/).first()).toBeVisible();
+    const pitchInterval = page.getByRole('combobox', { name: 'Interval for ChatGPT API', exact: true });
+    await expect(pitchInterval).toBeDisabled();
+    await expect(pitchInterval).toHaveValue('daily');
+    await expect(page.getByRole('combobox', { name: 'Interval for Gemini API', exact: true })).toBeDisabled();
+    await expect(page.getByRole('combobox', { name: 'Interval for Claude Haiku', exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
     await page.getByRole('button', { name: 'Save and start the first run' }).click();
     await expect(page).toHaveURL(/\/brands\/\d+$/);

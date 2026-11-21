@@ -72,13 +72,24 @@ class OnboardingController extends Controller
         $tenant = $this->tenant();
         $plans = app(MeasurementPlans::class);
         $options = $plans->options($tenant);
+        // A new pitch brand is saved with the fixed daily plan. The editor must show that plan, not a draft the
+        // server will discard (docs/spec.md 7.6).
+        $pitch = $brand === null && $tenant->kind === 'pitch';
+        $standard = $options['defaults'];
+        if ($pitch) {
+            $standard = StandardPlan::pitchWizardRules($tenant->plan()->first());
+        } elseif ($brand instanceof Brand) {
+            $standard = $plans->present($tenant, $brand)['standard'];
+        }
 
         return Inertia::render('Onboarding/Wizard', [
             // The same plan as brand settings: the package's choices and standard, and for a new market the brand's
             // plan that it inherits by default (docs/spec.md 7.6).
-            'measurementPlan' => $brand === null
-                ? ['options' => $options, 'standard' => $options['defaults']]
-                : ['options' => $options, 'standard' => $plans->present($tenant, $brand)['standard']],
+            'measurementPlan' => [
+                'options' => $options,
+                'standard' => $standard,
+                'locked' => $pitch,
+            ],
             'maxCore' => (int) config('ekko.wizard.suggestions.max_core_prompts'),
             'clickhouseEndpoints' => app(BrandIntegrations::class)->endpoints(),
             'brand' => $brand === null ? null : [

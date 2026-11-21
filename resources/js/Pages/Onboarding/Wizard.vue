@@ -46,6 +46,7 @@ function presentedPlan(rules) {
 }
 
 const rules = ref(presentedPlan(props.measurementPlan.standard));
+const planLocked = computed(() => props.measurementPlan.locked === true);
 
 const form = useForm({
     name: '',
@@ -513,7 +514,7 @@ form.transform((data) => {
                     <p v-if="planMode === 'inherit'" class="text-sm">{{ $t('app.plan.inherits') }}</p>
                 </fieldset>
                 <PlanRules
-                    v-if="!brand || planMode === 'own'"
+                    v-if="(!brand || planMode === 'own') && !planLocked"
                     v-model="rules"
                     :catalog="measurementPlan.options.engines"
                     :frequencies="measurementPlan.options.frequencies"
@@ -521,7 +522,7 @@ form.transform((data) => {
                 />
                 <PlanRules
                     v-else
-                    :model-value="measurementPlan.standard"
+                    :model-value="planLocked ? rules : measurementPlan.standard"
                     :catalog="measurementPlan.options.engines"
                     :frequencies="measurementPlan.options.frequencies"
                     :max-repetitions="measurementPlan.options.max_repetitions"
