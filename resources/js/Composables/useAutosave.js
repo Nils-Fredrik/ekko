@@ -59,6 +59,11 @@ export function inertiaRequest(method, url, data, { only = [] } = {}, client = r
 /**
  * The rules behind useAutosave, without Inertia or a component, so tests/js can run them.
  * `values` is the model the view shows; it changes before the answer and rolls back on an error.
+ *
+ * Saves to one field go one at a time, so the server always gets them in order: while a save is
+ * on its way, a newer value waits, and only the newest waiting value is sent next. Different
+ * fields save at the same time. A save resolves with the outcome of the last value sent for its
+ * field, once nothing more waits.
  */
 export function createAutosave({
     url,
@@ -71,74 +76,94 @@ export function createAutosave({
 } = {}) {
     const statuses = reactive({});
     const errors = reactive({});
-    const latest = {};
     const timers = {};
-    // The last value the server accepted per field, and which save it came from. A failed save
-    // rolls back to it, never to a value that is still waiting for its answer.
+    // Per field: the last value the server accepted (a failure rolls back to it), whether a save is
+    // on its way, the newest value waiting for it, the callers waiting for the outcome, and a
+    // generation that reset() bumps so a save still on its way for an old row changes nothing.
     const confirmed = {};
-    const confirmedToken = {};
-    // The save that last rolled a field back. An older save that succeeds after it moves the view on.
-    const rolledBack = {};
+    const inFlight = {};
+    const waiting = {};
+    const waiters = {};
+    const generation = {};
 
     function status(field) {
         return statuses[field] ?? 'idle';
     }
 
-    async function save(field, value) {
-        if (Object.is(values[field], value) && status(field) !== 'error') {
-            return true;
-        }
-        if (!(field in confirmed)) {
-            confirmed[field] = values[field];
-            confirmedToken[field] = latest[field] ?? 0;
-        }
-        const token = (latest[field] ?? 0) + 1;
-        latest[field] = token;
-        clearTimer(timers[field]);
-        values[field] = value;
-        statuses[field] = 'saving';
-        delete errors[field];
-
-        try {
-            await request(method, toValue(url), { [field]: value }, { only });
-            if (token > confirmedToken[field]) {
-                confirmed[field] = value;
-                confirmedToken[field] = token;
-                // A→B→C where C failed first and B succeeded after: the server has B, so show B.
-                if (rolledBack[field] === latest[field]) {
-                    values[field] = value;
-                }
-            }
-            if (latest[field] !== token) {
-                return true;
-            }
+    function finish(field, outcome, error) {
+        const callers = waiters[field] ?? [];
+        delete waiters[field];
+        if (outcome === 'saved') {
             statuses[field] = 'saved';
+            const gen = generation[field];
             timers[field] = setTimer(() => {
-                if (latest[field] === token && statuses[field] === 'saved') {
+                if (generation[field] === gen && statuses[field] === 'saved') {
                     statuses[field] = 'idle';
                 }
             }, SAVED_VISIBLE_MS);
-
-            return true;
-        } catch (error) {
-            if (latest[field] !== token) {
-                return false;
-            }
-            if (error instanceof SaveCancelled) {
-                // Unknown on the server: keep what the user chose and show no error.
-                statuses[field] = 'idle';
-
-                return false;
-            }
+        } else if (outcome === 'cancelled') {
+            // Unknown on the server: keep what the user chose and show no error.
+            statuses[field] = 'idle';
+        } else {
             values[field] = confirmed[field];
-            rolledBack[field] = token;
             statuses[field] = 'error';
             const messages = error instanceof SaveError ? error.errors : {};
             const message = messages[field] ?? Object.values(messages)[0];
             errors[field] = Array.isArray(message) ? message[0] : (message ?? trans('workspace.save.failed'));
-
-            return false;
         }
+        callers.forEach((resolve) => resolve(outcome === 'saved'));
+    }
+
+    async function send(field, value) {
+        const gen = generation[field];
+        inFlight[field] = true;
+        let outcome = 'saved';
+        let failure = null;
+        try {
+            await request(method, toValue(url), { [field]: value }, { only });
+            if (generation[field] === gen) {
+                confirmed[field] = value;
+            }
+        } catch (error) {
+            outcome = error instanceof SaveCancelled ? 'cancelled' : 'failed';
+            failure = error;
+        }
+        inFlight[field] = false;
+        // A waiting value is always the newest, also for a new row after reset(): send it.
+        if (field in waiting) {
+            const next = waiting[field];
+            delete waiting[field];
+            send(field, next);
+
+            return;
+        }
+        if (generation[field] === gen) {
+            finish(field, outcome, failure);
+        }
+    }
+
+    function save(field, value) {
+        if (Object.is(values[field], value) && status(field) !== 'error') {
+            return Promise.resolve(true);
+        }
+        generation[field] ??= 0;
+        if (!(field in confirmed)) {
+            confirmed[field] = values[field];
+        }
+        clearTimer(timers[field]);
+        values[field] = value;
+        statuses[field] = 'saving';
+        delete errors[field];
+        const outcome = new Promise((resolve) => {
+            (waiters[field] ??= []).push(resolve);
+        });
+        if (inFlight[field]) {
+            waiting[field] = value;
+        } else {
+            send(field, value);
+        }
+
+        return outcome;
     }
 
     /** One state for a panel: saving before error before saved. */
@@ -156,16 +181,16 @@ export function createAutosave({
 
     /** Clears the statuses, for example when the panel shows another row. */
     function reset() {
-        for (const field of Object.keys(statuses)) {
+        const fields = new Set([...Object.keys(statuses), ...Object.keys(confirmed), ...Object.keys(waiters)]);
+        for (const field of fields) {
             clearTimer(timers[field]);
+            generation[field] = (generation[field] ?? 0) + 1;
+            (waiters[field] ?? []).forEach((resolve) => resolve(false));
+            delete waiters[field];
+            delete waiting[field];
+            delete confirmed[field];
             delete statuses[field];
             delete errors[field];
-            latest[field] = (latest[field] ?? 0) + 1;
-        }
-        for (const field of Object.keys(confirmed)) {
-            delete confirmed[field];
-            delete confirmedToken[field];
-            delete rolledBack[field];
         }
     }
 

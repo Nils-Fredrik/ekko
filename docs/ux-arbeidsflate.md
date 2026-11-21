@@ -341,7 +341,7 @@ Hver agent får fire oppgaver.
   - Bare én melding vises om gangen, og den står i en `aria-live="polite"`-region.
   - Angre kaller den motsatte handlingen på serveren. Det finnes ingen utsatt sletting.
 - **Felles lagring** brukes bare for måleplanen (5.4).
-- **Slik U18 er bygget:** `useAutosave(url, { method, only, values })` gir `values`, `save`, `status(field)`, `errors`, en samlet `state` for panelhodet og `reset()` når panelet bytter rad. Bare det siste svaret for et felt teller. Valideringsfeil fra Laravel vises ved feltet; andre feil gir «Kunne ikke lagre. Prøv igjen.». Angre-meldingen vises av `Components/UI/UndoToast.vue` i `AppLayout`; mislykket angre erstatter meldingen med en feil.
+- **Slik U18 er bygget:** `useAutosave(url, { method, only, values })` gir `values`, `save`, `status(field)`, `errors`, en samlet `state` for panelhodet og `reset()` når panelet bytter rad. Lagringer til samme felt sendes én om gangen, så serveren alltid får dem i riktig rekkefølge: mens én er på vei, venter den nyeste nye verdien og sendes deretter. Ulike felt lagres samtidig (asynkrone Inertia-besøk). Feiler den siste verdien, rulles feltet tilbake til siste godtatte verdi; et avbrutt besøk ruller ikke tilbake. Valideringsfeil fra Laravel vises ved feltet; andre feil gir «Kunne ikke lagre. Prøv igjen.». Angre-meldingen vises av `Components/UI/UndoToast.vue` i `AppLayout`; mislykket angre erstatter meldingen med en feil.
 
 ### 4.6 Kommandopalett med handlinger (U18)
 

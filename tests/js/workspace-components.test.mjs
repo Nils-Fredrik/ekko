@@ -110,95 +110,130 @@ test('a server error without messages shows the general text', async () => {
     assert.equal(autosave.errors.active, 'Kunne ikke lagre. Prøv igjen.');
 });
 
-test('an unchanged value is not sent, and only the latest answer for a field counts', async () => {
+// A request that keeps every call, so a test can answer them in any order.
+function queuedRequest() {
     const calls = [];
-    const first = deferred();
-    const second = deferred();
-    const answers = [first, second];
-    const values = reactive({ name: 'A' });
-    const autosave = createAutosave({
-        url: '/x',
-        values,
-        request: (...args) => {
-            calls.push(args);
-            return answers.shift().promise;
+
+    return {
+        calls,
+        request: (method, url, data) => {
+            const answer = deferred();
+            calls.push({ data, answer });
+
+            return answer.promise;
         },
-        ...fakeTimers(),
-    });
+    };
+}
+
+// Lets the promise callbacks inside createAutosave run.
+const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+test('an unchanged value is not sent', async () => {
+    const { calls, request } = queuedRequest();
+    const autosave = createAutosave({ url: '/x', values: reactive({ name: 'A' }), request, ...fakeTimers() });
 
     assert.equal(await autosave.save('name', 'A'), true);
     assert.equal(calls.length, 0);
+});
 
-    const one = autosave.save('name', 'B');
-    const two = autosave.save('name', 'C');
-    first.reject(new SaveError({ name: 'gammel feil' }));
-    await one;
-    // The older request failed, but the newer value stays and is still saving.
-    assert.equal(values.name, 'C');
+test('saves to one field go one at a time, and only the newest waiting value is sent next', async () => {
+    const { calls, request } = queuedRequest();
+    const values = reactive({ name: 'A' });
+    const autosave = createAutosave({ url: '/x', values, request, ...fakeTimers() });
+
+    const b = autosave.save('name', 'B');
+    const c = autosave.save('name', 'C');
+    const d = autosave.save('name', 'D');
+    assert.equal(values.name, 'D');
+    assert.deepEqual(
+        calls.map((call) => call.data),
+        [{ name: 'B' }],
+    );
+
+    calls[0].answer.resolve();
+    await settle();
+    assert.deepEqual(
+        calls.map((call) => call.data),
+        [{ name: 'B' }, { name: 'D' }],
+    );
     assert.equal(autosave.status('name'), 'saving');
-    second.resolve();
-    await two;
+
+    calls[1].answer.resolve();
+    assert.deepEqual(await Promise.all([b, c, d]), [true, true, true]);
+    assert.equal(values.name, 'D');
     assert.equal(autosave.status('name'), 'saved');
 });
 
-test('overlapping saves that both fail roll back to the last accepted value', async () => {
-    const first = deferred();
-    const second = deferred();
-    const answers = [first, second];
+test('when the last value sent fails, the field rolls back to the last accepted value', async () => {
+    const { calls, request } = queuedRequest();
     const values = reactive({ name: 'A' });
-    const autosave = createAutosave({ url: '/x', values, request: () => answers.shift().promise, ...fakeTimers() });
+    const autosave = createAutosave({ url: '/x', values, request, ...fakeTimers() });
 
-    const one = autosave.save('name', 'B');
-    const two = autosave.save('name', 'C');
-    first.reject(new SaveError({ name: 'B er ugyldig' }));
-    await one;
-    second.reject(new SaveError({ name: 'C er ugyldig' }));
-    await two;
+    const b = autosave.save('name', 'B');
+    autosave.save('name', 'C');
+    calls[0].answer.resolve();
+    await settle();
+    calls[1].answer.reject(new SaveError({ name: 'C er ugyldig' }));
+    assert.equal(await b, false);
+    assert.equal(values.name, 'B');
+    assert.equal(autosave.errors.name, 'C er ugyldig');
+});
+
+test('when every value fails, the field rolls back to the value before them', async () => {
+    const { calls, request } = queuedRequest();
+    const values = reactive({ name: 'A' });
+    const autosave = createAutosave({ url: '/x', values, request, ...fakeTimers() });
+
+    const b = autosave.save('name', 'B');
+    autosave.save('name', 'C');
+    calls[0].answer.reject(new SaveError({ name: 'B er ugyldig' }));
+    await settle();
+    // The newer value is still sent, and its answer decides.
+    assert.equal(calls.length, 2);
+    assert.equal(autosave.status('name'), 'saving');
+    calls[1].answer.reject(new SaveError({ name: 'C er ugyldig' }));
+    assert.equal(await b, false);
     assert.equal(values.name, 'A');
     assert.equal(autosave.errors.name, 'C er ugyldig');
 });
 
-test('an older save that succeeds after the newest one failed shows the saved value', async () => {
-    const first = deferred();
-    const second = deferred();
-    const answers = [first, second];
+test('a newer value that succeeds after an older failure leaves no error', async () => {
+    const { calls, request } = queuedRequest();
     const values = reactive({ name: 'A' });
-    const autosave = createAutosave({ url: '/x', values, request: () => answers.shift().promise, ...fakeTimers() });
+    const autosave = createAutosave({ url: '/x', values, request, ...fakeTimers() });
 
-    const one = autosave.save('name', 'B');
-    const two = autosave.save('name', 'C');
-    second.reject(new SaveError({ name: 'C er ugyldig' }));
-    await two;
-    assert.equal(values.name, 'A');
-    first.resolve();
-    await one;
-    assert.equal(values.name, 'B');
-    assert.equal(autosave.errors.name, 'C er ugyldig');
-
-    // A new failure now rolls back to B, the value the server has.
-    const later = deferred();
-    answers.push(later);
-    const three = autosave.save('name', 'D');
-    assert.equal(values.name, 'D');
-    later.reject(new SaveError({ name: 'D er ugyldig' }));
-    await three;
-    assert.equal(values.name, 'B');
+    autosave.save('name', 'B');
+    const c = autosave.save('name', 'C');
+    calls[0].answer.reject(new SaveError({ name: 'B er ugyldig' }));
+    await settle();
+    calls[1].answer.resolve();
+    assert.equal(await c, true);
+    assert.equal(values.name, 'C');
+    assert.equal(autosave.errors.name, undefined);
+    assert.equal(autosave.status('name'), 'saved');
 });
 
-test('after an accepted save, a later failure rolls back to the accepted value', async () => {
-    const first = deferred();
-    const second = deferred();
-    const answers = [first, second];
+test('after reset, a save still on its way for the old row changes nothing, and the new row saves', async () => {
+    const { calls, request } = queuedRequest();
     const values = reactive({ name: 'A' });
-    const autosave = createAutosave({ url: '/x', values, request: () => answers.shift().promise, ...fakeTimers() });
+    const autosave = createAutosave({ url: () => `/rows/${values.row ?? 1}`, values, request, ...fakeTimers() });
 
-    const one = autosave.save('name', 'B');
-    const two = autosave.save('name', 'C');
-    first.resolve();
-    await one;
-    second.reject(new SaveError({ name: 'C er ugyldig' }));
-    await two;
-    assert.equal(values.name, 'B');
+    autosave.save('name', 'B');
+    autosave.reset();
+    values.row = 2;
+    values.name = 'X';
+    const y = autosave.save('name', 'Y');
+    calls[0].answer.reject(new SaveError({ name: 'gammel rad' }));
+    await settle();
+    assert.equal(values.name, 'Y');
+    assert.equal(autosave.errors.name, undefined);
+    assert.deepEqual(
+        calls.map((call) => call.data),
+        [{ name: 'B' }, { name: 'Y' }],
+    );
+    calls[1].answer.reject(new SaveError({ name: 'Y er ugyldig' }));
+    assert.equal(await y, false);
+    assert.equal(values.name, 'X');
 });
 
 // A stand-in for the Inertia router: it keeps every visit, so a test can answer them in any order.
