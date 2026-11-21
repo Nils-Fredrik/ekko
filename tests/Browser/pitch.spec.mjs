@@ -105,8 +105,8 @@ test('a new pitch project goes through the wizard to a finished pitch report and
     await expect(page.getByText('Pitch action 5')).toHaveCount(0);
 
     // Back on the partner, the pitch shows its progress and is converted to a customer.
-    await page.getByRole('button', { name: 'Browser Pitch AS' }).first().click();
-    await page.getByRole('button', { name: 'Browser partner' }).click();
+    await page.getByTestId('tenant-menu').click();
+    await page.getByRole('menuitem', { name: 'Browser partner' }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     await page.goto('/pitches');
     await expect(card.getByText('Browser Pitch', { exact: true })).toBeVisible();
