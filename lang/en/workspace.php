@@ -33,7 +33,7 @@ return [
     ],
     'bulk' => [
         'label' => 'Actions for the selected rows',
-        'selected' => ':count selected',
+        'selected' => ':n selected|:n selected',
         'clear' => 'Clear the selection',
     ],
     'undo' => [
@@ -101,7 +101,7 @@ return [
         'history_empty' => 'No changes yet.',
         'answers_empty' => 'No answers in the period.',
         'bulk_archive' => 'Archive',
-        'archived' => ':count archived',
+        'archived' => ':n archived|:n archived',
         'status_title' => 'Save status and undo message',
         'show_toast' => 'Show undo message',
         'toast_text' => 'The competitor was added.',

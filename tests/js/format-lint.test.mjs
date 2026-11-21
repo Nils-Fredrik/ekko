@@ -2,8 +2,11 @@
 // and Intl. are stopped everywhere in resources/js except format.js, and an exception needs a reason.
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ESLint } from 'eslint';
+import { directiveProblem } from '../../eslint.config.js';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const eslint = new ESLint({ cwd: root });
@@ -92,6 +95,78 @@ test('a disable comment without rule names is not allowed', async () => {
     );
     assert.equal(found.length, 1);
     assert.match(found[0].message, /Line 2/);
+});
+
+test('an exception in a Vue template needs the same form and reason', async () => {
+    const template = (comment) =>
+        `<script setup>\nconst value = 2;\n</script>\n<template>\n    ${comment}\n    <p>{{ value.toFixed(1) }}</p>\n</template>\n`;
+
+    for (const comment of [
+        '<!-- eslint-disable-next-line ekko/format-through-format-js -->',
+        '<!-- eslint-disable -->',
+        '<!-- eslint-disable ekko/format-through-format-js -- why -->',
+    ]) {
+        const found = await messages(template(comment), 'resources/js/Pages/Example.vue');
+        assert.ok(
+            found.some((message) => message.ruleId === 'ekko/format-exception-needs-reason'),
+            comment,
+        );
+    }
+
+    const allowed = await messages(
+        template('<!-- eslint-disable-next-line ekko/format-through-format-js -- a CSS length -->'),
+        'resources/js/Pages/Example.vue',
+    );
+    assert.equal(allowed.length, 0);
+});
+
+// Every comment form in a .js or .vue file, with its text. Only comments with eslint-disable matter.
+function directives(source) {
+    const pattern = /\/\/([^\n]*)|\/\*([^]*?)\*\/|<!--([^]*?)-->/g;
+
+    return [...source.matchAll(pattern)]
+        .map((match) => match[1] ?? match[2] ?? match[3])
+        .filter((text) => text.includes('eslint-disable'));
+}
+
+test('directiveProblem allows only a next-line exception with a reason', () => {
+    assert.equal(directiveProblem(' eslint-disable-next-line ekko/format-through-format-js -- why '), null);
+    assert.equal(directiveProblem(' eslint-disable-next-line vue/no-v-html '), null);
+    assert.equal(directiveProblem(' eslint-disable-next-line ekko/format-through-format-js'), 'form');
+    assert.equal(directiveProblem(' eslint-disable-line ekko/format-through-format-js -- why'), 'form');
+    assert.equal(directiveProblem(' eslint-disable '), 'unlimited');
+    assert.equal(
+        directiveProblem(' eslint-disable ekko/format-exception-needs-reason, ekko/format-through-format-js '),
+        'guard',
+    );
+    // A directive on the very first line hides every ESLint report, so this scan is what catches it.
+    assert.deepEqual(directives('/* eslint-disable */\nexport const a = (2.5).toFixed(1);\n').map(directiveProblem), [
+        'unlimited',
+    ]);
+});
+
+test('no file in resources/js turns the format rule off without a next-line reason', () => {
+    const base = fileURLToPath(new URL('../../resources/js', import.meta.url));
+    const files = [];
+    const walk = (dir) => {
+        for (const name of readdirSync(dir)) {
+            const path = join(dir, name);
+            if (statSync(path).isDirectory()) {
+                walk(path);
+            } else if (/\.(js|vue)$/.test(name)) {
+                files.push(path);
+            }
+        }
+    };
+    walk(base);
+    assert.ok(files.length > 50);
+
+    const problems = files.flatMap((file) =>
+        directives(readFileSync(file, 'utf8'))
+            .map((text) => [relative(base, file), directiveProblem(text), text.trim()])
+            .filter(([, problem]) => problem),
+    );
+    assert.deepEqual(problems, []);
 });
 
 test('names that only look alike are allowed', async () => {

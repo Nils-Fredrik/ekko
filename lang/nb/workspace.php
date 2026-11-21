@@ -33,7 +33,7 @@ return [
     ],
     'bulk' => [
         'label' => 'Handlinger for valgte rader',
-        'selected' => ':count valgt',
+        'selected' => ':n valgt|:n valgt',
         'clear' => 'Fjern valget',
     ],
     'undo' => [
@@ -101,7 +101,7 @@ return [
         'history_empty' => 'Ingen endringer ennå.',
         'answers_empty' => 'Ingen svar i perioden.',
         'bulk_archive' => 'Arkiver',
-        'archived' => ':count arkivert',
+        'archived' => ':n arkivert|:n arkivert',
         'status_title' => 'Lagringsstatus og angre-melding',
         'show_toast' => 'Vis angre-melding',
         'toast_text' => 'Konkurrenten ble lagt til.',

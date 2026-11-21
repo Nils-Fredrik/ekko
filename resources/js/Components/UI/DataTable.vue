@@ -210,7 +210,9 @@ function checkAll() {
 // Keyboard: one row is in the tab order (roving tabindex), the arrows move it.
 const focusPosition = ref(0);
 
-function focusRow(position) {
+// `focus: false` moves the tab stop and scrolls the row into view without taking the focus, for j/k
+// pressed in the detail panel (which may be a dialog with a focus trap).
+function focusRow(position, { focus = true } = {}) {
     if (position < 0) {
         return;
     }
@@ -218,6 +220,9 @@ function focusRow(position) {
     const index = [...rowPositions.value].find(([, value]) => value === position)?.[0];
     if (virtual.value && index !== undefined) {
         virtualizer.value.scrollToIndex(index, { align: 'auto' });
+    }
+    if (!focus) {
+        return;
     }
     nextTick(() => {
         // A virtual row may need one more frame to be rendered after scrolling.
@@ -239,7 +244,7 @@ function isTyping(target) {
     );
 }
 
-function run(action, event) {
+function run(action, event, { fromPanel = false } = {}) {
     const count = ids.value.length;
     switch (action) {
         case 'next':
@@ -252,7 +257,7 @@ function run(action, event) {
         case 'open-previous': {
             const current = ids.value.indexOf(props.activeRow);
             const position = moveIndex(action, current < 0 ? focusPosition.value : current, count);
-            focusRow(position);
+            focusRow(position, { focus: !fromPanel });
             if (position >= 0) {
                 emit('open', ids.value[position]);
             }
@@ -310,7 +315,7 @@ function onWindowKeydown(event) {
     const action = keyAction(event, { panelOpen: props.activeRow !== null });
     if (action === 'open-next' || action === 'open-previous') {
         event.preventDefault();
-        run(action, event);
+        run(action, event, { fromPanel: true });
     }
 }
 

@@ -2,7 +2,7 @@
 // Shared components (docs/ux-arbeidsflate.md 4.2–4.5) with fixed, synthetic test data. The route exists
 // only in local and testing (routes/dev.php). Saving and archiving stay in the browser: there is no
 // server endpoint behind this page.
-import { trans } from 'laravel-vue-i18n';
+import { trans, transChoice } from 'laravel-vue-i18n';
 import { computed, reactive, ref, watch } from 'vue';
 import BulkBar from '@/Components/UI/BulkBar.vue';
 import DataTable from '@/Components/UI/DataTable.vue';
@@ -177,7 +177,7 @@ function archive() {
     if (ids.has(openId.value)) {
         close();
     }
-    toast.show(trans('workspace.dev.archived', { count: formatNumber(removed.length) }), async () => {
+    toast.show(transChoice('workspace.dev.archived', removed.length, { n: formatNumber(removed.length) }), async () => {
         rows.value = [...rows.value, ...removed].sort((a, b) => a.id - b.id);
     });
 }

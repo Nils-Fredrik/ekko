@@ -107,35 +107,58 @@ const formatThroughFormatJs = {
 
 // The only allowed exception to ekko/format-through-format-js is
 //     // eslint-disable-next-line ekko/format-through-format-js -- why
-// A separate rule checks it and reports at the top of the file, so the directive it checks (an
-// eslint-disable-line or a block /* eslint-disable */) cannot hide its own report.
+// (in a Vue template: <!-- eslint-disable-next-line ekko/format-through-format-js -- why -->).
+// directiveProblem() decides it. The rule below runs it on script and template comments, and
+// tests/js/format-lint.test.mjs runs it on every file in resources/js, because a directive such as
+// /* eslint-disable */ on the first line can hide any ESLint report, including this rule's own.
+const FORMAT_RULE = 'ekko/format-through-format-js';
+const GUARD_RULE = 'ekko/format-exception-needs-reason';
+
+/** null when a comment is fine, otherwise 'unlimited', 'guard' or 'form'. */
+export function directiveProblem(text) {
+    const directive = /^\s*eslint-disable(-next-line|-line)?(?:\s+([^]*?))?\s*$/.exec(text);
+    if (!directive) {
+        return null;
+    }
+    const [rules = '', reason] = (directive[2] ?? '').split(/\s--\s/);
+    if (rules.trim() === '') {
+        return 'unlimited';
+    }
+    if (rules.includes(GUARD_RULE)) {
+        return 'guard';
+    }
+    if (rules.includes(FORMAT_RULE) && (directive[1] !== '-next-line' || !reason?.trim())) {
+        return 'form';
+    }
+
+    return null;
+}
+
 const formatExceptionNeedsReason = {
     meta: {
         type: 'problem',
         schema: [],
         messages: {
-            form: 'Line {{line}}: an exception to ekko/format-through-format-js must be "eslint-disable-next-line ekko/format-through-format-js -- reason".',
-            unlimited:
-                'Line {{line}}: a disable comment without rule names also turns off ekko/format-through-format-js. Name the rules.',
+            form: `Line {{line}}: an exception to ${FORMAT_RULE} must be "eslint-disable-next-line ${FORMAT_RULE} -- reason".`,
+            unlimited: `Line {{line}}: a disable comment without rule names also turns off ${FORMAT_RULE}. Name the rules.`,
+            guard: `Line {{line}}: ${GUARD_RULE} cannot be turned off.`,
         },
     },
     create(context) {
         return {
             Program() {
-                for (const comment of context.sourceCode.getAllComments()) {
-                    const directive = /^\s*eslint-disable(-next-line|-line)?(?:\s+([^]*))?$/.exec(comment.value);
-                    if (!directive) {
-                        continue;
-                    }
-                    const [rules = '', reason] = (directive[2] ?? '').split(/\s--\s/);
-                    const data = { line: comment.loc.start.line };
-                    if (rules.trim() === '') {
-                        context.report({ loc: { line: 1, column: 0 }, messageId: 'unlimited', data });
-                    } else if (
-                        rules.includes('ekko/format-through-format-js') &&
-                        (directive[1] !== '-next-line' || !reason?.trim())
-                    ) {
-                        context.report({ loc: { line: 1, column: 0 }, messageId: 'form', data });
+                const comments = [
+                    ...context.sourceCode.getAllComments(),
+                    ...(context.sourceCode.ast.templateBody?.comments ?? []),
+                ];
+                for (const comment of comments) {
+                    const problem = directiveProblem(comment.value);
+                    if (problem) {
+                        context.report({
+                            loc: { line: 1, column: 0 },
+                            messageId: problem,
+                            data: { line: comment.loc.start.line },
+                        });
                     }
                 }
             },

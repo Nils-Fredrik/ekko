@@ -33,7 +33,7 @@ return [
     ],
     'bulk' => [
         'label' => 'Åtgärder för valda rader',
-        'selected' => ':count valda',
+        'selected' => ':n vald|:n valda',
         'clear' => 'Rensa valet',
     ],
     'undo' => [
@@ -101,7 +101,7 @@ return [
         'history_empty' => 'Inga ändringar ännu.',
         'answers_empty' => 'Inga svar under perioden.',
         'bulk_archive' => 'Arkivera',
-        'archived' => ':count arkiverade',
+        'archived' => ':n arkiverad|:n arkiverade',
         'status_title' => 'Sparstatus och ångra-meddelande',
         'show_toast' => 'Visa ångra-meddelande',
         'toast_text' => 'Konkurrenten lades till.',
