@@ -3,7 +3,6 @@
 // table with visibility, change, rank and sentiment per brand, the sentiment distribution, suggested competitors
 // as cards with «Add», and the competitors' aliases and domains. A competitor's color is its fixed position among
 // the active competitors sorted by name (`color_index`), the same as on the dashboard and the sources page.
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import { crossFilter } from '@/Components/Brand/filters.js';
 import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
@@ -198,7 +197,6 @@ function remove(competitor) {
 
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brand.id" />
                 <PeriodFilters :brand-id="brand.id" route-name="brands.competitors.index" />
 
                 <EmptyState

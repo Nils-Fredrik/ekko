@@ -48,7 +48,7 @@ test('dark theme has no white surfaces', async ({ page }) => {
     }
 
     await page.getByTestId('account-menu').click();
-    const profile = page.getByRole('link', { name: 'Profile', exact: true });
+    const profile = page.getByRole('menuitem', { name: 'Profile', exact: true });
     await expect(profile).toBeVisible();
     await expect(profile).toHaveCSS('color', 'rgb(245, 237, 228)');
 });

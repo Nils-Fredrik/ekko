@@ -1,7 +1,6 @@
 <script setup>
 import { formatDateTime } from '@/format';
 import AnswerText from '@/Components/Brand/AnswerText.vue';
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import { periodBuckets } from '@/Components/Charts/support/data.js';
 import EmptyState from '@/Components/UI/EmptyState.vue';
@@ -108,7 +107,6 @@ function dayLabel(day) {
 
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brand.id" />
                 <PeriodFilters :brand-id="brand.id" route-name="brands.prompts.show" :params="{ prompt: prompt.id }" />
 
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">

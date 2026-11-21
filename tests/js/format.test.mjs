@@ -168,6 +168,9 @@ test('the tenant time zone decides the calendar day and the hour', () => {
 test('a year and month is the month name', () => {
     inLocale('nb');
     assert.equal(plain(formatDate('2026-10')), 'oktober 2026');
+    assert.equal(plain(formatDate('2026-11', { year: false })), 'november');
+    inLocale('en');
+    assert.equal(plain(formatDate('2026-11', { year: false })), 'November');
 });
 
 test('the year is shown outside the current year, and a whole year can be forced', () => {

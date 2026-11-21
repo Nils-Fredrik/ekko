@@ -17,6 +17,13 @@ use App\FactCheck\Judge\FactJudge;
 use App\Insights\InsightTextWriter;
 use App\Logging\LogContext;
 use App\Mcp\McpTokens;
+use App\Models\Action;
+use App\Models\Alert;
+use App\Models\BrandAlias;
+use App\Models\Competitor;
+use App\Models\CompetitorAlias;
+use App\Models\EntityDecision;
+use App\Models\Integration;
 use App\Onboarding\Analysis;
 use App\Onboarding\Fetch\DnsHostResolver;
 use App\Onboarding\Fetch\HostResolver;
@@ -36,9 +43,11 @@ use App\Work\NullWorkPublisher;
 use App\Work\QueueWorkPublisher;
 use App\Work\WorkPublisher;
 use App\Work\WorkSignals;
+use App\Workspace\WorkspaceCounts;
 use Google\Cloud\Storage\StorageClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
@@ -110,6 +119,12 @@ class AppServiceProvider extends ServiceProvider
                 app(DatabaseRoleCheck::class)->assertSafe();
             }
         });
+
+        // The sidebar's badge counts are cached; a change behind a count clears them for the tenant (U17).
+        foreach ([Alert::class, Action::class, EntityDecision::class, Integration::class, Competitor::class, CompetitorAlias::class, BrandAlias::class] as $model) {
+            $model::saved(fn (Model $record) => WorkspaceCounts::forget((int) $record->getAttribute('tenant_id')));
+            $model::deleted(fn (Model $record) => WorkspaceCounts::forget((int) $record->getAttribute('tenant_id')));
+        }
 
         // The wizard's proposals are not models, so their policy is registered by hand (ADR 0009, ADR 0018).
         Gate::policy(Analysis::class, OnboardingPolicy::class);

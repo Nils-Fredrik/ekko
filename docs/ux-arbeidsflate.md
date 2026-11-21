@@ -218,6 +218,7 @@ Hver agent får fire oppgaver.
     market_id: int | null,
     counts: { inbox, actions_new, entities_pending, integrations_failing },
     usage: { month, calls, quota, cost_usd, percent } | null,
+    role: string | null,                  // rollenavnet, lagt til i U17
     can: { manage_prompts, manage_competitors, manage_brands, manage_markets, manage_alerts, manage_reports }
   }
   ```
@@ -234,6 +235,23 @@ Hver agent får fire oppgaver.
 - Markedsvalg følger URL-en, og kopiert URL gir samme valg.
 - Hele sidemenyen kan brukes med tastatur. `⌘K` åpner paletten.
 - Referansebildene er oppdatert for alle sider, og axe gir ingen kritiske funn.
+
+**Slik U17 er bygget:**
+
+- **Filer:** `Layouts/AppLayout.vue` (skall, toppstripe og skuff), `Components/Shell/Sidebar.vue` (sidemenyen), `Components/Shell/sidebarNav.js` (lenker, aktiv side, merketall og spørring, testet i `tests/js/sidebar-nav.test.mjs`) og `Composables/useWorkspace.js`. På serveren lager `App\Workspace\Workspace::for(Request)` propen og `App\Workspace\WorkspaceCounts` tallene. Videresendingene står i `WorkspaceRedirectController`.
+- **Fjernet:** `BrandNav.vue` og Jetstreams ubrukte menykomponenter `NavLink`, `ResponsiveNavLink`, `Dropdown` og `DropdownLink`. Menyene i sidemenyen bruker Headless UI `Menu`, som gir piltaster, Escape og fokus tilbake til knappen.
+- **Markedet** leses fra `?market` i URL-en også i nettleseren, fordi filterlinjen bytter marked med delvise besøk som ikke henter `workspace` på nytt. `workspace.market_id` er det samme valget sett fra serveren.
+- **Lenkene til analysesidene** beholder analysefiltrene (periode, sammenligning, motor osv.) som `BrandNav` gjorde, og får gjeldende `market`. Roboter og trafikk, Arbeid og oppsettssidene unntatt Prompts og temaer får ikke `market`.
+- **Aktiv lenke for dagens sider:** `brands.settings` markerer Identitet, `brands.plan.show` og `brands.markets.create` markerer Markeder og måleplan, og Innboks er aktiv på `alerts.*`. Etter en videresending markeres siden brukeren havner på.
+- **Tallene:** `entities_pending` er antall navn i `EntityQueue::pending` (U21 er merget). Mellomlageret har en versjonsnøkkel per tenant. Den byttes når `Alert`, `Action`, `EntityDecision`, `Integration`, `Competitor`, `CompetitorAlias` eller `BrandAlias` lagres eller slettes (`AppServiceProvider`), slik at kvittering, beslutninger og nye tiltak vises med en gang.
+- **Utsatt prop:** `workspace` deles bare med innloggede brukere med en tenant. Mens propen lastes etter et besøk, viser sidemenyen forrige verdi for samme tenant og merkevare, så den ikke blinker.
+- **Avvik og tillegg:**
+  - `workspace.role` er lagt til: rollenavnet under brukernavnet nederst i sidemenyen (skisse 1).
+  - Partner-rådgivere får lenken «Pitch» (`pitches.index`) under Portefølje, fordi toppmenyen som hadde den, er fjernet.
+  - Rapporter (`reports.index`), Merkevarer (`brands.index`) og Veiviseren nås fra kommandopaletten, Portefølje og «Ny merkevare». Sidemenyen har ingen egen lenke til dem.
+  - Logoen er dagens Maksimer-merke ved siden av «Ekko», ikke den røde «e»-en i skissen.
+  - Forbruk kan vise over 100 %. Linjen stopper på full bredde.
+  - Sidetitlene på dagens sider er uendret. Overskrift og «Merkevare · Gruppe» som i skissen kommer med sideoppgavene (U20–U26).
 
 ### 4.2 Formatering (U18)
 
@@ -359,7 +377,7 @@ Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-fo
 
 Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.manage`.
 
-**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes ennå (`brands.setup.*`, `inbox.index`), vises ikke. Inntil U17 deler `workspace`, viser paletten bare «Lag rapport nå», som før. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg».
+**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg».
 
 ## 5. Skjermer
 
