@@ -77,7 +77,7 @@ const editable = props.rules.map((rule) => ({
                     <div>
                         <p>{{ alert.title }}</p>
                         <p class="text-shell-muted">
-                            <span v-if="alert.brand">{{ alert.brand }} ·</span>
+                            <span v-if="alert.brand && !alert.detail.includes(alert.brand)">{{ alert.brand }} ·</span>
                             {{ alert.detail }}
                         </p>
                     </div>

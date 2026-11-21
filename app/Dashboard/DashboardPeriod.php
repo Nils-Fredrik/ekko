@@ -88,9 +88,9 @@ final class DashboardPeriod
     public static function coveringLength(int $brandId): int
     {
         $zone = self::timezone();
-        foreach ([90 => 72, 28 => 23] as $length => $needed) {
+        foreach ([90, 28] as $length) {
             $window = self::endingToday($length, $zone);
-            if (self::daysWithData($brandId, $window->from, $window->to) >= $needed) {
+            if (self::lengthForHistory(self::daysWithData($brandId, $window->from, $window->to)) === $length) {
                 return $length;
             }
         }
@@ -149,9 +149,11 @@ final class DashboardPeriod
      */
     public static function history(int $brandId): array
     {
-        $today = CarbonImmutable::now(self::timezone())->toDateString();
+        $now = CarbonImmutable::now(self::timezone());
+        $today = $now->toDateString();
+        $ttl = max(1, (int) $now->diffInSeconds($now->endOfDay()));
         /** @var array{length: int, from: ?string} $history */
-        $history = Cache::remember("brand-coverage:{$brandId}:{$today}", 60, fn (): array => [
+        $history = Cache::remember("brand-coverage:{$brandId}:{$today}", $ttl, fn (): array => [
             'length' => self::coveringLength($brandId),
             'from' => self::measuredFrom($brandId),
         ]);

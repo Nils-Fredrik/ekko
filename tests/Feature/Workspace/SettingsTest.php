@@ -422,6 +422,7 @@ test('usage shows the month against the quota and is hidden from a reader', func
         ->component('Usage/Index')
         ->where('usage.calls', 4)
         ->where('engines.0.calls', 4)
+        ->where('month', now('UTC')->format('Y-m'))
         ->where('canViewUsage', true));
 
     $this->actingAs($reader)->get(route('usage.index'))->assertForbidden();
