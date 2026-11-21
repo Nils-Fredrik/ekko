@@ -60,7 +60,7 @@ Legg tallene i en tabell under «Bevis» nederst. Lagre ingen kundedata, tenantn
 
 Forutsetning: #910 er avklart, og baseline er registrert.
 
-**Status før `shadow` (21.11.2026):** #910 er avklart (terminal fallback, #944), baseline i `legacy` er registrert (PR #141), og `ready` er anvendt med alle kontroller i avsnitt 2.4 bestått (Board #1395 og #1407). Rekkefølgen og én tilbakerullingsøvelse mellom `shadow` og `event` er bestemt av eieren (#946).
+**Status før `shadow` (21.11.2026):** #910 er avklart (terminal fallback, #944), baseline i `legacy` er delvis registrert (PR #141: starter, instanstid, Cloud Tasks og statuskall; DB-transaksjoner, dashboardforsinkelse og fakturaavstemming mangler og måles videre etter avsnitt 1 og 5), og `ready` er anvendt med alle kontroller i avsnitt 2.4 bestått (Board #1395 og #1407). Rekkefølgen og én tilbakerullingsøvelse mellom `shadow` og `event` er bestemt av eieren (#946).
 
 **Lesende plan for `shadow` (21.11.2026, `-lock=false`, produksjonens tfvars):** `0 to add, 7 to change, 0 to destroy`. Web og de fem jobbene får `EKKO_WORK_CHAINING=true` og `EKKO_WORK_PUBLISHER=cloud_tasks`, `ekko-wake` får etiketten `shadow`, og vernet får `shadow`. Navnet på web-revisjonen nullstilles som før. Ingen Scheduler-plan, IAM eller andre ressurser endres. Planen er for gjennomgang; apply krever eierens godkjenning av en ny plan laget rett før apply.
 
