@@ -18,7 +18,7 @@
 # needs -var=allow_work_rollout_downgrade=true for that one reviewed plan (it also skips reading the label, which
 # the first apply of a new environment needs, before ekko-wake exists).
 locals {
-  work_rollout_stage = "legacy"
+  work_rollout_stage = "ready"
 
   work_rollout_ranks = { legacy = 0, ready = 1, shadow = 2, event = 3 }
   work_rollout_rank  = local.work_rollout_ranks[local.work_rollout_stage]
