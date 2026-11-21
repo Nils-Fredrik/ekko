@@ -67,7 +67,7 @@ class BrandCompetitorController extends Controller
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
                 'brand.competitors.u07.'.$grain.'.'.$period->comparison, $filter, $period->timezone,
                 fn (): array => $page->chartData($filter, $previous, $grain),
-                competitorIds: $brand->competitors->modelKeys(),
+                competitorIds: array_keys(Competitor::colorIndexes($brand)),
             )),
         ]);
     }

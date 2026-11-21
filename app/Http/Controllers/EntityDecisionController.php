@@ -57,6 +57,10 @@ class EntityDecisionController extends Controller
     {
         $record = EntityDecision::query()->where('brand_id', $brand->id)->findOrFail($decision);
         Gate::authorize('delete', $record);
+        // The brand's own aliases are the brand's settings, as when the decision was made (ADR 0043).
+        if ($record->target_type === 'brand') {
+            Gate::authorize('update', $brand);
+        }
 
         if (! $record->undoable()) {
             return response()->json([

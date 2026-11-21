@@ -24,7 +24,9 @@ final class GraphCache
      * @template TValue of array
      *
      * @param  Closure(): TValue  $calculate
-     * @param  list<int|string>  $competitorIds  Current roster for charts that depend on it.
+     * @param  list<int|string>  $competitorIds  Current roster for charts that depend on it, in color order
+     *                                           (Competitor::colorIndexes): the order is part of the key, so a
+     *                                           reorder or a changed active state is never served from cache.
      * @return TValue
      */
     public function remember(string $graph, MetricsFilter $filter, string $timezone, Closure $calculate, array $competitorIds = []): array
@@ -46,7 +48,7 @@ final class GraphCache
             'intent' => self::sorted($filter->intents),
             'funnel' => self::sorted($filter->funnelStages),
             'prompt' => self::sorted($filter->promptIds),
-            'competitors' => self::sorted($competitorIds),
+            'competitors' => array_map('strval', $competitorIds),
             'timezone' => $timezone,
             'locale' => app()->getLocale(),
             'day' => CarbonImmutable::now($timezone)->toDateString(),

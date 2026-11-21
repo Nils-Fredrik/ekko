@@ -857,7 +857,8 @@ Angre er tillatt i 24 timer. Etter det sendes brukeren til konkurrentens panel f
 - **Utdrag:** de inneholder tekst fra svar, slik `PromptShow` allerede viser. De logges ikke og legges ikke i cache.
 - **MCP og API:** `list_brands` og API-konkurrentene får `position`. Det kommer ingen nye MCP-verktøy.
 - **Avklaringer fra U21** (ADR 0043):
-  - Alias på egen merkevare (`target_type = brand`) krever i tillegg `brands.manage`. Uten den svarer ruten 403.
+  - Alias på egen merkevare (`target_type = brand`) krever i tillegg `brands.manage`, både for beslutningen og for angre. Uten den svarer ruten 403. Alias på en konkurrent krever en aktiv konkurrent.
+  - Angre setter bare tilbake nevnelsene beslutningen flyttet (lagret i `entity_decisions.mention_ids`) og nevnelser funnet etter beslutningen gjennom aliasene den la til. Det skjer i samme forespørsel, ikke i jobben.
   - `EntityName::key` fjerner den juridiske endelsen etter tegnsettingen, slik at «Netthavn AS.» også gir `netthavn`. Symboler (® ™ & +) behandles som tegnsetting.
   - Forslaget `alias` krever at nøkkelen er lik målets nøkkel, eller starter med den etterfulgt av et ord. Forslaget `ignored` gjelder når ett ord er eller slutter på et generisk ord, og ingen skrivemåte begynner med stor bokstav.
   - `keys[]` normaliseres med `EntityName::key` på serveren. Et navn uten ukjente nevnelser de siste 90 dagene, et kjent navn eller et navn med beslutning gir 422 på `keys.<n>`.

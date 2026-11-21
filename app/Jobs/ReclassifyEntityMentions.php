@@ -4,105 +4,46 @@ namespace App\Jobs;
 
 use App\Detection\EntityName;
 use App\Models\EntityDecision;
-use App\Models\Mention;
-use App\Models\Team;
-use App\Work\WorkKind;
-use App\Work\WorkScope;
-use App\Work\WorkSignals;
+use App\Prompts\EntityMentions;
 use Carbon\CarbonImmutable;
-use DateTimeZone;
-use Illuminate\Database\Eloquent\Builder;
-use Throwable;
 
 /**
  * Moves old mentions of a decided name to the brand or competitor it became (docs/ux-arbeidsflate.md 6.3, ADR
- * 0043), or back to unknown when the decision is undone. Only mentions whose surface name has the decision's key,
- * in answers of the brand's markets collected in the last ekko.entities.reclassify_days days, are touched. Older
- * periods keep the name as unknown. Every tenant-local day with a changed answer is aggregated again through a
- * work signal, so the figures follow.
+ * 0043). Only unknown mentions whose surface name has the decision's key, in answers of the brand's markets
+ * collected in the last ekko.entities.reclassify_days days, are moved. Older periods keep the name as unknown.
+ * Every tenant-local day with a changed answer is aggregated again through a work signal, and the moved mentions
+ * are stored on the decision, so an undo moves back exactly these.
  *
- * A forward run needs its decision. An undo that came first has deleted it, and then nothing is moved.
+ * The decision is locked while the job runs. An undo that came first has deleted it, and then nothing is moved.
  */
 class ReclassifyEntityMentions extends TenantJob
 {
-    private const CHUNK = 1000;
-
-    public function __construct(
-        int $tenantId,
-        public readonly int $brandId,
-        public readonly string $key,
-        public readonly string $targetType,
-        public readonly int $targetId,
-        public readonly ?int $decisionId = null,
-        public readonly bool $revert = false,
-    ) {
+    public function __construct(int $tenantId, public readonly int $decisionId)
+    {
         parent::__construct($tenantId);
     }
 
-    public function handle(WorkSignals $signals): void
+    public function handle(EntityMentions $mentions): void
     {
-        $decision = null;
-        if (! $this->revert) {
-            // The lock orders this run and an undo of the same decision.
-            $decision = EntityDecision::query()->whereKey($this->decisionId)->lockForUpdate()->first();
-            if ($decision === null) {
-                return;
-            }
+        $decision = EntityDecision::query()->whereKey($this->decisionId)->lockForUpdate()->first();
+        if ($decision === null || $decision->target_type === null || $decision->target_id === null) {
+            return;
         }
 
         $since = CarbonImmutable::now('UTC')->subDays((int) config('ekko.entities.reclassify_days'));
-        $from = fn (Builder $query): Builder => $this->revert
-            ? $query->where('mentions.entity_type', $this->targetType)->where('mentions.entity_id', $this->targetId)
-            : $query->where('mentions.entity_type', 'unknown');
-
-        $surfaces = $from($this->mentions($since))->toBase()->distinct()->pluck('mentions.surface_name')
+        $unknown = $mentions->inBrandMarkets($decision->brand_id, $since)->where('mentions.entity_type', 'unknown');
+        $surfaces = (clone $unknown)->toBase()->distinct()->pluck('mentions.surface_name')
             ->map(fn ($name): string => (string) $name)
-            ->filter(fn (string $name): bool => EntityName::key($name) === $this->key)
+            ->filter(fn (string $name): bool => EntityName::key($name) === $decision->name_key)
             ->values()->all();
 
-        $moved = 0;
-        $dates = [];
-        if ($surfaces !== []) {
-            $timezone = $this->timezone();
-            $rows = $from($this->mentions($since))->whereIn('mentions.surface_name', $surfaces)
-                ->toBase()->get(['mentions.id', 'responses.collected_at']);
-            foreach ($rows->chunk(self::CHUNK) as $chunk) {
-                $moved += Mention::query()->whereIn('id', $chunk->pluck('id')->all())->update($this->revert
-                    ? ['entity_type' => 'unknown', 'entity_id' => null]
-                    : ['entity_type' => $this->targetType, 'entity_id' => $this->targetId]);
-            }
-            foreach ($rows as $row) {
-                $dates[WorkScope::localDate(CarbonImmutable::parse((string) $row->collected_at), $timezone)] = true;
-            }
-        }
+        $ids = $surfaces === [] ? [] : $unknown->whereIn('mentions.surface_name', $surfaces)->pluck('mentions.id')
+            ->map(fn ($id): int => (int) $id)->all();
+        $moved = $mentions->move($ids, ['entity_type' => $decision->target_type, 'entity_id' => $decision->target_id], from: ['unknown', null]);
 
-        foreach (array_keys($dates) as $date) {
-            $signals->signal(WorkKind::Aggregation, (string) $date);
-        }
-
-        $decision?->forceFill(['reclassified_mentions' => $moved])->save();
-    }
-
-    /** @return Builder<Mention> */
-    private function mentions(CarbonImmutable $since): Builder
-    {
-        return Mention::query()
-            ->join('responses', 'responses.id', '=', 'mentions.response_id')
-            ->join('runs', 'runs.id', '=', 'responses.run_id')
-            ->join('prompts', 'prompts.id', '=', 'runs.prompt_id')
-            ->join('markets', 'markets.id', '=', 'prompts.market_id')
-            ->where('markets.brand_id', $this->brandId)
-            ->where('responses.collected_at', '>=', $since);
-    }
-
-    /** The same reading as DailyAggregator: an unknown or empty timezone counts as UTC. */
-    private function timezone(): string
-    {
-        $name = Team::query()->whereKey($this->tenantId)->value('timezone');
-        try {
-            return (new DateTimeZone(is_string($name) && $name !== '' ? $name : 'UTC'))->getName();
-        } catch (Throwable) {
-            return 'UTC';
-        }
+        $decision->forceFill([
+            'reclassified_mentions' => count($moved),
+            'mention_ids' => array_values(array_unique([...$decision->mention_ids, ...$moved])),
+        ])->save();
     }
 }

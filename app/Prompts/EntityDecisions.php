@@ -11,6 +11,7 @@ use App\Models\CompetitorAlias;
 use App\Models\EntityDecision;
 use App\Models\Team;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -25,12 +26,12 @@ use Illuminate\Validation\ValidationException;
  * - alias: adds the variants as case-insensitive aliases of the brand or a competitor and moves old mentions.
  * - other and ignored: only stored. The name leaves the queue, alerts and actions.
  *
- * An undo within ekko.entities.undo_hours removes the aliases the decision added, archives the competitor it
- * created or restored, moves the mentions back to unknown and deletes the decision.
+ * An undo within ekko.entities.undo_hours moves the mentions the decision moved back to unknown, removes the
+ * aliases it added, archives the competitor it created or restored and deletes the decision, in one transaction.
  */
 final readonly class EntityDecisions
 {
-    public function __construct(private EntityQueue $queue) {}
+    public function __construct(private EntityQueue $queue, private EntityMentions $mentions) {}
 
     /**
      * @param  list<string>  $keys
@@ -47,8 +48,8 @@ final readonly class EntityDecisions
             $tenant = Team::query()->whereKey($brand->getAttribute('tenant_id'))->lock('for no key update')->firstOrFail();
             Brand::query()->whereKey($brand->id)->lockForUpdate()->first();
 
-            $keys = array_values(array_unique($keys));
-            $found = $this->queue->lookup($brand, $keys);
+            // Errors name the position in the request; two keys that normalize alike are decided once.
+            $found = $this->queue->lookup($brand, array_values(array_unique($keys)));
             $known = EntityQueue::knownKeys($brand);
             $decided = EntityQueue::decidedKeys($brand);
             $errors = [];
@@ -66,6 +67,7 @@ final readonly class EntityDecisions
             if ($errors !== []) {
                 throw ValidationException::withMessages($errors);
             }
+            $keys = array_values(array_unique($keys));
 
             $target = $decision === EntityDecision::ALIAS ? $this->target($brand, $targetType, $targetId) : null;
 
@@ -87,7 +89,7 @@ final readonly class EntityDecisions
 
         foreach ($decisions as $record) {
             if ($record->target_type !== null && $record->target_id !== null) {
-                ReclassifyEntityMentions::dispatch((int) $record->getAttribute('tenant_id'), $brand->id, $record->name_key, $record->target_type, $record->target_id, $record->id);
+                ReclassifyEntityMentions::dispatch((int) $record->getAttribute('tenant_id'), $record->id);
             }
         }
 
@@ -99,13 +101,16 @@ final readonly class EntityDecisions
      */
     public function undo(EntityDecision $decision): void
     {
-        $revert = DB::transaction(function () use ($decision): ?array {
+        DB::transaction(function () use ($decision): void {
+            // The lock waits for a running reclassification of the decision, so its mentions are known.
             $locked = EntityDecision::query()->whereKey($decision->id)->lockForUpdate()->firstOrFail();
             if (! $locked->undoable()) {
                 throw ValidationException::withMessages(['decision' => __('entities.errors.undo_expired', ['hours' => (int) config('ekko.entities.undo_hours')])]);
             }
 
             if ($locked->target_type !== null && $locked->target_id !== null) {
+                $this->revertMentions($locked);
+
                 $aliases = $locked->target_type === 'brand'
                     ? BrandAlias::query()->where('brand_id', $locked->target_id)
                     : CompetitorAlias::query()->where('competitor_id', $locked->target_id);
@@ -117,18 +122,33 @@ final readonly class EntityDecisions
                 }
             }
 
-            $revert = $locked->target_type !== null && $locked->target_id !== null
-                ? [(int) $locked->getAttribute('tenant_id'), (int) $locked->brand_id, $locked->name_key, $locked->target_type, (int) $locked->target_id]
-                : null;
             $locked->delete();
-
-            return $revert;
         });
+    }
 
-        if ($revert !== null) {
-            [$tenantId, $brandId, $key, $type, $id] = $revert;
-            ReclassifyEntityMentions::dispatch($tenantId, $brandId, $key, $type, $id, null, true);
+    /**
+     * Moves back to unknown what the decision moved: the mentions the reclassification stored, and mentions the
+     * detection found after the decision through the aliases it added. Mentions that were the target's before the
+     * decision keep their link, also when an archived competitor was restored (ADR 0043).
+     */
+    private function revertMentions(EntityDecision $decision): void
+    {
+        $ids = $decision->mention_ids;
+        if ($decision->alias_ids !== []) {
+            $since = CarbonImmutable::now('UTC')->subDays((int) config('ekko.entities.reclassify_days'));
+            $detected = $this->mentions->inBrandMarkets($decision->brand_id, $since)
+                ->where('mentions.entity_type', $decision->target_type)
+                ->where('mentions.entity_id', $decision->target_id)
+                ->where('mentions.created_at', '>=', $decision->decided_at)
+                ->toBase()->get(['mentions.id', 'mentions.surface_name']);
+            foreach ($detected as $row) {
+                if (EntityName::key((string) $row->surface_name) === $decision->name_key) {
+                    $ids[] = (int) $row->id;
+                }
+            }
         }
+
+        $this->mentions->move($ids, ['entity_type' => 'unknown', 'entity_id' => null], from: [(string) $decision->target_type, (int) $decision->target_id]);
     }
 
     /** @param  array{name: string, variants: list<string>}  $found */
@@ -189,6 +209,7 @@ final readonly class EntityDecisions
             'created_competitor' => false,
             'alias_ids' => [],
             'reclassified_mentions' => 0,
+            'mention_ids' => [],
             'decided_by' => $user?->id,
             'decided_at' => now(),
             ...$effect,
@@ -226,7 +247,7 @@ final readonly class EntityDecisions
     {
         $target = match ($type) {
             'brand' => $id === $brand->id ? $brand : null,
-            'competitor' => $id === null ? null : Competitor::query()->where('brand_id', $brand->id)->whereKey($id)->first(),
+            'competitor' => $id === null ? null : Competitor::query()->where('brand_id', $brand->id)->where('is_active', true)->whereKey($id)->first(),
             default => null,
         };
         if ($target === null) {

@@ -63,6 +63,27 @@ test('a changed order gives the same color place on every page that shows compet
     expect($this->c3->fresh()->position)->toBeLessThan($w->c1->fresh()->position);
 });
 
+test('a new order is not served from the graph cache', function () {
+    $w = $this->w;
+    $table = function () use ($w): array {
+        $rows = [];
+        $this->actingAs($w->tenant->owner)->get(route('brands.competitors.index', [$w->brand, 'days' => 7]))
+            ->assertInertia(function ($page) use (&$rows) {
+                $page->loadDeferredProps(function ($deferred) use (&$rows) {
+                    $rows = collect($deferred->toArray()['props']['chartData']['table'])->reject(fn ($row) => $row['own'])
+                        ->mapWithKeys(fn ($row) => [$row['id'] => $row['color_index']])->all();
+                });
+            });
+
+        return $rows;
+    };
+
+    expect($table())->toEqual([$w->c1->id => 0, $w->c2->id => 1, $this->c3->id => 2]);
+    $this->actingAs($w->tenant->owner)->postJson(route('brands.competitors.reorder', $w->brand), ['ids' => [$w->c2->id, $w->c1->id, $this->c3->id]])->assertOk();
+
+    expect($table())->toEqual([$w->c2->id => 0, $w->c1->id => 1, $this->c3->id => 2]);
+});
+
 test('the order must name every active competitor once, and an inactive competitor keeps its place', function () {
     $w = $this->w;
     $w->c2->forceFill(['is_active' => false])->save();

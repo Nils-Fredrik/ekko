@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property bool $created_competitor
  * @property list<int> $alias_ids
  * @property int $reclassified_mentions
+ * @property list<int> $mention_ids
  * @property int|null $decided_by
  * @property Carbon $decided_at
  */
@@ -51,6 +52,7 @@ class EntityDecision extends Model
         'created_competitor',
         'alias_ids',
         'reclassified_mentions',
+        'mention_ids',
         'decided_by',
         'decided_at',
     ];
@@ -83,6 +85,7 @@ class EntityDecision extends Model
             'created_competitor' => 'boolean',
             'alias_ids' => 'array',
             'reclassified_mentions' => 'integer',
+            'mention_ids' => 'array',
             'decided_by' => 'integer',
             'decided_at' => 'datetime',
         ];

@@ -29,6 +29,8 @@ return new class extends Migration
             $table->boolean('created_competitor')->default(false);
             $table->jsonb('alias_ids');
             $table->integer('reclassified_mentions')->default(0);
+            // The mentions the decision moved, so an undo moves back exactly these (ADR 0043).
+            $table->jsonb('mention_ids')->default(DB::raw("'[]'::jsonb"));
             $table->foreignId('decided_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestampTz('decided_at');
             $table->timestampsTz();

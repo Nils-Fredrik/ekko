@@ -157,6 +157,60 @@ test('competitor restores an archived competitor with the same key at the end of
         ->and(EntityDecision::query()->sole()->target_id)->toBe($archived->id);
 });
 
+test('undo of a restored competitor keeps the mentions it had before the decision', function () {
+    $w = $this->w;
+    $archived = Competitor::factory()->for($w->brand)->create(['name' => 'Havnelys Studio']);
+    // Recognized while it was active, then archived: the links stay (T27-F1).
+    $old = $w->answer($w->p1, '2026-10-20 10:00:00', ['competitors' => [$archived->id => 1]]);
+    Mention::query()->where('response_id', $old->id)->where('entity_type', 'competitor')->update(['surface_name' => 'Havnelys Studio']);
+    $archived->delete();
+    namedAnswers($w, ['Havnelys Studio'], 2);
+    $this->travel(1)->minutes();
+
+    decide($w, ['keys' => ['havnelys studio'], 'decision' => 'competitor'])->assertOk();
+    $decision = EntityDecision::query()->sole();
+    $this->travel(1)->minutes();
+    expect($decision->mention_ids)->toHaveCount(2)
+        ->and(Mention::query()->where('entity_type', 'competitor')->where('entity_id', $archived->id)->count())->toBe(3);
+
+    // An answer extracted after the decision and found through its alias is undone too.
+    $later = $w->answer($w->p1, '2026-11-19 09:00:00', ['competitors' => [$archived->id => 1]]);
+    Mention::query()->where('response_id', $later->id)->where('entity_type', 'competitor')->update(['surface_name' => 'havnelys studio']);
+
+    $this->actingAs($w->tenant->owner)->deleteJson(route('brands.entities.undo', [$w->brand, $decision->id]))->assertOk();
+
+    expect(Mention::query()->where('entity_type', 'competitor')->where('entity_id', $archived->id)->pluck('response_id')->all())->toBe([$old->id])
+        ->and(unknownMentions($w, 'Havnelys Studio') + unknownMentions($w, 'havnelys studio'))->toBe(3);
+});
+
+test('undo of an alias of the brand needs brands.manage too', function () {
+    $w = $this->w;
+    namedAnswers($w, ['Fjordkaffe Bergen'], 2);
+    decide($w, ['keys' => ['fjordkaffe bergen'], 'decision' => 'alias', 'target_type' => 'brand', 'target_id' => $w->brand->id])->assertOk();
+    $decision = EntityDecision::query()->sole();
+
+    $editor = User::factory()->create();
+    $w->tenant->users()->attach($editor, ['role' => 'editor']);
+    $editor->switchTeam($w->tenant);
+    $this->actingAs($editor)->deleteJson(route('brands.entities.undo', [$w->brand, $decision->id]))->assertForbidden();
+
+    expect(EntityDecision::query()->count())->toBe(1)
+        ->and(BrandAlias::query()->where('brand_id', $w->brand->id)->count())->toBe(1);
+});
+
+test('an alias needs an active competitor, and errors name the position in the request', function () {
+    $w = $this->w;
+    namedAnswers($w, ['Havnelys Studio'], 2);
+    $w->c1->forceFill(['is_active' => false])->save();
+
+    decide($w, ['keys' => ['havnelys studio'], 'decision' => 'alias', 'target_type' => 'competitor', 'target_id' => $w->c1->id])
+        ->assertStatus(422)->assertJsonValidationErrors('target_id');
+    // «Havnelys Studio AS» and «havnelys studio» are one key; the unknown name is the third element.
+    decide($w, ['keys' => ['Havnelys Studio AS', 'havnelys studio', 'finnes ikke'], 'decision' => 'other'])
+        ->assertStatus(422)->assertJsonValidationErrors('keys.2')->assertJsonMissingValidationErrors(['keys.0', 'keys.1']);
+    decide($w, ['keys' => ['Havnelys Studio AS', 'havnelys studio'], 'decision' => 'other'])->assertOk()->assertJsonCount(1, 'decisions');
+});
+
 test('a pitch keeps its limit of three competitors', function () {
     $w = $this->w;
     $w->tenant->forceFill(['kind' => 'pitch'])->save();
