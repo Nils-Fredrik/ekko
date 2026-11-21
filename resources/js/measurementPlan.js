@@ -36,8 +36,10 @@ export function rulesToRows(rules, catalog, maxRepetitions = 3) {
         const list = byEngine.get(key) ?? [];
         const all = list.find((rule) => rule.prompt_scope === 'all');
         const core = list.find((rule) => rule.prompt_scope === 'core');
-        const primary = all ?? core;
         const selectable = engine.selectable === true && engine.max_frequency !== 'off';
+        const allActive = selectable && all?.frequency && all.frequency !== 'off';
+        const coreActive = selectable && core?.frequency && core.frequency !== 'off';
+        const coreOnly = coreActive && !allActive;
 
         return {
             engine_key: key,
@@ -45,11 +47,11 @@ export function rulesToRows(rules, catalog, maxRepetitions = 3) {
             selectable,
             has_price: engine.has_price !== false,
             max_frequency: engine.max_frequency ?? 'off',
-            frequency: selectable ? (primary?.frequency ?? 'off') : 'off',
-            prompt_scope: selectable && !all && core ? 'core' : 'all',
-            repetitions: selectable ? clampRepetitions(primary?.repetitions, maxRepetitions) : 1,
-            core_frequency: selectable && all && core ? core.frequency : '',
-            core_repetitions: selectable && all && core ? clampRepetitions(core.repetitions, maxRepetitions) : 1,
+            frequency: coreOnly ? core.frequency : allActive ? all.frequency : 'off',
+            prompt_scope: coreOnly ? 'core' : 'all',
+            repetitions: clampRepetitions(coreOnly ? core.repetitions : all?.repetitions, maxRepetitions),
+            core_frequency: allActive && core ? core.frequency : '',
+            core_repetitions: allActive && core ? clampRepetitions(core.repetitions, maxRepetitions) : 1,
         };
     });
 }

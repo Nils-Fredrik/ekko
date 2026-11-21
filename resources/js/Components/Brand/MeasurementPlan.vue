@@ -56,6 +56,11 @@ const missingPrice = computed(() => {
 const canSave = computed(
     () => props.canManage && !saving.value && fresh.value && !missingPrice.value && estimateCanConfirm(estimate.value),
 );
+const priceBlocks = computed(
+    () =>
+        missingPrice.value ||
+        (fresh.value && (estimate.value?.issues ?? []).some((issue) => issue.code === 'no_price')),
+);
 
 function marketLabel(market) {
     if (market.location_label) {
@@ -165,7 +170,7 @@ load();
             :estimating="estimating"
             :fresh="fresh"
             :error="error || saveError"
-            :blocked="missingPrice || (estimate != null && !estimateCanConfirm(estimate))"
+            :blocked="priceBlocks"
             :catalog="plan.options.engines"
             :labels="labels"
         />

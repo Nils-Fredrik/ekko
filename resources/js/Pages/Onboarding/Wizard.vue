@@ -223,6 +223,13 @@ const estimateRequest = computed(() => {
 const { estimate, error: estimateError, estimating, fresh, load } = usePlanEstimate(() => estimateRequest.value);
 const proposedMarket = computed(() => estimate.value?.markets.find((market) => market.id === null));
 const estimateReady = computed(() => fresh.value && estimateCanConfirm(estimate.value, null));
+const priceBlocks = computed(
+    () =>
+        fresh.value &&
+        (estimate.value?.issues ?? []).some(
+            (issue) => issue.code === 'no_price' && (issue.market_id === undefined || issue.market_id === null),
+        ),
+);
 const estimateSteps = ['engines', 'integrations'];
 watch(planMode, (mode, previous) => {
     if (props.brand && mode === 'own' && previous !== 'own') {
@@ -526,7 +533,7 @@ form.transform((data) => {
                     :estimate="estimate"
                     :estimating="estimating"
                     :fresh="fresh"
-                    :blocked="fresh && !estimateReady"
+                    :blocked="priceBlocks"
                     :catalog="measurementPlan.options.engines"
                     only-market
                     :market-id="null"
