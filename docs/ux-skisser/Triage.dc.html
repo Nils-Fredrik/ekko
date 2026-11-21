@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<title>Ukjente merkevarer til behandling</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+@font-face{font-family:'Suisse Intl';src:url(../../public/fonts/SuisseIntl-Light.woff2) format('woff2');font-weight:300;font-display:swap}
+@font-face{font-family:'Suisse Intl';src:url(../../public/fonts/SuisseIntl-Book.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Suisse Intl';src:url(../../public/fonts/SuisseIntl-Regular.woff2) format('woff2');font-weight:450;font-display:swap}
+@font-face{font-family:'Suisse Intl';src:url(../../public/fonts/SuisseIntl-Medium.woff2) format('woff2');font-weight:500;font-display:swap}
+body{margin:0;background:#000}
+a{color:#ffb6c3;text-decoration:none}a:hover{color:#ffffff}
+</style>
+</helmet>
+<div style="min-height: 1080px; display: flex; flex-wrap: wrap; background: #000000; color: #f5ede4; font-family: 'Suisse Intl', ui-sans-serif, system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.45;">
+
+<nav aria-label="Hovedmeny" style="flex: 1 1 248px; box-sizing: border-box; border-right: 1px solid #2e2624; padding: 16px 12px; display: flex; flex-direction: column; gap: 16px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 6px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <span aria-hidden="true" style="width: 24px; height: 24px; border-radius: 7px; background: #c73823; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 500; font-size: 13px;">e</span>
+      <span style="font-size: 15px; font-weight: 500; color: #ffffff; letter-spacing: -0.01em;">Ekko</span>
+    </div>
+    <button type="button" style="font: inherit; font-size: 12px; color: #c4b6a8; background: transparent; border: 1px solid #2e2624; border-radius: 999px; padding: 3px 10px; cursor: pointer;">Fjordbyrå AS ▾</button>
+  </div>
+  <button type="button" style="font: inherit; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 10px; border: 1px solid #4a3f3a; background: #0b0909; color: #c4b6a8; font-size: 13px; cursor: pointer;">
+    <span style="display: flex; align-items: center; gap: 8px;"><svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>Søk eller kjør handling</span>
+    <span style="font-size: 11px; border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px;">⌘K</span>
+  </button>
+  <div style="display: flex; flex-direction: column; gap: 2px;">
+    <sc-for list="{{nav.global}}" as="item" hint-placeholder-count="2">
+      <a href="{{item.href}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; font-size: 13.5px; background: {{item.bg}}; color: {{item.fg}}; font-weight: {{item.weight}};"><span>{{item.t}}</span><sc-if value="{{item.hasBadge}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: #c73823; color: #ffffff;">{{item.badge}}</span></sc-if></a>
+    </sc-for>
+  </div>
+  <div style="border: 1px solid #4a3f3a; border-radius: 12px; padding: 6px; display: flex; flex-direction: column; gap: 2px; background: #0b0909;">
+    <button type="button" style="font: inherit; display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: #ffffff; font-size: 13.5px; font-weight: 500; cursor: pointer; text-align: left;"><span><span style="display: block; font-size: 11px; color: #a8998c; font-weight: 400;">Merkevare</span>Fjordbyrå</span><span aria-hidden="true" style="color: #a8998c;">▾</span></button>
+    <div style="height: 1px; background: #2e2624; margin: 0 6px;"></div>
+    <button type="button" style="font: inherit; display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: #ffffff; font-size: 13.5px; cursor: pointer; text-align: left;"><span><span style="display: block; font-size: 11px; color: #a8998c;">Marked</span>{{market}}</span><span aria-hidden="true" style="color: #a8998c;">▾</span></button>
+  </div>
+  <sc-for list="{{nav.groups}}" as="group" hint-placeholder-count="3">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <div style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #a8998c; padding: 0 10px 4px; font-weight: 500;">{{group.label}}</div>
+      <sc-for list="{{group.items}}" as="item" hint-placeholder-count="4">
+        <a href="{{item.href}}" style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; border-radius: 8px; font-size: 13.5px; background: {{item.bg}}; color: {{item.fg}}; font-weight: {{item.weight}};"><span>{{item.t}}</span><sc-if value="{{item.hasBadge}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 999px; background: #2e2624; color: #f5ede4;">{{item.badge}}</span></sc-if></a>
+      </sc-for>
+    </div>
+  </sc-for>
+  <div style="flex-grow: 1;"></div>
+  <div style="padding: 0 10px; display: flex; flex-direction: column; gap: 6px;">
+    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #c4b6a8;"><span>Forbruk november</span><span style="font-variant-numeric: tabular-nums;">28 %</span></div>
+    <div style="height: 4px; border-radius: 999px; background: #2e2624; overflow: hidden;"><div style="width: 28%; height: 4px; background: #e84a38;"></div></div>
+    <div style="font-size: 12px; color: #a8998c; font-variant-numeric: tabular-nums;">1 412 av 5 000 kall · 16,54 USD</div>
+  </div>
+  <div style="display: flex; align-items: center; gap: 10px; padding: 8px 10px 0; border-top: 1px solid #2e2624;">
+    <span aria-hidden="true" style="width: 28px; height: 28px; border-radius: 999px; background: #2e2624; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500;">KL</span>
+    <div style="display: flex; flex-direction: column;"><span style="font-size: 13px; color: #ffffff;">Kari Lunde</span><span style="font-size: 12px; color: #a8998c;">Tenant-admin</span></div>
+  </div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 20px 24px 32px 32px; display: flex; flex-direction: column; gap: 16px;">
+  <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px;">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <span style="font-size: 12px; color: #a8998c;">Fjordbyrå · Oppsett</span>
+      <h1 style="margin: 0; font-size: 26px; font-weight: 500; letter-spacing: -0.01em; color: #ffffff;">Konkurrenter og merkevarer</h1>
+    </div>
+    <button type="button" style="font: inherit; font-size: 13px; font-weight: 500; padding: 7px 16px; border-radius: 999px; border: 0; background: #c73823; color: #ffffff; cursor: pointer;">Legg til konkurrent</button>
+  </div>
+
+  <div role="tablist" aria-label="Visning" style="display: flex; gap: 4px; border-bottom: 1px solid #2e2624; flex-wrap: wrap;">
+    <button type="button" role="tab" aria-selected="true" style="font: inherit; font-size: 13.5px; padding: 8px 12px; border: 0; border-bottom: 2px solid #e84a38; background: transparent; color: #ffffff; cursor: pointer;">Til behandling <span style="font-size: 11px; padding: 1px 7px; border-radius: 999px; background: #c73823; color: #ffffff; font-variant-numeric: tabular-nums;">{{remaining}}</span></button>
+    <button type="button" role="tab" aria-selected="false" style="font: inherit; font-size: 13.5px; padding: 8px 12px; border: 0; background: transparent; color: #c4b6a8; cursor: pointer;">Konkurrenter <span style="color: #a8998c;">6</span></button>
+    <button type="button" role="tab" aria-selected="false" style="font: inherit; font-size: 13.5px; padding: 8px 12px; border: 0; background: transparent; color: #c4b6a8; cursor: pointer;">Andre aktører <span style="color: #a8998c;">4</span></button>
+    <button type="button" role="tab" aria-selected="false" style="font: inherit; font-size: 13.5px; padding: 8px 12px; border: 0; background: transparent; color: #c4b6a8; cursor: pointer;">Ignorert <span style="color: #a8998c;">11</span></button>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center;">
+    <p style="margin: 0; font-size: 13px; color: #c4b6a8; max-width: 640px;">Navn fra svarene som ikke er registrert. Sortert etter andel av svarene siste 30 dager. Varianter med samme normaliserte navn er slått sammen.</p>
+    <span style="font-size: 12px; color: #a8998c;"><span style="border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px;">1</span> Konkurrent · <span style="border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px;">2</span> Annen aktør · <span style="border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px;">3</span> Alias · <span style="border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px;">4</span> Ignorer · <span style="border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px;">J</span>/<span style="border: 1px solid #4a3f3a; border-radius: 5px; padding: 0 5px;">K</span> neste/forrige</span>
+  </div>
+
+  <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start;">
+    <section aria-label="Til behandling" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 10px;">
+      <div style="border: 1px solid #4a3f3a; border-radius: 14px; overflow-x: auto;">
+        <div role="table" aria-label="Ukjente merkevarer" style="min-width: 820px;">
+          <div role="row" style="display: grid; grid-template-columns: 36px minmax(0, 1fr) 120px 80px 320px; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #4a3f3a; font-size: 11.5px; color: #a8998c; font-weight: 500;">
+            <span role="columnheader"><span style="position: absolute; width: 1px; height: 1px; overflow: hidden;">Velg</span></span>
+            <span role="columnheader">Navn</span>
+            <span role="columnheader">Andel av svar</span>
+            <span role="columnheader">Sist sett</span>
+            <span role="columnheader">Behandle</span>
+          </div>
+          <sc-for list="{{rows}}" as="r" hint-placeholder-count="10">
+            <div role="row" style="display: grid; grid-template-columns: 36px minmax(0, 1fr) 120px 80px 320px; gap: 10px; align-items: center; padding: 9px 12px; border-bottom: 1px solid #2e2624; background: {{r.bg}}; opacity: {{r.opacity}};">
+              <span role="cell"><input type="checkbox" aria-label="Velg {{r.name}}" checked="{{r.checked}}" onChange="{{r.toggle}}" disabled="{{r.decided}}" style="accent-color: #e84a38;"></span>
+              <span role="cell" style="min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+                <span style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px;">
+                  <button type="button" onClick="{{r.focus}}" style="font: inherit; padding: 0; border: 0; background: transparent; color: #ffffff; font-size: 13.5px; font-weight: 500; cursor: pointer; text-align: left;">{{r.name}}</button>
+                  <sc-if value="{{r.hasSuggest}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; padding: 1px 8px; border-radius: 999px; border: 1px solid #4a3f3a; color: #c4b6a8;">Forslag: {{r.suggestLabel}}</span></sc-if>
+                </span>
+                <span style="font-size: 12px; color: #a8998c;">{{r.meta}}</span>
+              </span>
+              <span role="cell" style="display: flex; flex-direction: column; gap: 4px;">
+                <span style="font-size: 12.5px; font-variant-numeric: tabular-nums; color: #f5ede4;">{{r.share}} <span style="color: #a8998c;">· {{r.n}}</span></span>
+                <span style="height: 4px; border-radius: 999px; background: #2e2624; overflow: hidden;"><span style="display: block; height: 4px; width: {{r.w}}; background: #e2b8a5;"></span></span>
+              </span>
+              <span role="cell" style="font-size: 12.5px; color: #c4b6a8;">{{r.last}}</span>
+              <span role="cell">
+                <sc-if value="{{r.open}}" hint-placeholder-val="{{true}}">
+                  <span style="display: flex; flex-wrap: wrap; gap: 6px;">
+                    <button type="button" onClick="{{r.asCompetitor}}" style="font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid {{r.bComp}}; background: transparent; color: #f5ede4; cursor: pointer;">Konkurrent</button>
+                    <button type="button" onClick="{{r.asOther}}" style="font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid {{r.bOther}}; background: transparent; color: #f5ede4; cursor: pointer;">Annen aktør</button>
+                    <button type="button" onClick="{{r.asAlias}}" style="font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid {{r.bAlias}}; background: transparent; color: #f5ede4; cursor: pointer;">Alias av …</button>
+                    <button type="button" onClick="{{r.asIgnore}}" style="font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid {{r.bIgnore}}; background: transparent; color: #c4b6a8; cursor: pointer;">Ignorer</button>
+                  </span>
+                </sc-if>
+                <sc-if value="{{r.decided}}" hint-placeholder-val="{{false}}">
+                  <span style="display: flex; align-items: center; gap: 10px; font-size: 12.5px;"><span style="color: #5d8a6a;">→ {{r.decision}}</span><button type="button" onClick="{{r.undo}}" style="font: inherit; font-size: 12.5px; padding: 0; border: 0; background: transparent; color: #ffb6c3; cursor: pointer;">Angre</button></span>
+                </sc-if>
+              </span>
+            </div>
+          </sc-for>
+          <div style="padding: 10px 12px; font-size: 12.5px; color: #a8998c;">Viser 10 av 23 · navn som er sett i færre enn 2 svar, vises ikke</div>
+        </div>
+      </div>
+
+      <sc-if value="{{hasSelection}}" hint-placeholder-val="{{false}}">
+        <div role="toolbar" aria-label="Handlinger for valgte navn" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px 8px 16px; border-radius: 14px; background: #1a1412; border: 1px solid #4a3f3a;">
+          <span style="font-size: 13px; color: #ffffff; font-weight: 500; font-variant-numeric: tabular-nums; margin-right: 6px;">{{selCount}} valgt</span>
+          <button type="button" onClick="{{bulkCompetitor}}" style="font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Konkurrent</button>
+          <button type="button" onClick="{{bulkOther}}" style="font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #f5ede4; cursor: pointer;">Annen aktør</button>
+          <button type="button" onClick="{{bulkIgnore}}" style="font: inherit; font-size: 12.5px; padding: 5px 12px; border-radius: 999px; border: 1px solid #4a3f3a; background: transparent; color: #c4b6a8; cursor: pointer;">Ignorer</button>
+          <span style="flex-grow: 1;"></span>
+          <button type="button" onClick="{{clearSel}}" aria-label="Fjern valget" style="font: inherit; font-size: 14px; padding: 4px 10px; border: 0; background: transparent; color: #a8998c; cursor: pointer;">×</button>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}">
+        <div role="status" style="align-self: flex-start; display: flex; align-items: center; gap: 14px; padding: 9px 14px; border-radius: 12px; background: #f5ede4; color: #1a1412; font-size: 13px;">
+          <span>{{toast}}</span>
+          <button type="button" onClick="{{undoLast}}" style="font: inherit; font-size: 13px; font-weight: 500; padding: 0; border: 0; background: transparent; color: #c73823; cursor: pointer;">Angre</button>
+        </div>
+      </sc-if>
+    </section>
+
+    <aside aria-label="Detaljer" style="flex: 1 1 340px; max-width: 100%; box-sizing: border-box; border: 1px solid #4a3f3a; border-radius: 16px; background: #0b0909; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 12px; color: #a8998c;">Ukjent merkevare</span>
+        <h2 style="margin: 0; font-size: 20px; font-weight: 500; color: #ffffff; letter-spacing: -0.01em;">{{f.name}}</h2>
+        <span style="font-size: 12.5px; color: #c4b6a8;">{{f.summary}}</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <span style="font-size: 12px; color: #a8998c; font-weight: 500;">Slik står navnet i svarene</span>
+        <sc-for list="{{f.excerpts}}" as="x" hint-placeholder-count="3">
+          <figure style="margin: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid #2e2624; background: #000000; display: flex; flex-direction: column; gap: 4px;">
+            <blockquote style="margin: 0; font-size: 13px; line-height: 1.55; color: #f5ede4;">{{x.pre}}<mark style="background: #551f19; color: #ffffff; padding: 0 3px; border-radius: 3px;">{{x.hit}}</mark>{{x.post}}</blockquote>
+            <figcaption style="font-size: 11.5px; color: #a8998c;">{{x.src}}</figcaption>
+          </figure>
+        </sc-for>
+      </div>
+      <label style="display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: #a8998c;">Legg til som alias av
+        <select style="font: inherit; font-size: 13px; color: #f5ede4; background: #000000; border: 1px solid #4a3f3a; border-radius: 10px; padding: 6px 8px;">
+          <option>Velg merkevare eller konkurrent</option>
+          <option>Fjordbyrå (egen merkevare)</option>
+          <option>Brygge Digital</option>
+          <option>Kodeverket</option>
+          <option>Netthavn</option>
+          <option>Polar Studio</option>
+          <option>Tindestack</option>
+        </select>
+      </label>
+      <p style="margin: 0; font-size: 12px; color: #a8998c;">Annen aktør spores med alias og domener, men teller ikke i share of voice. Ignorerte navn kommer ikke tilbake i køen, i varsler eller i tiltak.</p>
+    </aside>
+  </div>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { decided: {}, selected: {}, focus: 2, toast: '', lastIds: [] };
+  }
+  nav(active) {
+    const mk = (key, t, href, badge) => ({
+      t: t, href: href, badge: badge || '', hasBadge: !!badge,
+      bg: key === active ? '#1a1412' : 'transparent',
+      fg: key === active ? '#ffffff' : '#c4b6a8',
+      weight: key === active ? '500' : '400'
+    });
+    return {
+      global: [mk('portfolio', 'Portefølje', '#'), mk('inbox', 'Innboks', 'Inbox.dc.html', '9')],
+      groups: [
+        { label: 'Analyse', items: [mk('main', 'Oversikt', 'Main.dc.html'), mk('a-prompts', 'Prompts', '#'), mk('a-comp', 'Konkurrenter', '#'), mk('sources', 'Kilder', '#'), mk('crawlers', 'Roboter og trafikk', '#')] },
+        { label: 'Arbeid', items: [mk('actions', 'Tiltak', '#', '3'), mk('facts', 'Faktasjekk', '#')] },
+        { label: 'Oppsett', items: [mk('prompts', 'Prompts og temaer', 'Prompts.dc.html'), mk('triage', 'Konkurrenter og merkevarer', 'Triage.dc.html', '23'), mk('plan', 'Markeder og måleplan', 'Plan.dc.html'), mk('identity', 'Identitet', '#'), mk('integrations', 'Integrasjoner', '#', '1'), mk('alerts', 'Varsler og rapporter', '#')] }
+      ]
+    };
+  }
+  data() {
+    return [
+      { id: 1, name: 'Shopify', variants: 'Shopify Plus', share: 31, n: 128, markets: 'Norge, Sverige', engines: 4, last: 'i natt', suggest: 'other', kind: 'platform' },
+      { id: 2, name: 'Havnelys Studio', variants: '', share: 18, n: 74, markets: 'Norge', engines: 3, last: 'i natt', suggest: '', kind: 'agency' },
+      { id: 3, name: 'WooCommerce', variants: 'Woo', share: 17, n: 70, markets: 'Norge, Sverige', engines: 4, last: 'i går', suggest: 'other', kind: 'platform' },
+      { id: 4, name: 'Klarna', variants: '', share: 12, n: 49, markets: 'Norge, Sverige', engines: 2, last: 'i går', suggest: 'other', kind: 'platform' },
+      { id: 5, name: 'Netthavn AS', variants: 'Netthavn Digital', share: 9, n: 37, markets: 'Norge', engines: 3, last: 'i natt', suggest: 'alias', kind: 'agency' },
+      { id: 6, name: 'Adobe Commerce', variants: 'Adobe Commerce (Magento)', share: 8, n: 33, markets: 'Norge, Sverige', engines: 4, last: '19. nov.', suggest: 'other', kind: 'platform' },
+      { id: 7, name: 'Vippe Kommunikasjon', variants: '', share: 6, n: 25, markets: 'Sverige', engines: 2, last: '20. nov.', suggest: '', kind: 'agency' },
+      { id: 8, name: 'PostNord', variants: '', share: 5, n: 21, markets: 'Norge, Sverige', engines: 1, last: '19. nov.', suggest: 'other', kind: 'platform' },
+      { id: 9, name: 'Stripe', variants: '', share: 4, n: 16, markets: 'Norge', engines: 2, last: '18. nov.', suggest: 'other', kind: 'platform' },
+      { id: 10, name: 'beste byrå', variants: 'Beste Byrå', share: 3, n: 12, markets: 'Norge', engines: 1, last: '20. nov.', suggest: 'ignore', kind: 'generic' }
+    ];
+  }
+  decide(ids, label, text) {
+    const d = Object.assign({}, this.state.decided);
+    ids.forEach((id) => { d[id] = label; });
+    this.setState({ decided: d, selected: {}, toast: text, lastIds: ids });
+  }
+  renderVals() {
+    const rows = this.data();
+    const st = this.state;
+    const SUG = { other: 'annen aktør', alias: 'alias av Netthavn', ignore: 'ignorer' };
+    const hi = '#e2b8a5';
+    const lo = '#4a3f3a';
+    const outRows = rows.map((r) => {
+      const decided = !!st.decided[r.id];
+      return {
+        name: r.name,
+        meta: (r.variants ? 'Også: ' + r.variants + ' · ' : '') + r.markets + ' · ' + r.engines + (r.engines === 1 ? ' motor' : ' motorer'),
+        share: r.share + ' %', n: r.n + ' svar', w: Math.min(100, r.share * 3) + '%', last: r.last,
+        hasSuggest: !!r.suggest && !decided, suggestLabel: SUG[r.suggest] || '',
+        bComp: lo, bOther: r.suggest === 'other' ? hi : lo, bAlias: r.suggest === 'alias' ? hi : lo, bIgnore: r.suggest === 'ignore' ? hi : lo,
+        decided: decided, open: !decided, decision: st.decided[r.id] || '',
+        checked: !!st.selected[r.id],
+        bg: st.focus === r.id ? '#1a1412' : 'transparent',
+        opacity: decided ? '0.6' : '1',
+        toggle: () => { const s = Object.assign({}, st.selected); if (s[r.id]) { delete s[r.id]; } else { s[r.id] = true; } this.setState({ selected: s }); },
+        focus: () => this.setState({ focus: r.id }),
+        asCompetitor: () => this.decide([r.id], 'Konkurrent', r.name + ' er lagt til som konkurrent.'),
+        asOther: () => this.decide([r.id], 'Annen aktør', r.name + ' spores som annen aktør.'),
+        asAlias: () => this.decide([r.id], 'Alias av Netthavn', r.name + ' er lagt til som alias av Netthavn.'),
+        asIgnore: () => this.decide([r.id], 'Ignorert', r.name + ' er ignorert.'),
+        undo: () => { const d = Object.assign({}, st.decided); delete d[r.id]; this.setState({ decided: d, toast: '' }); }
+      };
+    });
+    const selIds = Object.keys(st.selected).map((k) => Number(k));
+    const f = rows.find((r) => r.id === st.focus) || rows[1];
+    const ex = f.kind === 'agency'
+      ? [
+          { pre: '… for Shopify-migrering trekkes ofte frem Brygge Digital og ', hit: f.name, post: ', som begge har levert større nettbutikker …', src: 'ChatGPT · Norge · i natt' },
+          { pre: '', hit: f.name, post: ' nevnes som et alternativ for mellomstore nettbutikker som trenger integrasjon mot ERP.', src: 'Gemini · Norge · 20. nov.' },
+          { pre: '… byråer som Fjordbyrå, Kodeverket og ', hit: f.name, post: ' har lang erfaring med netthandel i Norden.', src: 'Claude Haiku · Norge · 19. nov.' }
+        ]
+      : [
+          { pre: '… mange norske nettbutikker er bygget på ', hit: f.name, post: ', og byråer som Brygge Digital tilbyr migrering …', src: 'ChatGPT · Norge · i natt' },
+          { pre: 'Velg en plattform som ', hit: f.name, post: ' hvis du vil ha rask oppstart og få egne servere.', src: 'Gemini · Sverige · i går' },
+          { pre: '… integrasjon med ', hit: f.name, post: ' er vanlig, og de fleste byråer har ferdige moduler.', src: 'Claude Haiku · Norge · 19. nov.' }
+        ];
+    const count = Object.keys(st.decided).length;
+    return {
+      nav: this.nav('triage'),
+      market: 'Alle markeder',
+      rows: outRows,
+      remaining: String(23 - count),
+      hasSelection: selIds.length > 0,
+      selCount: String(selIds.length),
+      clearSel: () => this.setState({ selected: {} }),
+      bulkCompetitor: () => this.decide(selIds, 'Konkurrent', selIds.length + ' navn er lagt til som konkurrenter.'),
+      bulkOther: () => this.decide(selIds, 'Annen aktør', selIds.length + ' navn spores som andre aktører.'),
+      bulkIgnore: () => this.decide(selIds, 'Ignorert', selIds.length + ' navn er ignorert.'),
+      hasToast: !!st.toast,
+      toast: st.toast,
+      undoLast: () => { const d = Object.assign({}, st.decided); st.lastIds.forEach((id) => { delete d[id]; }); this.setState({ decided: d, toast: '', lastIds: [] }); },
+      f: { name: f.name, summary: 'Funnet i ' + f.n + ' svar (' + f.share + ' %) siste 30 dager · ' + f.markets + (f.variants ? ' · også skrevet ' + f.variants : ''), excerpts: ex }
+    };
+  }
+}
+</script>
+</body>
+</html>

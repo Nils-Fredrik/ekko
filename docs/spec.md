@@ -922,6 +922,8 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 
 ### 14.2 Sider (Inertia-komponenter)
 
+Arbeidsflaten (U16–U27, [ux-arbeidsflate.md](ux-arbeidsflate.md)) endrer sidene under. Den innfører sidemeny, oppsettssider under `/brands/{brand}/setup/*` og innboks, og erstatter `Brands/Settings.vue`. U27 oppdaterer tabellen når arbeidet er ferdig.
+
 | Komponent | Innhold |
 |---|---|
 | `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google» |
