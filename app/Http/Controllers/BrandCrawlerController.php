@@ -28,7 +28,7 @@ class BrandCrawlerController extends Controller
     {
         BrandPage::authorizeView($brand);
         $query = AnalysisFilters::query($brand, $request->query(), 'brands.crawlers');
-        $period = DashboardPeriod::fromInput($query);
+        $period = DashboardPeriod::fromInput($query, $brand->id);
         $selection = AnalysisFilters::selection($query);
         $filter = $period->filter($brand->id, ...$selection);
         $previous = $period->filter($brand->id, ...$selection, previous: true);
@@ -37,7 +37,7 @@ class BrandCrawlerController extends Controller
         return Inertia::render('Brands/Crawlers', [
             'brand' => BrandPage::payload($brand),
             'period' => [...$period->toArray(), 'grain' => $grain],
-            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.crawlers', $query),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.crawlers', $query, $request->query()),
             'bots' => $metrics->botHits($filter),
             'traffic' => $metrics->aiTraffic($filter),
             'funnel' => [

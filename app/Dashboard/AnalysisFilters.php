@@ -56,7 +56,7 @@ final class AnalysisFilters
             'competitor' => ['nullable', 'integer'],
             'grain' => $page === 'brands.show' ? ['sometimes', Rule::in(['day', 'week', 'month'])] : ['exclude'],
         ])->validate();
-        $period = DashboardPeriod::fromInput($input);
+        $period = DashboardPeriod::fromInput($input, $brand->id);
         $query = ['from' => $period->from, 'to' => $period->to, 'comparison' => $period->comparison];
         if (empty($input['from']) && empty($input['to'])) {
             unset($query['from'], $query['to']);
@@ -104,13 +104,16 @@ final class AnalysisFilters
         return $bars;
     }
 
-    /** @param array<string, int|string> $query
+    /**
+     * @param  array<string, int|string>  $query
+     * @param  array<string, mixed>  $input
      * @return array<string, mixed>
      */
-    public static function payload(Brand $brand, string $page, array $query): array
+    public static function payload(Brand $brand, string $page, array $query, array $input = []): array
     {
         return ['query' => $query, 'options' => self::options($brand, $page),
             'views' => SavedView::query()->where('user_id', auth()->id())->where('brand_id', $brand->id)->where('page', $page)
-                ->orderBy('name')->get(['id', 'name', 'filters'])->toArray()];
+                ->orderBy('name')->get(['id', 'name', 'filters'])->toArray(),
+            'automaticPeriod' => DashboardPeriod::automatic($input)];
     }
 }

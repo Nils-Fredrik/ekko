@@ -1,7 +1,7 @@
 <script setup>
 // The overview (docs/ui-forbedring.md 7.1, U10): the insight line first, one card per brand with minigraph,
 // change and open actions, «Hva har skjedd» as one timeline, and usage as progress against the quota.
-import { formatDate, formatDateTime } from '@/format';
+import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/format';
 import InsightLine from '@/Components/Dashboard/InsightLine.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
@@ -173,10 +173,10 @@ const budgetShare = computed(() => (props.usage ? share(props.usage.cost_usd, pr
                                 {{
                                     usage.quota_calls
                                         ? $t('app.dashboard.usage_calls', {
-                                              calls: usage.calls,
-                                              quota: usage.quota_calls,
+                                              calls: formatNumber(usage.calls),
+                                              quota: formatNumber(usage.quota_calls),
                                           })
-                                        : $t('app.dashboard.usage_calls_open', { calls: usage.calls })
+                                        : $t('app.dashboard.usage_calls_open', { calls: formatNumber(usage.calls) })
                                 }}
                             </p>
                             <div
@@ -198,8 +198,8 @@ const budgetShare = computed(() => (props.usage ? share(props.usage.cost_usd, pr
                                 <p class="mt-3 text-sm text-shell-muted">
                                     {{
                                         $t('app.dashboard.usage_cost', {
-                                            cost: usage.cost_usd,
-                                            budget: usage.budget_usd,
+                                            cost: formatCurrency(usage.cost_usd),
+                                            budget: formatCurrency(usage.budget_usd),
                                         })
                                     }}
                                 </p>

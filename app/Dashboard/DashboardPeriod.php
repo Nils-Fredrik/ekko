@@ -3,9 +3,11 @@
 namespace App\Dashboard;
 
 use App\Metrics\MetricsFilter;
+use App\Models\AggDaily;
 use App\Models\Team;
 use App\Tenancy\TenantContext;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -26,6 +28,8 @@ final class DashboardPeriod
         public readonly string $previousFrom,
         public readonly string $previousTo,
         public readonly string $comparison = 'previous',
+        public readonly ?string $measuredFrom = null,
+        public readonly bool $automatic = false,
     ) {}
 
     public static function forCurrentTenant(int $days): self
@@ -54,8 +58,39 @@ final class DashboardPeriod
         );
     }
 
+    /**
+     * Longest preset whose length is at least 80 % covered by days that have agg_daily rows.
+     * 23 days selects 28, and 72 days selects 90 (docs/ux-arbeidsflate.md 7).
+     */
+    public static function lengthForHistory(int $daysWithData): int
+    {
+        if ($daysWithData >= 72) {
+            return 90;
+        }
+
+        return $daysWithData >= 23 ? 28 : 7;
+    }
+
+    public static function daysWithData(int $brandId): int
+    {
+        return (int) AggDaily::query()->where('brand_id', $brandId)->distinct()->count('date');
+    }
+
+    public static function measuredFrom(int $brandId): ?string
+    {
+        $date = AggDaily::query()->where('brand_id', $brandId)->min('date');
+
+        return $date === null ? null : substr((string) $date, 0, 10);
+    }
+
     /** @param array<string, mixed> $input */
-    public static function fromInput(array $input): self
+    public static function automatic(array $input): bool
+    {
+        return ! array_key_exists('days', $input) && empty($input['from']) && empty($input['to']);
+    }
+
+    /** @param array<string, mixed> $input */
+    public static function fromInput(array $input, ?int $brandId = null): self
     {
         $data = Validator::make($input, [
             'days' => ['sometimes', 'integer', Rule::in(self::LENGTHS)],
@@ -63,7 +98,12 @@ final class DashboardPeriod
             'to' => ['nullable', 'required_with:from', 'date_format:Y-m-d', 'after_or_equal:from'],
             'comparison' => ['sometimes', Rule::in(['previous', 'year'])],
         ])->validate();
-        $base = self::forCurrentTenant((int) ($data['days'] ?? 28));
+        $automatic = self::automatic($input);
+        $history = $brandId !== null && self::resolvesHistory() ? self::history($brandId) : null;
+        $days = $automatic && $history !== null
+            ? self::lengthForHistory($history['days'])
+            : (int) ($data['days'] ?? 28);
+        $base = self::forCurrentTenant($days);
         $from = CarbonImmutable::parse($data['from'] ?? $base->from, $base->timezone);
         $to = CarbonImmutable::parse($data['to'] ?? $base->to, $base->timezone);
         $days = (int) $from->diffInDays($to) + 1;
@@ -75,14 +115,44 @@ final class DashboardPeriod
         $previousFrom = $comparison === 'year' ? $from->subYearNoOverflow() : $previousTo->subDays($days - 1);
 
         return new self($days, $base->timezone, $from->toDateString(), $to->toDateString(),
-            $previousFrom->toDateString(), $previousTo->toDateString(), $comparison);
+            $previousFrom->toDateString(), $previousTo->toDateString(), $comparison,
+            $history['from'] ?? null, $automatic);
+    }
+
+    /**
+     * A partial reload of filters or insight text must not scan aggregates. The chosen length is cached so the
+     * deferred chart request uses the same window as the page without a second scan.
+     *
+     * @return array{days: int, from: ?string}
+     */
+    public static function history(int $brandId): array
+    {
+        /** @var array{days: int, from: ?string} $history */
+        $history = Cache::remember("brand-coverage:{$brandId}", 60, fn (): array => [
+            'days' => self::daysWithData($brandId),
+            'from' => self::measuredFrom($brandId),
+        ]);
+
+        return $history;
+    }
+
+    private static function resolvesHistory(): bool
+    {
+        $header = request()->header('X-Inertia-Partial-Data');
+        if (! is_string($header) || $header === '') {
+            return true;
+        }
+        $props = array_map(trim(...), explode(',', $header));
+
+        return array_diff($props, ['insight', 'analysisFilters']) !== [];
     }
 
     /** @return array{days: int, from: string, to: string, previous_from: string, previous_to: string, comparison: string} */
     public function toArray(): array
     {
         return ['days' => $this->days, 'from' => $this->from, 'to' => $this->to,
-            'previous_from' => $this->previousFrom, 'previous_to' => $this->previousTo, 'comparison' => $this->comparison];
+            'previous_from' => $this->previousFrom, 'previous_to' => $this->previousTo, 'comparison' => $this->comparison,
+            'measured_from' => $this->measuredFrom, 'automatic' => $this->automatic];
     }
 
     /**

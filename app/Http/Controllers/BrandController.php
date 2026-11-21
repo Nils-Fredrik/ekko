@@ -57,7 +57,7 @@ class BrandController extends Controller
 
         $brand->load(['markets', 'topics', 'competitors']);
         $query = AnalysisFilters::query($brand, $request->query(), 'brands.show');
-        $period = DashboardPeriod::fromInput($query);
+        $period = DashboardPeriod::fromInput($query, $brand->id);
         $selection = AnalysisFilters::selection($query);
         $grain = $query['grain'];
         $filter = $period->filter($brand->id, ...$selection);
@@ -80,7 +80,7 @@ class BrandController extends Controller
                 'status' => DashboardLabels::status($brand->status),
             ],
             'period' => [...$period->toArray(), 'grain' => $grain],
-            'analysisFilters' => fn () => AnalysisFilters::payload($brand, 'brands.show', $query),
+            'analysisFilters' => fn () => AnalysisFilters::payload($brand, 'brands.show', $query, $request->query()),
             'filters' => [
                 'market' => $selection['marketIds'][0] ?? null,
                 'engine' => $selection['engineKeys'][0] ?? null,

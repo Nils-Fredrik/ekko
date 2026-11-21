@@ -7,6 +7,7 @@ import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
 import { selection } from './support/data.js';
 import { formatValue, isLowSample, tooltipHtml } from './support/format.js';
+import { rowHasCells, wrapLabel } from './support/heatmapRows.js';
 import { tableValue } from './support/lines.js';
 
 const props = defineProps({
@@ -22,8 +23,10 @@ const props = defineProps({
     // Scale maximum; rates default to 1.
     max: { type: Number, default: null },
     rowHeight: { type: Number, default: 28 },
-    // Characters of the row label shown on the axis; the full text is in the tooltip and table.
+    // Characters of the row label shown on the axis; the full text is in the tooltip and title.
     labelLength: { type: Number, default: 36 },
+    // 2 wraps the row label onto two lines before truncating.
+    labelLines: { type: Number, default: 1 },
 });
 
 const emit = defineEmits(['select']);
@@ -47,7 +50,15 @@ const scaleMax = computed(
 );
 
 function short(text) {
+    if (props.labelLines > 1) {
+        return wrapLabel(text, props.labelLength);
+    }
+
     return text.length > props.labelLength ? `${text.slice(0, props.labelLength - 1)}…` : text;
+}
+
+function measured(row) {
+    return rowHasCells(row.key, props.cells);
 }
 
 // The sequential tokens are the scale: step 1 for the lowest values, step 6 (--data-own) for the highest.
@@ -127,11 +138,16 @@ function option({ palette, width }) {
             inverse: true,
             // Group headings are styled per category (textStyle), not with rich text: ECharts reads
             // `{style|text}` in rich labels, and a topic or prompt name may contain braces.
-            data: lines.value.map((line) =>
-                line.row
+            data: lines.value.map((line) => {
+                if (!line.row) {
+                    return { value: line.heading, textStyle: { color: palette.muted, fontWeight: 600, fontSize: 11 } };
+                }
+                const label = measured(line.row)
                     ? short(line.row.label)
-                    : { value: line.heading, textStyle: { color: palette.muted, fontWeight: 600, fontSize: 11 } },
-            ),
+                    : `${short(line.row.label)}\n${trans('app.library.not_measured')}`;
+
+                return label;
+            }),
             axisLine: { show: false },
             axisLabel: { interval: 0, color: palette.text },
         },
@@ -164,7 +180,11 @@ const table = computed(() => ({
         ...props.columns.map((column) => ({ key: `c-${column.key}`, label: column.label, numeric: true })),
     ],
     rows: props.rows.map((row) => {
-        const line = { key: row.key, row: row.group ? `${row.group} · ${row.label}` : row.label };
+        const line = {
+            key: row.key,
+            row: row.group ? `${row.group} · ${row.label}` : row.label,
+            title: row.label,
+        };
         props.columns.forEach((column) => {
             const cell = cellMap.value.get(`${row.key}|${column.key}`);
             line[`c-${column.key}`] = tableValue(cell, props.kind);
@@ -196,12 +216,17 @@ const summary = computed(() => {
 </script>
 
 <template>
-    <EkkoChart
-        :label="label"
-        :description="summary"
-        :table="table"
-        :height="height"
-        :option="option"
-        @select="select"
-    />
+    <div>
+        <ul class="sr-only">
+            <li v-for="row in rows" :key="row.key" :title="row.label">{{ row.label }}</li>
+        </ul>
+        <EkkoChart
+            :label="label"
+            :description="summary"
+            :table="table"
+            :height="height"
+            :option="option"
+            @select="select"
+        />
+    </div>
 </template>
