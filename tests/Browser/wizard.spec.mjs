@@ -216,8 +216,28 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeDisabled();
     await page.unroute('**/measurement-plan/estimate');
-    await standardInterval.selectOption('weekly');
-    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeEnabled();
+    await standardInterval.selectOption('every_14_days');
+    const rejectedSave = page.getByRole('button', { name: 'Save measurement plan' });
+    await expect(rejectedSave).toBeEnabled();
+
+    await page.route(/\/measurement-plan$/, async (route) => {
+        if (route.request().method() !== 'PUT') {
+            await route.continue();
+            return;
+        }
+        const body = route.request().postDataJSON();
+        const rule = body.standard.engines.find((row) => row.frequency === 'every_14_days');
+        rule.frequency = 'daily';
+        await route.continue({ postData: JSON.stringify(body) });
+    });
+    await rejectedSave.click();
+    await expect(
+        page
+            .getByRole('group', { name: 'Brand plan' })
+            .getByText('The interval for ChatGPT is more frequent than the package allows.'),
+    ).toBeVisible();
+    await expect(standardInterval).toHaveValue('every_14_days');
+    await page.unroute(/\/measurement-plan$/);
 
     const sweden = page.getByRole('group', { name: 'SE / sv' });
     await sweden.getByRole('radio', { name: 'Own choices' }).check();

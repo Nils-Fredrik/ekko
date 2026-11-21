@@ -1,4 +1,5 @@
 <script setup>
+import InputError from '@/Components/InputError.vue';
 import { rulesToRows, rowsToRules, allowsFrequency } from '@/measurementPlan';
 import { ref, watch } from 'vue';
 
@@ -8,6 +9,8 @@ const props = defineProps({
     frequencies: { type: Array, required: true },
     maxRepetitions: { type: Number, required: true },
     disabled: { type: Boolean, default: false },
+    errors: { type: Object, default: () => ({}) },
+    errorPrefix: { type: String, default: '' },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -43,12 +46,34 @@ function onScope(row) {
 function repetitionChoices() {
     return Array.from({ length: Math.max(1, props.maxRepetitions) }, (_, index) => index + 1);
 }
+
+function rowError(engineKey) {
+    if (props.errorPrefix === '') {
+        return '';
+    }
+
+    const messages = [];
+    props.modelValue.forEach((rule, index) => {
+        if (rule.engine_key !== engineKey) {
+            return;
+        }
+        const prefix = `${props.errorPrefix}.${index}`;
+        for (const [key, value] of Object.entries(props.errors)) {
+            if (key === prefix || key.startsWith(`${prefix}.`)) {
+                messages.push(...(Array.isArray(value) ? value : [value]));
+            }
+        }
+    });
+
+    return messages.join(' ');
+}
 </script>
 
 <template>
     <div class="space-y-4">
         <fieldset v-for="row in rows" :key="row.engine_key" class="space-y-2 border-t border-line pt-3">
             <legend class="text-sm font-medium">{{ row.name }}</legend>
+            <InputError :message="rowError(row.engine_key)" />
             <p v-if="!row.selectable" class="text-sm text-shell-muted">{{ $t('app.plan.unavailable') }}</p>
             <p v-else-if="row.frequency !== 'off' && !row.has_price" class="text-sm" role="alert">
                 {{ $t('app.plan.missing_price') }}

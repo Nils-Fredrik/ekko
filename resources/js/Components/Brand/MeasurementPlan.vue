@@ -1,6 +1,7 @@
 <script setup>
 import PlanPreview from '@/Components/Brand/PlanPreview.vue';
 import PlanRules from '@/Components/Brand/PlanRules.vue';
+import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { usePlanEstimate } from '@/Composables/usePlanEstimate';
 import { estimateCanConfirm, normalizePlan, rulesLackPrice } from '@/measurementPlan';
@@ -28,7 +29,7 @@ const markets = ref(
     })),
 );
 const saving = ref(false);
-const saveError = ref('');
+const fieldErrors = ref({});
 
 const payload = computed(() => ({
     standard: { engines: standardRules.value },
@@ -79,16 +80,54 @@ function setMode(market, mode) {
     market.plan_mode = mode;
 }
 
+function errorText(keys) {
+    return keys
+        .flatMap((key) => {
+            const value = fieldErrors.value[key];
+            if (!value) {
+                return [];
+            }
+
+            return Array.isArray(value) ? value : [value];
+        })
+        .join(' ');
+}
+
+function isPlaced(key) {
+    if (key === 'standard.engines' || key.startsWith('standard.engines.')) {
+        return true;
+    }
+
+    return markets.value.some((_, index) => {
+        const base = `markets.${index}`;
+
+        return (
+            key === `${base}.id` ||
+            key === `${base}.plan_mode` ||
+            key === `${base}.engines` ||
+            key.startsWith(`${base}.engines.`)
+        );
+    });
+}
+
+const unplacedErrors = computed(() =>
+    Object.entries(fieldErrors.value)
+        .filter(([key]) => !isPlaced(key))
+        .flatMap(([, value]) => (Array.isArray(value) ? value : [value]))
+        .join(' '),
+);
+
 function save() {
     if (!canSave.value) {
         return;
     }
     saving.value = true;
-    saveError.value = '';
+    fieldErrors.value = {};
     router.put(route('brands.plan.update', props.brandId), payload.value, {
         preserveScroll: true,
+        preserveState: (page) => Object.keys(page.props.errors).length > 0,
         onError: (errors) => {
-            saveError.value = Object.values(errors).flat().join(' ');
+            fieldErrors.value = errors;
         },
         onFinish: () => {
             saving.value = false;
@@ -96,7 +135,10 @@ function save() {
     });
 }
 
-watch(payload, () => load());
+watch(payload, () => {
+    fieldErrors.value = {};
+    load();
+});
 load();
 </script>
 
@@ -107,17 +149,27 @@ load();
 
         <fieldset class="space-y-3" :disabled="!canManage">
             <legend class="text-sm font-medium">{{ $t('app.plan.standard') }}</legend>
+            <InputError :message="errorText(['standard.engines'])" />
             <PlanRules
                 v-model="standardRules"
                 :catalog="plan.options.engines"
                 :frequencies="plan.options.frequencies"
                 :max-repetitions="plan.options.max_repetitions"
                 :disabled="!canManage"
+                :errors="fieldErrors"
+                error-prefix="standard.engines"
             />
         </fieldset>
 
-        <fieldset v-for="market in markets" :key="market.id" class="space-y-3 rounded-xl border border-line p-4">
+        <fieldset
+            v-for="(market, index) in markets"
+            :key="market.id"
+            class="space-y-3 rounded-xl border border-line p-4"
+        >
             <legend class="px-1 text-sm font-medium">{{ marketLabel(market) }}</legend>
+            <InputError
+                :message="errorText([`markets.${index}.id`, `markets.${index}.plan_mode`, `markets.${index}.engines`])"
+            />
             <p v-if="!market.is_active" class="text-sm text-shell-muted">{{ $t('app.plan.inactive') }}</p>
             <div class="flex flex-col gap-2 text-sm">
                 <label class="flex items-center gap-2">
@@ -152,6 +204,8 @@ load();
                 :frequencies="plan.options.frequencies"
                 :max-repetitions="plan.options.max_repetitions"
                 :disabled="!canManage"
+                :errors="fieldErrors"
+                :error-prefix="`markets.${index}.engines`"
             />
             <PlanRules
                 v-else
@@ -169,7 +223,7 @@ load();
             :estimate="estimate"
             :estimating="estimating"
             :fresh="fresh"
-            :error="error || saveError"
+            :error="error || unplacedErrors"
             :blocked="priceBlocks"
             :catalog="plan.options.engines"
             :labels="labels"
