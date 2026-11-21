@@ -98,7 +98,7 @@ async function harness(t, overrides = {}) {
             state.afterComments?.();
             return Response.json(state.comments);
         }
-        if (url.includes('/reviews?')) return Response.json([]);
+        if (url.includes('/reviews?')) return Response.json(state.reviews ?? []);
         if (options.headers?.accept?.endsWith('.diff')) {
             if (state.mutateAfterDiff) state.pr = { ...pr, head: { ...pr.head, sha: 'd'.repeat(40) } };
             return new Response(state.diff);
@@ -476,6 +476,31 @@ test('Codex findings with a fresh receipt stop immediately as a real rejection',
     assert.ok(h.calls.some((call) => call.body?.state === 'failure'));
     assert.ok(h.calls.some((call) => call.body?.body?.includes('"result":"failure"')));
     assert.equal(h.calls.filter((call) => call.url.includes('/reviews?')).length, 1);
+});
+
+test('resolved Codex findings on an earlier commit pass only with a clean result on the head', async (t) => {
+    const findings = (commit) => ({
+        user: { id: 199175422 },
+        commit_id: commit,
+        submitted_at: '2025-12-31T00:00:00Z',
+        body: `<!-- codex-review-receipt:v1 -->\n**Reviewed commit:** \`${commit.slice(0, 10)}\``,
+    });
+    const resolved = { ...clean, body: clean.body.replace('"has_any_findings":false', '"has_any_findings":true') };
+    const passed = await harness(t, { SNAPSHOT: snapshot({ claude: false, codex: true }) });
+    passed.state.comments[0] = resolved;
+    passed.state.comments[1] = {
+        ...passed.state.comments[1],
+        body: passed.state.comments[1].body.replace('\n', "\n\nCodex Review: Didn't find any major issues.\n\n"),
+    };
+    passed.state.reviews = [findings('d'.repeat(40))];
+    await passed.run('gate');
+    assert.ok(passed.calls.some((call) => call.body?.state === 'success' && call.url.endsWith(`/statuses/${head}`)));
+
+    const blocked = await harness(t, { SNAPSHOT: snapshot({ claude: false, codex: true }) });
+    blocked.state.comments = passed.state.comments;
+    blocked.state.reviews = [findings('d'.repeat(40)), findings(head)];
+    await assert.rejects(blocked.run('gate'), /Codex review requested changes/);
+    assert.ok(!blocked.calls.some((call) => call.body?.state === 'success'));
 });
 
 test('a missing authentic status owner fails closed without publishing a replacement', async (t) => {

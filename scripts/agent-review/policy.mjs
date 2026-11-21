@@ -27,24 +27,27 @@ export function requiredReviewers(title, files, paths) {
     };
 }
 
+const reviewedCommit = (body) => /\*\*Reviewed commit:\*\* `([a-f0-9]{10,40})`/.exec(body || '')?.[1];
+const cleanResult = /^Codex Review: Didn't find any major issues\b/m;
+
 export function codexReviewState(comments, sha, requestedAt, reviews = []) {
     if (!/^[0-9a-f]{40}$/.test(sha) || !Number.isFinite(Date.parse(requestedAt))) return 'pending';
     const summaries = comments.filter((comment) => comment.user?.id === CODEX_ID && marker.test(comment.body || ''));
     if (summaries.length !== 1) return 'pending';
     const summary = summaries[0];
     if (!(Date.parse(summary.updated_at) > Date.parse(requestedAt))) return 'pending';
+    const onHead = (commit) => typeof commit === 'string' && sha.startsWith(commit);
+    const fresh = (item) => Date.parse(item.created_at ?? item.submitted_at) > Date.parse(requestedAt);
     // The sticky summary also changes for security reviews. Require a new code-review receipt,
     // not merely an edited timestamp on an older clean code result.
-    const receipt = [...comments, ...reviews].some((item) => {
-        if (
-            item.user?.id !== CODEX_ID ||
-            !item.body?.startsWith('<!-- codex-review-receipt:v1 -->') ||
-            !(Date.parse(item.created_at ?? item.submitted_at) > Date.parse(requestedAt))
-        )
-            return false;
-        const commit = /\*\*Reviewed commit:\*\* `([a-f0-9]{10,40})`/.exec(item.body)?.[1];
-        return commit && sha.startsWith(commit) && (!item.commit_id || item.commit_id === sha);
-    });
+    const receipt = [...comments, ...reviews].some(
+        (item) =>
+            item.user?.id === CODEX_ID &&
+            item.body?.startsWith('<!-- codex-review-receipt:v1 -->') &&
+            fresh(item) &&
+            onHead(reviewedCommit(item.body)) &&
+            (!item.commit_id || item.commit_id === sha),
+    );
     if (!receipt) return 'pending';
     try {
         const state = JSON.parse(marker.exec(summary.body)[1]).code_review;
@@ -55,7 +58,25 @@ export function codexReviewState(comments, sha, requestedAt, reviews = []) {
             typeof state.has_unresolved_findings !== 'boolean'
         )
             return 'pending';
-        return state.has_any_findings || state.has_unresolved_findings ? 'changes_requested' : 'approved';
+        // Codex posts findings as a pull request review bound to the reviewed commit. Any Codex
+        // review on this head blocks, whenever it was posted and whether or not its threads are resolved.
+        const findingsOnHead = reviews.some(
+            (review) => review.user?.id === CODEX_ID && (review.commit_id === sha || onHead(reviewedCommit(review.body))),
+        );
+        if (findingsOnHead || state.has_unresolved_findings) return 'changes_requested';
+        if (!state.has_any_findings) return 'approved';
+        // has_any_findings stays true for the whole pull request once Codex has had a finding.
+        // Resolved findings on earlier commits only pass with positive evidence of a fresh clean
+        // result on this exact head; anything else keeps the old rejection.
+        const cleanOnHead = comments.some(
+            (comment) =>
+                comment.user?.id === CODEX_ID &&
+                comment.body?.startsWith('<!-- codex-review-receipt:v1 -->') &&
+                cleanResult.test(comment.body) &&
+                fresh(comment) &&
+                onHead(reviewedCommit(comment.body)),
+        );
+        return cleanOnHead ? 'approved' : 'changes_requested';
     } catch {
         return 'pending';
     }
