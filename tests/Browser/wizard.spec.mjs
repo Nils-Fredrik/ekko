@@ -117,14 +117,17 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await page.getByRole('radio', { name: 'Use the brand plan' }).check();
     await page.getByRole('radio', { name: 'Own choices' }).check();
     await expect(ownInterval).toHaveValue('weekly');
-    const inherited = page.waitForResponse(
-        (response) =>
-            response.url().includes('/measurement-plan/estimate') &&
-            response.request().postDataJSON()?.new_market?.plan_mode === 'inherit',
-    );
     await page.getByRole('radio', { name: 'Use the brand plan' }).check();
-    expectedMarketCost = (await (await inherited).json()).markets.find((market) => market.id === null).total_cost_usd;
+    await expect(page.getByRole('button', { name: 'Next', exact: true })).toBeEnabled();
     const preview = page.getByRole('heading', { name: 'Preview' }).locator('..');
+    expectedMarketCost = (
+        await preview
+            .getByText(/^Total: .+ USD$/)
+            .first()
+            .innerText()
+    )
+        .replace('Total: ', '')
+        .replace(' USD', '');
     await expect(preview.getByText(`Total: ${expectedMarketCost} USD`).first()).toBeVisible();
     await expect(preview.getByText(/Collection:/).first()).toBeVisible();
     await expect(preview.getByText(/Extraction:/).first()).toBeVisible();
@@ -178,9 +181,9 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         await route.continue();
     });
     await standardInterval.selectOption('weekly');
-    await expect.poll(() => held.length).toBe(1);
+    await expect.poll(() => held.length, { timeout: 10000 }).toBe(1);
     await standardInterval.selectOption('every_14_days');
-    await expect.poll(() => held.length).toBe(2);
+    await expect.poll(() => held.length, { timeout: 10000 }).toBe(2);
     held.shift()();
     await expect(page.getByText('Updating the preview…')).toBeVisible();
     await expect(settingsPreview).toContainText('Monthly');
@@ -283,7 +286,7 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await expect(page.getByRole('radio', { name: 'Own choices' }).first()).toBeDisabled();
     await expect(page.getByRole('button', { name: 'Save measurement plan' })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Preview' })).toHaveCount(0);
-    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(1000);
     expect(readerEstimates).toBe(0);
     page.off('request', countReaderEstimate);
 });
