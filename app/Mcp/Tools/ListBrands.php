@@ -7,6 +7,7 @@ use App\Mcp\McpContext;
 use App\Mcp\ToolResult;
 use App\Models\Brand;
 use App\Models\BrandPlanEngine;
+use App\Models\Competitor;
 use App\Models\Market;
 use App\Models\MarketEngine;
 use App\Models\Team;
@@ -36,6 +37,7 @@ class ListBrands extends EkkoTool
                 'markets.marketEngines' => fn ($query) => $query->orderBy('engine_key')->orderBy('prompt_scope'),
                 'planEngines' => fn ($query) => $query->orderBy('engine_key')->orderBy('prompt_scope'),
                 'topics' => fn ($query) => $query->orderBy('name'),
+                'competitors' => fn ($query) => $query->where('is_active', true)->inColorOrder(),
             ])
             ->withCount(['competitors' => fn ($query) => $query->where('is_active', true)])
             ->orderBy('name')->orderBy('id')
@@ -46,6 +48,10 @@ class ListBrands extends EkkoTool
                 'primary_domain' => $brand->primary_domain,
                 'status' => $brand->status,
                 'active_competitors' => (int) $brand->getAttribute('competitors_count'),
+                // The active competitors in the workspace's color order (docs/ux-arbeidsflate.md 6.3).
+                'competitors' => $brand->competitors->map(fn (Competitor $competitor): array => [
+                    'id' => $competitor->id, 'name' => $competitor->name, 'position' => $competitor->position,
+                ])->values()->all(),
                 'topics' => $brand->topics->map(fn (Topic $topic): array => ['id' => $topic->id, 'name' => $topic->name])->values()->all(),
                 // The brand's standard measurement plan; markets with plan_mode inherit run exactly these rules (7.6).
                 'plan' => $brand->planEngines->map(fn (BrandPlanEngine $rule): array => [

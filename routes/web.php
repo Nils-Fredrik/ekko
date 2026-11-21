@@ -19,6 +19,8 @@ use App\Http\Controllers\BrandPromptController;
 use App\Http\Controllers\BrandSettingsController;
 use App\Http\Controllers\BrandSourceController;
 use App\Http\Controllers\CommandPaletteController;
+use App\Http\Controllers\CompetitorSetupController;
+use App\Http\Controllers\EntityDecisionController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OnboardingController;
@@ -123,6 +125,17 @@ Route::middleware([
     Route::get('/brands/{brand}/competitors', [BrandCompetitorController::class, 'index'])->name('brands.competitors.index');
     Route::post('/brands/{brand}/competitors', [BrandCompetitorController::class, 'store'])->name('brands.competitors.store');
     Route::delete('/brands/{brand}/competitors/{competitor}', [BrandCompetitorController::class, 'destroy'])->whereNumber('competitor')->name('brands.competitors.destroy');
+    // U21: decisions on unknown brands and the competitor setup API (docs/ux-arbeidsflate.md 6.3).
+    Route::post('/brands/{brand}/entity-decisions', [EntityDecisionController::class, 'store'])->name('brands.entities.decide');
+    Route::delete('/brands/{brand}/entity-decisions/{decision}', [EntityDecisionController::class, 'destroy'])->whereNumber('decision')->name('brands.entities.undo');
+    Route::get('/brands/{brand}/entity-decisions/{key}/excerpts', [EntityDecisionController::class, 'excerpts'])->where('key', '[^/]+')->name('brands.entities.excerpts');
+    Route::patch('/brands/{brand}/competitors/{competitor}', [CompetitorSetupController::class, 'update'])->whereNumber('competitor')->name('brands.competitors.update');
+    Route::post('/brands/{brand}/competitors/reorder', [CompetitorSetupController::class, 'reorder'])->name('brands.competitors.reorder');
+    Route::post('/brands/{brand}/competitors/{competitor}/aliases', [CompetitorSetupController::class, 'storeAlias'])->whereNumber('competitor')->name('brands.competitors.aliases.store');
+    Route::patch('/brands/{brand}/competitors/{competitor}/aliases/{alias}', [CompetitorSetupController::class, 'updateAlias'])->whereNumber(['competitor', 'alias'])->name('brands.competitors.aliases.update');
+    Route::delete('/brands/{brand}/competitors/{competitor}/aliases/{alias}', [CompetitorSetupController::class, 'destroyAlias'])->whereNumber(['competitor', 'alias'])->name('brands.competitors.aliases.destroy');
+    Route::post('/brands/{brand}/competitors/{competitor}/domains', [CompetitorSetupController::class, 'storeDomain'])->whereNumber('competitor')->name('brands.competitors.domains.store');
+    Route::delete('/brands/{brand}/competitors/{competitor}/domains/{domain}', [CompetitorSetupController::class, 'destroyDomain'])->whereNumber(['competitor', 'domain'])->name('brands.competitors.domains.destroy');
     Route::get('/brands/{brand}/sources', BrandSourceController::class)->name('brands.sources');
     Route::get('/brands/{brand}/crawlers', BrandCrawlerController::class)->name('brands.crawlers');
     Route::get('/brands/{brand}/facts', [BrandFactController::class, 'index'])->name('brands.facts.index');

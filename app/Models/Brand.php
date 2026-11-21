@@ -23,6 +23,19 @@ class Brand extends Model
         'status',
     ];
 
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        // Set when the queue of unknown brands is emptied by a decision (docs/ux-arbeidsflate.md 6.3 and 6.5).
+        return ['entities_reviewed_at' => 'datetime'];
+    }
+
+    /** @return HasMany<EntityDecision, $this> */
+    public function entityDecisions(): HasMany
+    {
+        return $this->hasMany(EntityDecision::class);
+    }
+
     /** @return HasMany<BrandAlias, $this> */
     public function aliases(): HasMany
     {

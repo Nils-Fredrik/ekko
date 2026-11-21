@@ -6,8 +6,12 @@ use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\BrandFact;
 use App\Models\Competitor;
+use App\Models\CompetitorAlias;
+use App\Models\CompetitorDomain;
 use App\Models\Engine;
+use App\Models\EntityDecision;
 use App\Models\Market;
+use App\Models\Mention;
 use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\Report;
@@ -90,6 +94,66 @@ function isolationCompetitor(int $tenantId): array
         $competitor = Competitor::factory()->create();
 
         return ['brand' => $competitor->brand_id, 'competitor' => $competitor->id];
+    });
+}
+
+/**
+ * A brand whose market has one extracted answer, collected now, that names the unknown brand «Havnelys Studio» (U21).
+ *
+ * @return array{brand: int}
+ */
+function isolationUnknownName(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $brand = Brand::factory()->create();
+        $market = Market::factory()->for($brand)->create();
+        $prompt = Prompt::factory()->for($market)->create();
+        $batch = RunBatch::factory()->create(['market_id' => $market->id]);
+        $engine = Engine::factory()->create();
+        $run = Run::factory()->create(['run_batch_id' => $batch->id, 'prompt_id' => $prompt->id, 'engine_key' => $engine->key, 'status' => 'extracted']);
+        $response = Response::factory()->create([
+            'run_id' => $run->id, 'engine_key' => $engine->key, 'collected_at' => now(),
+            'answer_text' => 'Havnelys Studio lager nettbutikker.',
+        ]);
+        Mention::factory()->create(['response_id' => $response->id, 'entity_type' => 'unknown', 'surface_name' => 'Havnelys Studio', 'detection' => 'llm']);
+
+        return ['brand' => $brand->id];
+    });
+}
+
+/** @return array{brand: int, decision: int} */
+function isolationEntityDecision(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $brand = Brand::factory()->create();
+        $decision = EntityDecision::query()->create([
+            'brand_id' => $brand->id, 'name_key' => 'havnelys studio', 'display_name' => 'Havnelys Studio',
+            'variants' => ['Havnelys Studio'], 'decision' => 'ignored', 'alias_ids' => [], 'decided_at' => now(),
+        ]);
+
+        return ['brand' => $brand->id, 'decision' => $decision->id];
+    });
+}
+
+/** @return array{brand: int, competitor: int, alias: int} */
+function isolationCompetitorAlias(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $competitor = Competitor::factory()->create();
+        $alias = CompetitorAlias::factory()->create(['competitor_id' => $competitor->id, 'alias' => 'Kaffebonna', 'match_mode' => 'case_insensitive']);
+
+        return ['brand' => $competitor->brand_id, 'competitor' => $competitor->id, 'alias' => $alias->id];
+    });
+}
+
+/** @return array{brand: int, competitor: int, domain: int} */
+function isolationCompetitorDomain(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $competitor = Competitor::factory()->create();
+        $domain = CompetitorDomain::factory()->create(['competitor_id' => $competitor->id, 'domain' => 'kaffebonna.no']);
+
+        return ['brand' => $competitor->brand_id, 'competitor' => $competitor->id, 'domain' => $domain->id];
     });
 }
 
@@ -612,6 +676,64 @@ return [
     'brands.competitors.destroy' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantB->id)],
         own: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantA->id)],
+        deniedRoles: ['reader'],
+    ),
+    // U21: decisions on unknown brands and the competitor setup API (docs/ux-arbeidsflate.md 6.3).
+    'brands.entities.decide' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationUnknownName($s->tenantB->id), 'data' => ['keys' => ['havnelys studio'], 'decision' => 'other']],
+        own: fn (Scenario $s) => ['params' => isolationUnknownName($s->tenantA->id), 'data' => ['keys' => ['havnelys studio'], 'decision' => 'other']],
+        deniedRoles: ['reader'],
+    ),
+    'brands.entities.undo' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationEntityDecision($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationEntityDecision($s->tenantA->id)],
+        deniedRoles: ['reader'],
+    ),
+    'brands.entities.excerpts' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationUnknownName($s->tenantB->id) + ['key' => 'havnelys studio']],
+        own: fn (Scenario $s) => ['params' => isolationUnknownName($s->tenantA->id) + ['key' => 'havnelys studio']],
+    ),
+    'brands.competitors.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantB->id), 'data' => ['is_active' => false]],
+        own: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantA->id), 'data' => ['is_active' => false]],
+        deniedRoles: ['reader'],
+    ),
+    'brands.competitors.reorder' => RouteAccess::tenant(
+        foreign: function (Scenario $s): array {
+            $competitor = isolationCompetitor($s->tenantB->id);
+
+            return ['params' => ['brand' => $competitor['brand']], 'data' => ['ids' => [$competitor['competitor']]]];
+        },
+        own: function (Scenario $s): array {
+            $competitor = isolationCompetitor($s->tenantA->id);
+
+            return ['params' => ['brand' => $competitor['brand']], 'data' => ['ids' => [$competitor['competitor']]]];
+        },
+        deniedRoles: ['reader'],
+    ),
+    'brands.competitors.aliases.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantB->id), 'data' => ['alias' => 'Kaffebonna AS', 'match_mode' => 'exact_word']],
+        own: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantA->id), 'data' => ['alias' => 'Kaffebonna AS', 'match_mode' => 'exact_word']],
+        deniedRoles: ['reader'],
+    ),
+    'brands.competitors.aliases.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationCompetitorAlias($s->tenantB->id), 'data' => ['match_mode' => 'exact_word']],
+        own: fn (Scenario $s) => ['params' => isolationCompetitorAlias($s->tenantA->id), 'data' => ['match_mode' => 'exact_word']],
+        deniedRoles: ['reader'],
+    ),
+    'brands.competitors.aliases.destroy' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationCompetitorAlias($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationCompetitorAlias($s->tenantA->id)],
+        deniedRoles: ['reader'],
+    ),
+    'brands.competitors.domains.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantB->id), 'data' => ['domain' => 'kaffebonna.no']],
+        own: fn (Scenario $s) => ['params' => isolationCompetitor($s->tenantA->id), 'data' => ['domain' => 'kaffebonna.no']],
+        deniedRoles: ['reader'],
+    ),
+    'brands.competitors.domains.destroy' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationCompetitorDomain($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationCompetitorDomain($s->tenantA->id)],
         deniedRoles: ['reader'],
     ),
     // T49: the fact page. The fact must belong to the brand in the path (BrandFactPageTest checks a fact of another brand).

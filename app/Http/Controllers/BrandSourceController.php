@@ -9,6 +9,7 @@ use App\Dashboard\DashboardPeriod;
 use App\Dashboard\GraphCache;
 use App\Dashboard\SourcePage;
 use App\Models\Brand;
+use App\Models\Competitor;
 use App\Models\MarketEngine;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -50,7 +51,7 @@ class BrandSourceController extends Controller
             'citing' => fn (): ?array => $domain === null ? null : $page->citing($brand, $filter, $domain),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
                 'brand.sources.u08', $filter, $period->timezone, fn (): array => $page->chartData($brand, $filter),
-                competitorIds: $brand->competitors->modelKeys(),
+                competitorIds: array_keys(Competitor::colorIndexes($brand)),
             )),
         ]);
     }

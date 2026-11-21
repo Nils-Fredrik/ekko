@@ -49,10 +49,12 @@ test('the table ranks the brand and active competitors with visibility, change, 
         ->assertInertia(fn ($page) => $page
             ->component('Brands/Competitors')
             ->missing('chartData')
-            ->where('competitors.0.name', 'Aurora')
-            ->where('competitors.0.color_index', null)
-            ->where('competitors.1.color_index', 0)
-            ->where('competitors.2.color_index', 1)
+            // The list follows the color order (position, ADR 0043); Aurora was added last.
+            ->where('competitors.0.name', 'Nordlys')
+            ->where('competitors.0.color_index', 0)
+            ->where('competitors.1.color_index', 1)
+            ->where('competitors.2.name', 'Aurora')
+            ->where('competitors.2.color_index', null)
             ->loadDeferredProps(fn ($deferred) => $deferred
                 ->where('chartData.grain', 'day')
                 ->has('chartData.table', 3)

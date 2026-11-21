@@ -51,3 +51,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0040: Låst Linux-nettleser for visuell regresjon](0040-visuell-regresjon-i-ci.md)
 - [0041: Analysefiltre og lagrede visninger](0041-analysefiltre-og-lagrede-visninger.md)
 - [0042: Måleplan: arv og egne markedsvalg](0042-maleplan-arv-og-egne-markedsvalg.md)
+- [0043: Beslutninger om ukjente merkevarer](0043-beslutninger-om-ukjente-merkevarer.md)

@@ -12,6 +12,7 @@ use App\Metrics\MetricsService;
 use App\Metrics\MetricsSummary;
 use App\Models\Action;
 use App\Models\Brand;
+use App\Models\Competitor;
 use App\Models\MarketEngine;
 use App\Models\Prompt;
 use App\Models\Team;
@@ -121,7 +122,7 @@ class BrandController extends Controller
                     'sentiment' => $metrics->sentimentDistribution($filter),
                     'action_markers' => $this->actionMarkers($brand, $period),
                 ],
-                competitorIds: $brand->competitors->modelKeys(),
+                competitorIds: array_keys(Competitor::colorIndexes($brand)),
             )),
         ]);
     }
