@@ -244,7 +244,52 @@ foreach (['index', 'store'] as $operation) {
     );
 }
 
+/** @return array<string, mixed> */
+function isolationLibraryWrite(string $name, int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function () use ($name): array {
+        $brand = Brand::factory()->create();
+        $params = ['brand' => $brand->id];
+        $market = Market::factory()->for($brand)->create(['country' => 'NO']);
+        $topic = Topic::factory()->for($brand)->create(['cross_market_key' => 'k']);
+        if (str_starts_with($name, 'topics.') && $name !== 'topics.store') {
+            $params['topic'] = $topic->id;
+        }
+        if ($name === 'prompts.store') {
+            $params['market'] = $market->id;
+        }
+        $prompt = Prompt::factory()->for($market)->create(['topic_id' => null]);
+        if ($name === 'prompts.destroy') {
+            $params['prompt'] = $prompt->id;
+        }
+        if ($name === 'topics.suggestions') {
+            OnboardingFakes::bind(OnboardingFakes::marketJson(['k']));
+        }
+        $data = match ($name) {
+            'topics.store', 'topics.update' => ['name' => 'New topic'],
+            'topics.merge' => ['into' => Topic::factory()->for($brand)->create()->id],
+            'topics.suggestions' => ['market_id' => $market->id, 'count' => 5],
+            'prompts.store' => ['text' => 'Another question?', 'intent' => 'category', 'funnel_stage' => 'awareness'],
+            'prompts.bulk' => ['ids' => [$prompt->id], 'action' => 'deactivate'],
+            'prompts.import.preview' => ['csv' => "text,market\nQuestion?,NO\n"],
+            default => [],
+        };
+
+        return ['params' => $params, 'data' => $data];
+    });
+}
+
+$libraryEntries = [];
+foreach (['topics.store', 'topics.update', 'topics.merge', 'topics.destroy', 'topics.suggestions', 'prompts.store', 'prompts.destroy', 'prompts.bulk', 'prompts.import.preview'] as $name) {
+    $libraryEntries['brands.'.$name] = RouteAccess::tenant(
+        foreign: fn (Scenario $s) => isolationLibraryWrite($name, $s->tenantB->id),
+        own: fn (Scenario $s) => isolationLibraryWrite($name, $s->tenantA->id),
+        deniedRoles: ['reader'],
+    );
+}
+
 return [
+    ...$libraryEntries,
     'admin.tenants.index' => RouteAccess::platformAdmin(),
     'admin.pitches.store' => RouteAccess::platformAdmin(own: function () {
         $partner = Team::factory()->tenant()->create();

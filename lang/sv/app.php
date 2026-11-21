@@ -261,6 +261,11 @@ return [
         'loading' => 'Hämtar diagrammen …',
     ],
     'library' => [
+        'same_topic' => 'Ett ämne kan inte slås ihop med sig självt.',
+        'topic_not_empty' => 'Flytta först frågorna från ämnet.',
+        'archived_prompt' => 'Återställ frågan innan du aktiverar den.',
+        'prompt_has_runs' => 'Frågan har körningar. Arkivera den för att behålla historiken.',
+        'undo_conflict' => 'Frågorna har ändrats sedan åtgärden.',
         'overview' => 'Översikt',
         'prompts' => 'Prompter',
         'competitors' => 'Konkurrenter',

@@ -3,6 +3,7 @@
 namespace App\Onboarding;
 
 use App\Models\Brand;
+use App\Models\Market;
 use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\Team;
@@ -100,6 +101,14 @@ final class OnboardingRunner
         $request = $this->prompts->market($context['brand'], $context['domain'], $input['country'], $input['language'], $context['topics'], $context['prompt_count']);
 
         $this->finish($analysis, $request, fn (string $json): ?array => $this->parser->parseMarket($json, $keys, $context['prompt_count']));
+    }
+
+    public function topic(Analysis $analysis, Topic $topic, Market $market, int $count): void
+    {
+        $brand = $topic->brand()->firstOrFail();
+        $key = $topic->cross_market_key ?: 'topic-'.$topic->id;
+        $request = $this->prompts->topic($brand->name, (string) $brand->primary_domain, $market->country, $market->language, $topic->name, $key, $count);
+        $this->finish($analysis, $request, fn (string $json): ?array => $this->parser->parseMarket($json, [$key], $count));
     }
 
     /**

@@ -278,3 +278,17 @@ test('v1 returns JSON errors without an Accept header', function () {
     $this->call('GET', '/api/v1/brands', server: ['HTTP_AUTHORIZATION' => 'Bearer '.$this->token->plainTextToken])
         ->assertForbidden()->assertHeader('Content-Type', 'application/json')->assertHeaderMissing('Location');
 });
+
+test('prompt list can include archived prompts and the original delete contract still removes their runs', function () {
+    [$prompt, $run] = $this->context->run($this->team->id, function () {
+        $prompt = Prompt::factory()->for($this->market)->create(['is_active' => false, 'archived_at' => now()]);
+
+        return [$prompt, Run::factory()->create(['prompt_id' => $prompt->id])];
+    });
+    $url = $this->path.'/prompts';
+    $token = $this->token->plainTextToken;
+    apiCall($this, $token, 'GET', $url)->assertOk()->assertJsonCount(0, 'data');
+    apiCall($this, $token, 'GET', $url.'?include_archived=1')->assertOk()->assertJsonPath('data.0.archived', true);
+    apiCall($this, $token, 'DELETE', $url, ['id' => $prompt->id])->assertNoContent();
+    $this->context->run($this->team->id, fn () => expect(Run::find($run->id))->toBeNull());
+});

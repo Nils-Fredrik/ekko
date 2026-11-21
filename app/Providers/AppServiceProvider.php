@@ -115,6 +115,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Analysis::class, OnboardingPolicy::class);
 
         // Each analysis fetches a site and calls the model, so starting them is limited per user.
+        RateLimiter::for('prompt-suggestions', fn (Request $request) => Limit::perMinute(10)->by((string) $request->user()?->getAuthIdentifier()));
         RateLimiter::for('onboarding', fn (Request $request): Limit => Limit::perMinute((int) config('ekko.wizard.analyses_per_minute'))
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
         // Per token, and per user across all of the user's tokens, so more tokens do not give more calls (T39-F10).

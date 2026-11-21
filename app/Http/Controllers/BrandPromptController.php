@@ -12,22 +12,17 @@ use App\Metrics\Metric;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\Brand;
-use App\Models\Market;
 use App\Models\Prompt;
 use App\Models\Response;
-use App\Models\Team;
 use App\Prompts\AnswerSegments;
 use App\Prompts\PersonalData;
 use App\Prompts\PromptCsv;
-use App\Tenancy\TenantContext;
+use App\Prompts\PromptLibrary;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -138,44 +133,10 @@ class BrandPromptController extends Controller
         Gate::authorize('update', $prompt);
         $this->promptOf($brand, $prompt);
 
-        $validated = $request->validate([
-            'text' => ['sometimes', 'required', 'string', 'max:'.Prompt::TEXT_MAX, Prompt::nullByteRule()],
-            'intent' => ['sometimes', 'required', Rule::in(Prompt::INTENTS)],
-            'funnel_stage' => ['sometimes', 'required', Rule::in(Prompt::FUNNELS)],
-            'priority' => ['sometimes', 'required', Rule::in(Prompt::PRIORITIES)],
-            'is_active' => ['sometimes', 'boolean'],
-        ]);
+        $data = $request->validate(PromptLibrary::rules(false));
+        app(PromptLibrary::class)->update($prompt, $data);
 
-        $personal = false;
-        DB::transaction(function () use ($brand, $prompt, $validated, &$personal): void {
-            $marketId = (int) $prompt->market_id;
-            // Same order as the API and MCP: lock the market, then the prompt, then check active capacity.
-            Market::query()->where('brand_id', $brand->id)->lockForUpdate()->findOrFail($marketId);
-            $locked = Prompt::query()->where('market_id', $marketId)->lockForUpdate()->findOrFail($prompt->id);
-
-            if (! $locked->is_active && ($validated['is_active'] ?? false)) {
-                $this->checkActiveCapacity($marketId);
-            }
-
-            $changes = $validated;
-            if (isset($changes['text'])) {
-                $hash = Prompt::hashText($changes['text']);
-                $taken = Prompt::query()
-                    ->where('market_id', $marketId)
-                    ->where('text_hash', $hash)
-                    ->whereKeyNot($locked->id)
-                    ->exists();
-                if ($taken) {
-                    throw ValidationException::withMessages(['text' => __('app.library.duplicate')]);
-                }
-                $changes['text_hash'] = $hash;
-                $personal = PersonalData::in($changes['text']);
-            }
-
-            $locked->update($changes);
-        });
-
-        return back()->with('personal_data', $personal);
+        return back()->with('personal_data', isset($data['text']) && PersonalData::in($data['text']));
     }
 
     public function import(Request $request, Brand $brand): RedirectResponse
@@ -183,22 +144,15 @@ class BrandPromptController extends Controller
         Gate::authorize('create', Prompt::class);
         $brand->load('markets');
 
-        $validated = $request->validate([
-            'file' => ['required_without:csv', 'file', 'max:2048'],
-            'csv' => ['required_without:file', 'string', 'max:500000'],
-        ]);
-
-        $csv = isset($validated['csv']) ? $validated['csv'] : (string) $request->file('file')?->get();
-
-        return back()->with('prompt_import', PromptCsv::import($brand, $csv));
+        return back()->with('prompt_import', PromptCsv::import($brand, PromptLibraryController::csv($request)));
     }
 
-    public function export(Brand $brand): HttpResponse
+    public function export(Request $request, Brand $brand): HttpResponse
     {
         BrandPage::authorizeView($brand);
         $brand->load('markets');
 
-        return response(PromptCsv::export($brand), 200, [
+        return response(PromptCsv::export($brand, $request->boolean('include_archived')), 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="prompts-'.$brand->id.'.csv"',
         ]);
@@ -389,15 +343,6 @@ class BrandPromptController extends Controller
             'Content-Type' => $json ? 'application/json' : 'text/plain; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="response-'.$response->id.($json ? '.json' : '.txt').'"',
         ]);
-    }
-
-    private function checkActiveCapacity(int $marketId): void
-    {
-        $tenantId = app(TenantContext::class)->id();
-        $limit = $tenantId === null ? null : Team::query()->find($tenantId)?->plan?->max_prompts_per_market;
-        if ($limit !== null && Prompt::query()->where('market_id', $marketId)->where('is_active', true)->count() >= $limit) {
-            throw ValidationException::withMessages(['is_active' => __('app.library.quota')]);
-        }
     }
 
     /**

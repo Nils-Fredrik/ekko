@@ -23,12 +23,6 @@ use App\Onboarding\ProposalConfirmer;
 use App\Scheduling\DispatcherLauncher;
 use App\Scheduling\PromptSchedule;
 use App\Tenancy\TenantContext;
-use App\Usage\BillingAccount;
-use App\Usage\MonthlyUsage;
-use App\Usage\PlannedRun;
-use App\Usage\QuotaGuard;
-use Brick\Math\BigDecimal;
-use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -291,9 +285,7 @@ class OnboardingController extends Controller
     {
         $tenantId = $tenant->id;
         try {
-            $analysis = $store->reserving($tenantId, fn (int $pending): ?Analysis => $this->quotaAllows($tenant, $pending)
-                ? $store->create($tenantId, (int) auth()->id(), $kind, $input)
-                : null);
+            $analysis = $store->admit($tenant, (int) auth()->id(), $kind, $input);
         } catch (LockTimeoutException) {
             return $this->refuse('busy', 429);
         }
@@ -343,18 +335,6 @@ class OnboardingController extends Controller
     private function refuse(string $code, int $status): JsonResponse
     {
         return response()->json(['error' => ['code' => $code, 'message' => __("onboarding.errors.{$code}")]], $status);
-    }
-
-    /** Whether one more analysis fits, with $pending started analyses counted as one call and the estimated cost each. */
-    private function quotaAllows(Team $tenant, int $pending): bool
-    {
-        $estimate = (string) config('ekko.anthropic.onboarding.estimated_cost_usd');
-        $usage = app(MonthlyUsage::class)->forAdmission($tenant, CarbonImmutable::now('UTC'));
-        $usage->calls = (int) $usage->calls + $pending;
-        $usage->cost_usd = (string) BigDecimal::of((string) $usage->cost_usd)->plus(BigDecimal::of($estimate)->multipliedBy($pending));
-        $planned = new PlannedRun(0, true, BillingAccount::Platform, $estimate);
-
-        return app(QuotaGuard::class)->allows($usage, $planned);
     }
 
     private function tenant(): Team

@@ -261,6 +261,11 @@ return [
         'loading' => 'Loading the charts …',
     ],
     'library' => [
+        'same_topic' => 'A topic cannot be merged into itself.',
+        'topic_not_empty' => 'Move the prompts out of this topic first.',
+        'archived_prompt' => 'Restore this prompt before activating it.',
+        'prompt_has_runs' => 'This prompt has runs. Archive it to keep its history.',
+        'undo_conflict' => 'The prompts have changed since this action.',
         'overview' => 'Overview',
         'prompts' => 'Prompts',
         'competitors' => 'Competitors',

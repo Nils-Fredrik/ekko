@@ -261,6 +261,11 @@ return [
         'loading' => 'Henter grafene …',
     ],
     'library' => [
+        'same_topic' => 'Et tema kan ikke slås sammen med seg selv.',
+        'topic_not_empty' => 'Flytt promptene ut av temaet først.',
+        'archived_prompt' => 'Gjenopprett prompten før du aktiverer den.',
+        'prompt_has_runs' => 'Prompten har kjøringer. Arkiver den for å bevare historikken.',
+        'undo_conflict' => 'Promptene er endret siden handlingen.',
         'overview' => 'Oversikt',
         'prompts' => 'Prompter',
         'competitors' => 'Konkurrenter',

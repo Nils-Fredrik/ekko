@@ -746,11 +746,11 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
 
 - Alt skjer i én transaksjon og med samme låserekkefølge som i dag: marked, så prompt.
 - `activate` kontrollerer grensen for hvert berørt marked. Overskridelse avviser hele kallet.
-- `undo` i svaret beskriver det motsatte kallet. For `move_topic` grupperes ID-ene per forrige tema.
+- `undo` i svaret beskriver det motsatte kallet. For `move_topic` grupperes ID-ene per forrige tema. Send `undo`-objektet tilbake til samme bulk-rute. Det inneholder handlingen `undo`, berørte ID-er og en kryptert verdi som binder de grupperte før- og etterverdiene til tenanten og merkevaren. Gjenoppretting avviser felt som er endret i mellomtiden. Angret opprettelse bruker samme slettesperre som websletting. Ingen endrede rader gir `undo: null`.
 
 **Andre krav:**
 
-- **API og MCP:** REST (`api.php`) og MCP (`UpsertPrompts`) får `archived` i ressursen og `include_archived` i lister. `docs/api.yaml` oppdateres. Det kommer ingen nye MCP-verktøy.
+- **API og MCP:** REST (`api.php`) og MCP (`UpsertPrompts`) får `archived` i ressursen og `include_archived` i lister. `docs/api.yaml` oppdateres. Eksisterende REST DELETE beholder kaskadeslettingen fra spec 15.1. Sletting gjennom den nye webruten avvises når det finnes kjøringer. Det kommer ingen nye MCP-verktøy.
 - **Tester:**
   - Feature-tester for alle ruter, også tilgang per rolle.
   - Grensen i `bulk` og `create`.
