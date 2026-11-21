@@ -147,6 +147,7 @@
         <section class="report-section" id="report-robots">
             <h2>{{ __('app.crawlers.funnel') }}</h2>
             @include('reports.partials.bars', ['name' => 'funnel', 'label' => __('app.crawlers.funnel'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['label'], 'value' => $row['value'], 'low' => $row['low'] ?? false], $funnel ?? [])])
+            @include('reports.partials.table', ['columns' => [__('app.charts.row'), __('app.charts.value')], 'rows' => array_map(fn ($row) => [$row['label'], $row['value'] ?? __('reports.empty_value')], $funnel ?? [])])
             <h2>{{ __('reports.bots') }}</h2>
             @include('reports.partials.bars', ['name' => 'bots', 'label' => __('reports.bots'), 'scale' => 'count', 'items' => array_map(fn ($row) => ['label' => $row['bot'], 'value' => $row['hits'], 'low' => false], $bots)])
             @include('reports.partials.table', ['columns' => [__('reports.bot'), __('reports.hits')], 'rows' => array_map(fn ($row) => [$row['bot'], $row['hits']], $bots)])

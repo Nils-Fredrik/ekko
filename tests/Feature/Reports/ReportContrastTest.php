@@ -80,6 +80,7 @@ test('section bars are the same markup on the web page and in the pdf', function
         ->toContain('data-testid="report-competitor-values"')
         ->toContain('ChatGPT · 40%')
         ->toContain('data-testid="report-bars-funnel"')
+        ->toContain('<td>12</td>')
         ->and($shared)->toContain('data-testid="report-competitor-lines"')
         ->toContain('data-testid="report-prompt-heatmap"')
         ->toContain('data-testid="report-bars-funnel"')

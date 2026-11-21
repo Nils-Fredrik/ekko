@@ -678,7 +678,7 @@ Kanaler: Slack (tenantens webhook), e-post og varselliste i grensesnittet. Like 
 
 **Delt side og PDF (U13):** Nettversjonen og PDF-en er samme Blade-mal (`reports.pdf`). Grafene er SVG i den malen, så tall og figurer er like. Utskriften er A4 stående i lyst tema, med én seksjon per side der det er plass.
 
-**Pitchrapport (T47, kortform i U13):** Pitch-PDF-en bruker samme mal med bare forside, synlighet mot konkurrenter, kilder og de tre åpne tiltakene. Den lagres privat per merkevare og er fortsatt ikke koblet til ordinær rapportliste, versjonert rapporthistorikk, planlagt e-postutsending eller rapportplanens profil- og språkvalg.
+**Pitchrapport (T47, kortform i U13):** Pitch-PDF-en bruker samme mal med bare forside, synlighet mot konkurrenter, kilder og de tre åpne tiltakene. Den lagres privat per merkevare og er fortsatt ikke koblet til ordinær rapportliste, versjonert rapporthistorikk, planlagt e-postutsending eller rapportplanens profil- og språkvalg. Det er ikke avklart om alle kravene i 11.2 også skal gjelde pitchrapporter; dette er et åpent avvik, ikke en besluttet endring av kravene.
 
 ### 11.3 Tiltak
 
