@@ -2,13 +2,18 @@
 
 namespace App\Onboarding;
 
+use App\AnthropicBudget\Account;
 use App\Engines\Credentials\TenantApiKeys;
 use App\Engines\EnginePricing;
 use App\Engines\EngineResult;
 use App\Extraction\ExtractionCost;
 use App\Extraction\ExtractionOutcome;
+use App\MeasurementPlan\MeasurementPlans;
+use App\MeasurementPlan\PromptPopulation;
+use App\MeasurementPlan\StandardPlan;
 use App\Models\Engine;
 use App\Models\Plan;
+use App\Models\RunBatch;
 use App\Models\Team;
 use App\Scheduling\PromptSchedule;
 use App\Usage\BillingAccount;
@@ -19,11 +24,13 @@ use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 /**
- * Estimated monthly cost of an engine setup, shown in the wizard before the user confirms (docs/spec.md 7.4
- * and 13). It uses the engine prices valid now (`engine_prices`, via {@see EnginePricing}), what a call is
- * assumed to use (config ekko.wizard.estimate), the extraction price (ADR 0011) and the tenant's plan and
- * usage this month (ADR 0013). It writes nothing and is only an estimate: answer length and the number of
- * searches decide the real cost. Must run in the tenant's context.
+ * Monthly baseline for an unsaved plan. Quotas and budgets are shared across all markets (spec 7.6).
+ *
+ * @phpstan-import-type PlanRule from MeasurementPlans
+ *
+ * @phpstan-type EstimateMarket array{id: ?int, plan_mode: string, is_active: bool, engines: list<PlanRule>, prompts: PromptPopulation}
+ * @phpstan-type Quote array{available: bool, price: ?BigDecimal, payer: BillingAccount, usage: array<string,int>}
+ * @phpstan-type EstimateRow array{engine_key: string, answers: int, billed_to: string, collection_cost_usd: ?string, frequency: string, prompt_scope: string, repetitions: int, sample_prompt_id: ?int, next_due_on: ?string, usage_per_answer: array<string, int>}
  */
 final class CostEstimator
 {
@@ -35,144 +42,229 @@ final class CostEstimator
     ) {}
 
     /**
-     * @param  list<array{engine_key: string, frequency: string, prompt_scope: string, repetitions: int}>  $setup
-     * @return array{
-     *     engines: list<array{engine_key: string, calls: int, cost_usd: string, billed_to: string}>,
-     *     calls: int,
-     *     engine_cost_usd: string,
-     *     extraction_cost_usd: string,
-     *     total_cost_usd: string,
-     *     platform_cost_usd: string,
-     *     byok_cost_usd: string,
-     *     issues: list<array{code: string, engine_key?: string}>,
-     * }
+     * @param  list<EstimateMarket>  $markets
+     * @return array<string, mixed>
      */
-    public function estimate(Team $tenant, array $setup, int $promptCount, int $corePromptCount, ?CarbonImmutable $at = null): array
+    public function estimate(Team $tenant, array $markets, bool $legacyProposal = false): array
     {
-        $at ??= CarbonImmutable::now('UTC');
-        /** @var array{runs_per_month: array<string, string>, call_usage: array<string, array{input_tokens: int, output_tokens: int, search_calls: int}>, extraction_usage: array{input_tokens: int, output_tokens: int}} $config */
-        $config = config('ekko.wizard.estimate');
+        $at = CarbonImmutable::now('UTC');
+        $localDay = $at->setTimezone($tenant->timezone)->startOfDay();
+        $planned = RunBatch::query()->whereIn('market_id', array_column($markets, 'id'))
+            ->where('dispatch_date', $localDay->toDateString())->pluck('market_id')->flip();
         $plan = $tenant->plan()->first();
-
+        $config = config('ekko.wizard.estimate');
+        $extractionUsage = $config['extraction_usage'];
+        $extractionPrice = BigDecimal::of($this->extraction->of(new ExtractionOutcome('estimate', true, null, $extractionUsage['input_tokens'], $extractionUsage['output_tokens'], true)));
+        $catalog = [];
+        $estimates = [];
+        $allRows = [];
         $issues = [];
-        $engines = [];
-        $totalCalls = 0;
-        $platform = BigDecimal::zero();
-        $byok = BigDecimal::zero();
 
-        if ($plan instanceof Plan && $plan->max_prompts_per_market !== null && $promptCount > $plan->max_prompts_per_market) {
-            $issues[] = ['code' => 'prompts_above_plan'];
+        foreach ($markets as $market) {
+            $population = $market['prompts'];
+            $marketIssues = [];
+            $rows = [];
+            if ($market['is_active']) {
+                if ($plan?->max_prompts_per_market !== null && $population->total > $plan->max_prompts_per_market) {
+                    $marketIssues[] = ['code' => 'prompts_above_plan'];
+                }
+                $coreOverrides = array_column(array_filter($market['engines'], fn ($rule) => $rule['prompt_scope'] === 'core'), 'engine_key');
+                $from = $market['id'] !== null && $planned->has($market['id']) ? $localDay->addDay() : $localDay;
+                foreach ($market['engines'] as $rule) {
+                    $key = $rule['engine_key'];
+                    $catalog[$key] ??= $this->quote($key, $tenant, $at);
+                    $quote = $catalog[$key];
+                    [$frequency, $repetitions] = $this->baseline($tenant, $plan, $rule, $quote, $legacyProposal, $marketIssues);
+                    [$count, $example] = match (true) {
+                        $rule['prompt_scope'] === 'core' => [$population->core, $population->coreExample],
+                        in_array($key, $coreOverrides, true) => [$population->total - $population->core, $population->standardExample],
+                        default => [$population->total, $population->standardExample ?? $population->coreExample],
+                    };
+                    $answers = BigDecimal::of($count * $repetitions)->multipliedBy($config['runs_per_month'][$frequency])->toScale(0, RoundingMode::Up)->toInt();
+                    $cost = $frequency === 'off' ? BigDecimal::zero() : $quote['price']?->multipliedBy($answers);
+                    $rows[] = [
+                        'engine_key' => $key,
+                        'prompt_scope' => $rule['prompt_scope'],
+                        'frequency' => $frequency,
+                        'repetitions' => $repetitions,
+                        'answers' => $answers,
+                        'billed_to' => $quote['payer']->value,
+                        'collection_cost_usd' => $cost?->__toString(),
+                        'sample_prompt_id' => $frequency === 'off' || $count === 0 ? null : $example,
+                        'next_due_on' => $count > 0 ? $this->nextDue($frequency, $example, $from) : null,
+                        'usage_per_answer' => $quote['usage'],
+                    ];
+                }
+            }
+            foreach (array_unique($marketIssues, SORT_REGULAR) as $issue) {
+                $issue['message'] = __("onboarding.issues.{$issue['code']}", ['engine' => $issue['engine_key'] ?? '']);
+                $issues[] = $issue + ['market_id' => $market['id']];
+            }
+            $estimates[] = [
+                'id' => $market['id'],
+                'plan_mode' => $market['plan_mode'],
+                'is_active' => $market['is_active'],
+                'prompt_count' => $population->total,
+                'core_prompt_count' => $population->core,
+                'rules' => $rows,
+                'engines' => $this->byEngine($rows, $extractionPrice),
+            ] + $this->totals($rows, $extractionPrice);
+            array_push($allRows, ...$rows);
         }
 
-        // As in Dispatcher::plan(): a core prompt runs on the engine's core row when it has one, and only then on
-        // the all row. So an all row covers the standard prompts only when the engine also has a core row.
-        $hasCoreRow = [];
-        foreach ($setup as $row) {
-            if ($row['prompt_scope'] === 'core') {
-                $hasCoreRow[$row['engine_key']] = true;
-            }
+        $totals = $this->totals($allRows, $extractionPrice);
+        $precise = $this->totals($allRows, $extractionPrice, 8);
+        $usage = $this->usage->snapshot($tenant, $at);
+        $remaining = $usage->quota_calls === null ? null : max(0, $usage->quota_calls - $usage->calls);
+        $warnings = [
+            'exceeds_call_quota' => $remaining !== null && $usage->calls + $totals['quota_calls'] > $usage->quota_calls,
+            'exceeds_budget' => $usage->budget_usd !== null && $precise['platform_cost_usd'] !== null && BigDecimal::of($usage->cost_usd)->plus($precise['platform_cost_usd'])->isGreaterThan($usage->budget_usd),
+            'exceeds_byok_budget' => $usage->byok_budget_usd !== null && $precise['byok_cost_usd'] !== null && BigDecimal::of($usage->byok_cost_usd)->plus($precise['byok_cost_usd'])->isGreaterThan($usage->byok_budget_usd),
+        ];
+        foreach (array_keys(array_filter($warnings)) as $code) {
+            $issues[] = ['code' => $code, 'message' => __("onboarding.issues.{$code}")];
         }
 
-        foreach ($setup as $row) {
-            $engineKey = $row['engine_key'];
-            $engine = Engine::query()->find($engineKey);
-            if ($engine === null || ! $engine->isAvailable()) {
-                $issues[] = ['code' => 'unknown_engine', 'engine_key' => $engineKey];
-
-                continue;
-            }
-            if ($plan instanceof Plan) {
-                if (! $plan->allowsEngine($engineKey)) {
-                    $issues[] = ['code' => 'engine_not_in_plan', 'engine_key' => $engineKey];
-                }
-                if (! PromptSchedule::allows($row['frequency'], $plan->maxFrequencyForEngine($engineKey))) {
-                    $issues[] = ['code' => 'frequency_above_plan', 'engine_key' => $engineKey];
-                }
-                if ($row['repetitions'] > $plan->max_repetitions) {
-                    $issues[] = ['code' => 'repetitions_above_plan', 'engine_key' => $engineKey];
-                }
-            }
-
-            try {
-                $price = $this->pricing->effectiveAt($engineKey, $at);
-            } catch (ModelNotFoundException) {
-                $issues[] = ['code' => 'no_price', 'engine_key' => $engineKey];
-
-                continue;
-            }
-
-            $prompts = match (true) {
-                $row['prompt_scope'] === 'core' => $corePromptCount,
-                isset($hasCoreRow[$engineKey]) => max(0, $promptCount - $corePromptCount),
-                default => $promptCount,
-            };
-            $calls = (int) BigDecimal::of($prompts * $row['repetitions'])
-                ->multipliedBy($config['runs_per_month'][$row['frequency']] ?? '0')
-                ->toScale(0, RoundingMode::Up)
-                ->toInt();
-
-            $usage = $config['call_usage'][$engine->method] ?? ['input_tokens' => 0, 'output_tokens' => 0, 'search_calls' => 0];
-            $perCall = BigDecimal::of($this->pricing->cost($price, new EngineResult('', null, [], $usage['input_tokens'], $usage['output_tokens'], $usage['search_calls'], [])));
-            // Rounded to cents per engine, and the totals add the rounded amounts, so what the wizard shows adds up.
-            $cost = $perCall->multipliedBy($calls)->toScale(2, RoundingMode::HalfUp);
-
-            $billing = $this->keys->forEngine($tenant, $engine) === null ? BillingAccount::Platform : BillingAccount::Byok;
-            if ($billing === BillingAccount::Byok) {
-                $byok = $byok->plus($cost);
-            } else {
-                $platform = $platform->plus($cost);
-            }
-
-            $totalCalls += $calls;
-            $engines[] = [
-                'engine_key' => $engineKey,
-                'calls' => $calls,
-                'cost_usd' => (string) $cost->toScale(2, RoundingMode::HalfUp),
-                'billed_to' => $billing->value,
-            ];
-        }
-
-        // Every answer is extracted once with the batch price, whoever paid for the engine call.
-        $extractionPerAnswer = BigDecimal::of($this->extraction->of(new ExtractionOutcome('estimate', true, null, $config['extraction_usage']['input_tokens'], $config['extraction_usage']['output_tokens'], true)));
-        $extraction = $extractionPerAnswer->multipliedBy($totalCalls)->toScale(2, RoundingMode::HalfUp);
-        $platform = $platform->plus($extraction);
-
-        $issues = [...$issues, ...$this->limitIssues($tenant, $at, $totalCalls, $platform, $byok)];
-
-        return [
-            'engines' => $engines,
-            'calls' => $totalCalls,
-            'engine_cost_usd' => (string) $platform->plus($byok)->minus($extraction)->toScale(2, RoundingMode::HalfUp),
-            'extraction_cost_usd' => (string) $extraction->toScale(2, RoundingMode::HalfUp),
-            'total_cost_usd' => (string) $platform->plus($byok)->toScale(2, RoundingMode::HalfUp),
-            'platform_cost_usd' => (string) $platform->toScale(2, RoundingMode::HalfUp),
-            'byok_cost_usd' => (string) $byok->toScale(2, RoundingMode::HalfUp),
+        return $totals + [
+            'markets' => $estimates,
+            'engines' => $this->byEngine($allRows, $extractionPrice),
             'issues' => $issues,
+            'quota' => ['limit' => $usage->quota_calls, 'used' => $usage->calls, 'remaining' => $remaining],
+            'budgets' => [
+                'platform' => ['limit_usd' => $usage->budget_usd, 'used_usd' => $usage->cost_usd],
+                'byok' => ['limit_usd' => $usage->byok_budget_usd, 'used_usd' => $usage->byok_cost_usd],
+            ],
+            'assumptions' => [
+                'runs_per_month' => $config['runs_per_month'],
+                'extraction_usage' => $extractionUsage,
+                'batch_extraction_usd_per_answer' => (string) $extractionPrice,
+                'extractions_per_answer' => 1,
+            ],
         ];
     }
 
     /**
-     * The setup against what is left of this month's call quota and budgets (ADR 0013). The estimate is a
-     * month's worth of calls on top of what has been used so far, so it is a warning, not a refusal: the
-     * dispatcher enforces the limits when the runs are planned.
+     * The original wizard reports an invalid proposal at its requested rate. For a stored market whose package
+     * has changed, the baseline follows the dispatcher's package caps, pitch rules and shared Sonnet credits.
      *
-     * @return list<array{code: string}>
+     * @param  PlanRule  $rule
+     * @param  Quote  $quote
+     * @param  list<array{code: string, engine_key?: string}>  $issues
+     * @return array{string, int}
      */
-    private function limitIssues(Team $tenant, CarbonImmutable $at, int $calls, BigDecimal $platform, BigDecimal $byok): array
+    private function baseline(Team $tenant, ?Plan $plan, array $rule, array $quote, bool $legacyProposal, array &$issues): array
     {
-        $usage = $this->usage->snapshot($tenant, $at);
-        $issues = [];
+        $key = $rule['engine_key'];
+        $frequency = $rule['frequency'];
+        $repetitions = $rule['repetitions'];
+        if ($frequency === 'off') {
+            return [$frequency, $repetitions];
+        }
+        if (! $quote['available']) {
+            $issues[] = ['code' => 'unknown_engine', 'engine_key' => $key];
 
-        if ($usage->quota_calls !== null && $usage->calls + $calls > $usage->quota_calls) {
-            $issues[] = ['code' => 'exceeds_call_quota'];
-        }
-        if ($usage->budget_usd !== null && BigDecimal::of($usage->cost_usd)->plus($platform)->isGreaterThan($usage->budget_usd)) {
-            $issues[] = ['code' => 'exceeds_budget'];
-        }
-        if ($usage->byok_budget_usd !== null && BigDecimal::of($usage->byok_cost_usd)->plus($byok)->isGreaterThan($usage->byok_budget_usd)) {
-            $issues[] = ['code' => 'exceeds_byok_budget'];
+            return ['off', $repetitions];
         }
 
-        return $issues;
+        $allowed = $plan?->allowsEngine($key) && ($tenant->kind !== 'pitch' || in_array($key, StandardPlan::PITCH_ENGINES, true));
+        $maximum = $plan?->maxFrequencyForEngine($key) ?? 'off';
+        if (! $allowed) {
+            $issues[] = ['code' => 'engine_not_in_plan', 'engine_key' => $key];
+        }
+        if (! PromptSchedule::allows($frequency, $maximum)) {
+            $issues[] = ['code' => 'frequency_above_plan', 'engine_key' => $key];
+        }
+        if ($plan !== null && $repetitions > $plan->max_repetitions) {
+            $issues[] = ['code' => 'repetitions_above_plan', 'engine_key' => $key];
+        }
+        if ($quote['price'] === null) {
+            $issues[] = ['code' => 'no_price', 'engine_key' => $key];
+        }
+
+        if (! $legacyProposal) {
+            $frequency = $allowed ? PromptSchedule::capped($frequency, $maximum) : 'off';
+            $repetitions = min($repetitions, $plan->max_repetitions ?? 1);
+        }
+        if ($tenant->kind === 'pitch' && $frequency !== 'off' && $maximum === 'daily' && $allowed) {
+            $frequency = 'daily';
+        }
+        if ($key === 'claude_sonnet' && $frequency === 'daily' && $quote['payer'] === BillingAccount::Platform && app(Account::class)->configured()) {
+            $frequency = 'weekly';
+        }
+
+        return [$frequency, $repetitions];
+    }
+
+    /** @return Quote */
+    private function quote(string $key, Team $tenant, CarbonImmutable $at): array
+    {
+        $engine = Engine::query()->find($key);
+        $usage = config('ekko.wizard.estimate.call_usage')[$engine?->method] ?? ['input_tokens' => 0, 'output_tokens' => 0, 'search_calls' => 0];
+        $price = null;
+        if ($engine?->isAvailable()) {
+            try {
+                $price = BigDecimal::of($this->pricing->cost($this->pricing->effectiveAt($key, $at), new EngineResult('', null, [], $usage['input_tokens'], $usage['output_tokens'], $usage['search_calls'], [])));
+            } catch (ModelNotFoundException) {
+                // Show the rule and its volume so the missing price can be fixed before confirmation.
+            }
+        }
+
+        return ['available' => $engine?->isAvailable() ?? false, 'price' => $price, 'usage' => $usage,
+            'payer' => $engine !== null && $this->keys->forEngine($tenant, $engine) !== null ? BillingAccount::Byok : BillingAccount::Platform];
+    }
+
+    private function nextDue(string $frequency, ?int $example, CarbonImmutable $from): ?string
+    {
+        if ($example === null || $frequency === 'off') {
+            return null;
+        }
+        $date = $from;
+        while (! PromptSchedule::due($example, $frequency, $date)) {
+            $date = $date->addDay();
+        }
+
+        return $date->toDateString();
+    }
+
+    /**
+     * @param  list<EstimateRow>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function byEngine(array $rows, BigDecimal $extractionPrice): array
+    {
+        $engines = [];
+        foreach (collect($rows)->groupBy('engine_key') as $key => $rules) {
+            $engines[] = ['engine_key' => $key, 'billed_to' => $rules->first()['billed_to']] + $this->totals($rules->values()->all(), $extractionPrice);
+        }
+
+        return $engines;
+    }
+
+    /**
+     * @param  list<EstimateRow>  $rows
+     * @return array{answers:int, quota_calls:int, engine_cost_usd:?string, extraction_cost_usd:string, total_cost_usd:?string, platform_cost_usd:?string, byok_cost_usd:?string}
+     */
+    private function totals(array $rows, BigDecimal $extractionPrice, int $scale = 2): array
+    {
+        $answers = array_sum(array_column($rows, 'answers'));
+        $costs = ['platform' => BigDecimal::zero(), 'byok' => BigDecimal::zero()];
+        foreach ($rows as $row) {
+            $payer = $row['billed_to'];
+            $costs[$payer] = $row['collection_cost_usd'] === null ? null : $costs[$payer]?->plus($row['collection_cost_usd']);
+        }
+        $platform = $costs['platform']?->toScale($scale, RoundingMode::HalfUp);
+        $byok = $costs['byok']?->toScale($scale, RoundingMode::HalfUp);
+        $collection = $byok === null ? null : $platform?->plus($byok);
+        $extraction = $extractionPrice->multipliedBy($answers)->toScale($scale, RoundingMode::HalfUp);
+
+        return [
+            'answers' => $answers,
+            'quota_calls' => 2 * $answers,
+            'engine_cost_usd' => $collection?->__toString(),
+            'extraction_cost_usd' => (string) $extraction,
+            'total_cost_usd' => $collection?->plus($extraction)->__toString(),
+            'platform_cost_usd' => $platform?->plus($extraction)->__toString(),
+            'byok_cost_usd' => $byok?->__toString(),
+        ];
     }
 }

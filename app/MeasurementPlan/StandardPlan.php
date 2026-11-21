@@ -6,6 +6,7 @@ use App\Models\Engine;
 use App\Models\EnginePrice;
 use App\Models\Plan;
 use App\Models\Team;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The plan a new brand starts with (docs/spec.md 7.4 and 7.6). The engines and prompt scopes come from
@@ -19,6 +20,22 @@ final class StandardPlan
 {
     /** Pitch projects measure with these engines only (docs/spec.md 12.6). */
     public const PITCH_ENGINES = ['chatgpt_api', 'gemini_api', 'claude_haiku'];
+
+    /** The fixed first-market setup that a pitch wizard will actually save.
+     *
+     * @return list<PlanRule>
+     */
+    public static function pitchWizardRules(?Plan $plan): array
+    {
+        $engines = Engine::query()->whereIn('key', self::PITCH_ENGINES)->orderBy('key')->get()
+            ->filter(fn (Engine $engine): bool => $engine->isAvailable())->values();
+        if ($plan === null || $engines->isEmpty() || ($plan->max_prompts_per_market !== null && $plan->max_prompts_per_market < 25)
+            || $engines->contains(fn (Engine $engine): bool => ! $plan->allowsEngine($engine->key) || $plan->maxFrequencyForEngine($engine->key) !== 'daily')) {
+            throw ValidationException::withMessages(['engines' => __('pitch.plan_unavailable')]);
+        }
+
+        return $engines->map(fn (Engine $engine): array => ['engine_key' => $engine->key, 'prompt_scope' => 'all', 'frequency' => 'daily', 'repetitions' => 1])->values()->all();
+    }
 
     /**
      * @param  list<array{engine_key: string, prompt_scope: string, frequency: string}>|null  $standard  engines and scopes

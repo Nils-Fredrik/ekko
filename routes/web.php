@@ -105,6 +105,7 @@ Route::middleware([
     Route::get('/brands/{brand}/settings', [BrandSettingsController::class, 'show'])->name('brands.settings');
     Route::put('/brands/{brand}/settings', [BrandSettingsController::class, 'update'])->name('brands.settings.update');
     Route::get('/brands/{brand}/measurement-plan', [BrandMeasurementPlanController::class, 'show'])->name('brands.plan.show');
+    Route::post('/brands/{brand}/measurement-plan/estimate', [BrandMeasurementPlanController::class, 'estimate'])->name('brands.plan.estimate');
     Route::put('/brands/{brand}/measurement-plan', [BrandMeasurementPlanController::class, 'update'])->name('brands.plan.update');
     Route::post('/brands/{brand}/views', [SavedViewController::class, 'store'])->name('brands.views.store');
     Route::delete('/brands/{brand}/views/{savedView}', [SavedViewController::class, 'destroy'])->name('brands.views.destroy');

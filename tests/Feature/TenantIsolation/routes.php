@@ -439,6 +439,11 @@ return [
         foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
         own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
     ),
+    'brands.plan.estimate' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)], 'data' => ['standard' => ['engines' => []]]],
+        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)], 'data' => ['standard' => ['engines' => []]]],
+        deniedRoles: ['editor', 'reader'],
+    ),
     'brands.plan.update' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)], 'data' => ['standard' => ['engines' => []]]],
         own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)], 'data' => ['standard' => ['engines' => []]]],

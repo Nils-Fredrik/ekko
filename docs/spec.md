@@ -512,6 +512,12 @@ Førstekjøringen, dispatcheren og kostnadsestimatet bruker oppsettet som gjelde
 - Bruk veiviserens månedsfaktorer på 30 daglige og 4,35 ukentlige runder. For 14 og 21 dager brukes henholdsvis 4,35/2 og 4,35/3, og for månedlig brukes 1. Rund antall motorsvar opp til nærmeste heltall per aktiv regel og marked, etter at promptutvalg og gjentakelser er tatt med. Vis også neste ordinære måledato for et eksisterende eksempelspørsmål, beregnet med kalenderreglene i 7.1.
 - Brukeren kan bekrefte når estimatet gjelder de valgene som nå vises. Manglende pris for en valgt aktiv motor skal vises ved motoren og må avklares før planen lagres. Serveren kontrollerer tilgang, markeds-ID-er, planvalg, pakke og gyldige priser ved lagring og lagrer endringen samlet.
 
+**Estimat for et utkast (T54).** `POST /brands/{brand}/measurement-plan/estimate` tar samme `standard` og `markets` som lagring. Med tomt utkast vises dagens plan. For et nytt marked kan veiviseren sende `new_market` med `plan_mode`, `prompt_count` og `core_prompt_count`, og eventuelt `engines` ved egne valg. Dette markedet får `id: null` i svaret og teller med i merkevarens sum. For en ny merkevare bruker veiviseren `POST /onboarding/cost-estimate` med `standard.engines` og begge spørsmålstallene.
+
+Hvert nivå (merkevare, `markets[]`, `engines[]`) har `answers`, `quota_calls` og kostnadsbeløpene `engine_cost_usd`, `extraction_cost_usd`, `total_cost_usd`, `platform_cost_usd` og `byok_cost_usd`. Markedets `rules[]` gir spørsmålseksempel og lokal `next_due_on` per regel. Dagens dato kan være forfall hvis dagens markedskjøring fortsatt gjenstår. En opprettet dagskjøring flytter søket til i morgen. Nye spørsmål uten ID får ingen eksempeldato. Regelen oppgir antatt `input_tokens`, `output_tokens` og `search_calls` i `usage_per_answer`. Felles uttrekksforutsetninger ligger i `assumptions`. `quota.remaining` er restkvoten før utkastet, og `issues` varsler når utkastet og forbruket hittil overskrider kvote eller budsjett.
+
+En valgt motor uten pris i et innsendt regelsett gir valideringsfeil ved motorens felt. Mangler prisen på en allerede lagret aktiv regel, vises `no_price` med motor og marked. Volumet beholdes og de berørte kostnadsbeløpene blir `null`.
+
 **Regneeksempel for akseptanse.** En merkevare har to aktive markeder med 50 aktive spørsmål i hvert, hvorav 10 er kjerne. Tre motorer dekker alle 50 og Sonnet dekker de 10 kjernespørsmålene. Med én gjentakelse hver 14. dag gir hver av de tre motorene 109 estimerte svar per marked og Sonnet 22. Merkevaren får dermed 698 motorsvar og om lag 1 396 kvotebelastende kall med ett uttrekk per svar. Hvis ett marked får egne valg med månedlig frekvens for de samme motorene, gir det 160 svar der og 349 i markedet som arver, til sammen 509. Kostnaden beregnes fra prisene som gjelder for estimatet.
 
 ---
@@ -849,7 +855,7 @@ For et nytt marked på en eksisterende merkevare foreslår veiviseren prompts p�
 - Analysen er asynkron: `POST /onboarding/analyses` (ny merkevare) og `POST /brands/{brand}/market-proposals` (nytt marked) svarer `202` med et id, og `GET /onboarding/analyses/{id}` gir status og forslag som strukturert JSON. Forslaget ligger bare i cachen i 24 timer og lagres ikke i konfigurasjonen før brukeren bekrefter.
 - Sonnet-kallet bruker strukturert utdata (`output_config.format`), og sidetekst sendes som data i escapede tagger (16). Telling og lengder håndheves ved parsing: høyst 10 konkurrenter, 8 temaer, 50 prompts, 10 kjerneprompts. Prompts med e-postadresse eller telefonnummer forkastes.
 - Kostnadsestimatet (`POST /onboarding/cost-estimate`) regnes fra `engine_prices`, pakken, egne nøkler og månedens forbruk, og viser avvik fra pakken og kvoten som advarsler.
-- T54 utvider denne beregningen med den effektive merkevareplanen og forutsetningene i 7.6. T55 viser estimatet på nytt når brukeren endrer et valg i veiviseren eller merkevareinnstillingene.
+- Veiviseren bruker samme beregning av effektiv måleplan, restkvote og kostnad som merkevareinnstillingene (7.6). T55 viser estimatet på nytt når brukeren endrer et valg i veiviseren eller merkevareinnstillingene.
 - Hvert modellkall føres i `usage_events` med `kind = onboarding` (plattformen betaler) og kontrolleres mot kvote og budsjett før start (`429` når de er brukt opp).
 
 ---
