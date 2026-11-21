@@ -2,6 +2,7 @@
 
 namespace App\Prompts;
 
+use App\Models\Action;
 use App\Models\Brand;
 use App\Models\Prompt;
 use App\Models\Topic;
@@ -51,6 +52,8 @@ final class TopicLibrary
             $topics = $brand->topics()->whereKey([$from->id, $into->id])->orderBy('id')->lockForUpdate()->get();
             abort_unless($topics->count() === 2, 404);
             $from->prompts()->eachById(fn (Prompt $prompt) => $prompt->update(['topic_id' => $into->id]));
+            Action::query()->where('brand_id', $brand->id)->where('topic_id', $from->id)
+                ->eachById(fn (Action $action) => $action->update(['topic_id' => $into->id]));
             $from->delete();
         });
     }

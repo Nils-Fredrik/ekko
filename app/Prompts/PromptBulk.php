@@ -43,6 +43,10 @@ final class PromptBulk
             if ($action === 'undo') {
                 $undo = $this->openUndo($brand, $prompts->keys()->all(), $value);
                 foreach ($undo['groups'] as $group) {
+                    $previousTopic = $group['before']['topic_id'] ?? null;
+                    if ($previousTopic !== null && $brand->topics()->whereKey($previousTopic)->sharedLock()->first(['id']) === null) {
+                        throw ValidationException::withMessages(['ids' => __('app.library.undo_conflict')]);
+                    }
                     foreach ($group['ids'] as $id) {
                         $prompt = $prompts->get($id);
                         if ($this->snapshot($prompt, array_keys($group['after'])) !== $group['after']) {

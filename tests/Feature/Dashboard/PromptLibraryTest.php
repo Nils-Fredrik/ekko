@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Action;
 use App\Models\Market;
 use App\Models\Plan;
 use App\Models\Prompt;
@@ -27,10 +28,13 @@ test('topics keep stable unique keys when renamed or merged and only empty topic
     $this->patch(route('brands.topics.update', [$this->brand, $b]), ['name' => 'Selected'])->assertSessionHasNoErrors();
     $this->postJson($this->bulk, ['ids' => [$this->world->p1->id], 'action' => 'move_topic', 'value' => $a])->assertOk();
     $this->deleteJson(route('brands.topics.destroy', [$this->brand, $a]))->assertUnprocessable()->assertJsonValidationErrors('topic_not_empty');
+    $action = app(TenantContext::class)->run($this->brand->tenant_id, fn () => Action::factory()->for($this->brand)->create(['topic_id' => $a]));
     $this->post(route('brands.topics.merge', [$this->brand, $a]), ['into' => $b])->assertSessionHasNoErrors();
-    app(TenantContext::class)->run($this->brand->tenant_id, function () use ($a, $b) {
+    app(TenantContext::class)->run($this->brand->tenant_id, function () use ($a, $b, $action) {
         expect(Topic::find($a))->toBeNull()
             ->and(Topic::findOrFail($b)->cross_market_key)->toBe('service-as-2')
+            ->and($action->fresh()->topic_id)->toBe($b)
+            ->and($action->fresh()->fingerprint)->toBe($action->fingerprint)
             ->and($this->world->p1->fresh()->topic_id)->toBe($b);
     });
 });
@@ -64,6 +68,16 @@ test('bulk moves restore mixed topics and reject an intervening change atomicall
     $this->patch(route('brands.prompts.update', [$this->brand, $second]), ['topic_id' => null])->assertSessionHasNoErrors();
     $this->postJson($this->bulk, $undo)->assertUnprocessable();
     app(TenantContext::class)->run($this->brand->tenant_id, fn () => expect($first->fresh()->topic_id)->toBe($other->id));
+});
+
+test('undo refuses a move when its previous topic has been deleted', function () {
+    $topic = Topic::factory()->for($this->brand)->create();
+    $prompt = $this->world->p1;
+    $prompt->update(['topic_id' => $topic->id]);
+    $undo = $this->postJson($this->bulk, ['ids' => [$prompt->id], 'action' => 'move_topic', 'value' => null])->assertOk()->json('undo');
+    $this->delete(route('brands.topics.destroy', [$this->brand, $topic]))->assertSessionHasNoErrors();
+    $this->postJson($this->bulk, $undo)->assertUnprocessable()->assertJsonValidationErrors('ids');
+    app(TenantContext::class)->run($this->brand->tenant_id, fn () => expect($prompt->fresh()->topic_id)->toBeNull());
 });
 
 test('bulk create and activation enforce capacity for each market and refuse foreign brand resources', function () {

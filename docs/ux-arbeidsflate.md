@@ -708,7 +708,7 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
   - `PromptPopulation` teller allerede bare aktive prompts.
 - `topics.cross_market_key` settes for nye temaer til en slug av navnet, unik per merkevare (med `-2`, `-3` ved kollisjon), slik at veiviseren kan foreslå prompts for temaet i et nytt marked.
   - Endres et navn, endres ikke nøkkelen.
-  - Ved sammenslåing beholdes nøkkelen til temaet det slås sammen inn i.
+  - Ved sammenslåing beholdes nøkkelen til temaet det slås sammen inn i. Tiltak og prompts flyttes til måltemaet i samme transaksjon. Eksisterende tiltak beholder ID, historikk og opprinnelig fingeravtrykk.
 
 **Tjenester:**
 
