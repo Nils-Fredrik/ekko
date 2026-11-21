@@ -156,7 +156,7 @@ final class PromptCsv
                 $existing = Prompt::query()->where('market_id', $market)->where('text_hash', $hash)->first();
                 if ($existing !== null) {
                     foreach (['topic_id' => 'topic', 'intent' => 'intent', 'funnel_stage' => 'funnel_stage', 'priority' => 'priority', 'is_active' => 'active'] as $field => $column) {
-                        if (! array_key_exists($column, $values)) {
+                        if (($values[$column] ?? '') === '') {
                             $data[$field] = $existing->getAttribute($field);
                         }
                     }

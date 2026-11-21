@@ -116,6 +116,24 @@ test('preview and import agree on created changed and unchanged rows without pre
     app(TenantContext::class)->run($world->tenant->id, fn () => expect($world->market->prompts()->count())->toBe(3)->and($world->p1->fresh()->priority)->toBe('core'));
 });
 
+test('blank CSV cells preserve saved values and explicit changes still apply', function () {
+    $world = $this->world;
+    $world->market->update(['country' => 'NO']);
+    $topic = Topic::factory()->for($this->brand)->create();
+    $original = ['intent' => 'brand', 'funnel_stage' => 'decision', 'priority' => 'core', 'topic_id' => $topic->id, 'is_active' => false];
+    $world->p1->update($original + ['text' => 'Existing?', 'text_hash' => Prompt::hashText('Existing?')]);
+    $header = "text,market,intent,funnel_stage,priority,topic,active\n";
+    $preview = route('brands.prompts.import.preview', $this->brand);
+    $this->postJson($preview, ['csv' => $header.'Existing?,NO,,,,,'])->assertOk()
+        ->assertJsonPath('unchanged', 1)->assertJsonCount(0, 'changed')->assertJsonCount(0, 'errors');
+    $csv = $header.'Existing?,NO,,,standard,,';
+    $this->postJson($preview, ['csv' => $csv])->assertOk()
+        ->assertJsonPath('changed.0.fields', ['priority' => ['core', 'standard']]);
+    $this->post(route('brands.prompts.import', $this->brand), ['csv' => $csv])->assertSessionHasNoErrors();
+    app(TenantContext::class)->run($world->tenant->id, fn () => expect($world->p1->fresh()->only(array_keys($original)))
+        ->toBe(array_replace($original, ['priority' => 'standard'])));
+});
+
 test('topic suggestions bill once, omit existing text, and refuse calls beyond quota', function () {
     $topic = Topic::factory()->for($this->brand)->create(['cross_market_key' => 'k']);
     $fake = OnboardingFakes::bind(OnboardingFakes::marketJson(['k', 'k']));

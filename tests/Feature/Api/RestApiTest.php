@@ -121,9 +121,9 @@ test('prompt validation enforces market ownership uniqueness and plan limits', f
     $data = ['market_id' => $this->market->id, 'text' => 'Question?', 'intent' => 'category', 'funnel_stage' => 'awareness'];
     $token = $this->token->plainTextToken;
     apiCall($this, $token, 'POST', $this->path.'/prompts', $data)->assertCreated();
-    apiCall($this, $token, 'POST', $this->path.'/prompts', $data)->assertUnprocessable()->assertJsonValidationErrors('text');
+    apiCall($this, $token, 'POST', $this->path.'/prompts', $data)->assertUnprocessable()->assertJsonPath('errors.text.0', __('api.duplicate_prompt'));
     $this->team->forceFill(['plan_id' => Plan::factory()->create(['max_prompts_per_market' => 1])->id])->save();
-    apiCall($this, $token, 'POST', $this->path.'/prompts', array_replace($data, ['text' => 'Another question?']))->assertUnprocessable()->assertJsonValidationErrors('market_id');
+    apiCall($this, $token, 'POST', $this->path.'/prompts', array_replace($data, ['text' => 'Another question?']))->assertUnprocessable()->assertJsonPath('errors.market_id.0', __('api.prompt_limit'));
     apiCall($this, $token, 'POST', $this->path.'/prompts', ['market_id' => $this->market->id, 'text' => 'No metadata?'])->assertUnprocessable();
     apiCall($this, $token, 'POST', $this->path.'/prompts', $data + ['tenant_id' => 999])->assertUnprocessable();
 });
@@ -142,7 +142,7 @@ test('active prompt capacity allows replacements but rejects reactivation beyond
     $replacement = apiCall($this, $token, 'POST', $url, array_replace($data, ['text' => 'Replacement?']))
         ->assertCreated()->json('data.id');
     apiCall($this, $token, 'PATCH', $url, ['id' => $original, 'is_active' => true])
-        ->assertUnprocessable()->assertJsonValidationErrors('market_id');
+        ->assertUnprocessable()->assertJsonPath('errors.market_id.0', __('api.prompt_limit'));
     $this->context->run($this->team->id, function () use ($original) {
         expect(Prompt::findOrFail($original)->is_active)->toBeFalse();
         expect(Prompt::query()->where('market_id', $this->market->id)->where('is_active', true)->count())->toBe(1);

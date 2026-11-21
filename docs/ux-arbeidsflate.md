@@ -750,6 +750,7 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
 
 **Andre krav:**
 
+- **CSV:** En tom celle eller manglende kolonne for tema, intensjon, trakttrinn, prioritet eller aktiv-status beholder feltets verdi på eksisterende prompts. Nye rader får importens standardverdier. Forhåndsvisning og import bruker samme regler.
 - **API og MCP:** REST (`api.php`) og MCP (`UpsertPrompts`) får `archived` i ressursen og `include_archived` i lister. `docs/api.yaml` oppdateres. Eksisterende REST DELETE beholder kaskadeslettingen fra spec 15.1. Sletting gjennom den nye webruten avvises når det finnes kjøringer. Det kommer ingen nye MCP-verktøy.
 - **Tester:**
   - Feature-tester for alle ruter, også tilgang per rolle.

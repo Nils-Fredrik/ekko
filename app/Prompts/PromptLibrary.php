@@ -14,6 +14,12 @@ use Illuminate\Validation\ValidationException;
 
 final class PromptLibrary
 {
+    public function __construct(
+        private readonly string $limitField = 'is_active',
+        private readonly string $limitMessage = 'app.library.quota',
+        private readonly string $duplicateMessage = 'app.library.duplicate',
+    ) {}
+
     /** @return array<string, mixed> */
     public static function rules(bool $creating): array
     {
@@ -30,17 +36,17 @@ final class PromptLibrary
     }
 
     /** @param array<string, mixed> $data */
-    public function create(Market $market, array $data, string $limitField = 'is_active'): Prompt
+    public function create(Market $market, array $data): Prompt
     {
-        return $this->withinLimits([$market->id], fn () => $this->saveLocked($market, null, $data), $limitField);
+        return $this->withinLimits([$market->id], fn () => $this->saveLocked($market, null, $data));
     }
 
     /** @param array<string, mixed> $data */
-    public function update(Prompt $prompt, array $data, string $limitField = 'is_active'): Prompt
+    public function update(Prompt $prompt, array $data): Prompt
     {
         $market = $prompt->market()->firstOrFail();
 
-        return $this->withinLimits([$market->id], fn () => $this->saveLocked($market, $prompt, $data), $limitField);
+        return $this->withinLimits([$market->id], fn () => $this->saveLocked($market, $prompt, $data));
     }
 
     /**
@@ -52,9 +58,9 @@ final class PromptLibrary
      * @param  Closure(): T  $write
      * @return T
      */
-    public function withinLimits(array $marketIds, Closure $write, string $limitField = 'is_active'): mixed
+    public function withinLimits(array $marketIds, Closure $write): mixed
     {
-        return DB::transaction(function () use ($marketIds, $write, $limitField) {
+        return DB::transaction(function () use ($marketIds, $write) {
             $markets = Market::query()->whereKey($marketIds)->orderBy('id')->lockForUpdate()->get();
             abort_unless($markets->count() === count(array_unique($marketIds)), 404);
             $limit = Team::query()->findOrFail(current_tenant_id())->plan?->max_prompts_per_market;
@@ -65,7 +71,7 @@ final class PromptLibrary
             if ($limit !== null) {
                 foreach ($counts() as $id => $after) {
                     if ($after > $limit && $after > $before->get($id, 0)) {
-                        throw ValidationException::withMessages([$limitField => __('app.library.quota')]);
+                        throw ValidationException::withMessages([$this->limitField => __($this->limitMessage)]);
                     }
                 }
             }
@@ -90,7 +96,7 @@ final class PromptLibrary
             $data['text_hash'] = Prompt::hashText($data['text']);
             if (Prompt::query()->where('market_id', $market->id)->where('text_hash', $data['text_hash'])
                 ->when($existing !== null, fn ($query) => $query->whereKeyNot($prompt->id))->exists()) {
-                throw ValidationException::withMessages(['text' => __('app.library.duplicate')]);
+                throw ValidationException::withMessages(['text' => __($this->duplicateMessage)]);
             }
         }
         $prompt->fill($data);

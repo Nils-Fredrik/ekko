@@ -13,13 +13,20 @@ use Symfony\Component\HttpFoundation\Response;
 
 class PromptController extends Controller
 {
+    private readonly PromptLibrary $library;
+
+    public function __construct()
+    {
+        $this->library = new PromptLibrary(limitField: 'market_id', limitMessage: 'api.prompt_limit', duplicateMessage: 'api.duplicate_prompt');
+    }
+
     public function store(Request $request, Brand $brand): Response
     {
         Gate::authorize('view', $brand);
         Gate::authorize('create', Prompt::class);
         $data = $this->validated($request, true);
         $market = $brand->markets()->findOrFail($data['market_id']);
-        $prompt = app(PromptLibrary::class)->create($market, $data, 'market_id');
+        $prompt = $this->library->create($market, $data);
 
         return (new PromptResource($prompt))->response()->setStatusCode(201);
     }
@@ -32,7 +39,7 @@ class PromptController extends Controller
         Gate::authorize('update', $prompt);
         $data = $this->validated($request, false);
 
-        return new PromptResource(app(PromptLibrary::class)->update($prompt, $data, 'market_id'));
+        return new PromptResource($this->library->update($prompt, $data));
     }
 
     public function destroy(Request $request, Brand $brand): Response
@@ -41,7 +48,7 @@ class PromptController extends Controller
         $id = $request->validate(['id' => ['required', 'integer', 'min:1']])['id'];
         $prompt = $this->prompt($brand, $id);
         Gate::authorize('delete', $prompt);
-        app(PromptLibrary::class)->delete($prompt, includingHistory: true);
+        $this->library->delete($prompt, includingHistory: true);
 
         return response()->noContent();
     }
