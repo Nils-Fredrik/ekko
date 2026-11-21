@@ -73,6 +73,12 @@ paths:
       - $ref: '#/components/parameters/brand'
       - $ref: '#/components/parameters/page'
       - $ref: '#/components/parameters/per_page'
+      - name: include_archived
+        in: query
+        description: Ta med arkiverte prompts i listen.
+        schema:
+          type: boolean
+          default: false
       responses:
         '200':
           description: OK
@@ -1151,6 +1157,8 @@ components:
         priority: *id007
         is_active: &id009
           type: boolean
+        archived:
+          type: boolean
         created_at: &id008
           type: string
           format: date-time
@@ -1164,6 +1172,7 @@ components:
       - funnel_stage
       - priority
       - is_active
+      - archived
       - created_at
       - updated_at
     Competitor:

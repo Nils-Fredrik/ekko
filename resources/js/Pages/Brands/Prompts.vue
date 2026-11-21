@@ -256,7 +256,13 @@ function importCsv(event) {
                 </div>
 
                 <p v-if="importResult" class="text-sm text-shell-text">
-                    {{ $t('app.library.imported', { created: importResult.created, skipped: importResult.skipped }) }}
+                    {{
+                        $t('app.library.imported', {
+                            created: importResult.created,
+                            changed: importResult.changed ?? 0,
+                            skipped: importResult.skipped,
+                        })
+                    }}
                 </p>
                 <ul v-if="importResult?.errors?.length" class="text-sm text-error">
                     <li v-for="(error, index) in importResult.errors" :key="index">{{ error }}</li>

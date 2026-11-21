@@ -4,11 +4,9 @@ namespace App\Prompts;
 
 use App\Models\Brand;
 use App\Models\Market;
-use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\Team;
 use App\Models\Topic;
-use App\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -26,7 +24,7 @@ final class PromptCsv
      */
     private const FORMULA_PREFIX = '/^[=+\\-@\\t\\r]/';
 
-    public static function export(Brand $brand): string
+    public static function export(Brand $brand, bool $includeArchived = false): string
     {
         $handle = fopen('php://temp', 'r+');
         if ($handle === false) {
@@ -38,6 +36,7 @@ final class PromptCsv
 
         $prompts = Prompt::query()
             ->whereIn('market_id', $brand->markets->pluck('id'))
+            ->when(! $includeArchived, fn ($query) => $query->whereNull('archived_at'))
             ->with(['market', 'topic'])
             ->orderBy('id')
             ->get();
@@ -68,93 +67,145 @@ final class PromptCsv
         return $csv === false ? '' : $csv;
     }
 
-    /**
-     * @return array{created: int, skipped: int, errors: list<string>, warnings: list<string>}
-     */
+    /** @return array<string, mixed> */
     public static function import(Brand $brand, string $csv): array
     {
-        if (! mb_check_encoding($csv, 'UTF-8')) {
-            return ['created' => 0, 'skipped' => 0, 'errors' => [__('app.library.bad_encoding')], 'warnings' => []];
-        }
-
         return DB::transaction(function () use ($brand, $csv): array {
-            Market::query()->where('brand_id', $brand->id)->orderBy('id')->lockForUpdate()->get(['id']);
+            $markets = $brand->markets()->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            $brand->setRelation('markets', $markets);
+            $diff = self::preview($brand, $csv);
+            $library = app(PromptLibrary::class);
+            foreach ($diff['changed'] as $row) {
+                $prompt = Prompt::query()->findOrFail($row['id']);
+                $library->saveLocked($markets->get($prompt->market_id), $prompt, array_map(fn ($pair) => $pair[1], $row['fields']));
+            }
+            foreach ($diff['created'] as $row) {
+                $library->saveLocked($markets->get($row['market_id']), null, $row);
+            }
 
-            return self::read($brand, $csv);
+            return [
+                'created' => count($diff['created']), 'changed' => count($diff['changed']),
+                'skipped' => $diff['unchanged'] + count($diff['errors']),
+                'errors' => array_map(fn ($error) => $error['line'] === null ? $error['message'] : __('app.library.row_error', ['row' => $error['line'], 'message' => $error['message']]), $diff['errors']),
+                'warnings' => $diff['warnings'],
+            ];
         });
     }
 
-    /**
-     * @return array{created: int, skipped: int, errors: list<string>, warnings: list<string>}
-     */
-    private static function read(Brand $brand, string $csv): array
+    /** @return array{created: list<array<string, mixed>>, changed: list<array<string, mixed>>, unchanged: int, errors: list<array{line: int|null, message: string}>, warnings: list<string>} */
+    public static function preview(Brand $brand, string $csv): array
     {
-        $result = ['created' => 0, 'skipped' => 0, 'errors' => [], 'warnings' => []];
+        $result = ['created' => [], 'changed' => [], 'unchanged' => 0, 'errors' => [], 'warnings' => []];
+        if (! mb_check_encoding($csv, 'UTF-8')) {
+            $result['errors'][] = ['line' => null, 'message' => __('app.library.bad_encoding')];
+
+            return $result;
+        }
         $handle = fopen('php://temp', 'r+');
         if ($handle === false) {
-            $result['errors'][] = __('app.library.bad_header');
-
-            return $result;
+            throw new \RuntimeException('Cannot open CSV stream');
         }
+        try {
+            fwrite($handle, str_starts_with($csv, "\xEF\xBB\xBF") ? substr($csv, 3) : $csv);
+            rewind($handle);
+            $header = self::readRow($handle);
+            $columns = is_array($header) ? array_map(fn ($column) => strtolower(trim((string) $column)), $header) : [];
+            if (! in_array('text', $columns, true) || ! in_array('market', $columns, true)) {
+                $result['errors'][] = ['line' => null, 'message' => __('app.library.bad_header')];
 
-        fwrite($handle, ltrim($csv, "\xEF\xBB\xBF"));
-        rewind($handle);
-        $header = self::readRow($handle);
-        $columns = is_array($header) ? array_map(fn ($column) => strtolower(trim((string) $column)), $header) : [];
-
-        if (! in_array('text', $columns, true) || ! in_array('market', $columns, true)) {
-            fclose($handle);
-            $result['errors'][] = __('app.library.bad_header');
-
-            return $result;
-        }
-
-        $rowNumber = 1;
-        while (($row = self::readRow($handle)) !== false) {
-            $rowNumber++;
-            if ($row === [null]) {
-                continue;
+                return $result;
             }
-            if ($rowNumber > 1001) {
-                $result['errors'][] = __('app.library.row_error', ['row' => $rowNumber, 'message' => __('app.library.too_many_rows')]);
-                break;
-            }
-
-            $values = [];
-            $hasNull = false;
-            foreach ($columns as $index => $column) {
-                $cell = (string) ($row[$index] ?? '');
-                $hasNull = $hasNull || str_contains($cell, "\0");
-                $values[$column] = self::fromSpreadsheet(trim($cell));
-            }
-            if ($hasNull) {
-                $result['skipped']++;
-                $result['errors'][] = __('app.library.row_error', ['row' => $rowNumber, 'message' => __('app.library.invalid_row')]);
-
-                continue;
-            }
-
-            $error = self::storeRow($brand, $values);
-            if ($error === null) {
-                $result['created']++;
-                if (PersonalData::in($values['text'] ?? '')) {
-                    $result['warnings'][] = __('app.library.personal_data_row', ['row' => $rowNumber]);
+            $limit = Team::query()->findOrFail(current_tenant_id())->plan?->max_prompts_per_market;
+            $counts = Prompt::query()->whereIn('market_id', $brand->markets->pluck('id'))->where('is_active', true)
+                ->groupBy('market_id')->selectRaw('market_id, count(*) as total')->pluck('total', 'market_id')->all();
+            $seen = [];
+            $line = 1;
+            while (($row = self::readRow($handle)) !== false) {
+                $line++;
+                if ($row === [null]) {
+                    continue;
                 }
-            } else {
-                $result['skipped']++;
-                $result['errors'][] = __('app.library.row_error', ['row' => $rowNumber, 'message' => $error]);
-            }
-        }
+                if ($line > 1001) {
+                    $result['errors'][] = ['line' => $line, 'message' => __('app.library.too_many_rows')];
+                    break;
+                }
+                $values = [];
+                foreach ($columns as $index => $column) {
+                    $cell = (string) ($row[$index] ?? '');
+                    if (str_contains($cell, "\0")) {
+                        $result['errors'][] = ['line' => $line, 'message' => __('app.library.invalid_row')];
 
-        fclose($handle);
+                        continue 2;
+                    }
+                    $values[$column] = self::fromSpreadsheet(trim($cell));
+                }
+                $data = self::rowData($brand, $values);
+                if (is_string($data)) {
+                    $result['errors'][] = ['line' => $line, 'message' => $data];
+
+                    continue;
+                }
+                $market = $data['market_id'];
+                $hash = Prompt::hashText($data['text']);
+                $key = $market.':'.$hash;
+                if (isset($seen[$key])) {
+                    $result['errors'][] = ['line' => $line, 'message' => __('app.library.duplicate')];
+
+                    continue;
+                }
+                $existing = Prompt::query()->where('market_id', $market)->where('text_hash', $hash)->first();
+                if ($existing !== null) {
+                    foreach (['topic_id' => 'topic', 'intent' => 'intent', 'funnel_stage' => 'funnel_stage', 'priority' => 'priority', 'is_active' => 'active'] as $field => $column) {
+                        if (($values[$column] ?? '') === '') {
+                            $data[$field] = $existing->getAttribute($field);
+                        }
+                    }
+                }
+                $delta = (int) $data['is_active'] - (int) ($existing->is_active ?? false);
+                if ($existing?->archived_at !== null && $data['is_active']) {
+                    $result['errors'][] = ['line' => $line, 'message' => __('app.library.archived_prompt')];
+
+                    continue;
+                }
+                if ($delta > 0 && $limit !== null && ($counts[$market] ?? 0) + $delta > $limit) {
+                    $result['errors'][] = ['line' => $line, 'message' => __('app.library.quota')];
+
+                    continue;
+                }
+                $seen[$key] = true;
+                $counts[$market] = ($counts[$market] ?? 0) + $delta;
+                $fields = [];
+                if ($existing === null) {
+                    $result['created'][] = $data;
+                } else {
+                    foreach ($data as $field => $value) {
+                        if ($value !== $existing->getAttribute($field)) {
+                            $fields[$field] = [$existing->getAttribute($field), $value];
+                        }
+                    }
+                    if ($fields === []) {
+                        $result['unchanged']++;
+
+                        continue;
+                    }
+                    $result['changed'][] = ['id' => $existing->id, 'fields' => $fields];
+                }
+                if (PersonalData::in($data['text'])) {
+                    $result['warnings'][] = __('app.library.personal_data_row', ['row' => $line]);
+                }
+            }
+        } finally {
+            fclose($handle);
+        }
 
         return $result;
     }
 
     /**
      * @param  array<string, string>  $values
+     * @return array<string, mixed>|string
      */
-    private static function storeRow(Brand $brand, array $values): ?string
+    private static function rowData(Brand $brand, array $values): array|string
     {
         $text = $values['text'] ?? '';
         if ($text === '' || str_contains($text, "\0") || mb_strlen($text) > Prompt::TEXT_MAX) {
@@ -184,27 +235,11 @@ final class PromptCsv
         }
 
         $active = ! in_array(strtolower($values['active'] ?? '1'), ['0', 'false', 'no'], true);
-        $hash = Prompt::hashText($text);
-        if (Prompt::query()->where('market_id', $market->id)->where('text_hash', $hash)->exists()) {
-            return __('app.library.duplicate');
-        }
 
-        if ($active && ! self::withinQuota($market->id)) {
-            return __('app.library.quota');
-        }
-
-        Prompt::query()->create([
-            'market_id' => $market->id,
-            'topic_id' => $topicId,
-            'text' => $text,
-            'intent' => $intent,
-            'funnel_stage' => $funnel,
-            'priority' => $priority,
-            'is_active' => $active,
-            'text_hash' => $hash,
-        ]);
-
-        return null;
+        return [
+            'market_id' => $market->id, 'text' => $text, 'topic_id' => $topicId,
+            'intent' => $intent, 'funnel_stage' => $funnel, 'priority' => $priority, 'is_active' => $active,
+        ];
     }
 
     /**
@@ -331,18 +366,5 @@ final class PromptCsv
         }
 
         return $rest !== '' && preg_match(self::FORMULA_PREFIX, $rest) === 1;
-    }
-
-    private static function withinQuota(int $marketId): bool
-    {
-        $tenantId = app(TenantContext::class)->id();
-        $plan = $tenantId === null ? null : Team::query()->find($tenantId)?->plan;
-        $max = $plan instanceof Plan ? $plan->max_prompts_per_market : null;
-
-        if ($max === null) {
-            return true;
-        }
-
-        return Prompt::query()->where('market_id', $marketId)->where('is_active', true)->count() < $max;
     }
 }

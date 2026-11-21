@@ -30,6 +30,7 @@ class ProposePrompts extends EkkoTool
     {
         return [
             ...$this->tenantArgument($schema),
+            'include_archived' => $schema->boolean()->description('Ta med arkiverte prompts.'),
             'market' => $schema->integer()->description('Marked-id (se list_brands).')->required(),
             'topic' => $schema->integer()->description('Tema-id (se list_brands). Tom: alle promptene i markedet.'),
         ];
@@ -51,7 +52,7 @@ class ProposePrompts extends EkkoTool
             }
         }
 
-        $prompts = Prompt::query()->where('market_id', $market->id)
+        $prompts = Prompt::query()->when($request->get('include_archived') !== true, fn ($q) => $q->whereNull('archived_at'))->where('market_id', $market->id)
             ->when($topic !== null, fn ($query) => $query->where('topic_id', $topic?->id))
             ->orderBy('id')->get();
 
@@ -78,6 +79,7 @@ class ProposePrompts extends EkkoTool
                     'funnel_stage' => $prompt->funnel_stage,
                     'priority' => $prompt->priority,
                     'is_active' => (bool) $prompt->is_active,
+                    'archived' => $prompt->archived_at !== null,
                 ])->values()->all(),
                 'active_coverage' => $coverage,
                 'active_prompts_in_market' => $active,

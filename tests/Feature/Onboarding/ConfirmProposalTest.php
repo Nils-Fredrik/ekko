@@ -145,14 +145,14 @@ it('accepts a prompt key that slugifies to the topic key', function () {
     expect(inTenant($tenant, fn () => Prompt::query()->count()))->toBe(1);
 });
 
-it('confirms a market proposal on the existing brand', function () {
+it('confirms a market proposal on the existing brand', function (string $storedKey, string $submittedKey) {
     $engine = Engine::factory()->create(['is_enabled' => true]);
     EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subDay(), 'price_per_call_usd' => '0.01000000']);
     $plan = Plan::factory()->create(['allowed_engines' => [$engine->key], 'max_frequency' => 'daily', 'max_repetitions' => 1]);
     [$tenant, $owner] = wizardTenant($plan);
-    $brand = inTenant($tenant, function () {
+    $brand = inTenant($tenant, function () use ($storedKey) {
         $brand = Brand::factory()->create(['status' => 'active']);
-        $brand->topics()->create(['name' => 'Sko', 'cross_market_key' => 'shoes']);
+        $brand->topics()->create(['name' => 'Sko', 'cross_market_key' => $storedKey]);
 
         return $brand;
     });
@@ -166,7 +166,7 @@ it('confirms a market proposal on the existing brand', function () {
         'language' => 'sv',
         'prompts' => [[
             'text' => 'Vilken sko är bäst?',
-            'cross_market_key' => 'Shoes',
+            'cross_market_key' => $submittedKey,
             'intent' => 'category',
             'funnel_stage' => 'awareness',
             'priority' => 'core',
@@ -178,7 +178,7 @@ it('confirms a market proposal on the existing brand', function () {
         expect($brand->markets()->where('country', 'SE')->exists())->toBeTrue()
             ->and(Prompt::query()->where('text', 'Vilken sko är bäst?')->exists())->toBeTrue();
     });
-});
+})->with([['shoes', 'Shoes'], ['running-shoes-2', 'running-shoes-2']]);
 
 it('keeps only the core runs that fit the quota', function () {
     $engine = Engine::factory()->create(['key' => 'quota_engine', 'provider' => 'openai', 'is_enabled' => true]);
