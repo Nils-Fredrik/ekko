@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Brands\IdentityLibrary;
 use App\Integrations\BrandIntegrations;
 use App\MeasurementPlan\MeasurementPlans;
 use App\Models\Brand;
@@ -11,10 +12,8 @@ use App\Models\Team;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,8 +24,6 @@ use Inertia\Response;
  */
 class BrandSettingsController extends Controller
 {
-    private const DOMAIN = '/\A(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\z/i';
-
     public function __construct(private BrandIntegrations $integrations, private MeasurementPlans $plans) {}
 
     public function show(Brand $brand): Response
@@ -83,18 +80,18 @@ class BrandSettingsController extends Controller
         ]);
     }
 
-    public function update(Request $request, Brand $brand): RedirectResponse
+    public function update(Request $request, Brand $brand, IdentityLibrary $identity): RedirectResponse
     {
         Gate::authorize('update', $brand);
 
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'primary_domain' => ['sometimes', 'required', 'string', 'max:255', 'regex:'.self::DOMAIN],
+            'primary_domain' => ['sometimes', 'required', 'string', 'max:255', 'regex:'.IdentityLibrary::DOMAIN],
             'aliases' => ['sometimes', 'array', 'max:50'],
             'aliases.*.alias' => ['required', 'string', 'max:255'],
             'aliases.*.match_mode' => ['required', Rule::in(['exact_word', 'case_insensitive'])],
             'domains' => ['sometimes', 'array', 'max:50'],
-            'domains.*.domain' => ['required', 'string', 'max:255', 'regex:'.self::DOMAIN],
+            'domains.*.domain' => ['required', 'string', 'max:255', 'regex:'.IdentityLibrary::DOMAIN],
             'domains.*.include_subdomains' => ['required', 'boolean'],
             'markets' => ['sometimes', 'array'],
             'markets.*.id' => ['required', 'integer'],
@@ -122,127 +119,8 @@ class BrandSettingsController extends Controller
             'ga4_private_key' => __('app.workspace.ga4_key'),
         ]);
 
-        DB::transaction(function () use ($brand, $data): void {
-            $locked = Brand::query()->lockForUpdate()->findOrFail($brand->id);
-            $this->saveIdentity($locked, $data);
-            $this->saveAliases($locked, $data);
-            $this->saveDomains($locked, $data);
-            $this->saveMarkets($locked, $data);
-            $this->integrations->apply($locked, $data);
-        });
+        $identity->updateSettings($brand, $data);
 
         return back();
-    }
-
-    /** @param  array<string, mixed>  $data */
-    private function saveIdentity(Brand $brand, array $data): void
-    {
-        $changes = [];
-        if (array_key_exists('name', $data) && is_string($data['name'])) {
-            $changes['name'] = $data['name'];
-        }
-        if (array_key_exists('primary_domain', $data) && is_string($data['primary_domain'])) {
-            $changes['primary_domain'] = strtolower($data['primary_domain']);
-        }
-        if ($changes !== []) {
-            $brand->fill($changes)->save();
-        }
-    }
-
-    /** @param  array<string, mixed>  $data */
-    private function saveAliases(Brand $brand, array $data): void
-    {
-        if (! array_key_exists('aliases', $data) || ! is_array($data['aliases'])) {
-            return;
-        }
-
-        $seen = [];
-        foreach ($data['aliases'] as $index => $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $alias = is_string($row['alias'] ?? null) ? trim($row['alias']) : '';
-            $mode = is_string($row['match_mode'] ?? null) ? $row['match_mode'] : '';
-            $key = mb_strtolower($alias).'|'.$mode;
-            if (isset($seen[$key])) {
-                throw ValidationException::withMessages([
-                    "aliases.{$index}.alias" => __('app.workspace.duplicate'),
-                ]);
-            }
-            $seen[$key] = true;
-            $data['aliases'][$index]['alias'] = $alias;
-        }
-
-        $brand->aliases()->where('match_mode', '!=', 'regex')->delete();
-        foreach ($data['aliases'] as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $brand->aliases()->create([
-                'alias' => $row['alias'],
-                'match_mode' => $row['match_mode'],
-            ]);
-        }
-    }
-
-    /** @param  array<string, mixed>  $data */
-    private function saveDomains(Brand $brand, array $data): void
-    {
-        if (! array_key_exists('domains', $data) || ! is_array($data['domains'])) {
-            return;
-        }
-
-        $seen = [];
-        foreach ($data['domains'] as $index => $row) {
-            if (! is_array($row) || ! is_string($row['domain'] ?? null)) {
-                continue;
-            }
-            $domain = strtolower($row['domain']);
-            if (isset($seen[$domain])) {
-                throw ValidationException::withMessages([
-                    "domains.{$index}.domain" => __('app.workspace.duplicate'),
-                ]);
-            }
-            $seen[$domain] = true;
-            $data['domains'][$index]['domain'] = $domain;
-        }
-
-        $brand->domains()->delete();
-        foreach ($data['domains'] as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $brand->domains()->create([
-                'domain' => $row['domain'],
-                'include_subdomains' => (bool) ($row['include_subdomains'] ?? false),
-            ]);
-        }
-    }
-
-    /** @param  array<string, mixed>  $data */
-    private function saveMarkets(Brand $brand, array $data): void
-    {
-        if (! array_key_exists('markets', $data) || ! is_array($data['markets'])) {
-            return;
-        }
-
-        $markets = $brand->markets()->get()->keyBy('id');
-        foreach ($data['markets'] as $index => $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $market = $markets->get($row['id'] ?? null);
-            if (! $market instanceof Market) {
-                throw ValidationException::withMessages([
-                    "markets.{$index}.id" => __('app.workspace.unknown_market'),
-                ]);
-            }
-            Gate::authorize('update', $market);
-            $label = $row['location_label'] ?? null;
-            $market->fill([
-                'location_label' => is_string($label) && $label !== '' ? $label : null,
-                'is_active' => (bool) $row['is_active'],
-            ])->save();
-        }
     }
 }
