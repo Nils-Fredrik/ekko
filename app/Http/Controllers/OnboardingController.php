@@ -6,6 +6,8 @@ use App\Dashboard\DashboardLabels;
 use App\Integrations\BrandIntegrations;
 use App\Jobs\RunOnboardingAnalysis;
 use App\MeasurementPlan\MeasurementPlans;
+use App\MeasurementPlan\PromptPopulation;
+use App\MeasurementPlan\StandardPlan;
 use App\Models\Brand;
 use App\Models\BrandFact;
 use App\Models\Engine;
@@ -243,40 +245,45 @@ class OnboardingController extends Controller
         Gate::authorize('estimate', Analysis::class);
 
         $data = $request->validate([
-            'engines' => ['required', 'array', 'min:1', 'max:20'],
+            'standard' => ['sometimes', 'array:engines', 'prohibits:engines,market_id'],
+            'standard.engines' => ['present_with:standard', 'array'],
+            'engines' => ['required_without:standard', 'array', 'min:1', 'max:20'],
             'engines.*.engine_key' => ['required', 'string', 'max:64'],
             'engines.*.frequency' => ['required', Rule::in(PromptSchedule::frequencies())],
             'engines.*.prompt_scope' => ['sometimes', Rule::in(['all', 'core'])],
             'engines.*.repetitions' => ['sometimes', 'integer', 'between:1,3'],
             'market_id' => ['sometimes', 'nullable', 'integer'],
             'prompt_count' => ['required_without:market_id', 'integer', 'min:0', 'max:1000'],
-            'core_prompt_count' => ['sometimes', 'integer', 'min:0', 'max:1000'],
+            'core_prompt_count' => $request->has('standard')
+                ? ['required', 'integer', 'min:0', 'lte:prompt_count']
+                : ['sometimes', 'integer', 'between:0,1000'],
         ]);
 
-        $promptCount = $data['prompt_count'] ?? null;
-        $core = $data['core_prompt_count'] ?? null;
-        if (isset($data['market_id'])) {
-            // Tenant scope and RLS: another tenant's market is a 404.
-            $market = Market::query()->findOrFail($data['market_id']);
-            $active = Prompt::query()->where('market_id', $market->id)->where('is_active', true);
-            $promptCount ??= (clone $active)->count();
-            $core ??= (clone $active)->where('priority', 'core')->count();
+        $tenant = $this->tenant();
+        $market = isset($data['market_id']) ? Market::query()->findOrFail($data['market_id']) : null;
+        $population = $market === null ? null : (PromptPopulation::forMarkets([$market->id])[$market->id] ?? new PromptPopulation);
+        $count = (int) ($data['prompt_count'] ?? $population->total ?? 0);
+        $core = min((int) ($data['core_prompt_count'] ?? $population->core ?? config('ekko.wizard.suggestions.max_core_prompts')), $count);
+        $legacy = ! isset($data['standard']);
+        if ($legacy) {
+            $setup = array_map(fn (array $row): array => [
+                'engine_key' => $row['engine_key'], 'frequency' => $row['frequency'],
+                'prompt_scope' => $row['prompt_scope'] ?? 'all', 'repetitions' => (int) ($row['repetitions'] ?? 1),
+            ], array_values($data['engines']));
+        } else {
+            $errors = [];
+            $engines = $tenant->kind === 'pitch' ? StandardPlan::pitchWizardRules($tenant->plan()->first()) : ($data['standard']['engines'] ?? null);
+            $setup = app(MeasurementPlans::class)->validateRules($tenant, $engines, 'standard.engines', $errors);
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
         }
-        $core = min($core ?? min((int) config('ekko.wizard.suggestions.max_core_prompts'), (int) $promptCount), (int) $promptCount);
+        $result = $estimator->estimate($tenant, [[
+            'id' => $market?->id, 'is_active' => $market->is_active ?? true, 'plan_mode' => $market->plan_mode ?? Market::PLAN_INHERIT,
+            'engines' => $setup, 'prompts' => new PromptPopulation($count, $core, $population?->coreExample, $population?->standardExample),
+        ]], legacyProposal: $legacy);
 
-        $setup = array_map(fn (array $row): array => [
-            'engine_key' => $row['engine_key'],
-            'frequency' => $row['frequency'],
-            'prompt_scope' => $row['prompt_scope'] ?? 'all',
-            'repetitions' => (int) ($row['repetitions'] ?? 1),
-        ], array_values($data['engines']));
-
-        $result = $estimator->estimate($this->tenant(), $setup, (int) $promptCount, $core);
-        $result['issues'] = array_map(fn (array $issue): array => $issue + [
-            'message' => __("onboarding.issues.{$issue['code']}", ['engine' => $issue['engine_key'] ?? '']),
-        ], $result['issues']);
-
-        return response()->json($result + ['prompt_count' => (int) $promptCount, 'core_prompt_count' => $core]);
+        return response()->json($result + ['calls' => $result['answers'], 'prompt_count' => $count, 'core_prompt_count' => $core]);
     }
 
     /**

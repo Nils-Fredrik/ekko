@@ -161,13 +161,20 @@ final class MeasurementPlans
                         }
                         $rules = $this->validateRules($tenant, $row['engines'], "markets.{$index}.engines", $errors);
                     }
+                    if ($mode === Market::PLAN_OWN && $rules === null) {
+                        // Detaching without rows copies the stored effective rules. Prices and caps may have changed.
+                        $current = MarketEngine::query()->where('market_id', $id)->get();
+                        $this->validateRules($tenant, $this->rules($current), "markets.{$index}.engines", $errors);
+                    }
                     $markets[$id] = ['plan_mode' => $mode, 'engines' => $rules];
                 }
             }
         }
         // A market that starts to inherit activates the standard's rules, so they must pass today's checks too.
         $joining = array_keys(array_filter($markets, fn (array $change): bool => $change['plan_mode'] === Market::PLAN_INHERIT));
-        if ($standard === null && $joining !== [] && $this->standardErrors($tenant, $brand) !== []) {
+        $standardErrors = $standard === null && $joining !== [] ? $this->standardErrors($tenant, $brand) : [];
+        if ($standardErrors !== []) {
+            $errors += $standardErrors;
             foreach ($input['markets'] as $index => $row) {
                 if (is_array($row) && in_array(self::integer($row['id'] ?? null), $joining, true)) {
                     $errors["markets.{$index}.plan_mode"] = __('app.plan.standard_invalid');
@@ -444,7 +451,7 @@ final class MeasurementPlans
      * @param  iterable<BrandPlanEngine|MarketEngine>  $rows
      * @return list<PlanRule>
      */
-    private function rules(iterable $rows): array
+    public function rules(iterable $rows): array
     {
         $rules = [];
         foreach ($rows as $row) {

@@ -10,7 +10,6 @@ use App\Models\Brand;
 use App\Models\BrandAlias;
 use App\Models\Competitor;
 use App\Models\CompetitorAlias;
-use App\Models\Engine;
 use App\Models\Market;
 use App\Models\Plan;
 use App\Models\Prompt;
@@ -67,13 +66,7 @@ final class ProposalConfirmer
                 if (count($data['competitors'] ?? []) > 3 || count($data['prompts'] ?? []) > 25) {
                     throw ValidationException::withMessages(['prompts' => __('pitch.limits')]);
                 }
-                $engines = Engine::query()->whereIn('key', ['chatgpt_api', 'gemini_api', 'claude_haiku'])->get()
-                    ->filter(fn (Engine $engine): bool => $engine->isAvailable())->values();
-                if (! $plan instanceof Plan || $engines->isEmpty() || ($plan->max_prompts_per_market !== null && $plan->max_prompts_per_market < 25)
-                    || $engines->contains(fn (Engine $engine): bool => ! $plan->allowsEngine($engine->key) || $plan->maxFrequencyForEngine($engine->key) !== 'daily')) {
-                    throw ValidationException::withMessages(['engines' => __('pitch.plan_unavailable')]);
-                }
-                $data['engines'] = $engines->map(fn (Engine $engine): array => ['engine_key' => $engine->key, 'prompt_scope' => 'all', 'frequency' => 'daily', 'repetitions' => 1])->values()->all();
+                $data['engines'] = StandardPlan::pitchWizardRules($plan);
                 unset($data['plan_mode']);
             }
             $brand = $analysis->kind === Analysis::MARKET

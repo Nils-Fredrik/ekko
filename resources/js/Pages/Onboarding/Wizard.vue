@@ -206,7 +206,14 @@ const estimatePayload = computed(() => ({
 }));
 const noActiveEngines = computed(() => !estimatePayload.value.engines.some((engine) => engine.frequency !== 'off'));
 const payloadKey = computed(() => JSON.stringify(estimatePayload.value));
-const estimateCurrent = computed(() => !estimating.value && estimatedPayload.value === payloadKey.value);
+const proposedMarket = computed(() => estimate.value?.markets.find((market) => market.id === null));
+const estimateIssues = computed(() => (estimate.value?.issues ?? []).filter((issue) => issue.market_id == null));
+const estimateCurrent = computed(
+    () =>
+        !estimating.value &&
+        estimatedPayload.value === payloadKey.value &&
+        proposedMarket.value?.total_cost_usd != null,
+);
 watch([payloadKey, step], () => {
     if (['engines', 'integrations'].includes(step.value) && !estimateCurrent.value) loadEstimate();
 });
@@ -219,10 +226,20 @@ async function loadEstimate() {
     estimate.value = null;
     estimatedPayload.value = '';
     try {
-        const result =
-            estimatePayload.value.engines.length === 0
-                ? { total_cost_usd: '0.00', issues: [] }
-                : (await window.axios.post(route('onboarding.cost-estimate'), estimatePayload.value)).data;
+        const { engines, prompt_count, core_prompt_count } = estimatePayload.value;
+        const result = props.brand
+            ? (
+                  await window.axios.post(route('brands.plan.estimate', props.brand.id), {
+                      new_market: { plan_mode: 'own', engines, prompt_count, core_prompt_count },
+                  })
+              ).data
+            : (
+                  await window.axios.post(route('onboarding.cost-estimate'), {
+                      standard: { engines },
+                      prompt_count,
+                      core_prompt_count,
+                  })
+              ).data;
         if (request === estimateRequest && key === payloadKey.value) {
             estimate.value = result;
             estimatedPayload.value = key;
@@ -502,11 +519,14 @@ function confirm() {
                 <p v-if="noActiveEngines" role="status" class="text-sm">{{ $t('onboarding.ui.no_active_engines') }}</p>
                 <InputError :message="estimateError" />
                 <p v-if="estimating" class="text-sm">{{ $t('onboarding.ui.estimating') }}</p>
-                <p v-if="estimate" class="text-sm">
-                    {{ $t('onboarding.ui.cost', { amount: estimate.total_cost_usd }) }}
+                <p v-if="proposedMarket?.total_cost_usd != null" class="text-sm">
+                    {{ $t('onboarding.ui.cost', { amount: proposedMarket.total_cost_usd }) }}
                 </p>
-                <ul v-if="estimate?.issues?.length" class="list-disc pl-5 text-sm">
-                    <li v-for="issue in estimate.issues" :key="issue.code + (issue.engine_key ?? '')">
+                <ul v-if="estimateIssues.length" class="list-disc pl-5 text-sm">
+                    <li
+                        v-for="issue in estimateIssues"
+                        :key="`${issue.market_id ?? ''}:${issue.engine_key ?? ''}:${issue.code}`"
+                    >
                         {{ issue.message }}
                     </li>
                 </ul>
@@ -601,8 +621,8 @@ function confirm() {
                     />
                     <InputError :message="form.errors.ga4_private_key" />
                 </label>
-                <p v-if="estimate" class="text-sm">
-                    {{ $t('onboarding.ui.cost', { amount: estimate.total_cost_usd }) }}
+                <p v-if="proposedMarket?.total_cost_usd != null" class="text-sm">
+                    {{ $t('onboarding.ui.cost', { amount: proposedMarket.total_cost_usd }) }}
                 </p>
                 <p v-if="noActiveEngines" role="status" class="text-sm">{{ $t('onboarding.ui.no_active_engines') }}</p>
                 <InputError :message="estimateError" />
