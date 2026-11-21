@@ -126,7 +126,10 @@ test('preview and import agree on created changed and unchanged rows without pre
         ->assertJsonPath('unchanged', 1)->assertJsonPath('created.0.text', 'Third?')
         ->assertJsonPath('changed.0.fields.priority', ['standard', 'core'])->assertJsonPath('errors.0.line', 5);
     app(TenantContext::class)->run($world->tenant->id, fn () => expect($world->market->prompts()->count())->toBe(2)->and($world->p1->fresh()->priority)->toBe('standard'));
-    $this->post(route('brands.prompts.import', $this->brand), ['csv' => $csv])->assertSessionHasNoErrors();
+    $this->post(route('brands.prompts.import', $this->brand), ['csv' => $csv])->assertSessionHasNoErrors()
+        ->assertSessionHas('prompt_import.created', 1)
+        ->assertSessionHas('prompt_import.changed', 1)
+        ->assertSessionHas('prompt_import.skipped', 2);
     app(TenantContext::class)->run($world->tenant->id, fn () => expect($world->market->prompts()->count())->toBe(3)->and($world->p1->fresh()->priority)->toBe('core'));
 });
 

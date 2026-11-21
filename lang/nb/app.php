@@ -314,7 +314,7 @@ return [
         'confirm_delete_competitor' => 'Slett :name fra konkurrentlisten? Sporingen av konkurrenten stopper. Tidligere svar beholdes.',
         'no_competitors' => 'Ingen konkurrenter.',
         'suggestion_count' => ':count svar',
-        'imported' => 'Importerte :created prompter. Hoppet over :skipped.',
+        'imported' => 'Opprettet :created. Endret :changed. Hoppet over :skipped.',
         'duplicate' => 'Finnes allerede.',
         'unknown_market' => 'Ukjent marked.',
         'ambiguous_market' => 'Flere markeder passer. Fyll ut language, location eller market_id.',

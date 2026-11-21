@@ -314,7 +314,7 @@ return [
         'confirm_delete_competitor' => 'Delete :name from the competitor list? Tracking for this competitor will stop. Previous answers are kept.',
         'no_competitors' => 'No competitors.',
         'suggestion_count' => ':count answers',
-        'imported' => 'Imported :created prompts. Skipped :skipped.',
+        'imported' => 'Created :created. Updated :changed. Skipped :skipped.',
         'duplicate' => 'Already exists.',
         'unknown_market' => 'Unknown market.',
         'ambiguous_market' => 'Several markets match. Fill in language, location or market_id.',

@@ -314,7 +314,7 @@ return [
         'confirm_delete_competitor' => 'Ta bort :name från konkurrentlistan? Bevakningen av konkurrenten upphör. Tidigare svar sparas.',
         'no_competitors' => 'Inga konkurrenter.',
         'suggestion_count' => ':count svar',
-        'imported' => 'Importerade :created prompter. Hoppade över :skipped.',
+        'imported' => 'Skapade :created. Ändrade :changed. Hoppade över :skipped.',
         'duplicate' => 'Finns redan.',
         'unknown_market' => 'Okänd marknad.',
         'ambiguous_market' => 'Flera marknader passar. Fyll i language, location eller market_id.',
