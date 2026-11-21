@@ -531,7 +531,7 @@ return [
         'empty' => 'No matches.',
         'switch_team' => 'Switch to :name',
         'groups' => [
-            'actions' => 'Actions',
+            'actions' => 'Shortcuts',
             'pages' => 'Pages',
             'brands' => 'Brands',
             'prompts' => 'Prompts',

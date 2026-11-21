@@ -11,7 +11,9 @@ const eslint = new ESLint({ cwd: root });
 async function messages(code, file) {
     const [result] = await eslint.lintText(code, { filePath: `${root}/${file}` });
 
-    return result.messages.filter((message) => message.ruleId === 'ekko/format-through-format-js');
+    return result.messages.filter((message) =>
+        ['ekko/format-through-format-js', 'ekko/format-exception-needs-reason'].includes(message.ruleId),
+    );
 }
 
 test('Intl, toFixed and toLocaleString are stopped in scripts', async () => {
@@ -61,13 +63,35 @@ test('an exception needs a reason after --', async () => {
         'resources/js/Pages/Example.js',
     );
     assert.equal(withoutReason.length, 1);
-    assert.match(withoutReason[0].message, /needs a reason/);
+    assert.match(withoutReason[0].message, /-- reason/);
 
     const withReason = await messages(
         '// eslint-disable-next-line ekko/format-through-format-js -- a CSS length, not a number for people\nexport const a = (2.5).toFixed(1);\n',
         'resources/js/Pages/Example.js',
     );
     assert.equal(withReason.length, 0);
+});
+
+test('an exception on the same line or as a block is not allowed, with or without a reason', async () => {
+    for (const code of [
+        'export const a = (2.5).toFixed(1); // eslint-disable-line ekko/format-through-format-js\n',
+        'export const a = (2.5).toFixed(1); // eslint-disable-line ekko/format-through-format-js -- why\n',
+        '/* eslint-disable ekko/format-through-format-js */\nexport const a = (2.5).toFixed(1);\n',
+        '\n/* eslint-disable ekko/format-through-format-js -- why */\nexport const a = (2.5).toFixed(1);\n',
+    ]) {
+        const found = await messages(code, 'resources/js/Pages/Example.js');
+        assert.equal(found.length, 1, code);
+        assert.equal(found[0].ruleId, 'ekko/format-exception-needs-reason');
+    }
+});
+
+test('a disable comment without rule names is not allowed', async () => {
+    const found = await messages(
+        '\n/* eslint-disable */\nexport const a = (2.5).toFixed(1);\n',
+        'resources/js/Pages/Example.js',
+    );
+    assert.equal(found.length, 1);
+    assert.match(found[0].message, /Line 2/);
 });
 
 test('names that only look alike are allowed', async () => {

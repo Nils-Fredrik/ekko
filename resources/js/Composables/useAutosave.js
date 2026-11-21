@@ -13,14 +13,25 @@ export class SaveError extends Error {
     }
 }
 
+/** A save that was stopped before it finished (a page change). The server may have it, so nothing rolls back. */
+export class SaveCancelled extends Error {
+    constructor() {
+        super('save cancelled');
+    }
+}
+
 /**
  * Sends one field with Inertia and resolves when the server accepted it. Validation errors reject
- * with a SaveError; a server or network error rejects with an empty one.
+ * with a SaveError, a server or network error with an empty one, and a stopped visit with SaveCancelled.
+ *
+ * The visit is async: two fields saved at once (blur on a text field, then a click on a switch) must
+ * not cancel each other, as two ordinary Inertia visits would.
  */
-export function inertiaRequest(method, url, data, { only = [] } = {}) {
+export function inertiaRequest(method, url, data, { only = [] } = {}, client = router) {
     return new Promise((resolve, reject) => {
         let settled = false;
-        router[method](url, data, {
+        client[method](url, data, {
+            async: true,
             preserveState: true,
             preserveScroll: true,
             only,
@@ -31,6 +42,10 @@ export function inertiaRequest(method, url, data, { only = [] } = {}) {
             onError: (errors) => {
                 settled = true;
                 reject(new SaveError(errors));
+            },
+            onCancel: () => {
+                settled = true;
+                reject(new SaveCancelled());
             },
             onFinish: () => {
                 if (!settled) {
@@ -101,6 +116,12 @@ export function createAutosave({
             return true;
         } catch (error) {
             if (latest[field] !== token) {
+                return false;
+            }
+            if (error instanceof SaveCancelled) {
+                // Unknown on the server: keep what the user chose and show no error.
+                statuses[field] = 'idle';
+
                 return false;
             }
             values[field] = confirmed[field];

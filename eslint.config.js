@@ -69,7 +69,6 @@ const formatThroughFormatJs = {
         schema: [],
         messages: {
             banned: 'Format through resources/js/format.js instead of {{what}}.',
-            reason: 'An exception to ekko/format-through-format-js needs a reason after "--".',
         },
     },
     create(context) {
@@ -100,22 +99,47 @@ const formatThroughFormatJs = {
                 }
             },
         };
-        const programVisitor = {
-            ...visitor,
+        const defineTemplateBodyVisitor = context.sourceCode.parserServices?.defineTemplateBodyVisitor;
+
+        return defineTemplateBodyVisitor ? defineTemplateBodyVisitor(visitor, visitor) : visitor;
+    },
+};
+
+// The only allowed exception to ekko/format-through-format-js is
+//     // eslint-disable-next-line ekko/format-through-format-js -- why
+// A separate rule checks it and reports at the top of the file, so the directive it checks (an
+// eslint-disable-line or a block /* eslint-disable */) cannot hide its own report.
+const formatExceptionNeedsReason = {
+    meta: {
+        type: 'problem',
+        schema: [],
+        messages: {
+            form: 'Line {{line}}: an exception to ekko/format-through-format-js must be "eslint-disable-next-line ekko/format-through-format-js -- reason".',
+            unlimited:
+                'Line {{line}}: a disable comment without rule names also turns off ekko/format-through-format-js. Name the rules.',
+        },
+    },
+    create(context) {
+        return {
             Program() {
                 for (const comment of context.sourceCode.getAllComments()) {
-                    if (
-                        /eslint-disable[\w-]*\s[^]*ekko\/format-through-format-js/.test(comment.value) &&
-                        !/\s--\s*\S/.test(comment.value)
+                    const directive = /^\s*eslint-disable(-next-line|-line)?(?:\s+([^]*))?$/.exec(comment.value);
+                    if (!directive) {
+                        continue;
+                    }
+                    const [rules = '', reason] = (directive[2] ?? '').split(/\s--\s/);
+                    const data = { line: comment.loc.start.line };
+                    if (rules.trim() === '') {
+                        context.report({ loc: { line: 1, column: 0 }, messageId: 'unlimited', data });
+                    } else if (
+                        rules.includes('ekko/format-through-format-js') &&
+                        (directive[1] !== '-next-line' || !reason?.trim())
                     ) {
-                        context.report({ loc: comment.loc, messageId: 'reason' });
+                        context.report({ loc: { line: 1, column: 0 }, messageId: 'form', data });
                     }
                 }
             },
         };
-        const defineTemplateBodyVisitor = context.sourceCode.parserServices?.defineTemplateBodyVisitor;
-
-        return defineTemplateBodyVisitor ? defineTemplateBodyVisitor(visitor, programVisitor) : programVisitor;
     },
 };
 
@@ -163,12 +187,14 @@ export default [
                 rules: {
                     'no-hardcoded-color': noHardcodedColor,
                     'format-through-format-js': formatThroughFormatJs,
+                    'format-exception-needs-reason': formatExceptionNeedsReason,
                 },
             },
         },
         rules: {
             'ekko/no-hardcoded-color': 'error',
             'ekko/format-through-format-js': 'error',
+            'ekko/format-exception-needs-reason': 'error',
         },
     },
     {

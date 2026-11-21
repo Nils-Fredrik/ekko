@@ -4,7 +4,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { reactive } from 'vue';
 import { paletteActions, urlWithMarket } from '../../resources/js/Components/paletteActions.js';
-import { SAVED_VISIBLE_MS, SaveError, createAutosave } from '../../resources/js/Composables/useAutosave.js';
+import {
+    SAVED_VISIBLE_MS,
+    SaveCancelled,
+    SaveError,
+    createAutosave,
+    inertiaRequest,
+} from '../../resources/js/Composables/useAutosave.js';
 import { openIdFromUrl, urlWithOpen } from '../../resources/js/Composables/useOpenRow.js';
 import { UNDO_VISIBLE_MS, createUndoToast } from '../../resources/js/Composables/useUndoToast.js';
 import { useLanguage } from './support/i18n.mjs';
@@ -166,6 +172,69 @@ test('after an accepted save, a later failure rolls back to the accepted value',
     second.reject(new SaveError({ name: 'C er ugyldig' }));
     await two;
     assert.equal(values.name, 'B');
+});
+
+// A stand-in for the Inertia router: it keeps every visit, so a test can answer them in any order.
+function fakeRouter() {
+    const visits = [];
+
+    return {
+        visits,
+        patch: (url, data, options) => visits.push({ url, data, options }),
+    };
+}
+
+test('the Inertia save is async, so two fields saved at once do not cancel each other', async () => {
+    const client = fakeRouter();
+    const values = reactive({ text: 'A', core: false });
+    const autosave = createAutosave({
+        url: '/prompts/7',
+        values,
+        request: (method, url, data, options) => inertiaRequest(method, url, data, options, client),
+        ...fakeTimers(),
+    });
+
+    const text = autosave.save('text', 'B');
+    const core = autosave.save('core', true);
+    assert.equal(client.visits.length, 2);
+    assert.ok(client.visits.every((visit) => visit.options.async === true && visit.options.preserveState === true));
+
+    for (const visit of client.visits) {
+        visit.options.onSuccess();
+        visit.options.onFinish();
+    }
+    assert.deepEqual(await Promise.all([text, core]), [true, true]);
+    assert.deepEqual({ ...values }, { text: 'B', core: true });
+    assert.equal(autosave.status('text'), 'saved');
+    assert.equal(autosave.status('core'), 'saved');
+});
+
+test('a stopped visit keeps the value and shows no error', async () => {
+    const client = fakeRouter();
+    const values = reactive({ text: 'A' });
+    const autosave = createAutosave({
+        url: '/x',
+        values,
+        request: (method, url, data, options) => inertiaRequest(method, url, data, options, client),
+        ...fakeTimers(),
+    });
+
+    const saving = autosave.save('text', 'B');
+    client.visits[0].options.onCancel();
+    client.visits[0].options.onFinish();
+    assert.equal(await saving, false);
+    assert.equal(values.text, 'B');
+    assert.equal(autosave.status('text'), 'idle');
+    assert.equal(autosave.errors.text, undefined);
+    assert.ok(new SaveCancelled() instanceof Error);
+});
+
+test('validation errors from Inertia reach the field', async () => {
+    const client = fakeRouter();
+    const saving = inertiaRequest('patch', '/x', { text: '' }, {}, client);
+    client.visits[0].options.onError({ text: 'Teksten mangler.' });
+    client.visits[0].options.onFinish();
+    await assert.rejects(saving, (error) => error instanceof SaveError && error.errors.text === 'Teksten mangler.');
 });
 
 test('reset clears the statuses when the panel shows another row', async () => {
