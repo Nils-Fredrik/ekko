@@ -215,7 +215,8 @@ final class ProposalConfirmer
                 throw ValidationException::withMessages(["prompts.{$index}.text" => __('onboarding.errors.invalid_prompt')]);
             }
             $text = trim((string) ($row['text'] ?? ''));
-            $key = $this->key((string) ($row['cross_market_key'] ?? '')) ?? '';
+            $inputKey = (string) ($row['cross_market_key'] ?? '');
+            $key = isset($topics[$inputKey]) ? $inputKey : ($this->key($inputKey) ?? '');
             $intent = $row['intent'] ?? null;
             $stage = $row['funnel_stage'] ?? null;
             if ($text === '' || str_contains($text, "\0") || mb_strlen($text) > Prompt::TEXT_MAX || ! isset($topics[$key])

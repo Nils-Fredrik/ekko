@@ -4,12 +4,15 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\RecordsRevisions;
+use Carbon\CarbonImmutable;
 use Database\Factories\PromptFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
+/** @property CarbonImmutable|null $archived_at */
 class Prompt extends Model
 {
     use BelongsToTenant;
@@ -58,6 +61,7 @@ class Prompt extends Model
         'intent',
         'funnel_stage',
         'priority',
+        'archived_at',
         'is_active',
         'text_hash',
     ];
@@ -80,18 +84,25 @@ class Prompt extends Model
         return $this->hasMany(Run::class);
     }
 
+    /** @return HasManyThrough<Response, Run, $this> */
+    public function responses(): HasManyThrough
+    {
+        return $this->hasManyThrough(Response::class, Run::class);
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
         return [
             'is_active' => 'boolean',
+            'archived_at' => 'immutable_datetime',
         ];
     }
 
     /** @return list<string> */
     protected function revisionAttributes(): array
     {
-        return ['market_id', 'topic_id', 'intent', 'funnel_stage', 'priority', 'is_active'];
+        return ['market_id', 'topic_id', 'intent', 'funnel_stage', 'priority', 'is_active', 'archived_at'];
     }
 
     /** @return list<string> */

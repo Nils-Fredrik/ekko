@@ -11,11 +11,13 @@ use App\Models\Market;
 use App\Models\Prompt;
 use App\Models\Team;
 use App\Models\Topic;
+use App\Prompts\PromptLibrary;
 use App\Tenancy\AuditLog;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
@@ -71,6 +73,7 @@ class UpsertPrompts extends EkkoTool
         $gate = Gate::forUser($context->user);
         $created = [];
         $updated = [];
+        $receipts = [];
         /** @var array<int, int> $activeBefore market id => active prompts before the call */
         $activeBefore = [];
 
@@ -97,7 +100,6 @@ class UpsertPrompts extends EkkoTool
             $attributes = array_filter([
                 'market_id' => $market->id,
                 'text' => $text,
-                'text_hash' => $text === null ? null : self::hash($text),
                 'intent' => $item['intent'] ?? null,
                 'funnel_stage' => $item['funnel_stage'] ?? null,
                 'priority' => $item['priority'] ?? null,
@@ -111,22 +113,26 @@ class UpsertPrompts extends EkkoTool
                 if (! $gate->allows('create', Prompt::class)) {
                     throw new ToolFailure(__('mcp.errors.forbidden'));
                 }
-                $prompt = Prompt::query()->create(['priority' => 'standard', 'is_active' => true, ...$attributes]);
+                $prompt = app(PromptLibrary::class)->saveLocked($market, null, $attributes);
                 $created[] = $prompt->id;
             } else {
                 if (! $gate->allows('update', $prompt)) {
                     throw new ToolFailure(__('mcp.errors.forbidden'));
                 }
-                // The same text may only be in a market once.
-                $hash = $text === null ? $prompt->text_hash : self::hash($text);
-                if (Prompt::query()->where('market_id', $market->id)->where('text_hash', $hash)->whereKeyNot($prompt->id)->exists()) {
-                    throw new ToolFailure(__('mcp.errors.duplicate_text', ['index' => $index + 1]));
+                try {
+                    $prompt = app(PromptLibrary::class)->saveLocked($market, $prompt, $attributes);
+                } catch (ValidationException $e) {
+                    if (isset($e->errors()['text'])) {
+                        throw new ToolFailure(__('mcp.errors.duplicate_text', ['index' => $index + 1]));
+                    }
+
+                    throw $e;
                 }
-                $prompt->fill($attributes)->save();
                 if ($prompt->wasChanged() && ! in_array($prompt->id, $created, true)) {
                     $updated[] = $prompt->id;
                 }
             }
+            $receipts[$prompt->id] = ['id' => $prompt->id, 'archived' => $prompt->archived_at !== null];
         }
 
         $this->checkPlanLimit($tenant, $activeBefore);
@@ -141,7 +147,7 @@ class UpsertPrompts extends EkkoTool
 
         return new ToolResult(
             __('mcp.summaries.upsert_prompts', ['created' => count($created), 'updated' => count($updated)]),
-            ['created' => $created, 'updated' => $updated],
+            ['created' => $created, 'updated' => $updated, 'prompts' => array_values($receipts)],
         );
     }
 
@@ -231,6 +237,6 @@ class UpsertPrompts extends EkkoTool
     /** The text hash that keeps a prompt unique in its market. */
     public static function hash(string $text): string
     {
-        return hash('sha256', trim($text));
+        return Prompt::hashText(trim($text));
     }
 }

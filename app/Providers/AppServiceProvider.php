@@ -114,7 +114,8 @@ class AppServiceProvider extends ServiceProvider
         // The wizard's proposals are not models, so their policy is registered by hand (ADR 0009, ADR 0018).
         Gate::policy(Analysis::class, OnboardingPolicy::class);
 
-        // Each analysis fetches a site and calls the model, so starting them is limited per user.
+        RateLimiter::for('prompt-suggestions', fn (Request $request) => Limit::perMinute(10)->by((string) $request->user()?->getAuthIdentifier()));
+        // Each wizard analysis fetches a site and calls the model, so starting them is limited per user.
         RateLimiter::for('onboarding', fn (Request $request): Limit => Limit::perMinute((int) config('ekko.wizard.analyses_per_minute'))
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
         // Per token, and per user across all of the user's tokens, so more tokens do not give more calls (T39-F10).

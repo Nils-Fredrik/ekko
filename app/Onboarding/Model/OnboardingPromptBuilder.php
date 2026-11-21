@@ -27,6 +27,13 @@ Rules for prompts:
 - Spread the prompts over the topics.
 PROMPT;
 
+    public function topic(string $brandName, string $domain, string $country, string $language, string $name, string $key, int $count): OnboardingRequest
+    {
+        return $this->market($brandName, $domain, $country, $language, [
+            ['cross_market_key' => $key, 'name' => $name, 'examples' => []],
+        ], $count);
+    }
+
     /** @param  list<SitePage>  $pages */
     public function brand(string $brandName, string $domain, string $country, string $language, array $pages, bool $pitch = false): OnboardingRequest
     {

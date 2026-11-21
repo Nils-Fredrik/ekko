@@ -708,7 +708,7 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
   - `PromptPopulation` teller allerede bare aktive prompts.
 - `topics.cross_market_key` settes for nye temaer til en slug av navnet, unik per merkevare (med `-2`, `-3` ved kollisjon), slik at veiviseren kan foreslå prompts for temaet i et nytt marked.
   - Endres et navn, endres ikke nøkkelen.
-  - Ved sammenslåing beholdes nøkkelen til temaet det slås sammen inn i.
+  - Ved sammenslåing beholdes nøkkelen til temaet det slås sammen inn i. Tiltak og prompts flyttes til måltemaet i samme transaksjon. Eksisterende tiltak beholder ID, historikk og opprinnelig fingeravtrykk.
 
 **Tjenester:**
 
@@ -746,11 +746,12 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
 
 - Alt skjer i én transaksjon og med samme låserekkefølge som i dag: marked, så prompt.
 - `activate` kontrollerer grensen for hvert berørt marked. Overskridelse avviser hele kallet.
-- `undo` i svaret beskriver det motsatte kallet. For `move_topic` grupperes ID-ene per forrige tema.
+- `undo` i svaret beskriver det motsatte kallet. For `move_topic` grupperes ID-ene per forrige tema. Send `undo`-objektet tilbake til samme bulk-rute. Det inneholder handlingen `undo`, berørte ID-er og en kryptert verdi som binder de grupperte før- og etterverdiene til tenanten og merkevaren. Gjenoppretting avviser felt som er endret i mellomtiden. Angret opprettelse bruker samme slettesperre som websletting. Ingen endrede rader gir `undo: null`.
 
 **Andre krav:**
 
-- **API og MCP:** REST (`api.php`) og MCP (`UpsertPrompts`) får `archived` i ressursen og `include_archived` i lister. `docs/api.yaml` oppdateres. Det kommer ingen nye MCP-verktøy.
+- **CSV:** En tom celle eller manglende kolonne for tema, intensjon, trakttrinn, prioritet eller aktiv-status beholder feltets verdi på eksisterende prompts. Nye rader får importens standardverdier. Forhåndsvisning og import bruker samme regler.
+- **API og MCP:** REST (`api.php`) og MCP (`UpsertPrompts`) får `archived` i ressursen og `include_archived` i lister. `docs/api.yaml` oppdateres. Eksisterende REST DELETE beholder kaskadeslettingen fra spec 15.1. Sletting gjennom den nye webruten avvises når det finnes kjøringer. Det kommer ingen nye MCP-verktøy.
 - **Tester:**
   - Feature-tester for alle ruter, også tilgang per rolle.
   - Grensen i `bulk` og `create`.

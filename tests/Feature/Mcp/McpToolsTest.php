@@ -388,3 +388,18 @@ test('upsert_prompts locks the markets it touches before counting against the pl
         ->and($count)->not->toBeFalse()
         ->and($lock)->toBeLessThan($count);
 });
+
+test('MCP prompt lists omit archived prompts unless explicitly requested', function () {
+    app(TenantContext::class)->run($this->w->tenant->id, fn () => $this->w->p1->update(['archived_at' => now(), 'is_active' => false]));
+    $token = adminToken($this);
+    foreach ([
+        ['propose_prompts', ['market' => $this->w->market->id], 'existing_prompts', 'id'],
+        ['get_prompt_results', ['brand' => $this->w->brand->id], 'prompts', 'prompt_id'],
+    ] as [$tool, $query, $list, $id]) {
+        $standard = McpTestClient::call($this, $token, $tool, $query);
+        $all = McpTestClient::call($this, $token, $tool, $query + ['include_archived' => true]);
+        expect($standard['isError'])->toBeFalse($standard['raw'])->and($all['isError'])->toBeFalse($all['raw']);
+        expect(array_column($standard['data'][$list], $id))->not->toContain($this->w->p1->id)
+            ->and(collect($all['data'][$list])->firstWhere($id, $this->w->p1->id)['archived'])->toBeTrue();
+    }
+});

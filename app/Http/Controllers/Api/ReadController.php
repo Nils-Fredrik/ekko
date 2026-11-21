@@ -39,7 +39,7 @@ class ReadController extends Controller
         Gate::authorize('view', $brand);
         Gate::authorize('viewAny', Prompt::class);
 
-        return PromptResource::collection(Prompt::query()->whereHas('market', fn ($q) => $q->where('brand_id', $brand->id))
+        return PromptResource::collection(Prompt::query()->when(! $request->boolean('include_archived'), fn ($q) => $q->whereNull('archived_at'))->whereHas('market', fn ($q) => $q->where('brand_id', $brand->id))
             ->orderBy('id')->paginate(Query::pageSize($request))->withQueryString());
     }
 

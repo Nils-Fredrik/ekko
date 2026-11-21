@@ -2,7 +2,14 @@
 
 namespace App\Onboarding;
 
+use App\Models\Team;
 use App\Scheduling\CollectionLocks;
+use App\Usage\BillingAccount;
+use App\Usage\MonthlyUsage;
+use App\Usage\PlannedRun;
+use App\Usage\QuotaGuard;
+use Brick\Math\BigDecimal;
+use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Cache\DatabaseStore;
 use Illuminate\Cache\Repository;
@@ -23,6 +30,26 @@ use Illuminate\Support\Str;
  */
 final class AnalysisStore
 {
+    /** @param array<string, mixed> $input */
+    public function admit(Team $tenant, int $userId, string $kind, array $input): ?Analysis
+    {
+        return $this->reserving($tenant->id, fn (int $pending): ?Analysis => $this->quotaAllows($tenant, $pending)
+            ? $this->create($tenant->id, $userId, $kind, $input)
+            : null);
+    }
+
+    /** Whether one more analysis fits, with $pending started analyses counted as one call and the estimated cost each. */
+    private function quotaAllows(Team $tenant, int $pending): bool
+    {
+        $estimate = (string) config('ekko.anthropic.onboarding.estimated_cost_usd');
+        $usage = app(MonthlyUsage::class)->forAdmission($tenant, CarbonImmutable::now('UTC'));
+        $usage->calls = (int) $usage->calls + $pending;
+        $usage->cost_usd = (string) BigDecimal::of((string) $usage->cost_usd)->plus(BigDecimal::of($estimate)->multipliedBy($pending));
+        $planned = new PlannedRun(0, true, BillingAccount::Platform, $estimate);
+
+        return app(QuotaGuard::class)->allows($usage, $planned);
+    }
+
     /**
      * Runs $start under the tenant's lock with the number of pending analyses. Use it to check the quota and create
      * the analysis as one step, so two requests cannot both pass the check on the same remaining quota.

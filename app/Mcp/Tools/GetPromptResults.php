@@ -26,6 +26,7 @@ class GetPromptResults extends EkkoTool
     {
         return [
             ...$this->tenantArgument($schema),
+            'include_archived' => $schema->boolean()->description('Ta med arkiverte prompts.'),
             ...$this->brandArgument($schema),
             ...$this->periodArguments($schema),
             ...$this->marketEngineArguments($schema),
@@ -50,7 +51,7 @@ class GetPromptResults extends EkkoTool
         $now = $metrics->breakdown($current, 'prompt');
         $before = $metrics->breakdown($previous, 'prompt');
 
-        $prompts = Prompt::query()->with('market:id,country,language')
+        $prompts = Prompt::query()->when($request->get('include_archived') !== true, fn ($q) => $q->whereNull('archived_at'))->with('market:id,country,language')
             ->whereIn('id', array_map('intval', array_keys($now + $before)))
             ->get()->keyBy('id');
 
@@ -68,6 +69,7 @@ class GetPromptResults extends EkkoTool
                 'intent' => $prompt->intent,
                 'funnel_stage' => $prompt->funnel_stage,
                 'is_active' => (bool) $prompt->is_active,
+                'archived' => $prompt->archived_at !== null,
                 'current' => $this->figures($nowSummary),
                 'previous' => $this->figures($beforeSummary),
                 'visibility_change' => $change,
