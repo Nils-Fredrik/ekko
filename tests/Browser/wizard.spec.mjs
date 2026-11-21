@@ -51,8 +51,8 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await expect(page.getByRole('combobox', { name: /Repetitions for/ }).first()).toBeVisible();
     await interval.selectOption('weekly');
     await expect(page.getByRole('combobox', { name: /Core frequency for/ }).first()).toBeVisible();
-    await expect(page.getByText(/Expected engine answers per month/)).toBeVisible();
-    await expect(page.getByText(/Assumed web searches per answer/)).toBeVisible();
+    await expect(page.getByText(/Expected engine answers per month/).first()).toBeVisible();
+    await expect(page.getByText(/Assumed web searches per answer/).first()).toBeVisible();
     await expect(page.getByText(/USD/).first()).toBeVisible();
     await page.getByRole('button', { name: 'Next' }).click();
     await page.getByRole('button', { name: 'Save and start the first run' }).click();
@@ -82,9 +82,14 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await page.route('**/measurement-plan/estimate', async (route) => {
         const response = await route.fetch();
         const estimate = await response.json();
-        expect(route.request().postDataJSON().new_market.plan_mode).toBe('inherit');
-        expect(route.request().postDataJSON().new_market.engines).toBeUndefined();
-        expectedMarketCost = estimate.markets.find((market) => market.id === null).total_cost_usd;
+        const market = route.request().postDataJSON().new_market;
+        if (market.plan_mode === 'inherit') {
+            expect(market.engines).toBeUndefined();
+        } else {
+            expect(market.plan_mode).toBe('own');
+            expect(Array.isArray(market.engines)).toBe(true);
+        }
+        expectedMarketCost = estimate.markets.find((item) => item.id === null).total_cost_usd;
         const existing = estimate.markets.find((market) => market.id !== null);
         existing.total_cost_usd = null;
         estimate.total_cost_usd = null;
@@ -104,10 +109,33 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await expect(page.getByLabel('Country', { exact: true })).toBeDisabled();
     await expect(page.getByLabel('Language', { exact: true })).toBeDisabled();
     await page.getByRole('button', { name: 'Next', exact: true }).click();
-    await expect(page.getByText(/Estimated monthly cost for this market/)).toBeVisible();
-    await expect(page.getByText(`Estimated monthly cost for this market is ${expectedMarketCost} USD.`)).toBeVisible();
+    await expect(page.getByRole('radio', { name: 'Use the brand plan' })).toBeChecked();
+    await page.getByRole('radio', { name: 'Own choices' }).check();
+    const ownInterval = page.getByRole('combobox', { name: 'Interval for ChatGPT', exact: true }).first();
+    await ownInterval.selectOption('monthly');
+    await expect(ownInterval).toHaveValue('monthly');
+    await page.getByRole('radio', { name: 'Use the brand plan' }).check();
+    await page.getByRole('radio', { name: 'Own choices' }).check();
+    await expect(ownInterval).toHaveValue('weekly');
+    const inherited = page.waitForResponse(
+        (response) =>
+            response.url().includes('/measurement-plan/estimate') &&
+            response.request().postDataJSON()?.new_market?.plan_mode === 'inherit',
+    );
+    await page.getByRole('radio', { name: 'Use the brand plan' }).check();
+    expectedMarketCost = (await (await inherited).json()).markets.find((market) => market.id === null).total_cost_usd;
+    const preview = page.getByRole('heading', { name: 'Preview' }).locator('..');
+    await expect(preview.getByText(`Total: ${expectedMarketCost} USD`).first()).toBeVisible();
+    await expect(preview.getByText(/Collection:/).first()).toBeVisible();
+    await expect(preview.getByText(/Extraction:/).first()).toBeVisible();
     await expect(page.getByText('Unpriced existing market')).toHaveCount(0);
+    const stepped = page.waitForRequest('**/measurement-plan/estimate', { timeout: 1000 }).then(
+        () => true,
+        () => false,
+    );
     await page.getByRole('button', { name: 'Next', exact: true }).click();
+    expect(await stepped).toBe(false);
+    await expect(page.getByText(`Estimated monthly cost for this market is ${expectedMarketCost} USD.`)).toBeVisible();
     await page.getByRole('button', { name: 'Save and start the first run' }).click();
     await expect(page).toHaveURL(/\/brands\/\d+$/);
     const markets = JSON.parse(
@@ -119,6 +147,7 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     expect(markets.markets).toBe(2);
     expect(markets.swedish_queued).toBeGreaterThan(0);
     expect(markets.competitors).toBe(3);
+    const brandPath = new URL(page.url()).pathname;
     await page.unroute('**/measurement-plan/estimate');
 
     await page.getByRole('banner').getByRole('link', { name: 'Settings', exact: true }).click();
@@ -143,20 +172,23 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeEnabled();
 
     const held = [];
+    const settingsPreview = page.getByRole('heading', { name: 'Preview' }).locator('..');
     await page.route('**/measurement-plan/estimate', async (route) => {
         await new Promise((resolve) => held.push(resolve));
         await route.continue();
     });
-    await standardInterval.selectOption('monthly');
     await standardInterval.selectOption('weekly');
+    await expect.poll(() => held.length).toBe(1);
     await standardInterval.selectOption('every_14_days');
-    await expect.poll(() => held.length).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => held.length).toBe(2);
     held.shift()();
+    await expect(page.getByText('Updating the preview…')).toBeVisible();
+    await expect(settingsPreview).toContainText('Monthly');
+    await expect(settingsPreview).not.toContainText('Weekly');
     await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeDisabled();
-    while (held.length > 0) {
-        held.shift()();
-    }
+    held.shift()();
     await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeEnabled();
+    await expect(settingsPreview).toContainText('Every 14 days');
     await page.unroute('**/measurement-plan/estimate');
 
     await page.route('**/measurement-plan/estimate', async (route) => {
@@ -193,9 +225,14 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         savePlan.click(),
     ]);
     await page.reload();
-    await expect(page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Own choices' })).toBeChecked();
     await expect(
-        page.getByRole('group', { name: 'SE / sv' }).getByRole('combobox', { name: 'Interval for ChatGPT', exact: true }).first(),
+        page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Own choices' }),
+    ).toBeChecked();
+    await expect(
+        page
+            .getByRole('group', { name: 'SE / sv' })
+            .getByRole('combobox', { name: 'Interval for ChatGPT', exact: true })
+            .first(),
     ).toHaveValue('monthly');
     await page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Use the brand plan' }).check();
     await expect(savePlan).toBeEnabled();
@@ -225,4 +262,28 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await expect(remove).toHaveCount(0);
     await page.reload();
     await expect(page.getByRole('row').filter({ hasText: 'Ny konkurrent' })).toHaveCount(0);
+
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.context().clearCookies();
+    await page.goto('/login');
+    await page.locator('#email').fill(process.env.SMOKE_WIZARD_READER_EMAIL);
+    await page.locator('#password').fill(process.env.SMOKE_PASSWORD);
+    await page.locator('button[type="submit"]').click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    let readerEstimates = 0;
+    const countReaderEstimate = (request) => {
+        if (request.url().includes('/measurement-plan/estimate')) {
+            readerEstimates += 1;
+        }
+    };
+    page.on('request', countReaderEstimate);
+    await page.goto(`${brandPath}/settings`);
+    await expect(page.getByText('You can view the measurement plan, but not change it.')).toBeVisible();
+    await expect(page.getByRole('combobox', { name: 'Interval for ChatGPT', exact: true }).first()).toBeDisabled();
+    await expect(page.getByRole('radio', { name: 'Own choices' }).first()).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Preview' })).toHaveCount(0);
+    await page.waitForLoadState('networkidle');
+    expect(readerEstimates).toBe(0);
+    page.off('request', countReaderEstimate);
 });

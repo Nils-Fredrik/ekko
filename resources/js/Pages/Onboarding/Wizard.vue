@@ -214,8 +214,19 @@ const estimateRequest = computed(() => {
 const { estimate, error: estimateError, estimating, fresh, load } = usePlanEstimate(() => estimateRequest.value);
 const proposedMarket = computed(() => estimate.value?.markets.find((market) => market.id === null));
 const estimateReady = computed(() => fresh.value && estimateCanConfirm(estimate.value, null));
-watch([estimateRequest, step], () => {
-    if (['engines', 'integrations'].includes(step.value)) {
+const estimateSteps = ['engines', 'integrations'];
+watch(planMode, (mode, previous) => {
+    if (props.brand && mode === 'own' && previous !== 'own') {
+        rules.value = clonePlan(props.measurementPlan.standard ?? []);
+    }
+});
+watch(estimateRequest, () => {
+    if (estimateSteps.includes(step.value)) {
+        load();
+    }
+});
+watch(step, (current, previous) => {
+    if (estimateSteps.includes(current) && !estimateSteps.includes(previous)) {
         load();
     }
 });
@@ -502,9 +513,6 @@ form.transform((data) => {
                 />
                 <p v-if="noActiveEngines" role="status" class="text-sm">{{ $t('onboarding.ui.no_active_engines') }}</p>
                 <InputError :message="estimateError" />
-                <p v-if="proposedMarket?.total_cost_usd != null" class="text-sm">
-                    {{ $t('onboarding.ui.cost', { amount: proposedMarket.total_cost_usd }) }}
-                </p>
                 <PlanPreview
                     :estimate="estimate"
                     :estimating="estimating"

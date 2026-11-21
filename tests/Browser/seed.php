@@ -76,6 +76,11 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $repor
 $owner = $team->owner;
 $owner->forceFill(['email' => 'browser-wizard@example.test', 'password' => Hash::make($password), 'locale' => 'en'])->save();
 $owner->switchTeam($team);
+$wizardReader = User::factory()->create([
+    'email' => 'browser-wizard-reader@example.test', 'password' => Hash::make($password), 'locale' => 'en',
+]);
+$team->users()->attach($wizardReader, ['role' => 'reader']);
+$wizardReader->switchTeam($team);
 $engine = Engine::factory()->create(['key' => 'browser_wizard', 'provider' => 'openai', 'is_enabled' => true]);
 EnginePrice::factory()->for($engine)->create(['valid_from' => now()->subDay(), 'price_per_call_usd' => '0.01000000']);
 $plan = Plan::factory()->create(['allowed_engines' => [$engine->key], 'max_brands' => 5, 'max_markets_per_brand' => 3, 'max_frequency' => 'weekly', 'max_repetitions' => 1, 'monthly_call_quota' => 1000, 'monthly_budget_usd' => '100']);
@@ -108,7 +113,7 @@ $advisor = User::factory()->withTwoFactor()->create([
 ]);
 $partner->users()->attach($advisor, ['role' => 'partner_advisor']);
 $advisor->switchTeam($partner);
-$values = ['SMOKE_EMAIL' => $user->email, 'SMOKE_PASSWORD' => $password, 'SMOKE_TENANT_ID' => (string) $team->id, 'SMOKE_BRAND_ID' => (string) $brand->id, 'SMOKE_WIZARD_EMAIL' => $owner->email, 'SMOKE_REPORT_TOKEN' => $reportToken, 'SMOKE_REPORT_SELECTOR' => $reportSelector, 'SMOKE_REPORT_NB_TOKEN' => $norwegianToken, 'SMOKE_REPORT_NB_SELECTOR' => $norwegianSelector, 'SMOKE_ADVISOR_EMAIL' => $advisor->email];
+$values = ['SMOKE_EMAIL' => $user->email, 'SMOKE_PASSWORD' => $password, 'SMOKE_TENANT_ID' => (string) $team->id, 'SMOKE_BRAND_ID' => (string) $brand->id, 'SMOKE_WIZARD_EMAIL' => $owner->email, 'SMOKE_WIZARD_READER_EMAIL' => $wizardReader->email, 'SMOKE_REPORT_TOKEN' => $reportToken, 'SMOKE_REPORT_SELECTOR' => $reportSelector, 'SMOKE_REPORT_NB_TOKEN' => $norwegianToken, 'SMOKE_REPORT_NB_SELECTOR' => $norwegianSelector, 'SMOKE_ADVISOR_EMAIL' => $advisor->email];
 $values = [...$values, ...require __DIR__.'/filter-fixture.php'];
 // The visual suite keeps its own fixed data; the portfolio clients would show up on its admin pages.
 if (getenv('EKKO_UI_QUALITY') !== '1') {
