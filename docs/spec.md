@@ -1321,7 +1321,7 @@ Reviewene gjøres av agentenes egne GitHub-integrasjoner. De poster som egne bot
 1. Leser merkelappen i PR-tittelen og de endrede filene.
 2. For `[Codex]`- og `[Cursor]`-PR-er kjøres `claude-code-action` med Opus 5.5 og en review-instruks som viser til `AGENTS.md`, `docs/spec.md` og akseptkriteriene i Board-oppgaven.
 3. For `[Claude Code]`-PR-er og følsomme endringer postes kommentaren `@codex review` på PR-en.
-4. Hver reviewer avslutter med en tydelig konklusjon: «GODKJENT» eller «ENDRINGER KREVES», med konkrete punkter. Claude leverer en strukturert konklusjon. For Codex validerer gaten botens SHA-bundne status og en fersk reviewkvittering; bare fullført kodereview uten funn oversettes til «GODKJENT». Ukjent format blokkerer (ADR 0022).
+4. Hver reviewer avslutter med en tydelig konklusjon: «GODKJENT» eller «ENDRINGER KREVES», med konkrete punkter. Claude leverer en strukturert konklusjon. For Codex validerer gaten botens SHA-bundne status og en fersk reviewkvittering; bare fullført kodereview uten uløste funn og uten funn på gjeldende head oversettes til «GODKJENT»; løste funn på tidligere commits blokkerer ikke når det finnes en fersk ren kvittering for head. Ukjent format blokkerer (ADR 0022).
 
 **Retting:** forfatteragenten retter i samme gren. Workflowen kjører review på nytt for endringene. Etter tre faglige avslag med ulike head-SHA-er uten godkjenning postes en `blocker` på Board, og eieren avgjør. Omkjøring av samme kode teller ikke som en ny runde; en godkjenning nullstiller tellingen (ADR 0022).
 
