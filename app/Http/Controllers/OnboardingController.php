@@ -28,13 +28,11 @@ use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
-use Throwable;
 
 /**
  * The backend of the onboarding wizard (docs/spec.md 13, ADR 0018). It returns proposals as JSON and saves
@@ -296,19 +294,7 @@ class OnboardingController extends Controller
 
         RunOnboardingAnalysis::dispatch($tenantId, $analysis->id);
 
-        // The fixed poll dispatcher wakes the worker without granting web worker overrides. It starts once the request's
-        // transaction has committed the queued job, inside the request: on Cloud Run with CPU only during
-        // requests, work after the response may never finish. A failure to start is reported, not shown: the
-        // next dispatch-due or extraction-poll starts the worker as well.
-        DB::afterCommit(function (): void {
-            try {
-                app(DispatcherLauncher::class)->start();
-            } catch (LockTimeoutException) {
-                // Another request or the scheduler is starting the worker right now.
-            } catch (Throwable $e) {
-                report($e);
-            }
-        });
+        app(DispatcherLauncher::class)->startAfterCommit();
 
         // Re-read: with a synchronous queue (local development, tests) the job has already finished.
         $current = $store->find($tenantId, $analysis->id) ?? $analysis;

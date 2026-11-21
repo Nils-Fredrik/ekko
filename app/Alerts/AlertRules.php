@@ -23,9 +23,15 @@ final class AlertRules
             return $this->find($type, $brandId) ?? AlertRule::create([
                 'brand_id' => $type->isTenantWide() ? null : $brandId, 'type' => $type->value, 'is_active' => true,
                 'threshold' => $type->defaultThreshold(),
-                'channels' => $type === AlertType::IntegrationError ? ['in_app'] : config('ekko.alerts.default_channels'),
+                'channels' => $this->defaultChannels($type),
             ]);
         });
+    }
+
+    /** @return list<string> */
+    private function defaultChannels(AlertType $type): array
+    {
+        return $type === AlertType::IntegrationError ? ['in_app'] : config()->array('ekko.alerts.default_channels');
     }
 
     private function find(AlertType $type, ?int $brandId): ?AlertRule
@@ -51,7 +57,7 @@ final class AlertRules
                 throw ValidationException::withMessages(['type' => __('app.workspace.rule_exists')]);
             }
             if (! $rule->exists) {
-                $rule->fill(['is_active' => true, 'channels' => config('ekko.alerts.default_channels')]);
+                $rule->fill(['is_active' => true, 'channels' => $this->defaultChannels($type)]);
             }
             $rule->threshold = array_key_exists('threshold', $changes)
                 ? ($changes['threshold'] ?? $type->defaultThreshold()) : ($rule->threshold ?? $type->defaultThreshold());

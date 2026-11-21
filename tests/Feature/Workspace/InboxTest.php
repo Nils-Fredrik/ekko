@@ -1,5 +1,7 @@
 <?php
 
+use App\ActionEngine\ActionGenerator;
+use App\ActionEngine\Sources\FactCorrectionSource;
 use App\Brands\BrandHealth;
 use App\Enums\ActionStatus;
 use App\Inbox\InboxQuery;
@@ -18,8 +20,12 @@ use App\Models\Report;
 use App\Models\ReportSchedule;
 use App\Models\RunBatch;
 use App\Models\User;
+use App\Scheduling\CloudRunAccessToken;
 use App\Tenancy\TenantContext;
 use App\Workspace\WorkspaceCounts;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -97,7 +103,7 @@ test('bulk acknowledgment is atomic across requested ids and undo preserves othe
 test('brand health uses the saved plan, counts each active market and keeps hiding private to its user and brand', function () {
     planCatalogue();
     [$tenant, $user] = planTenant();
-    $w = planWorld($tenant, [planRule('chatgpt_api', 'daily')], []);
+    $w = planWorld($tenant, [planRule('chatgpt_api', 'daily')], [planRule('chatgpt_api', 'weekly')]);
     $this->actingAs($user);
     app(TenantContext::class)->set($tenant->id);
     $brand = $w['brand'];
@@ -118,7 +124,9 @@ test('brand health uses the saved plan, counts each active market and keeps hidi
     Action::factory()->for($brand)->create();
     $brand->forceFill(['entities_reviewed_at' => now()])->save();
     $result = $health->for($brand);
-    expect($result['engines_active'])->toBe(1)->and($result['answers_per_month'])->toBeGreaterThan(0)
+    expect(array_column($result['markets'], 'id'))->toBe([$w['a']->id, $w['b']->id])
+        ->and($result['markets'][1]['next_due_on'])->not->toBeNull()
+        ->and($result['engines_active'])->toBe(1)->and($result['answers_per_month'])->toBeGreaterThan(0)
         ->and($result['markets'][0]['last_completed_at'])->not->toBeNull()->and($result['markets'][0]['next_due_on'])->not->toBeNull()
         ->and(array_column($result['problems'], 'kind'))->toBe(['integration', 'action'])
         ->and(collect($result['checklist'])->every(fn ($step) => $step['done']))->toBeTrue();
@@ -173,4 +181,53 @@ test('brand notification settings share legacy data, preserve archive and only s
     $report = Report::factory()->create(['report_schedule_id' => $schedule->id]);
     $this->delete(route('brands.report-schedules.destroy', [$w->brand, $schedule]))->assertRedirect();
     expect($w->brand->reportSchedules()->count())->toBe(0)->and($report->fresh()->reportSchedule->id)->toBe($schedule->id);
+});
+
+test('a requested correction survives two weekly evaluations below the automatic threshold', function () {
+    config(['ekko.actions.min_answers' => 1, 'ekko.actions.fact_correction.min_responses' => 2]);
+    $w = MetricsWorld::create();
+    $owner = $w->tenant->owner;
+    $owner->switchTeam($w->tenant);
+    $this->actingAs($owner);
+    $fact = BrandFact::factory()->for($w->brand)->create(['is_active' => true]);
+    $makeClaim = function (string $status) use ($w, $fact) {
+        $response = $w->answer($w->p1, now()->subDay()->toDateTimeString(), ['status' => $status]);
+
+        return Claim::create(['response_id' => $response->id, 'brand_id' => $w->brand->id, 'fact_id' => $fact->id,
+            'text' => 'A synthetic contradiction', 'verdict' => Claim::CONTRADICTED, 'source_citation_ids' => []]);
+    };
+    $claim = $makeClaim('extracted');
+    $unfinished = $makeClaim('collected');
+    $this->post(route('brands.claims.action', [$w->brand, $unfinished]))->assertUnprocessable();
+    $this->post(route('brands.claims.action', [$w->brand, $claim]))->assertRedirect();
+    $action = Action::where('type', 'fact_correction')->sole();
+    expect($action->evidence['contradicted_responses'])->toBe(1)->and($action->requested_at)->not->toBeNull();
+    $generator = new ActionGenerator([new FactCorrectionSource]);
+    foreach ([1, 2] as $weeks) {
+        $generator->generate($w->brand, CarbonImmutable::now()->addWeeks($weeks));
+    }
+    expect($action->fresh()->status)->toBe(ActionStatus::New)->and($action->fresh()->unsupported_generations)->toBe(0);
+});
+
+test('the test report wakes the dispatcher after its job is visible on the database queue', function () {
+    $w = MetricsWorld::create();
+    $owner = $w->tenant->owner;
+    $owner->switchTeam($w->tenant);
+    $this->actingAs($owner);
+    $schedule = ReportSchedule::factory()->for($w->brand)->create();
+    config(['queue.default' => 'database', 'collection.cloud_run.enabled' => true,
+        'collection.cloud_run.project' => 'ekko-fixture', 'collection.cloud_run.region' => 'europe-west1']);
+    $this->mock(CloudRunAccessToken::class)->shouldReceive('get')->andReturn('fixture-token');
+    $queued = null;
+    Http::fake([
+        'run.googleapis.com/*/executions*' => function () use (&$queued) {
+            $queued = DB::table('jobs')->where('payload', 'like', '%SendTestReport%')->count();
+
+            return Http::response(['executions' => []]);
+        },
+        'run.googleapis.com/*:run' => Http::response(['name' => 'operation']),
+    ]);
+    $this->post(route('brands.report-schedules.test', [$w->brand, $schedule]))->assertRedirect();
+    expect($queued)->toBe(1);
+    Http::assertSent(fn ($request) => str_ends_with($request->url(), '/jobs/ekko-wake:run') && $request->body() === '{}');
 });

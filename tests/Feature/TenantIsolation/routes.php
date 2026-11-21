@@ -385,6 +385,7 @@ function isolationInboxWrite(string $name, int $tenantId): array
         }
         if ($name === 'brands.claims.action') {
             $answer = isolationResponse($tenantId);
+            Response::findOrFail($answer['response'])->run->update(['status' => 'extracted']);
             $fact = BrandFact::factory()->create(['brand_id' => $answer['brand'], 'is_active' => true]);
             $claim = Claim::create(['response_id' => $answer['response'], 'brand_id' => $answer['brand'],
                 'fact_id' => $fact->id, 'text' => 'A synthetic contradiction', 'verdict' => Claim::CONTRADICTED, 'source_citation_ids' => []]);

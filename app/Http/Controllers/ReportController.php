@@ -8,6 +8,7 @@ use App\Models\Report;
 use App\Models\ReportLink;
 use App\Models\ReportSchedule;
 use App\Reports\ReportActions;
+use App\Scheduling\DispatcherLauncher;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as DownloadResponse;
@@ -93,11 +94,12 @@ class ReportController extends Controller
         return back();
     }
 
-    public function sendTest(Request $request, Brand $brand, ReportSchedule $schedule): RedirectResponse
+    public function sendTest(Request $request, Brand $brand, ReportSchedule $schedule, DispatcherLauncher $dispatcher): RedirectResponse
     {
         abort_unless($schedule->brand_id === $brand->id, 404);
         Gate::authorize('update', $schedule);
         SendTestReport::dispatch($brand->tenant_id, $schedule->id, (int) $request->user()?->id)->afterCommit();
+        $dispatcher->startAfterCommit();
 
         return back();
     }

@@ -2,6 +2,7 @@
 
 namespace App\Inbox;
 
+use App\ActionEngine\Sources\FactCorrectionSource;
 use App\Alerts\AlertType;
 use App\Dashboard\DashboardLabels;
 use App\Enums\ActionStatus;
@@ -122,10 +123,10 @@ final readonly class InboxQuery
     private function claimRows(Brand $brand, ?Market $market, bool $handled): array
     {
         $claims = Claim::contradicted()->where('brand_id', $brand->id)->whereHas('fact')
-            ->whereHas('response', fn ($q) => $q->whereBetween('collected_at', [now()->subDays(30), now()]))
+            ->whereHas('response', FactCorrectionSource::inboxResponses(CarbonImmutable::now($brand->tenant->timezone)))
             ->when($market, fn ($q) => $q->whereHas('response.run.prompt', fn ($p) => $p->where('market_id', $market->id)))
             ->with(['fact', 'response:id,run_id,collected_at', 'response.run:id,prompt_id,engine_key', 'response.run.prompt:id,market_id', 'response.run.prompt.market'])->get()->sortByDesc('response.collected_at')->groupBy('fact_id');
-        $linked = Action::where('brand_id', $brand->id)->where('type', ActionType::FactCorrection)
+        $linked = Action::where('brand_id', $brand->id)->where('type', ActionType::FactCorrection)->where('status', '!=', ActionStatus::Expired)
             ->selectRaw("evidence->>'fact_id' AS fact_id")->toBase()->pluck('fact_id')->filter()->flip();
         $rows = [];
         foreach ($claims as $id => $group) {

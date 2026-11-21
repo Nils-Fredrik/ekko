@@ -22,6 +22,7 @@ return new class extends Migration
             $table->foreign(['tenant_id', 'brand_id'])->references(['tenant_id', 'id'])->on('brands')->cascadeOnDelete();
         });
         TenantSchema::enableRowLevelSecurity('user_brand_preferences');
+        Schema::table('actions', fn (Blueprint $table) => $table->timestampTz('requested_at')->nullable());
         Schema::table('integrations', fn (Blueprint $table) => $table->timestampTz('last_error_at')->nullable());
         foreach (DB::table('teams')->pluck('id') as $tenantId) {
             app(TenantRls::class)->run([(int) $tenantId], fn () => DB::table('integrations')
@@ -32,6 +33,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        Schema::table('actions', fn (Blueprint $table) => $table->dropColumn('requested_at'));
         Schema::table('integrations', fn (Blueprint $table) => $table->dropColumn('last_error_at'));
         Schema::table('report_schedules', fn (Blueprint $table) => $table->dropSoftDeletes());
         TenantSchema::disableRowLevelSecurity('user_brand_preferences');

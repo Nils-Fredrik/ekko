@@ -76,11 +76,18 @@ final readonly class FactCorrectionSource implements ActionSource
         return new SourceOutcome([null], $candidates);
     }
 
+    /** Thirty tenant-local days, including completed extractions from today up to the request. */
+    public static function inboxResponses(CarbonImmutable $localNow): \Closure
+    {
+        return fn (Builder $query) => $query->whereBetween('collected_at', [$localNow->startOfDay()->subDays(29)->utc(), $localNow->utc()])
+            ->whereHas('run', fn (Builder $run) => $run->where('status', 'extracted'));
+    }
+
     /** A user may request a correction on the first contradiction rather than wait for the weekly threshold. */
     public function requested(BrandFact $fact, CarbonImmutable $now): ?ActionCandidate
     {
-        $from = $now->subDays(30);
-        $window = fn (Builder $query) => $query->whereBetween('collected_at', [$from, $now]);
+        $from = $now->startOfDay()->subDays(29);
+        $window = self::inboxResponses($now);
         $rows = $fact->claims()->whereIn('verdict', [Claim::CONTRADICTED, Claim::SUPPORTED])
             ->whereHas('response', $window)->with(['response:id,run_id', 'response.run:id,prompt_id,engine_key'])->orderBy('id')->get();
         if ($rows->where('verdict', Claim::CONTRADICTED)->isEmpty()) {

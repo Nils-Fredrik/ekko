@@ -17,6 +17,7 @@ use App\FactCheck\Judge\FactJudge;
 use App\Insights\InsightTextWriter;
 use App\Logging\LogContext;
 use App\Mcp\McpTokens;
+use App\Models\Claim;
 use App\Onboarding\Analysis;
 use App\Onboarding\Fetch\DnsHostResolver;
 use App\Onboarding\Fetch\HostResolver;
@@ -117,6 +118,10 @@ class AppServiceProvider extends ServiceProvider
         foreach (WorkspaceCounts::SOURCES as $model) {
             foreach (['saved', 'deleted'] as $event) {
                 Event::listen("eloquent.{$event}: {$model}", function (Model $changed): void {
+                    // Most extracted claims never appear in the inbox.
+                    if ($changed instanceof Claim && $changed->verdict !== Claim::CONTRADICTED && $changed->getRawOriginal('verdict') !== Claim::CONTRADICTED) {
+                        return;
+                    }
                     $tenantId = (int) $changed->getAttribute('tenant_id');
                     DB::afterCommit(fn () => WorkspaceCounts::flush($tenantId));
                 });
