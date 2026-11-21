@@ -1,13 +1,17 @@
 <script setup>
+import PlanPreview from '@/Components/Brand/PlanPreview.vue';
+import PlanRules from '@/Components/Brand/PlanRules.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import { usePlanEstimate } from '@/Composables/usePlanEstimate';
+import { clonePlan, estimateCanConfirm } from '@/measurementPlan';
 import { useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 const props = defineProps({
-    engines: { type: Array, required: true },
+    measurementPlan: { type: Object, required: true },
     brand: { type: Object, default: null },
     maxCore: { type: Number, required: true },
     clickhouseEndpoints: { type: Array, default: () => [] },
@@ -19,11 +23,6 @@ const stages = ['awareness', 'consideration', 'decision'];
 const step = ref('basis');
 const analysis = ref(null);
 const error = ref('');
-const estimate = ref(null);
-const estimateError = ref('');
-const estimating = ref(false);
-const estimatedPayload = ref('');
-let estimateRequest = 0;
 let poll = null;
 
 const basis = ref({
@@ -36,7 +35,8 @@ const basisFields = computed(() =>
     props.brand ? ['country', 'language'] : ['name', 'primary_domain', 'country', 'language'],
 );
 const draft = ref(emptyDraft());
-const setup = ref(props.engines.map((engine) => ({ ...engine, enabled: true })));
+const planMode = ref('inherit');
+const rules = ref(clonePlan(props.measurementPlan.standard ?? []));
 
 const form = useForm({
     name: '',
@@ -192,67 +192,36 @@ function removeTopic(index) {
     }
 }
 
-const estimatePayload = computed(() => ({
-    engines: setup.value
-        .filter((engine) => engine.enabled)
-        .map((engine) => ({
-            engine_key: engine.engine_key,
-            frequency: engine.frequency,
-            prompt_scope: 'all',
-            repetitions: Number(engine.repetitions),
-        })),
-    prompt_count: draft.value.prompts.length,
-    core_prompt_count: coreCount.value,
-}));
-const noActiveEngines = computed(() => !estimatePayload.value.engines.some((engine) => engine.frequency !== 'off'));
-const payloadKey = computed(() => JSON.stringify(estimatePayload.value));
-const proposedMarket = computed(() => estimate.value?.markets.find((market) => market.id === null));
-const estimateIssues = computed(() => (estimate.value?.issues ?? []).filter((issue) => issue.market_id == null));
-const estimateCurrent = computed(
-    () =>
-        !estimating.value &&
-        estimatedPayload.value === payloadKey.value &&
-        proposedMarket.value?.total_cost_usd != null,
+const activeRules = computed(() =>
+    props.brand && planMode.value === 'inherit' ? props.measurementPlan.standard : rules.value,
 );
-watch([payloadKey, step], () => {
-    if (['engines', 'integrations'].includes(step.value) && !estimateCurrent.value) loadEstimate();
+const noActiveEngines = computed(() => !activeRules.value.some((rule) => rule.frequency !== 'off'));
+const estimateRequest = computed(() => {
+    const counts = { prompt_count: draft.value.prompts.length, core_prompt_count: coreCount.value };
+    if (!props.brand) {
+        return {
+            url: route('onboarding.cost-estimate'),
+            body: { standard: { engines: rules.value }, ...counts },
+        };
+    }
+    const market = { plan_mode: planMode.value, ...counts };
+    if (planMode.value === 'own') {
+        market.engines = rules.value;
+    }
+
+    return { url: route('brands.plan.estimate', props.brand.id), body: { new_market: market } };
+});
+const { estimate, error: estimateError, estimating, fresh, load } = usePlanEstimate(() => estimateRequest.value);
+const proposedMarket = computed(() => estimate.value?.markets.find((market) => market.id === null));
+const estimateReady = computed(() => fresh.value && estimateCanConfirm(estimate.value, null));
+watch([estimateRequest, step], () => {
+    if (['engines', 'integrations'].includes(step.value)) {
+        load();
+    }
 });
 
-async function loadEstimate() {
-    const request = ++estimateRequest;
-    const key = payloadKey.value;
-    estimating.value = true;
-    estimateError.value = '';
-    estimate.value = null;
-    estimatedPayload.value = '';
-    try {
-        const { engines, prompt_count, core_prompt_count } = estimatePayload.value;
-        const result = props.brand
-            ? (
-                  await window.axios.post(route('brands.plan.estimate', props.brand.id), {
-                      new_market: { plan_mode: 'own', engines, prompt_count, core_prompt_count },
-                  })
-              ).data
-            : (
-                  await window.axios.post(route('onboarding.cost-estimate'), {
-                      standard: { engines },
-                      prompt_count,
-                      core_prompt_count,
-                  })
-              ).data;
-        if (request === estimateRequest && key === payloadKey.value) {
-            estimate.value = result;
-            estimatedPayload.value = key;
-        }
-    } catch (caught) {
-        if (request === estimateRequest) estimateError.value = failureMessage(caught.response?.data);
-    } finally {
-        if (request === estimateRequest) estimating.value = false;
-    }
-}
-
 function confirm() {
-    if (!estimateCurrent.value || form.processing) return;
+    if (!estimateReady.value || form.processing) return;
     form.name = basis.value.name;
     form.primary_domain = basis.value.primary_domain;
     form.country = basis.value.country;
@@ -265,15 +234,26 @@ function confirm() {
         ? []
         : draft.value.facts.flatMap((fact, index) => (fact.approved && fact.text.trim() !== '' ? [index] : []));
     form.facts = sentFacts.value.map((index) => draft.value.facts[index].text.trim());
-    form.engines = setup.value
-        .filter((engine) => engine.enabled)
-        .map((engine) => ({
-            engine_key: engine.engine_key,
-            frequency: engine.frequency,
-            repetitions: Number(engine.repetitions),
-        }));
     form.post(route('onboarding.analyses.confirm', analysis.value.id), { preserveScroll: true });
 }
+
+form.transform((data) => {
+    const next = { ...data };
+    if (!props.brand) {
+        delete next.plan_mode;
+        next.engines = rules.value;
+
+        return next;
+    }
+    next.plan_mode = planMode.value;
+    if (planMode.value === 'own') {
+        next.engines = rules.value;
+    } else {
+        delete next.engines;
+    }
+
+    return next;
+});
 </script>
 
 <template>
@@ -492,47 +472,51 @@ function confirm() {
                 class="space-y-4 rounded-xl border border-line bg-shell-panel p-5 text-shell-text"
             >
                 <h3 class="font-medium">{{ $t('onboarding.ui.engines') }}</h3>
-                <div
-                    v-for="engine in setup"
-                    :key="engine.engine_key"
-                    class="grid gap-2 border-t border-line pt-3 sm:grid-cols-4"
-                >
+                <p v-if="!brand" class="text-sm">{{ $t('app.plan.first_market') }}</p>
+                <fieldset v-else class="space-y-2">
+                    <legend class="text-sm font-medium">{{ $t('app.plan.new_market') }}</legend>
                     <label class="flex items-center gap-2 text-sm">
-                        <input v-model="engine.enabled" type="checkbox" />
-                        {{ engine.name }}
+                        <input v-model="planMode" type="radio" value="inherit" />
+                        {{ $t('app.plan.inherit') }}
                     </label>
-                    <select v-model="engine.frequency" :aria-label="$t('app.workspace.frequency')" :class="field">
-                        <option v-for="frequency in engine.frequencies" :key="frequency" :value="frequency">
-                            {{ $t(`onboarding.frequencies.${frequency}`) }}
-                        </option>
-                    </select>
-                    <input
-                        v-model.number="engine.repetitions"
-                        :aria-label="$t('app.workspace.repetitions')"
-                        type="number"
-                        min="1"
-                        :max="engine.max_repetitions"
-                        :class="field"
-                    />
-                </div>
-                <PrimaryButton type="button" @click="loadEstimate">{{ $t('onboarding.ui.estimate') }}</PrimaryButton>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input v-model="planMode" type="radio" value="own" />
+                        {{ $t('app.plan.own') }}
+                    </label>
+                    <p v-if="planMode === 'inherit'" class="text-sm">{{ $t('app.plan.inherits') }}</p>
+                </fieldset>
+                <PlanRules
+                    v-if="!brand || planMode === 'own'"
+                    v-model="rules"
+                    :catalog="measurementPlan.options.engines"
+                    :frequencies="measurementPlan.options.frequencies"
+                    :max-repetitions="measurementPlan.options.max_repetitions"
+                />
+                <PlanRules
+                    v-else
+                    :model-value="measurementPlan.standard"
+                    :catalog="measurementPlan.options.engines"
+                    :frequencies="measurementPlan.options.frequencies"
+                    :max-repetitions="measurementPlan.options.max_repetitions"
+                    disabled
+                />
                 <p v-if="noActiveEngines" role="status" class="text-sm">{{ $t('onboarding.ui.no_active_engines') }}</p>
                 <InputError :message="estimateError" />
-                <p v-if="estimating" class="text-sm">{{ $t('onboarding.ui.estimating') }}</p>
                 <p v-if="proposedMarket?.total_cost_usd != null" class="text-sm">
                     {{ $t('onboarding.ui.cost', { amount: proposedMarket.total_cost_usd }) }}
                 </p>
-                <ul v-if="estimateIssues.length" class="list-disc pl-5 text-sm">
-                    <li
-                        v-for="issue in estimateIssues"
-                        :key="`${issue.market_id ?? ''}:${issue.engine_key ?? ''}:${issue.code}`"
-                    >
-                        {{ issue.message }}
-                    </li>
-                </ul>
+                <PlanPreview
+                    :estimate="estimate"
+                    :estimating="estimating"
+                    :fresh="fresh"
+                    :blocked="fresh && !estimateReady"
+                    :catalog="measurementPlan.options.engines"
+                    only-market
+                    :market-id="null"
+                />
                 <div class="flex gap-3">
                     <button type="button" class="text-sm" @click="step = 'edit'">{{ $t('onboarding.ui.back') }}</button>
-                    <PrimaryButton type="button" :disabled="!estimateCurrent" @click="step = 'integrations'">
+                    <PrimaryButton type="button" :disabled="!estimateReady" @click="step = 'integrations'">
                         {{ $t('onboarding.ui.next') }}
                     </PrimaryButton>
                 </div>
@@ -630,7 +614,7 @@ function confirm() {
                     <button type="button" class="text-sm" @click="step = 'engines'">
                         {{ $t('onboarding.ui.back') }}
                     </button>
-                    <PrimaryButton :disabled="form.processing || !estimateCurrent" @click="confirm">
+                    <PrimaryButton :disabled="form.processing || !estimateReady" @click="confirm">
                         {{ $t(noActiveEngines ? 'onboarding.ui.save_without_run' : 'onboarding.ui.confirm') }}
                     </PrimaryButton>
                 </div>

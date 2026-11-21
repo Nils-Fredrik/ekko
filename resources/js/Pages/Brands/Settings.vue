@@ -1,4 +1,5 @@
 <script setup>
+import MeasurementPlan from '@/Components/Brand/MeasurementPlan.vue';
 import { useDateTime } from '@/Composables/useDateTime';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -13,7 +14,7 @@ const props = defineProps({
     aliases: { type: Array, required: true },
     domains: { type: Array, required: true },
     markets: { type: Array, required: true },
-    engines: { type: Array, required: true },
+    measurementPlan: { type: Object, required: true },
     integrations: { type: Array, required: true },
     clickhouseEndpoints: { type: Array, required: true },
     logUploadUrl: { type: String, default: null },
@@ -29,12 +30,6 @@ const form = useForm({
         id: row.id,
         location_label: row.location_label ?? '',
         is_active: row.is_active,
-    })),
-    engines: props.engines.map((row) => ({
-        id: row.id,
-        frequency: row.frequency,
-        prompt_scope: row.prompt_scope,
-        repetitions: row.repetitions,
     })),
     clickhouse_host: '',
     clickhouse_database: '',
@@ -180,55 +175,7 @@ function save() {
                 </div>
             </section>
 
-            <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
-                <h3 class="font-medium">{{ $t('app.workspace.engines') }}</h3>
-                <div v-for="(row, index) in form.engines" :key="row.id" class="grid gap-2 sm:grid-cols-4">
-                    <p class="text-sm sm:col-span-4">{{ engines[index].market }} · {{ engines[index].name }}</p>
-                    <select
-                        v-model="row.frequency"
-                        :aria-label="$t('app.workspace.frequency')"
-                        :disabled="!can.manage"
-                        :class="field"
-                    >
-                        <option
-                            v-if="!engines[index].frequencies.includes(engines[index].frequency)"
-                            :value="engines[index].frequency"
-                            disabled
-                        >
-                            {{ $t(`onboarding.frequencies.${engines[index].frequency}`) }}
-                        </option>
-                        <option v-for="frequency in engines[index].frequencies" :key="frequency" :value="frequency">
-                            {{ $t(`onboarding.frequencies.${frequency}`) }}
-                        </option>
-                    </select>
-                    <select
-                        v-model="row.prompt_scope"
-                        :aria-label="$t('app.workspace.prompt_scope')"
-                        :disabled="!can.manage"
-                        :class="field"
-                    >
-                        <option value="all">{{ $t('app.workspace.scope_all') }}</option>
-                        <option value="core">{{ $t('app.workspace.scope_core') }}</option>
-                    </select>
-                    <select
-                        v-model.number="row.repetitions"
-                        :aria-label="$t('app.workspace.repetitions')"
-                        :disabled="!can.manage"
-                        :class="field"
-                    >
-                        <option v-for="count in [1, 2, 3]" :key="count" :value="count">{{ count }}</option>
-                    </select>
-                    <InputError
-                        class="sm:col-span-4"
-                        :message="
-                            form.errors[`engines.${index}.id`] ||
-                            form.errors[`engines.${index}.frequency`] ||
-                            form.errors[`engines.${index}.prompt_scope`] ||
-                            form.errors[`engines.${index}.repetitions`]
-                        "
-                    />
-                </div>
-            </section>
+            <MeasurementPlan :plan="measurementPlan" :brand-id="brand.id" :can-manage="can.manage" />
 
             <section
                 v-if="can.integrations"
