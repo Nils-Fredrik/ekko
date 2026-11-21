@@ -5,6 +5,7 @@ namespace App\Alerts;
 use App\Dashboard\DashboardLabels;
 use App\Models\Alert;
 use App\Models\Competitor;
+use App\Models\Integration;
 use App\Models\Market;
 use App\Models\Prompt;
 use Illuminate\Support\Facades\App;
@@ -89,6 +90,10 @@ final class AlertPresenter
     {
         $payload = $alert->payload;
         $brand = $alert->alertRule->brand_id === null ? '' : $alert->alertRule->brand->name;
+
+        if ($type === AlertType::IntegrationError && $brand === '' && isset($payload['integration_id'])) {
+            $brand = Integration::with('brand:id,name')->find($payload['integration_id'])?->brand->name ?? '';
+        }
 
         return match ($type) {
             AlertType::VisibilityDrop => __('alerts.lines.visibility_drop', [

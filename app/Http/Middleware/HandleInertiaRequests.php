@@ -47,6 +47,7 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            'flash.acknowledged_ids' => fn () => $request->session()->get('acknowledged_ids', []),
             'locale' => app()->getLocale(),
             'locales' => function (): array {
                 $locales = config('ekko.locales');

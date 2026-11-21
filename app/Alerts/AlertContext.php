@@ -65,10 +65,7 @@ final class AlertContext
         $brandId = $type->isTenantWide() ? null : $brandId;
         $key = $type->value.':'.($brandId ?? '');
 
-        $this->rules[$key] ??= AlertRule::query()->firstOrCreate(
-            ['type' => $type->value, 'brand_id' => $brandId],
-            ['threshold' => $type->defaultThreshold(), 'channels' => config('ekko.alerts.default_channels'), 'is_active' => true],
-        );
+        $this->rules[$key] ??= app(AlertRules::class)->forSource($type, $brandId);
 
         return $this->rules[$key]->is_active ? $this->rules[$key] : null;
     }

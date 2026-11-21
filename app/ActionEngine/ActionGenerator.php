@@ -64,11 +64,13 @@ final class ActionGenerator
 
                 $action = Action::query()->where('fingerprint', $fingerprint)->first();
                 if ($action === null) {
-                    $action = $this->create($brand, $candidate, $fingerprint, $markets->firstWhere('id', $candidate->marketId), $tenant, $now);
-                    $created++;
-                    $toWord[] = $action->id;
+                    $action = $this->create($brand, $candidate, $markets->firstWhere('id', $candidate->marketId), $tenant, $now);
+                    if ($action->wasRecentlyCreated) {
+                        $created++;
+                        $toWord[] = $action->id;
 
-                    continue;
+                        continue;
+                    }
                 }
                 if ($action->status === ActionStatus::Expired) {
                     $action->status = ActionStatus::New;
@@ -122,7 +124,7 @@ final class ActionGenerator
         return true;
     }
 
-    private function create(Brand $brand, ActionCandidate $candidate, string $fingerprint, ?Market $market, ?Team $tenant, CarbonImmutable $now): Action
+    public function create(Brand $brand, ActionCandidate $candidate, ?Market $market, ?Team $tenant, CarbonImmutable $now): Action
     {
         // Only the template text is in nb, sv or en. The model is told the market's own BCP 47 tag
         // (ActionPromptBuilder::languageTag()), and locale becomes that tag once the model text is stored.
@@ -135,7 +137,7 @@ final class ActionGenerator
             'type' => $candidate->type,
             'status' => ActionStatus::New,
             'created_by' => Action::CREATED_BY_SYSTEM,
-            'fingerprint' => $fingerprint,
+            'fingerprint' => $candidate->fingerprint($brand->id),
             'title' => $text->title,
             'description' => $text->description,
             'steps' => $text->stepRows(),
@@ -143,8 +145,15 @@ final class ActionGenerator
             'locale' => $templateLocale,
         ]);
         $this->fill($action, $candidate, $now);
-        $action->save();
-        $this->syncPrompts($action, $candidate);
+        try {
+            DB::transaction(function () use ($action, $candidate) {
+                $action->save();
+                $this->syncPrompts($action, $candidate);
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            // Inbox and weekly generation may materialize the same candidate concurrently.
+            return Action::query()->where('fingerprint', $action->fingerprint)->first() ?? throw $exception;
+        }
 
         return $action;
     }

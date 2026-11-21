@@ -924,6 +924,8 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 
 Arbeidsflaten (U16–U27, [ux-arbeidsflate.md](ux-arbeidsflate.md)) endrer sidene under. Den innfører sidemeny, oppsettssider under `/brands/{brand}/setup/*` og innboks, og erstatter `Brands/Settings.vue`. U27 oppdaterer tabellen når arbeidet er ferdig.
 
+I innboksen kan en bruker med `prompts.manage` opprette et rettetiltak fra første motsagte påstand i 30-dagersvinduet. Dette bruker samme faktum, bevis og fingeravtrykk som den ukentlige genereringen (11.3 og 11.6). Når en rapportplan slettes, stopper planlagte utsendinger og tidligere rapporter beholder tilknytningen til planen. En testutsending går til den som bestilte den og gjelder siste avsluttede periode.
+
 | Komponent | Innhold |
 |---|---|
 | `Pages/Auth/Login.vue` | Samme oppbygging som Varde: logo, produktnavn, e-post/passord, «Logg inn med Google» |

@@ -937,7 +937,7 @@ Ved kopiering av prompts prioriteres aktive kjerneprompts, deretter øvrige akti
 **`App\Inbox\InboxQuery`:**
 
 - `items(Team, ?Brand, ?Market, ?string $type, bool $handled): list<InboxItem>`
-- `counts(Team, ?Brand): array`
+- `counts(Team, ?Brand, ?Market = null): array` gir antall ventende rader for `all`, `alert`, `entity`, `action`, `claim` og `integration`. En gruppe teller som én rad. Sidemenyen bruker `all`.
 
 Den har ingen egen tabell. Den samler fra kildene under:
 
@@ -957,6 +957,7 @@ Den har ingen egen tabell. Den samler fra kildene under:
 ```
 
 - **Tekst:** `title` og `detail` lages fra språknøkler i `lang/*/inbox.php`. Varsler bruker `AlertPresenter`, og presenterens `line()` blir offentlig som `present(Alert): array{title, detail}`.
+- `handled=1` inkluderer også behandlede rader. Hver rad har `handled` og `source_ids`. Varselgrupper har også `members` med lesbar tekst per varsel. Ved gruppekvittering sendes opptil 200 ID-er om gangen. `flash.acknowledged_ids` inneholder ID-ene denne brukeren faktisk kvitterte. Angre bruker disse ID-ene. Nye merkenavn har `suggestion` fra navnekøen.
 - **`edge`:** en av `warning`, `error`, `medium-beige`, `marker-action` og `marker-model`.
 
 **Ruter:**

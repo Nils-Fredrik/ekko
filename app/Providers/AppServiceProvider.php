@@ -36,13 +36,16 @@ use App\Work\NullWorkPublisher;
 use App\Work\QueueWorkPublisher;
 use App\Work\WorkPublisher;
 use App\Work\WorkSignals;
+use App\Workspace\WorkspaceCounts;
 use Google\Cloud\Storage\StorageClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Events\CommandStarting;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\WorkerStopping;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -111,9 +114,19 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        foreach (WorkspaceCounts::SOURCES as $model) {
+            foreach (['saved', 'deleted'] as $event) {
+                Event::listen("eloquent.{$event}: {$model}", function (Model $changed): void {
+                    $tenantId = (int) $changed->getAttribute('tenant_id');
+                    DB::afterCommit(fn () => WorkspaceCounts::flush($tenantId));
+                });
+            }
+        }
+
         // The wizard's proposals are not models, so their policy is registered by hand (ADR 0009, ADR 0018).
         Gate::policy(Analysis::class, OnboardingPolicy::class);
 
+        RateLimiter::for('report-preview', fn (Request $request) => Limit::perHour(3)->by((string) $request->user()?->getAuthIdentifier()));
         RateLimiter::for('alias-match-test', fn (Request $request) => Limit::perMinute(30)->by((string) $request->user()?->getAuthIdentifier()));
         RateLimiter::for('prompt-suggestions', fn (Request $request) => Limit::perMinute(10)->by((string) $request->user()?->getAuthIdentifier()));
         // Each wizard analysis fetches a site and calls the model, so starting them is limited per user.
