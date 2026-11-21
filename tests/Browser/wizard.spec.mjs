@@ -300,6 +300,28 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Use the brand plan' }),
     ).toBeChecked();
 
+    await standardInterval.selectOption('weekly');
+    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeEnabled();
+    const swedenActive = page
+        .getByRole('heading', { name: 'Markets' })
+        .locator('..')
+        .getByRole('checkbox', { name: 'Active' })
+        .nth(1);
+    await swedenActive.uncheck();
+    const refreshedEstimate = page.waitForResponse(
+        (response) =>
+            response.url().includes('/measurement-plan/estimate') &&
+            response.request().method() === 'POST' &&
+            response.ok(),
+    );
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await refreshedEstimate;
+    await expect(page.getByRole('group', { name: 'SE / sv' }).getByText('Inactive market')).toBeVisible();
+    await expect(page.getByRole('group', { name: 'NO / nb' }).getByText('Inactive market')).toHaveCount(0);
+    await expect(settingsPreview.getByText('Inactive market')).toBeVisible();
+    await expect(standardInterval).toHaveValue('weekly');
+    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeEnabled();
+
     await page.goto(page.url().replace(/\/settings\/?$/, ''));
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('link', { name: 'Competitors', exact: true }).click();

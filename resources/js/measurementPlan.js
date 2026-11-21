@@ -98,6 +98,50 @@ export function normalizePlan(rules, catalog, maxRepetitions = 3) {
     return rowsToRules(rulesToRows(rules, catalog, maxRepetitions), maxRepetitions);
 }
 
+/**
+ * Copy persisted market names and activity onto an open draft.
+ * Rules and plan mode stay as the user left them. A new market starts from the saved plan.
+ *
+ * @param {Array<Record<string, unknown>>} current
+ * @param {Array<Record<string, unknown>>} incoming
+ * @param {Array<Record<string, unknown>>} catalog
+ */
+export function mergePersistedMarkets(current, incoming, catalog, maxRepetitions = 3) {
+    const byId = new Map(current.map((market) => [market.id, market]));
+    const incomingIds = incoming.map((market) => market.id);
+    const structureChanged =
+        current.length !== incoming.length || current.some((market, index) => market.id !== incomingIds[index]);
+    let activityChanged = structureChanged;
+    const markets = incoming.map((market) => {
+        const existing = byId.get(market.id);
+        const active = Boolean(market.is_active);
+        if (!existing) {
+            return {
+                id: market.id,
+                country: market.country,
+                language: market.language,
+                location_label: market.location_label,
+                is_active: active,
+                plan_mode: market.plan_mode,
+                rules: normalizePlan(market.engines ?? [], catalog, maxRepetitions),
+            };
+        }
+        if (Boolean(existing.is_active) !== active) {
+            activityChanged = true;
+        }
+
+        return {
+            ...existing,
+            country: market.country,
+            language: market.language,
+            location_label: market.location_label,
+            is_active: active,
+        };
+    });
+
+    return { markets, activityChanged, structureChanged };
+}
+
 /** An active rule whose engine has no current price cannot be saved. */
 export function rulesLackPrice(rules, catalog) {
     return (rules ?? []).some((rule) => {

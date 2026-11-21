@@ -4,7 +4,7 @@ import PlanRules from '@/Components/Brand/PlanRules.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { usePlanEstimate } from '@/Composables/usePlanEstimate';
-import { estimateCanConfirm, normalizePlan, rulesLackPrice } from '@/measurementPlan';
+import { estimateCanConfirm, mergePersistedMarkets, normalizePlan, rulesLackPrice } from '@/measurementPlan';
 import { router } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 
@@ -157,6 +157,43 @@ watch(payload, () => {
     fieldErrors.value = {};
     load();
 });
+watch(
+    () =>
+        props.plan.markets
+            .map((market) =>
+                [
+                    market.id,
+                    market.country,
+                    market.language,
+                    market.location_label ?? '',
+                    market.is_active ? 1 : 0,
+                ].join(':'),
+            )
+            .join('|'),
+    () => {
+        const merged = mergePersistedMarkets(
+            markets.value,
+            props.plan.markets,
+            props.plan.options.engines,
+            props.plan.options.max_repetitions,
+        );
+        if (merged.structureChanged) {
+            markets.value = merged.markets;
+
+            return;
+        }
+        merged.markets.forEach((market, index) => {
+            const current = markets.value[index];
+            current.country = market.country;
+            current.language = market.language;
+            current.location_label = market.location_label;
+            current.is_active = market.is_active;
+        });
+        if (merged.activityChanged) {
+            load();
+        }
+    },
+);
 load();
 </script>
 
