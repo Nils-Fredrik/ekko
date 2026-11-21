@@ -38,6 +38,8 @@ function tenantModelRights(): array
         Models\Competitor::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\CompetitorAlias::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\CompetitorDomain::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
+        // U21: decisions on unknown brands follow competitors.manage (docs/ux-arbeidsflate.md 6.3).
+        Models\EntityDecision::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\Prompt::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         Models\Topic::class => $edit(POLICY_EVERY_ROLE, POLICY_EDITORS),
         // Facts for the fact check (11.6): entered by the admin; the claims are written by the fact check.

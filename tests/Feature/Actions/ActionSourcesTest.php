@@ -13,6 +13,7 @@ use App\Models\Action;
 use App\Models\AlertRule;
 use App\Models\BotHitDaily;
 use App\Models\BrandAlias;
+use App\Models\EntityDecision;
 use App\Models\Prompt;
 use App\Models\Topic;
 use Carbon\CarbonImmutable;
@@ -271,6 +272,27 @@ test('the brand\'s own name and aliases are never a new competitor, and an inact
     generateActions($w);
 
     expect(array_map(fn (Action $a) => $a->evidence['name'], actionsOf(ActionType::NewCompetitor)))->toBe(['Brenneriet']);
+});
+
+test('a name with a decision is never a new_competitor action, and spellings of one name count together', function () {
+    $w = $this->w;
+    AlertRule::factory()->create(['brand_id' => $w->brand->id, 'type' => 'new_competitor', 'threshold' => '20']);
+    for ($i = 0; $i < 30; $i++) {
+        $w->answer($w->p1, '2026-11-13 10:00:00', [
+            ...($i < 12 ? ['unknown' => 'Brenneriet'] : []),
+            // 8 answers in two spellings: 27 % together, under the threshold apart.
+            ...($i >= 12 && $i < 20 ? ['unknown' => $i % 2 === 0 ? 'Havnelys AS' : 'havnelys'] : []),
+        ]);
+    }
+    EntityDecision::query()->create(['brand_id' => $w->brand->id, 'name_key' => 'brenneriet', 'display_name' => 'Brenneriet',
+        'variants' => ['Brenneriet'], 'decision' => 'ignored', 'alias_ids' => [], 'decided_at' => now()]);
+    aggregateDays('2026-11-13');
+
+    generateActions($w);
+
+    $actions = actionsOf(ActionType::NewCompetitor);
+    expect(array_map(fn (Action $a) => $a->evidence['name'], $actions))->toBe(['Havnelys AS'])
+        ->and($actions[0]->evidence['answers'])->toBe(8);
 });
 
 // crawler_access -----------------------------------------------------------------------------------------------
