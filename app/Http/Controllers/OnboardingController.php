@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Dashboard\DashboardLabels;
 use App\Integrations\BrandIntegrations;
 use App\Jobs\RunOnboardingAnalysis;
 use App\MeasurementPlan\MeasurementPlans;
@@ -10,7 +9,6 @@ use App\MeasurementPlan\PromptPopulation;
 use App\MeasurementPlan\StandardPlan;
 use App\Models\Brand;
 use App\Models\BrandFact;
-use App\Models\Engine;
 use App\Models\Market;
 use App\Models\Plan;
 use App\Models\Prompt;
@@ -54,7 +52,7 @@ class OnboardingController extends Controller
 {
     private const LANGUAGE = '/^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/';
 
-    /** The wizard page (docs/spec.md 13, T29). Engines are preselected from the plan. */
+    /** The wizard page (docs/spec.md 13, T29). The measurement plan comes from the package. */
     public function create(): Response
     {
         Gate::authorize('createBrandAnalysis', Analysis::class);
@@ -72,30 +70,26 @@ class OnboardingController extends Controller
     private function wizard(?Brand $brand = null): Response
     {
         $tenant = $this->tenant();
-        $plan = $tenant->plan()->first();
-        $engines = Engine::query()->orderBy('key')->get()
-            ->filter(fn (Engine $engine): bool => $engine->isAvailable() && $plan instanceof Plan && $plan->allowsEngine($engine->key))
-            ->filter(fn (Engine $engine): bool => $tenant->kind !== 'pitch' || in_array($engine->key, ['chatgpt_api', 'gemini_api', 'claude_haiku'], true))
-            ->map(fn (Engine $engine): array => [
-                'engine_key' => $engine->key,
-                'name' => DashboardLabels::engines([$engine->key])[$engine->key],
-                'max_repetitions' => $tenant->kind === 'pitch' ? 1 : ($plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1),
-                'frequencies' => PromptSchedule::frequencies($plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'off'),
-                'max_frequency' => $plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'off',
-                'frequency' => $tenant->kind === 'pitch' ? 'daily' : ($plan instanceof Plan ? $plan->maxFrequencyForEngine($engine->key) : 'weekly'),
-                'repetitions' => $tenant->kind === 'pitch' ? 1 : ($plan instanceof Plan ? min(3, max(1, $plan->max_repetitions)) : 1),
-            ])->values();
-
         $plans = app(MeasurementPlans::class);
         $options = $plans->options($tenant);
+        // A new pitch brand is saved with the fixed daily plan. The editor must show that plan, not a draft the
+        // server will discard (docs/spec.md 7.6).
+        $pitch = $brand === null && $tenant->kind === 'pitch';
+        $standard = $options['defaults'];
+        if ($pitch) {
+            $standard = StandardPlan::pitchWizardRules($tenant->plan()->first());
+        } elseif ($brand instanceof Brand) {
+            $standard = $plans->present($tenant, $brand)['standard'];
+        }
 
         return Inertia::render('Onboarding/Wizard', [
-            'engines' => $engines,
             // The same plan as brand settings: the package's choices and standard, and for a new market the brand's
-            // plan that it inherits by default (docs/spec.md 7.6, T53).
-            'measurementPlan' => $brand === null
-                ? ['options' => $options, 'standard' => $options['defaults']]
-                : ['options' => $options, 'standard' => $plans->present($tenant, $brand)['standard']],
+            // plan that it inherits by default (docs/spec.md 7.6).
+            'measurementPlan' => [
+                'options' => $options,
+                'standard' => $standard,
+                'locked' => $pitch,
+            ],
             'maxCore' => (int) config('ekko.wizard.suggestions.max_core_prompts'),
             'clickhouseEndpoints' => app(BrandIntegrations::class)->endpoints(),
             'brand' => $brand === null ? null : [

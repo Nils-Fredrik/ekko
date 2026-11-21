@@ -2,10 +2,12 @@
 
 use App\Dashboard\DashboardLabels;
 use App\MeasurementPlan\MeasurementPlans;
+use App\MeasurementPlan\StandardPlan;
 use App\Models\Brand;
 use App\Models\Engine;
 use App\Models\Market;
 use App\Models\MarketEngine;
+use App\Models\Plan;
 use App\Models\Run;
 use App\Onboarding\FirstRun;
 use App\Scheduling\Dispatcher;
@@ -145,8 +147,23 @@ it('gives the same setup from the wizard and from brand settings', function () {
     });
 
     // The wizard and the settings page get the same plan data to edit.
-    $wizardPlan = $this->get(route('brands.markets.create', $other['brand']))->viewData('page')['props']['measurementPlan'];
-    $settingsPlan = $this->get(route('brands.settings', $other['brand']))->viewData('page')['props']['measurementPlan'];
-    expect($wizardPlan['standard'])->toBe($settingsPlan['standard'])
-        ->and($wizardPlan['options'])->toBe($settingsPlan['options']);
+    $wizardProps = $this->get(route('brands.markets.create', $other['brand']))->viewData('page')['props'];
+    $settingsProps = $this->get(route('brands.settings', $other['brand']))->viewData('page')['props'];
+    expect($wizardProps)->not->toHaveKey('engines')
+        ->and($settingsProps)->not->toHaveKey('engines')
+        ->and($wizardProps['measurementPlan']['standard'])->toBe($settingsProps['measurementPlan']['standard'])
+        ->and($wizardProps['measurementPlan']['options'])->toBe($settingsProps['measurementPlan']['options'])
+        ->and($wizardProps['measurementPlan']['locked'])->toBeFalse();
+});
+
+it('shows a new pitch brand the fixed daily plan and does not let the wizard edit it', function () {
+    [$tenant, $owner] = planTenant();
+    $pitchPlan = Plan::query()->where('is_pitch_plan', true)->sole();
+    $tenant->forceFill(['kind' => 'pitch', 'plan_id' => $pitchPlan->id, 'pitch_expires_at' => now()->addDays(7)])->save();
+
+    $this->actingAs($owner)->get(route('onboarding.wizard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('measurementPlan.locked', true)
+            ->where('measurementPlan.standard', StandardPlan::pitchWizardRules($pitchPlan)));
 });

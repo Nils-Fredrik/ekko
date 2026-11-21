@@ -6,10 +6,8 @@ use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\BrandAlias;
-use App\Models\EnginePrice;
 use App\Models\Integration;
 use App\Models\MarketEngine;
-use App\Models\Plan;
 use App\Models\Report;
 use App\Models\ReportSchedule;
 use App\Models\Team;
@@ -21,10 +19,15 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\Metrics\MetricsWorld;
 
-test('brand settings save aliases domains markets and engines and keep a regex alias', function () {
+test('brand settings save aliases domains and markets and reject a retired engine payload', function () {
     $world = MetricsWorld::create();
-    EnginePrice::factory()->create(['engine_key' => $world->engine->key, 'valid_from' => now()->subDay()]);
-    $engine = MarketEngine::factory()->create(['market_id' => $world->market->id, 'engine_key' => $world->engine->key]);
+    $engine = MarketEngine::factory()->create([
+        'market_id' => $world->market->id,
+        'engine_key' => $world->engine->key,
+        'frequency' => 'monthly',
+        'prompt_scope' => 'all',
+        'repetitions' => 1,
+    ]);
     BrandAlias::factory()->create(['brand_id' => $world->brand->id, 'alias' => 'fjord', 'match_mode' => 'regex']);
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
@@ -35,7 +38,6 @@ test('brand settings save aliases domains markets and engines and keep a regex a
         'aliases' => [['alias' => 'Fjord', 'match_mode' => 'exact_word']],
         'domains' => [['domain' => 'Shop.Fjordkaffe.example', 'include_subdomains' => true]],
         'markets' => [['id' => $world->market->id, 'location_label' => 'Oslo', 'is_active' => false]],
-        'engines' => [['id' => $engine->id, 'frequency' => 'weekly', 'prompt_scope' => 'core', 'repetitions' => 3]],
     ])->assertRedirect();
 
     $brand = $world->brand->fresh();
@@ -47,67 +49,23 @@ test('brand settings save aliases domains markets and engines and keep a regex a
         ->and($brand->domains()->firstOrFail()->include_subdomains)->toBeTrue()
         ->and($world->market->fresh()->location_label)->toBe('Oslo')
         ->and($world->market->fresh()->is_active)->toBeFalse()
-        ->and($engine->fresh()->frequency)->toBe('weekly')
-        ->and($engine->fresh()->prompt_scope)->toBe('core')
-        ->and($engine->fresh()->repetitions)->toBe(3);
+        ->and($engine->fresh()->frequency)->toBe('monthly')
+        ->and($engine->fresh()->prompt_scope)->toBe('all')
+        ->and($engine->fresh()->repetitions)->toBe(1);
+
+    $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
+        'engines' => [['id' => $engine->id, 'frequency' => 'weekly', 'prompt_scope' => 'core', 'repetitions' => 3]],
+    ])->assertSessionHasErrors('engines');
+    expect($engine->fresh()->frequency)->toBe('monthly')
+        ->and($engine->fresh()->prompt_scope)->toBe('all')
+        ->and($engine->fresh()->repetitions)->toBe(1)
+        ->and($world->brand->fresh()->name)->toBe('Fjordkaffe AS');
 });
 
-test('two engines in one market cannot share a scope, and a blank threshold uses the default', function () {
+test('a blank alert threshold uses the default', function () {
     $world = MetricsWorld::create();
-    EnginePrice::factory()->create(['engine_key' => $world->engine->key, 'valid_from' => now()->subDay()]);
-    $all = MarketEngine::factory()->create([
-        'market_id' => $world->market->id,
-        'engine_key' => $world->engine->key,
-        'prompt_scope' => 'all',
-        'frequency' => 'daily',
-    ]);
-    $core = MarketEngine::factory()->create([
-        'market_id' => $world->market->id,
-        'engine_key' => $world->engine->key,
-        'prompt_scope' => 'core',
-        'frequency' => 'daily',
-    ]);
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
-    $original = $world->brand->name;
-
-    $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), [
-            'name' => 'Skal ikke lagres',
-            'engines' => [
-                ['id' => $all->id, 'frequency' => 'weekly', 'prompt_scope' => 'core', 'repetitions' => 1],
-                ['id' => $core->id, 'frequency' => 'daily', 'prompt_scope' => 'core', 'repetitions' => 1],
-            ],
-        ])
-        ->assertRedirect()
-        ->assertSessionHasErrors('engines.1.prompt_scope');
-
-    expect($world->brand->fresh()->name)->toBe($original)
-        ->and($all->fresh()->prompt_scope)->toBe('all')
-        ->and($all->fresh()->frequency)->toBe('daily');
-
-    $this->actingAs($owner)
-        ->put(route('brands.settings.update', $world->brand), [
-            'name' => $original,
-            'engines' => [
-                ['id' => $all->id, 'frequency' => 'weekly', 'prompt_scope' => 'core', 'repetitions' => 2],
-                ['id' => $core->id, 'frequency' => 'monthly', 'prompt_scope' => 'all', 'repetitions' => 3],
-            ],
-        ])
-        ->assertRedirect()
-        ->assertSessionHasNoErrors();
-
-    $swapped = MarketEngine::query()
-        ->where('market_id', $world->market->id)
-        ->where('engine_key', $world->engine->key)
-        ->get()
-        ->keyBy('prompt_scope');
-    expect($swapped)->toHaveCount(2)
-        ->and($swapped['core']->frequency)->toBe('weekly')
-        ->and($swapped['core']->repetitions)->toBe(2)
-        ->and($swapped['all']->frequency)->toBe('monthly')
-        ->and($swapped['all']->repetitions)->toBe(3);
 
     $this->actingAs($owner)->post(route('alerts.rules.store'), [
         'brand_id' => $world->brand->id,
@@ -543,49 +501,4 @@ test('failed credential validation never flashes secrets into session old input'
     $this->put(route('teams.slack.update', $world->tenant), ['webhook_url' => $webhook])
         ->assertRedirect()->assertSessionHasErrors('webhook_url')->assertSessionMissing('_old_input.webhook_url');
     expect(serialize(session()->all()))->not->toContain($webhook);
-});
-
-test('brand settings reject enabling an unpriced engine before changing or replacing its scope', function (string $scope, bool $futurePrice) {
-    $world = MetricsWorld::create();
-    $engine = MarketEngine::factory()->create(['market_id' => $world->market->id, 'engine_key' => $world->engine->key, 'frequency' => 'off', 'prompt_scope' => 'all']);
-    if ($futurePrice) {
-        EnginePrice::factory()->create(['engine_key' => $world->engine->key, 'valid_from' => now()->addDay()]);
-    }
-    $owner = $world->tenant->owner;
-    $owner->switchTeam($world->tenant);
-    $name = $world->brand->name;
-    $data = ['name' => 'Must roll back', 'engines' => [['id' => $engine->id, 'frequency' => 'daily', 'prompt_scope' => $scope, 'repetitions' => 1]]];
-    $this->actingAs($owner)->putJson(route('brands.settings.update', $world->brand), $data)
-        ->assertUnprocessable()->assertJsonValidationErrors('engines.0.frequency');
-    expect($engine->fresh()->frequency)->toBe('off')->and($engine->fresh()->prompt_scope)->toBe('all')
-        ->and($world->brand->fresh()->name)->toBe($name);
-
-    $data['name'] = $name;
-    $data['engines'][0]['frequency'] = 'off';
-    $this->put(route('brands.settings.update', $world->brand), $data)->assertSessionHasNoErrors();
-    expect($engine->fresh()->frequency)->toBe('off')->and($engine->fresh()->prompt_scope)->toBe($scope);
-
-    EnginePrice::factory()->create(['engine_key' => $world->engine->key, 'valid_from' => now()->subDay()]);
-    $data['engines'][0]['frequency'] = 'daily';
-    $this->put(route('brands.settings.update', $world->brand), $data)->assertSessionHasNoErrors();
-    expect($engine->fresh()->frequency)->toBe('daily');
-})->with(['all', 'core'])->with([false, true]);
-
-test('brand settings allow multiweek intervals and reject a frequency above the engine cap atomically', function () {
-    $world = MetricsWorld::create();
-    $plan = Plan::factory()->create(['max_frequency' => 'monthly', 'engine_max_frequencies' => [$world->engine->key => 'every_14_days']]);
-    $world->tenant->forceFill(['plan_id' => $plan->id])->save();
-    EnginePrice::factory()->for($world->engine)->create(['valid_from' => now()->subDay()]);
-    $setting = MarketEngine::factory()->for($world->market)->for($world->engine)->create(['frequency' => 'monthly']);
-    $owner = $world->tenant->owner;
-    $owner->switchTeam($world->tenant);
-    $save = fn (string $frequency) => $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
-        'engines' => [['id' => $setting->id, 'frequency' => $frequency, 'prompt_scope' => 'all', 'repetitions' => 1]],
-    ]);
-    foreach (['every_14_days', 'every_21_days'] as $frequency) {
-        $save($frequency)->assertSessionHasNoErrors();
-        expect($setting->refresh()->frequency)->toBe($frequency);
-    }
-    $save('weekly')->assertSessionHasErrors('engines.0.frequency');
-    expect($setting->refresh()->frequency)->toBe('every_21_days');
 });

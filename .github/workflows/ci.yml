@@ -117,6 +117,9 @@ jobs:
             - name: Chart selection contracts
               run: node --test tests/charts/*.test.mjs
 
+            - name: Measurement plan editor
+              run: node --test tests/js/*.test.mjs
+
             - name: UI coverage and bundle budget contracts
               run: npm run test:ui:contracts
 
