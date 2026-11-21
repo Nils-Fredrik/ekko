@@ -176,8 +176,16 @@ function zoneOf(parsed) {
     return parsed.calendar ? 'UTC' : settings.timeZone;
 }
 
-/** 1. nov. 2026; the year is left out in the current year (in the tenant's time zone). */
+/** 1. nov. 2026; the year is left out in the current year (in the tenant's time zone). A year-month is the month name. */
 export function formatDate(value, { now = new Date(), year } = {}) {
+    const monthOnly = typeof value === 'string' ? /^(\d{4})-(\d{2})$/.exec(value) : null;
+    if (monthOnly) {
+        return formatter('DateTimeFormat', intlLocale(), {
+            month: 'long',
+            year: 'numeric',
+            timeZone: 'UTC',
+        }).format(new Date(Date.UTC(Number(monthOnly[1]), Number(monthOnly[2]) - 1, 1)));
+    }
     const parsed = toDate(value);
     if (!parsed) {
         return empty();

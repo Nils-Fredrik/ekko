@@ -10,7 +10,9 @@ import { bucketMarkers, trendSelection, trendSeriesSelection } from './support/d
 import { axisFormatter, formatChange, formatDate, formatValue, isLowSample, tooltipHtml } from './support/format.js';
 import { firstAndLast, lineSeries, pointRows, timeTable } from './support/lines.js';
 import { markerNotes, markerSeries } from './support/markers.js';
+import { emptyBeforeSpan, hatch } from './support/gap.js';
 import { seriesColor } from './support/palette.js';
+import { formatDate as formatNoteDate } from '@/format';
 
 const props = defineProps({
     label: { type: String, required: true },
@@ -29,6 +31,8 @@ const props = defineProps({
     height: { type: Number, default: 240 },
     legend: { type: Boolean, default: true },
     selectSeries: { type: Boolean, default: false },
+    // First day with measurements. Categories before it are hatched.
+    emptyBefore: { type: String, default: '' },
 });
 
 const emit = defineEmits(['marker', 'select']);
@@ -47,6 +51,7 @@ function option({ palette }) {
             width: item.own ? 3 : 1.5,
             opacity: item.own || props.series.length === 1 ? 1 : 0.7,
             z: item.own ? 10 : 2,
+            dashed: Boolean(item.dashed),
             extra: { triggerLineEvent: props.selectSeries },
         }),
     );
@@ -66,6 +71,15 @@ function option({ palette }) {
     }
     if (buckets.value.size > 0) {
         series.push(markerSeries(palette, buckets.value));
+    }
+    const gap = emptyBeforeSpan(props.categories, props.emptyBefore);
+    if (gap && series[0]) {
+        const label = trans('app.dashboard.no_measurements_before', { date: formatNoteDate(props.emptyBefore) });
+        series[0].markArea = {
+            silent: true,
+            label: { show: true, color: palette.muted, fontSize: 11, formatter: label },
+            data: [[{ xAxis: gap[0], name: label, itemStyle: { color: hatch(palette.neutral) } }, { xAxis: gap[1] }]],
+        };
     }
 
     return {

@@ -43,6 +43,9 @@ export function seriesColor(palette, series, index = 0) {
     if (series?.own) {
         return palette.own;
     }
+    if (series?.neutral) {
+        return palette.neutral;
+    }
     const position = Number.isInteger(series?.colorIndex) ? series.colorIndex : index;
 
     return palette.categories[((position % CATEGORIES) + CATEGORIES) % CATEGORIES];

@@ -75,10 +75,10 @@ const editable = props.rules.map((rule) => ({
                     class="flex items-center justify-between gap-3 text-sm"
                 >
                     <div>
-                        <p>{{ $t(`app.alert_types.${alert.type}`) }}</p>
+                        <p>{{ alert.title }}</p>
                         <p class="text-shell-muted">
-                            {{ alert.brand }}
-                            <span v-if="alert.subject">· {{ alert.subject }}</span>
+                            <span v-if="alert.brand && !alert.detail.includes(alert.brand)">{{ alert.brand }} ·</span>
+                            {{ alert.detail }}
                         </p>
                     </div>
                     <p v-if="alert.acknowledged">{{ $t('app.workspace.acknowledged') }}</p>

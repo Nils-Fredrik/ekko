@@ -40,7 +40,7 @@ class UsageController extends Controller
             ->groupBy('project_kind')->get();
 
         return Inertia::render('Usage/Index', [
-            'month' => $month->toDateString(),
+            'month' => $month->format('Y-m'),
             'usage' => [
                 'calls' => $snapshot->calls,
                 'platform_cost' => $snapshot->cost_usd,

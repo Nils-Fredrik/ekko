@@ -304,13 +304,14 @@ test('a partial integration is rejected and a blank secret keeps the stored one'
 test('alerts can be acknowledged and a rule rejects an invalid threshold', function () {
     $world = MetricsWorld::create();
     $rule = AlertRule::factory()->create(['brand_id' => $world->brand->id, 'type' => 'visibility_drop', 'threshold' => '10']);
-    $alert = Alert::factory()->create(['alert_rule_id' => $rule->id, 'subject' => 'Quota']);
+    $alert = Alert::factory()->create(['alert_rule_id' => $rule->id, 'subject' => 'market:7:engine:chatgpt']);
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
 
     $this->actingAs($owner)->get(route('alerts.index'))->assertOk()->assertInertia(fn ($page) => $page
         ->component('Alerts/Index')
-        ->where('alerts.0.subject', 'Quota')
+        ->where('alerts.0.title', __('app.alert_types.visibility_drop'))
+        ->missing('alerts.0.subject')
         ->where('canManage', true));
 
     $this->actingAs($owner)->post(route('alerts.acknowledge', $alert))->assertRedirect();
@@ -421,6 +422,7 @@ test('usage shows the month against the quota and is hidden from a reader', func
         ->component('Usage/Index')
         ->where('usage.calls', 4)
         ->where('engines.0.calls', 4)
+        ->where('month', now('UTC')->format('Y-m'))
         ->where('canViewUsage', true));
 
     $this->actingAs($reader)->get(route('usage.index'))->assertForbidden();

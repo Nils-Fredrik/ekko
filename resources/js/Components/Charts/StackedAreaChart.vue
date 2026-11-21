@@ -9,7 +9,9 @@ import { bucketMarkers, hasIsolatedPoint, isLowSample } from './support/data.js'
 import { axisFormatter, formatDate, formatValue, tooltipHtml } from './support/format.js';
 import { timeTable } from './support/lines.js';
 import { markerNotes, markerSeries } from './support/markers.js';
+import { emptyBeforeSpan, hatch } from './support/gap.js';
 import { seriesColor } from './support/palette.js';
+import { formatDate as formatNoteDate } from '@/format';
 
 const props = defineProps({
     label: { type: String, required: true },
@@ -23,6 +25,8 @@ const props = defineProps({
     markers: { type: Array, default: () => [] },
     until: { type: String, default: null },
     height: { type: Number, default: 240 },
+    legend: { type: Boolean, default: true },
+    emptyBefore: { type: String, default: '' },
 });
 
 const emit = defineEmits(['marker']);
@@ -71,6 +75,31 @@ const lowBands = computed(() => {
     return bands;
 });
 
+function markArea(palette) {
+    const gap = emptyBeforeSpan(props.categories, props.emptyBefore);
+    const data = lowBands.value.map(([from, to]) => [
+        { xAxis: from, itemStyle: { color: palette.shell, opacity: 0.45 } },
+        { xAxis: to },
+    ]);
+    if (gap) {
+        const label = trans('app.dashboard.no_measurements_before', { date: formatNoteDate(props.emptyBefore) });
+        data.push([
+            {
+                xAxis: gap[0],
+                name: label,
+                itemStyle: { color: hatch(palette.neutral) },
+                label: { show: true, color: palette.muted, fontSize: 11, formatter: label },
+            },
+            { xAxis: gap[1] },
+        ]);
+    }
+    if (data.length === 0) {
+        return undefined;
+    }
+
+    return { silent: true, data };
+}
+
 const colorFor = (palette) => (item, index) => seriesColor(palette, item, props.series[0]?.own ? index - 1 : index);
 
 function option({ palette }) {
@@ -87,18 +116,11 @@ function option({ palette }) {
             showSymbol: hasIsolatedPoint(data),
             connectNulls: false,
             emphasis: { focus: 'series' },
-            lineStyle: { width: 1, color: color(item, index) },
+            lineStyle: { width: 1, color: color(item, index), type: item.dashed ? 'dashed' : 'solid' },
             itemStyle: { color: color(item, index) },
-            areaStyle: { color: color(item, index), opacity: item.own ? 0.9 : 0.75 },
+            areaStyle: { color: color(item, index), opacity: item.own ? 0.9 : item.neutral ? 0.45 : 0.75 },
             data,
-            markArea:
-                index === 0 && lowBands.value.length > 0
-                    ? {
-                          silent: true,
-                          itemStyle: { color: palette.shell, opacity: 0.45 },
-                          data: lowBands.value.map(([from, to]) => [{ xAxis: from }, { xAxis: to }]),
-                      }
-                    : undefined,
+            markArea: index === 0 ? markArea(palette) : undefined,
         };
     });
     if (buckets.value.size > 0) {
@@ -106,8 +128,17 @@ function option({ palette }) {
     }
 
     return {
-        grid: { left: 8, right: 16, top: 16, bottom: 36, containLabel: true },
-        legend: { bottom: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8 },
+        grid: {
+            left: 8,
+            right: 16,
+            top: 16,
+            bottom: props.legend && props.series.length > 1 ? 36 : 8,
+            containLabel: true,
+        },
+        legend:
+            props.legend && props.series.length > 1
+                ? { bottom: 0, icon: 'roundRect', itemWidth: 12, itemHeight: 8 }
+                : { show: false },
         tooltip: {
             trigger: 'axis',
             confine: true,

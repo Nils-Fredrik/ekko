@@ -226,7 +226,7 @@ export function trendSeriesSelection(params, series) {
         return null;
     const rendered = series.flatMap((item) => (splitLowSample(item.points).hasLow ? [item, item] : [item]));
     const item = rendered[params.seriesIndex];
-    if (item?.key == null || !item.points.some((point) => point?.value != null)) return null;
+    if (item?.key == null || item.key === 'others' || !item.points.some((point) => point?.value != null)) return null;
     return selection(item.key);
 }
 

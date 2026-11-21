@@ -28,7 +28,7 @@ class BrandSourceController extends Controller
         BrandPage::authorizeView($brand);
         $brand->load('markets');
         $query = AnalysisFilters::query($brand, $request->query(), 'brands.sources');
-        $period = DashboardPeriod::fromInput($query);
+        $period = DashboardPeriod::fromInput($query, $brand->id);
         $selection = AnalysisFilters::selection($query);
         $marketIds = $selection['marketIds'];
         $engineKeys = $selection['engineKeys'];
@@ -39,7 +39,7 @@ class BrandSourceController extends Controller
         return Inertia::render('Brands/Sources', [
             'brand' => BrandPage::payload($brand),
             'period' => $period->toArray(),
-            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.sources', $query),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.sources', $query, $request->query()),
             'filters' => [
                 'market' => $marketIds[0] ?? null,
                 'engine' => $engineKeys[0] ?? null,

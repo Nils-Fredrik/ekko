@@ -60,6 +60,29 @@ final class AlertPresenter
     }
 
     /**
+     * A readable title and sentence for one alert. The stored subject stays an internal key.
+     *
+     * @return array{title: string, detail: string}
+     */
+    public function present(Alert $alert, ?string $locale = null): array
+    {
+        $locale ??= App::getLocale();
+        $previous = App::getLocale();
+        App::setLocale($locale);
+
+        try {
+            $type = AlertType::from($alert->alertRule->type);
+
+            return [
+                'title' => DashboardLabels::alertType($type->value),
+                'detail' => $this->line($alert, $type),
+            ];
+        } finally {
+            App::setLocale($previous);
+        }
+    }
+
+    /**
      * The sentence for one alert, in the application locale.
      */
     private function line(Alert $alert, AlertType $type): string

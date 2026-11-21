@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Alerts\AlertPresenter;
 use App\Alerts\AlertType;
 use App\Models\Alert;
 use App\Models\AlertRule;
@@ -19,7 +20,7 @@ use Inertia\Response;
  */
 class AlertController extends Controller
 {
-    public function index(): Response
+    public function index(AlertPresenter $presenter): Response
     {
         Gate::authorize('viewAny', Alert::class);
 
@@ -27,14 +28,19 @@ class AlertController extends Controller
         $rules = AlertRule::query()->with('brand')->orderBy('id')->get();
 
         return Inertia::render('Alerts/Index', [
-            'alerts' => $alerts->map(fn (Alert $alert): array => [
-                'id' => $alert->id,
-                'type' => $alert->alertRule->type,
-                'brand' => $alert->alertRule->brand?->name,
-                'subject' => $alert->subject,
-                'triggered_at' => $alert->triggered_at->toIso8601String(),
-                'acknowledged' => $alert->acknowledged_at !== null,
-            ])->values(),
+            'alerts' => $alerts->map(function (Alert $alert) use ($presenter): array {
+                $presented = $presenter->present($alert);
+
+                return [
+                    'id' => $alert->id,
+                    'type' => $alert->alertRule->type,
+                    'brand' => $alert->alertRule->brand?->name,
+                    'title' => $presented['title'],
+                    'detail' => $presented['detail'],
+                    'triggered_at' => $alert->triggered_at->toIso8601String(),
+                    'acknowledged' => $alert->acknowledged_at !== null,
+                ];
+            })->values(),
             'rules' => $rules->map(fn (AlertRule $rule): array => [
                 'id' => $rule->id,
                 'brand_id' => $rule->brand_id,
