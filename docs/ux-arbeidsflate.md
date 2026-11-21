@@ -958,7 +958,7 @@ Ny tabell `user_brand_preferences`: `tenant_id`, `user_id`, `brand_id` og `check
 1. **Varsler** (`AlertController::index`): `subject` erstattes av `title` og `detail` fra `AlertPresenter`. Ingen side, e-post eller Slack-melding viser interne nøkler. Testen leter etter `market:`, `prompt:` og heksadesimale hasher på 32 tegn i HTML-en.
 2. **Formatering av forbruk og admin-forbruk:** beløp, tall og datoer formateres med en midlertidig `resources/js/format.js` med `formatNumber`, `formatCurrency` og `formatDate`. U18 utvider filen. Rekkefølgen U16 og så U18 betyr at U18 bygger videre på filen.
 3. **Stavefeil:** «Dashbord» blir «Oversikt» i `nb`.
-4. **Standardperiode** (`DashboardPeriod`): uten `days`, `from` og `to` i URL-en velges den korteste av 7, 28 og 90 dager der antall dager med data (`agg_daily` for merkevaren) dekker minst 80 % av perioden.
+4. **Standardperiode** (`DashboardPeriod`): uten `days`, `from` og `to` i URL-en velges den lengste av 7, 28 og 90 dager der antall dager med data (`agg_daily` for merkevaren) dekker minst 80 % av perioden. Perioden vokser altså med historikken: 7 dager fra start, 28 dager fra 23 dager med data og 90 dager fra 72 dager med data.
    - Har merkevaren under 7 dager med data, brukes 7 dager.
    - Analysesidene viser da datamerknaden (skisse 1) i `bg-shell-surface border-line-soft rounded-xl` med info-ikon: «Data fra *dato*. Perioden er satt til *n* dager, og grafene fylles ut etter hvert som målingene kommer.»
    - En grafserie uten data før første dag tegner et skravert område med «Ingen målinger før *dato*».
