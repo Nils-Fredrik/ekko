@@ -178,3 +178,35 @@ test('stored rules use the current engine cap and weekly shared Sonnet baseline'
         ->assertJsonPath('markets.0.rules.0.answers', 3)
         ->assertJsonPath('markets.0.rules.1.frequency', 'weekly')->assertJsonPath('markets.0.rules.1.answers', 5);
 });
+
+test('known charges still warn about a definite budget overrun when another engine price is missing', function (bool $byok, string $format) {
+    planCatalogue();
+    [$tenant, $owner] = planTenant(['monthly_budget_usd' => $byok ? '1000.00' : '0.01']);
+    if ($byok) {
+        $tenant->forceFill(['byok_enabled' => true, 'monthly_byok_budget_usd' => '0.01'])->save();
+        inTenant($tenant, fn () => TenantApiKey::query()->create(['provider' => 'anthropic', 'key' => 'synthetic-test-key', 'last_verified_at' => now()]));
+    }
+    $rules = [planRule('claude_haiku', 'monthly'), planRule('claude_sonnet', 'monthly')];
+    $world = planWorld($tenant, $rules, []);
+    EnginePrice::query()->where('engine_key', 'claude_haiku')->delete();
+    $this->actingAs($owner);
+    if ($format === 'brand') {
+        $result = $this->postJson(route('brands.plan.estimate', $world['brand']))->assertOk()
+            ->assertJsonPath('total_cost_usd', null);
+    } else {
+        $result = $this->postJson(route('onboarding.cost-estimate'), ['engines' => $rules, 'prompt_count' => 2])
+            ->assertOk()->assertJsonPath('total_cost_usd', '0.02')->assertJsonPath('markets.0.total_cost_usd', null);
+    }
+    expect(array_column($result->json('issues'), 'code'))->toContain('no_price', $byok ? 'exceeds_byok_budget' : 'exceeds_budget');
+})->with([false, true])->with(['brand', 'legacy']);
+
+test('a stored engine removed from the package does not require a price for its zero baseline', function () {
+    planCatalogue();
+    [$tenant, $owner] = planTenant();
+    $world = planWorld($tenant, [planRule('claude_haiku', 'monthly')], []);
+    $tenant->plan->update(['allowed_engines' => ['chatgpt_api']]);
+    EnginePrice::query()->where('engine_key', 'claude_haiku')->delete();
+    $result = $this->actingAs($owner)->postJson(route('brands.plan.estimate', $world['brand']))->assertOk()
+        ->assertJsonPath('total_cost_usd', '0.00')->assertJsonPath('answers', 0);
+    expect(array_column($result->json('issues'), 'code'))->toBe(['engine_not_in_plan']);
+});

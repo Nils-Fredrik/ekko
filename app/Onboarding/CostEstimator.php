@@ -113,13 +113,14 @@ final class CostEstimator
         }
 
         $totals = $this->totals($allRows, $extractionPrice);
-        $precise = $this->totals($allRows, $extractionPrice, 8);
+        // Even a partial quote can prove that a budget will be exceeded. Extraction is priced for every answer.
+        $known = $this->totals($allRows, $extractionPrice, 8, knownCostsOnly: true);
         $usage = $this->usage->snapshot($tenant, $at);
         $remaining = $usage->quota_calls === null ? null : max(0, $usage->quota_calls - $usage->calls);
         $warnings = [
             'exceeds_call_quota' => $remaining !== null && $usage->calls + $totals['quota_calls'] > $usage->quota_calls,
-            'exceeds_budget' => $usage->budget_usd !== null && $precise['platform_cost_usd'] !== null && BigDecimal::of($usage->cost_usd)->plus($precise['platform_cost_usd'])->isGreaterThan($usage->budget_usd),
-            'exceeds_byok_budget' => $usage->byok_budget_usd !== null && $precise['byok_cost_usd'] !== null && BigDecimal::of($usage->byok_cost_usd)->plus($precise['byok_cost_usd'])->isGreaterThan($usage->byok_budget_usd),
+            'exceeds_budget' => $usage->budget_usd !== null && $known['platform_cost_usd'] !== null && BigDecimal::of($usage->cost_usd)->plus($known['platform_cost_usd'])->isGreaterThan($usage->budget_usd),
+            'exceeds_byok_budget' => $usage->byok_budget_usd !== null && $known['byok_cost_usd'] !== null && BigDecimal::of($usage->byok_cost_usd)->plus($known['byok_cost_usd'])->isGreaterThan($usage->byok_budget_usd),
         ];
         foreach (array_keys(array_filter($warnings)) as $code) {
             $issues[] = ['code' => $code, 'message' => __("onboarding.issues.{$code}")];
@@ -194,19 +195,16 @@ final class CostEstimator
 
         $allowed = $plan?->allowsEngine($key) && ($tenant->kind !== 'pitch' || in_array($key, StandardPlan::PITCH_ENGINES, true));
         $maximum = $plan?->maxFrequencyForEngine($key) ?? 'off';
-        if (! $allowed) {
+        $checkPackage = $plan !== null || ! $legacyProposal;
+        if ($checkPackage && ! $allowed) {
             $issues[] = ['code' => 'engine_not_in_plan', 'engine_key' => $key];
         }
-        if (! PromptSchedule::allows($frequency, $maximum)) {
+        if ($checkPackage && ! PromptSchedule::allows($frequency, $maximum)) {
             $issues[] = ['code' => 'frequency_above_plan', 'engine_key' => $key];
         }
         if ($plan !== null && $repetitions > $plan->max_repetitions) {
             $issues[] = ['code' => 'repetitions_above_plan', 'engine_key' => $key];
         }
-        if ($quote['price'] === null) {
-            $issues[] = ['code' => 'no_price', 'engine_key' => $key];
-        }
-
         if (! $legacyProposal) {
             $frequency = $allowed ? PromptSchedule::capped($frequency, $maximum) : 'off';
             $repetitions = min($repetitions, $plan->max_repetitions ?? 1);
@@ -216,6 +214,10 @@ final class CostEstimator
         }
         if ($key === 'claude_sonnet' && $frequency === 'daily' && $quote['payer'] === BillingAccount::Platform && app(Account::class)->configured()) {
             $frequency = 'weekly';
+        }
+
+        if ($frequency !== 'off' && $quote['price'] === null) {
+            $issues[] = ['code' => 'no_price', 'engine_key' => $key];
         }
 
         return [$frequency, $repetitions];
@@ -270,13 +272,17 @@ final class CostEstimator
      * @param  list<EstimateRow>  $rows
      * @return array{answers:int, quota_calls:int, engine_cost_usd:?string, extraction_cost_usd:string, total_cost_usd:?string, platform_cost_usd:?string, byok_cost_usd:?string}
      */
-    private function totals(array $rows, BigDecimal $extractionPrice, int $scale = 2): array
+    private function totals(array $rows, BigDecimal $extractionPrice, int $scale = 2, bool $knownCostsOnly = false): array
     {
         $answers = array_sum(array_column($rows, 'answers'));
         $costs = ['platform' => BigDecimal::zero(), 'byok' => BigDecimal::zero()];
         foreach ($rows as $row) {
             $payer = $row['billed_to'];
-            $costs[$payer] = $row['collection_cost_usd'] === null ? null : $costs[$payer]?->plus($row['collection_cost_usd']);
+            if ($row['collection_cost_usd'] !== null) {
+                $costs[$payer] = $costs[$payer]?->plus($row['collection_cost_usd']);
+            } elseif (! $knownCostsOnly) {
+                $costs[$payer] = null;
+            }
         }
         $platform = $costs['platform']?->toScale($scale, RoundingMode::HalfUp);
         $byok = $costs['byok']?->toScale($scale, RoundingMode::HalfUp);
