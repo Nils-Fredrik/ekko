@@ -2,20 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Dashboard\DashboardLabels;
 use App\Integrations\BrandIntegrations;
 use App\MeasurementPlan\MeasurementPlans;
 use App\Models\Brand;
-use App\Models\EnginePrice;
 use App\Models\Integration;
 use App\Models\Market;
-use App\Models\MarketEngine;
 use App\Models\Team;
-use App\Scheduling\PromptSchedule;
 use App\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
@@ -24,7 +19,8 @@ use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * Brand settings (docs/spec.md 14.2, T28): name, aliases, domains, markets, engines and integrations.
+ * Brand settings (docs/spec.md 14.2, T28): name, aliases, domains, markets and integrations.
+ * The measurement plan is saved through BrandMeasurementPlanController (docs/spec.md 7.6).
  * Integration config is never sent to the browser.
  */
 class BrandSettingsController extends Controller
@@ -37,13 +33,12 @@ class BrandSettingsController extends Controller
     {
         Gate::authorize('view', $brand);
 
-        $brand->load(['aliases', 'domains', 'markets.marketEngines', 'integrations']);
-        $engineKeys = $brand->markets
-            ->flatMap(fn (Market $market) => $market->marketEngines->pluck('engine_key'))
-            ->map(fn (mixed $key): string => (string) $key)
-            ->all();
-        $engineNames = DashboardLabels::engines($engineKeys);
-        $plan = $brand->tenant->plan;
+        $brand->load([
+            'aliases',
+            'domains',
+            'markets' => fn ($query) => $query->orderBy('id'),
+            'integrations',
+        ]);
         $seeIntegrations = Gate::allows('viewAny', Integration::class);
 
         return Inertia::render('Brands/Settings', [
@@ -70,19 +65,7 @@ class BrandSettingsController extends Controller
                 'is_active' => $market->is_active,
                 'plan_mode' => $market->plan_mode,
             ])->values(),
-            'engines' => $brand->markets->flatMap(fn (Market $market) => $market->marketEngines->map(fn (MarketEngine $engine): array => [
-                'id' => $engine->id,
-                'market_id' => $market->id,
-                'market' => $market->location_label !== '' && $market->location_label !== null
-                    ? $market->location_label
-                    : $market->country,
-                'name' => $engineNames[$engine->engine_key] ?? $engine->engine_key,
-                'frequency' => $engine->frequency,
-                'frequencies' => PromptSchedule::frequencies($plan?->maxFrequencyForEngine($engine->engine_key) ?? 'daily'),
-                'prompt_scope' => $engine->prompt_scope,
-                'repetitions' => $engine->repetitions,
-            ]))->values(),
-            // Standard plan, inheritance and own market choices (docs/spec.md 7.6, T53); the editor is T55.
+            // Standard plan, inheritance and own market choices (docs/spec.md 7.6).
             'measurementPlan' => $this->plans->present(Team::query()->findOrFail((int) app(TenantContext::class)->require()), $brand),
             'integrations' => $seeIntegrations
                 ? $brand->integrations->map(fn (Integration $integration): array => [
@@ -117,11 +100,6 @@ class BrandSettingsController extends Controller
             'markets.*.id' => ['required', 'integer'],
             'markets.*.location_label' => ['nullable', 'string', 'max:255'],
             'markets.*.is_active' => ['required', 'boolean'],
-            'engines' => ['sometimes', 'array'],
-            'engines.*.id' => ['required', 'integer'],
-            'engines.*.frequency' => ['required', Rule::in(PromptSchedule::frequencies())],
-            'engines.*.prompt_scope' => ['required', Rule::in(['all', 'core'])],
-            'engines.*.repetitions' => ['required', 'integer', 'between:1,3'],
             ...$this->integrations->rules(),
         ], [], [
             'name' => __('app.workspace.name'),
@@ -133,9 +111,6 @@ class BrandSettingsController extends Controller
             'domains.*.domain' => __('app.workspace.domain'),
             'domains.*.include_subdomains' => __('app.workspace.include_subdomains'),
             'markets.*.location_label' => __('app.workspace.location'),
-            'engines.*.frequency' => __('app.workspace.frequency'),
-            'engines.*.prompt_scope' => __('app.workspace.prompt_scope'),
-            'engines.*.repetitions' => __('app.workspace.repetitions'),
             'clickhouse_host' => __('app.workspace.clickhouse_host'),
             'clickhouse_database' => __('app.workspace.clickhouse_database'),
             'clickhouse_table' => __('app.workspace.clickhouse_table'),
@@ -152,7 +127,6 @@ class BrandSettingsController extends Controller
             $this->saveAliases($locked, $data);
             $this->saveDomains($locked, $data);
             $this->saveMarkets($locked, $data);
-            $this->saveEngines($locked, $data);
             $this->integrations->apply($locked, $data);
         });
 
@@ -268,122 +242,6 @@ class BrandSettingsController extends Controller
                 'location_label' => is_string($label) && $label !== '' ? $label : null,
                 'is_active' => (bool) $row['is_active'],
             ])->save();
-        }
-    }
-
-    /** @param  array<string, mixed>  $data */
-    private function saveEngines(Brand $brand, array $data): void
-    {
-        if (! array_key_exists('engines', $data) || ! is_array($data['engines'])) {
-            return;
-        }
-
-        $ids = $brand->markets()->pluck('id');
-        $engines = MarketEngine::query()->whereIn('market_id', $ids)->get()->keyBy('id');
-        $this->guardEngineScopes($engines, $data['engines']);
-
-        // A scope change is removed before it is written back. Two rows can then trade all and core
-        // without the unique key seeing both of them on the same scope in between.
-        $plan = $brand->tenant->plan;
-        $moves = [];
-        $detached = [];
-        foreach ($data['engines'] as $index => $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $engine = $engines->get($row['id'] ?? null);
-            if (! $engine instanceof MarketEngine) {
-                throw ValidationException::withMessages([
-                    "engines.{$index}.id" => __('app.workspace.unknown_engine'),
-                ]);
-            }
-            Gate::authorize('update', $engine);
-            $changed = $engine->frequency !== $row['frequency'] || $engine->prompt_scope !== $row['prompt_scope'] || $engine->repetitions !== (int) $row['repetitions'];
-            if ($changed && ! isset($detached[$engine->market_id])) {
-                // Changing a row of an inheriting market gives it own choices from its current setup (docs/spec.md 7.6).
-                // The form sends every row on each save, so unchanged rows leave inheritance alone. A row that fails the
-                // checks below throws inside update()'s transaction, which also rolls this back.
-                $this->plans->detach(Market::query()->findOrFail($engine->market_id));
-                $detached[$engine->market_id] = true;
-            }
-            if ($plan !== null && ! PromptSchedule::allows($row['frequency'], $plan->maxFrequencyForEngine($engine->engine_key))) {
-                throw ValidationException::withMessages([
-                    "engines.{$index}.frequency" => __('onboarding.issues.frequency_above_plan', ['engine' => DashboardLabels::engines([$engine->engine_key])[$engine->engine_key]]),
-                ]);
-            }
-            if ($row['frequency'] !== 'off' && ! EnginePrice::query()->where('engine_key', $engine->engine_key)->where('valid_from', '<=', now())->exists()) {
-                throw ValidationException::withMessages([
-                    "engines.{$index}.frequency" => __('onboarding.issues.no_price', ['engine' => DashboardLabels::engines([$engine->engine_key])[$engine->engine_key]]),
-                ]);
-            }
-            if ($engine->prompt_scope !== $row['prompt_scope']) {
-                $moves[] = [$engine, $row];
-
-                continue;
-            }
-            $engine->fill([
-                'frequency' => $row['frequency'],
-                'prompt_scope' => $row['prompt_scope'],
-                'repetitions' => $row['repetitions'],
-            ])->save();
-        }
-
-        foreach ($moves as [$engine]) {
-            $engine->delete();
-        }
-        foreach ($moves as [$engine, $row]) {
-            $replacement = new MarketEngine;
-            $replacement->forceFill([
-                'id' => $engine->id,
-                'market_id' => $engine->market_id,
-                'engine_key' => $engine->engine_key,
-                'frequency' => $row['frequency'],
-                'prompt_scope' => $row['prompt_scope'],
-                'repetitions' => $row['repetitions'],
-                'created_at' => $engine->created_at,
-            ])->save();
-        }
-    }
-
-    /**
-     * The same market and engine can have all and core, but not two rows with one scope.
-     * A conflicting choice is rejected before anything is written.
-     *
-     * @param  Collection<int, MarketEngine>  $engines
-     * @param  array<mixed>  $rows
-     */
-    private function guardEngineScopes(Collection $engines, array $rows): void
-    {
-        $final = [];
-        $submitted = [];
-        $messages = [];
-        foreach ($rows as $index => $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-            $engine = $engines->get($row['id'] ?? null);
-            if (! $engine instanceof MarketEngine) {
-                continue;
-            }
-            $scope = is_string($row['prompt_scope'] ?? null) ? $row['prompt_scope'] : '';
-            $key = $engine->market_id.'|'.$engine->engine_key.'|'.$scope;
-            if (isset($final[$key])) {
-                $messages["engines.{$index}.prompt_scope"] = __('app.workspace.scope_conflict');
-            }
-            $final[$key] = $index;
-            $submitted[$engine->id] = true;
-        }
-        foreach ($engines as $engine) {
-            if (isset($submitted[$engine->id])) {
-                continue;
-            }
-            $key = $engine->market_id.'|'.$engine->engine_key.'|'.$engine->prompt_scope;
-            if (isset($final[$key])) {
-                $messages['engines.'.$final[$key].'.prompt_scope'] = __('app.workspace.scope_conflict');
-            }
-        }
-        if ($messages !== []) {
-            throw ValidationException::withMessages($messages);
         }
     }
 }

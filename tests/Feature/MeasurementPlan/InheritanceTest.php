@@ -136,26 +136,6 @@ it('starts own choices from the current setup and goes back to the current stand
     });
 });
 
-it('gives a market own choices when one of its rows changes in the per-row engine editor, not on an unchanged save', function () {
-    [$tenant, $owner] = planTenant();
-    $w = planWorld($tenant, [planRule('chatgpt_api', 'daily')], [planRule('chatgpt_api', 'daily')]);
-    $rows = inTenant($tenant, fn () => DB::table('market_engines')->orderBy('id')->get(['id', 'market_id', 'frequency', 'prompt_scope', 'repetitions']));
-    $payload = fn (string $frequencyForA) => ['engines' => $rows->map(fn ($row): array => [
-        'id' => $row->id, 'frequency' => $row->market_id === $w['a']->id ? $frequencyForA : $row->frequency,
-        'prompt_scope' => $row->prompt_scope, 'repetitions' => $row->repetitions,
-    ])->all()];
-
-    $this->actingAs($owner)->put(route('brands.settings.update', $w['brand']), $payload('daily'))->assertSessionHasNoErrors();
-    expect(inTenant($tenant, fn () => $w['a']->fresh()->plan_mode))->toBe(Market::PLAN_INHERIT);
-
-    $this->put(route('brands.settings.update', $w['brand']), $payload('weekly'))->assertSessionHasNoErrors();
-    inTenant($tenant, function () use ($w): void {
-        expect($w['a']->fresh()->plan_mode)->toBe(Market::PLAN_OWN)
-            ->and(storedMarketRules($w['a']))->toBe([planRule('chatgpt_api', 'weekly')])
-            ->and(storedStandard($w['brand']))->toBe([planRule('chatgpt_api', 'daily')]);
-    });
-});
-
 it('previews a draft for every market without writing anything', function () {
     [$tenant] = planTenant();
     $w = planWorld($tenant, [planRule('chatgpt_api', 'daily')], [planRule('claude_haiku', 'weekly')]);

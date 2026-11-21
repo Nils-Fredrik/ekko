@@ -130,7 +130,8 @@ it('shows each market\'s rules in settings, the engine filters and list_brands',
         ->where('measurementPlan.markets.0.engines', sortedRules($standard))
         ->where('measurementPlan.markets.1.plan_mode', 'own')
         ->where('measurementPlan.markets.1.engines', $own)
-        ->where('markets.0.plan_mode', 'inherit'));
+        ->where('markets.0.plan_mode', 'inherit')
+        ->missing('engines'));
 
     $engines = inTenant($tenant, fn () => array_column(AnalysisFilters::options($w['brand'], 'brands.show')['engine'], 'value'));
     expect($engines)->toBe(['chatgpt_api', 'claude_haiku', 'claude_sonnet']);

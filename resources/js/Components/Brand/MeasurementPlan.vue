@@ -117,6 +117,19 @@ const unplacedErrors = computed(() =>
         .join(' '),
 );
 
+function apply(plan) {
+    standardRules.value = normalizePlan(plan.standard, plan.options.engines, plan.options.max_repetitions);
+    markets.value = plan.markets.map((market) => ({
+        id: market.id,
+        country: market.country,
+        language: market.language,
+        location_label: market.location_label,
+        is_active: market.is_active,
+        plan_mode: market.plan_mode,
+        rules: normalizePlan(market.engines, plan.options.engines, plan.options.max_repetitions),
+    }));
+}
+
 function save() {
     if (!canSave.value) {
         return;
@@ -125,7 +138,12 @@ function save() {
     fieldErrors.value = {};
     router.put(route('brands.plan.update', props.brandId), payload.value, {
         preserveScroll: true,
-        preserveState: (page) => Object.keys(page.props.errors).length > 0,
+        preserveState: true,
+        onSuccess: (page) => {
+            if (page.props.measurementPlan) {
+                apply(page.props.measurementPlan);
+            }
+        },
         onError: (errors) => {
             fieldErrors.value = errors;
         },
