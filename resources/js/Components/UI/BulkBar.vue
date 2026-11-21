@@ -13,13 +13,19 @@ const emit = defineEmits(['clear']);
 </script>
 
 <template>
+    <!-- The live region is always in the page (outside the layout), so the first «1 valgt» is read too. -->
+    <Teleport to="body">
+        <p class="sr-only" aria-live="polite">
+            {{ count > 0 ? transChoice('workspace.bulk.selected', count, { n: formatNumber(count) }) : '' }}
+        </p>
+    </Teleport>
     <div
         v-if="count > 0"
         role="toolbar"
         :aria-label="$t('workspace.bulk.label')"
         class="sticky bottom-4 z-20 flex flex-wrap items-center gap-3 rounded-[14px] border border-line bg-row-hover px-4 py-2.5 text-sm text-shell-text shadow-pop"
     >
-        <span class="font-medium tabular-nums" aria-live="polite">
+        <span class="font-medium tabular-nums" aria-hidden="true">
             {{ transChoice('workspace.bulk.selected', count, { n: formatNumber(count) }) }}
         </span>
         <div class="flex flex-1 flex-wrap items-center gap-2">

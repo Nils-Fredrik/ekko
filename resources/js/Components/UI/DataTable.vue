@@ -80,6 +80,12 @@ const features = tableFeatures({
 });
 const sorting = ref([...props.sort]);
 const hidden = ref(readHiddenColumns(props.columnStoreKey));
+watch(
+    () => props.columnStoreKey,
+    (key) => {
+        hidden.value = readHiddenColumns(key);
+    },
+);
 const columnDefs = computed(() =>
     props.columns.map((column) => ({
         id: column.id,
@@ -559,7 +565,7 @@ const showEmpty = computed(() => !props.loading && props.rows.length === 0 && pr
                                 { gridTemplateColumns: template },
                                 virtual ? { transform: `translateY(${entry.start}px)` } : {},
                             ]"
-                            @focus="focusPosition = rowPositions.get(entry.index)"
+                            @focusin="focusPosition = rowPositions.get(entry.index)"
                         >
                             <div v-if="selectable" role="gridcell" class="flex items-center" :class="cellPadding">
                                 <input
