@@ -6,14 +6,16 @@ use App\Metrics\Formulas;
 use App\Metrics\Metric;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
+use App\Models\Competitor;
 
 /**
  * The data of the competitors page (docs/ui-forbedring.md 7.4, U07): the rank of the brand and its active
  * competitors over time, a table with visibility, change against the comparison period, rank and sentiment per
  * brand, and the sentiment distribution. Every figure comes from MetricsService; this class only joins them.
  *
- * Competitors keep their fixed color position (`color_index`): the active competitors sorted by name, the same
- * order the dashboard (U05) and the sources page (U08) use, so a competitor has the same color on every page.
+ * Competitors keep their fixed color place (`color_index`, Competitor::colorIndexes): the active competitors in
+ * position order, the same order the dashboard (U05), the sources page (U08) and reports use, so a competitor has
+ * the same color on every page (docs/ux-arbeidsflate.md 6.3).
  */
 final class CompetitorPage
 {
@@ -59,9 +61,10 @@ final class CompetitorPage
         $ranks = self::ranks($current);
         $previousRanks = self::ranks($before->values()->all());
         $sentiments = collect($sentiment['rows'] ?? [])->keyBy('key');
+        $colors = Competitor::colorIndexes($filter->brandId);
 
         $rows = [];
-        foreach ($current as $index => $part) {
+        foreach ($current as $part) {
             $own = $part['id'] === 'brand';
             $visibility = new Metric(Formulas::ratio($part['mentions'], $part['n']), $part['n']);
             $old = $before->get($part['id']);
@@ -73,7 +76,7 @@ final class CompetitorPage
                 'id' => $own ? null : (int) $part['id'],
                 'name' => $part['name'],
                 'own' => $own,
-                'color_index' => $own ? null : $index - 1,
+                'color_index' => $own ? null : ($colors[(int) $part['id']] ?? null),
                 'visibility' => $visibility->toArray(),
                 'previous_visibility' => $previousVisibility->toArray(),
                 'change' => $visibility->value === null || $previousVisibility->value === null

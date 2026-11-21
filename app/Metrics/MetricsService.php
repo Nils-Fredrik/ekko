@@ -2,6 +2,7 @@
 
 namespace App\Metrics;
 
+use App\Detection\EntityName;
 use App\Models\AggDaily;
 use App\Models\AggSourceDaily;
 use App\Models\AiReferralDaily;
@@ -76,7 +77,7 @@ final class MetricsService
     public function dashboard(MetricsFilter $filter): array
     {
         $competitors = Competitor::query()
-            ->where('brand_id', $filter->brandId)->where('is_active', true)->orderBy('name')->get(['id', 'name']);
+            ->where('brand_id', $filter->brandId)->where('is_active', true)->inColorOrder()->get(['id', 'name']);
         $query = $this->dailyQuery($filter)->toBase()->selectRaw(
             'agg_daily.date as period, agg_daily.engine_key, grouping(agg_daily.date, agg_daily.engine_key) as grouping_key, '.$this->counterColumns(),
         );
@@ -196,7 +197,7 @@ final class MetricsService
     {
         $period = $this->graphPeriod($grain);
         $competitors = Competitor::query()->where('brand_id', $filter->brandId)->where('is_active', true)
-            ->orderBy('name')->orderBy('id')->get(['id', 'name']);
+            ->inColorOrder()->get(['id', 'name']);
         $query = $this->dailyQuery($filter)->toBase()->selectRaw(
             "{$period} as period, sum(agg_daily.responses) as responses, sum(agg_daily.brand_mentioned) as brand_mentioned",
         );
@@ -348,7 +349,7 @@ final class MetricsService
      */
     public function competitorComparison(MetricsFilter $filter): array
     {
-        $competitors = Competitor::query()->where('brand_id', $filter->brandId)->where('is_active', true)->orderBy('name')->pluck('name', 'id');
+        $competitors = Competitor::query()->where('brand_id', $filter->brandId)->where('is_active', true)->inColorOrder()->pluck('name', 'id');
         if ($competitors->isEmpty()) {
             return [];
         }
@@ -552,7 +553,7 @@ final class MetricsService
         $competitors = Competitor::query()
             ->where('brand_id', $filter->brandId)
             ->where('is_active', true)
-            ->orderBy('name')
+            ->inColorOrder()
             ->get(['id', 'name']);
 
         // Scan the filtered daily rows once, rather than once per competitor and counter.
@@ -709,10 +710,11 @@ final class MetricsService
 
     /**
      * Brands the detection could not place (mentions of entity type unknown) in the answers of the filter's
-     * markets and period: the share of answers mentioning each, with n = the answers in those markets. Names
-     * are compared case-insensitively. Only answers of runs with status extracted count. Largest share first.
+     * markets and period, grouped by {@see EntityName::key()} (ADR 0043): spellings that share a key are one
+     * name. The share is the distinct answers that mention any variant, with n = the answers in those markets.
+     * Only answers of runs with status extracted count. Most answers first.
      *
-     * @return list<array{key: string, name: string, metric: Metric}>
+     * @return list<array{key: string, name: string, variants: list<string>, answers: int, metric: Metric, markets: list<int>, engines: list<string>, last_seen: string}>
      */
     public function unknownBrands(MetricsFilter $filter): array
     {
@@ -737,6 +739,7 @@ final class MetricsService
             return [];
         }
 
+        // One row per spelling (trimmed), with its answers, markets and engines; the key needs PHP (NFKC).
         $rows = $scope(Mention::query()
             ->join('responses', 'responses.id', '=', 'mentions.response_id')
             ->join('runs', 'runs.id', '=', 'responses.run_id')
@@ -744,16 +747,61 @@ final class MetricsService
             ->where('mentions.entity_type', 'unknown')
             ->whereNotNull('mentions.surface_name')
             ->toBase()
-            ->selectRaw('lower(trim(mentions.surface_name)) as name_key, min(trim(mentions.surface_name)) as name, count(distinct mentions.response_id) as answers')
-            ->groupByRaw('lower(trim(mentions.surface_name))')
-            ->orderByDesc('answers')->orderBy('name_key')
+            ->selectRaw('trim(mentions.surface_name) as surface, count(*) as mentions, json_agg(distinct mentions.response_id) as response_ids, '
+                .'json_agg(distinct prompts.market_id) as market_ids, json_agg(distinct responses.engine_key) as engine_keys, max(responses.collected_at) as last_seen')
+            ->groupByRaw('trim(mentions.surface_name)')
             ->get();
 
-        return $rows->filter(fn (object $row): bool => (string) $row->name_key !== '')->map(fn (object $row): array => [
-            'key' => (string) $row->name_key,
-            'name' => (string) $row->name,
-            'metric' => new Metric(Formulas::ratio($row->answers, $answers), $answers),
-        ])->values()->all();
+        /** @var array<string, array{spellings: array<string, int>, responses: array<int, true>, markets: array<int, true>, engines: array<string, true>, last_seen: string}> $groups */
+        $groups = [];
+        foreach ($rows as $row) {
+            $surface = (string) $row->surface;
+            $key = EntityName::key($surface);
+            if ($key === '') {
+                continue;
+            }
+            $group = $groups[$key] ?? ['spellings' => [], 'responses' => [], 'markets' => [], 'engines' => [], 'last_seen' => ''];
+            $group['spellings'][$surface] = ($group['spellings'][$surface] ?? 0) + (int) $row->mentions;
+            foreach ((array) json_decode((string) $row->response_ids, true) as $id) {
+                $group['responses'][(int) $id] = true;
+            }
+            foreach ((array) json_decode((string) $row->market_ids, true) as $id) {
+                $group['markets'][(int) $id] = true;
+            }
+            foreach ((array) json_decode((string) $row->engine_keys, true) as $engine) {
+                $group['engines'][(string) $engine] = true;
+            }
+            $seen = CarbonImmutable::parse((string) $row->last_seen)->utc()->toIso8601String();
+            $group['last_seen'] = max($group['last_seen'], $seen);
+            $groups[$key] = $group;
+        }
+
+        $result = [];
+        foreach ($groups as $key => $group) {
+            // The most used spelling names the group; a tie goes to the first in sort order, so it is stable.
+            $spellings = $group['spellings'];
+            uksort($spellings, fn (string $a, string $b): int => [$spellings[$b], $a] <=> [$spellings[$a], $b]);
+            $variants = array_map('strval', array_keys($spellings));
+            $count = count($group['responses']);
+            $markets = array_map('intval', array_keys($group['markets']));
+            $engines = array_map('strval', array_keys($group['engines']));
+            sort($markets);
+            sort($engines);
+
+            $result[] = [
+                'key' => (string) $key,
+                'name' => $variants[0],
+                'variants' => $variants,
+                'answers' => $count,
+                'metric' => new Metric(Formulas::ratio($count, $answers), $answers),
+                'markets' => $markets,
+                'engines' => $engines,
+                'last_seen' => $group['last_seen'],
+            ];
+        }
+        usort($result, fn (array $a, array $b): int => [$b['answers'], $a['key']] <=> [$a['answers'], $b['key']]);
+
+        return $result;
     }
 
     /**
@@ -826,18 +874,19 @@ final class MetricsService
     }
 
     /**
-     * The answers behind one unknown brand of {@see unknownBrands()} (key = lower-case trimmed name): how many
+     * The answers behind one unknown brand of {@see unknownBrands()} (its variants, the trimmed spellings): how many
      * answers name it, how many of those do not name the brand, and their prompts and engines.
      *
+     * @param  list<string>  $variants
      * @return array{answers: int, without_brand: int, prompts: array<int, int>, engines: list<string>}
      */
-    public function unknownBrandDetail(MetricsFilter $filter, string $key): array
+    public function unknownBrandDetail(MetricsFilter $filter, array $variants): array
     {
         $naming = $this->extractedAnswers($filter)
             ->whereExists(fn ($q) => $q->selectRaw('1')->from('mentions')
                 ->whereColumn('mentions.response_id', 'responses.id')
                 ->where('mentions.entity_type', 'unknown')
-                ->whereRaw('lower(trim(mentions.surface_name)) = ?', [$key]));
+                ->whereIn(DB::raw('trim(mentions.surface_name)'), $variants === [] ? [''] : $variants));
 
         return [
             'answers' => (int) (clone $naming)->count('responses.id'),

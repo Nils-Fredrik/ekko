@@ -378,6 +378,33 @@ return [
     ],
 
     /*
+    | Unknown brands and the decisions on them (docs/ux-arbeidsflate.md 6.3, ADR 0043). queue_days: the window of
+    | the queue; min_answers: a name needs this many answers to be shown; reclassify_days: how far back a decision
+    | moves old mentions to the brand or competitor; undo_hours: how long a decision can be undone.
+    | The suggestions are rules, not a model. known_platforms are suggested as another actor; a name that contains
+    | one of generic_words and is never written with a capital letter is suggested as ignored. Both lists are
+    | compared through EntityName::key.
+    */
+    'entities' => [
+        'queue_days' => 30,
+        'min_answers' => 2,
+        'reclassify_days' => 90,
+        'undo_hours' => 24,
+        'known_platforms' => [
+            'Shopify', 'WooCommerce', 'WordPress', 'Magento', 'Adobe Commerce', 'BigCommerce', 'Wix', 'Squarespace',
+            'Klarna', 'Vipps', 'MobilePay', 'Stripe', 'PayPal', 'Adyen', 'Nets', 'Bring', 'PostNord', 'Posten', 'DHL',
+            'Helthjem', 'Google', 'Meta', 'Facebook', 'Instagram', 'TikTok', 'Amazon', 'Microsoft', 'SAP', 'Visma',
+            'HubSpot',
+        ],
+        'generic_words' => [
+            'byrå', 'byråer', 'nettbutikk', 'nettbutikker', 'leverandør', 'leverandører', 'butikk', 'butikker',
+            'firma', 'selskap', 'konsulent', 'konsulenter', 'byra', 'webbyrå', 'reklamebyrå', 'butik', 'leverantör',
+            'företag', 'agency', 'agencies', 'store', 'shop', 'supplier', 'suppliers', 'company', 'companies',
+            'provider', 'providers', 'retailer', 'retailers', 'vendor', 'vendors',
+        ],
+    ],
+
+    /*
     | Actions (docs/spec.md 11.3, ADR 0034). ekko:generate-actions runs weekly; figures are read for the latest
     | window_days tenant-local days before today. Thresholds can change without a code change.
     */

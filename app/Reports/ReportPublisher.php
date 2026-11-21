@@ -8,6 +8,7 @@ use App\Metrics\Metric;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Metrics\MetricsSummary;
+use App\Models\Competitor;
 use App\Models\Prompt;
 use App\Models\Report;
 use App\Models\ReportSchedule;
@@ -264,11 +265,12 @@ final class ReportPublisher
     }
 
     /**
-     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, points: list<float|null>, lows: list<bool>, ns: list<int>, ranks: list<int|null>}>}
+     * @return array{periods: list<string>, lines: list<array{name: string, own: bool, color_index: int|null, points: list<float|null>, lows: list<bool>, ns: list<int>, ranks: list<int|null>}>}
      */
     private function competitorSeries(MetricsFilter $filter, string $brand): array
     {
         $series = $this->metrics->competitorVisibilitySeries($filter);
+        $colors = Competitor::colorIndexes($filter->brandId);
         $lines = [];
         foreach ($series as $point) {
             foreach ($point['entities'] as $entity) {
@@ -276,6 +278,8 @@ final class ReportPublisher
                 $lines[$id] ??= [
                     'name' => $id === 'brand' ? $brand : (string) $entity['name'],
                     'own' => $id === 'brand',
+                    // The competitor's fixed color place, the same as in the workspace (docs/ux-arbeidsflate.md 6.3).
+                    'color_index' => $id === 'brand' ? null : ($colors[(int) $id] ?? null),
                     'points' => [],
                     'lows' => [],
                     'ns' => [],
