@@ -280,6 +280,27 @@ test('a queued save that succeeds after its row is opened again shows its value'
     assert.equal(values.name, 'X');
 });
 
+test('an old save that succeeds while the reopened row is saving becomes the value to roll back to', async () => {
+    const { calls, request } = queuedRequest();
+    const values = reactive({ name: 'A', row: 1 });
+    const autosave = createAutosave({ url: () => `/rows/${values.row}`, values, request, ...fakeTimers() });
+
+    autosave.save('name', 'B');
+    autosave.reset();
+    values.row = 2;
+    autosave.reset();
+    values.row = 1;
+    values.name = 'A';
+    // C goes into the same lane as B, so it waits for B.
+    const c = autosave.save('name', 'C');
+    calls[0].answer.resolve();
+    await settle();
+    assert.equal(values.name, 'C');
+    calls[1].answer.reject(new SaveError({ name: 'C er ugyldig' }));
+    assert.equal(await c, false);
+    assert.equal(values.name, 'B');
+});
+
 test('reopening the same row keeps its saves in one lane, in order', async () => {
     const { calls, request } = queuedRequest();
     const values = reactive({ name: 'A' });

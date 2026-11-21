@@ -137,6 +137,27 @@ test('hidden columns are remembered per table, and a failing storage is ignored'
     assert.deepEqual(readHiddenColumns('', storage), []);
 });
 
+test('a browser that blocks localStorage itself still gives a table without remembered columns', () => {
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', {
+        configurable: true,
+        get() {
+            throw new Error('SecurityError');
+        },
+    });
+    try {
+        assert.deepEqual(readHiddenColumns('setup.prompts'), []);
+        assert.doesNotThrow(() => writeHiddenColumns('setup.prompts', ['market']));
+        assert.deepEqual(readHiddenColumns(''), []);
+    } finally {
+        if (original) {
+            Object.defineProperty(globalThis, 'localStorage', original);
+        } else {
+            delete globalThis.localStorage;
+        }
+    }
+});
+
 test('the grid has a checkbox track when rows can be selected', () => {
     const columns = [{ id: 'a', width: '2fr' }, { id: 'b' }];
     assert.equal(gridTemplate(columns, false), '2fr minmax(0, 1fr)');

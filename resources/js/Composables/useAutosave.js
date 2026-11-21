@@ -124,11 +124,14 @@ export function createAutosave({
             await request(method, lane.url, { [field]: value }, { only });
             if (generation[field] === gen) {
                 confirmed[field] = value;
-            } else if (lane.url === toValue(url) && status(field) !== 'saving') {
-                // The row was closed and opened again while this save was on its way: the server
-                // now has this value, so show it (unless the user is already saving a newer one).
+            } else if (lane.url === toValue(url)) {
+                // The row was closed and opened again while this save was on its way: the server now
+                // has this value. It is what a later failure rolls back to, and it is shown unless the
+                // user is already saving a newer one.
                 confirmed[field] = value;
-                values[field] = value;
+                if (status(field) !== 'saving') {
+                    values[field] = value;
+                }
             }
         } catch (error) {
             outcome = error instanceof SaveCancelled ? 'cancelled' : 'failed';

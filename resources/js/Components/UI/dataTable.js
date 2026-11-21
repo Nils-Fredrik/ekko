@@ -179,12 +179,14 @@ export function moveIndex(action, index, count) {
 }
 
 /** Hidden columns remembered for a table. Storage can be missing or throw (private mode). */
-export function readHiddenColumns(key, storage = globalThis.localStorage) {
+export function readHiddenColumns(key, storage) {
     if (!key) {
         return [];
     }
     try {
-        const value = JSON.parse(storage?.getItem(STORE_PREFIX + key) ?? 'null');
+        // Reading localStorage itself can throw when the browser blocks storage.
+        const store = storage ?? globalThis.localStorage;
+        const value = JSON.parse(store?.getItem(STORE_PREFIX + key) ?? 'null');
 
         return Array.isArray(value?.hidden) ? value.hidden.filter((id) => typeof id === 'string') : [];
     } catch {
@@ -192,12 +194,13 @@ export function readHiddenColumns(key, storage = globalThis.localStorage) {
     }
 }
 
-export function writeHiddenColumns(key, hidden, storage = globalThis.localStorage) {
+export function writeHiddenColumns(key, hidden, storage) {
     if (!key) {
         return;
     }
     try {
-        storage?.setItem(STORE_PREFIX + key, JSON.stringify({ hidden: [...hidden] }));
+        const store = storage ?? globalThis.localStorage;
+        store?.setItem(STORE_PREFIX + key, JSON.stringify({ hidden: [...hidden] }));
     } catch {
         // The choice is a convenience; the table works without it.
     }
