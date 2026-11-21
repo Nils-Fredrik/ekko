@@ -251,6 +251,35 @@ test('after reset, saves for the old row still reach it in order, and leave the 
     assert.equal(values.name, 'X');
 });
 
+test('a queued save that succeeds after its row is opened again shows its value', async () => {
+    const { calls, request } = queuedRequest();
+    const values = reactive({ name: 'A', row: 1 });
+    const autosave = createAutosave({ url: () => `/rows/${values.row}`, values, request, ...fakeTimers() });
+
+    autosave.save('name', 'B');
+    autosave.save('name', 'C');
+    autosave.reset();
+    values.row = 2;
+    values.name = 'X';
+    calls[0].answer.resolve();
+    await settle();
+
+    // Back to row 1, which the server has as B while C is on its way.
+    autosave.reset();
+    values.row = 1;
+    values.name = 'B';
+    calls[1].answer.resolve();
+    await settle();
+    assert.equal(values.name, 'C');
+    assert.equal(autosave.errors.name, undefined);
+
+    // A save for another row never changes the open one.
+    values.row = 2;
+    autosave.reset();
+    values.name = 'X';
+    assert.equal(values.name, 'X');
+});
+
 test('reopening the same row keeps its saves in one lane, in order', async () => {
     const { calls, request } = queuedRequest();
     const values = reactive({ name: 'A' });

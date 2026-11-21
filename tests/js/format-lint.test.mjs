@@ -126,8 +126,31 @@ function directives(source) {
 
     return [...source.matchAll(pattern)]
         .map((match) => match[1] ?? match[2] ?? match[3])
-        .filter((text) => text.includes('eslint-disable'));
+        .filter((text) => /\beslint[\s-]/.test(text));
 }
+
+test('a rule configuration comment cannot turn the format rule or its guard off', async () => {
+    const formatOff = '/* eslint ekko/format-through-format-js: "off" */';
+    const found = await messages(
+        `\n${formatOff}\nexport const a = (2.5).toFixed(1);\n`,
+        'resources/js/Pages/Example.js',
+    );
+    assert.ok(found.some((message) => message.ruleId === 'ekko/format-exception-needs-reason'));
+    assert.equal(directiveProblem(formatOff.slice(2, -2)), 'config');
+    // Turning the guard itself off hides its ESLint report too; the file scan below catches it.
+    const guardOff = '/* eslint ekko/format-exception-needs-reason: "off", ekko/format-through-format-js: "off" */';
+    assert.equal(directiveProblem(guardOff.slice(2, -2)), 'config');
+    const template = await messages(
+        '<script setup>\nconst value = 2;\n</script>\n<template>\n    <!-- eslint ekko/format-through-format-js: "off" -->\n    <p>{{ value.toFixed(1) }}</p>\n</template>\n',
+        'resources/js/Pages/Example.vue',
+    );
+    assert.ok(template.some((message) => message.ruleId === 'ekko/format-exception-needs-reason'));
+    assert.equal(directiveProblem(' eslint vue/no-v-html: "off" '), null);
+    assert.deepEqual(
+        directives('/* eslint ekko/format-through-format-js: "off" */\nexport const a = 1;\n').map(directiveProblem),
+        ['config'],
+    );
+});
 
 test('directiveProblem allows only a next-line exception with a reason', () => {
     assert.equal(directiveProblem(' eslint-disable-next-line ekko/format-through-format-js -- why '), null);

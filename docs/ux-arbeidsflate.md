@@ -237,6 +237,8 @@ Hver agent får fire oppgaver.
 
 ### 4.2 Formatering (U18)
 
+Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-for-arbeidsflaten.md`).
+
 `resources/js/format.js` er det eneste stedet tall, valuta, prosent og datoer formateres. Locale kommer fra `useLocale()` og tidssonen fra `teams.timezone`, delt som `tenant.timezone`.
 
 | Funksjon | Eksempel (nb) | Regel |
@@ -262,6 +264,8 @@ Hver agent får fire oppgaver.
   - Datoer i eksisterende sider vises nå i tenantens tidssone og uten år i inneværende år. Referansebildene for sidene med datoer endres derfor.
 
 ### 4.3 Datatabell (U18)
+
+Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-for-arbeidsflaten.md`).
 
 **Komponent:** `Components/UI/DataTable.vue`, bygget på `@tanstack/vue-table` og `@tanstack/vue-virtual`. Den er headless, og all stil kommer fra tokens.
 
@@ -312,6 +316,8 @@ Hver agent får fire oppgaver.
 **Slik U18 er bygget:** `@tanstack/vue-table` 9 (med `columnVisibilityFeature`, `rowSortingFeature` og sortert radmodell) eier kolonner, sortering og kolonnevalg. Utvalg, shift-område, gruppering, tastatur og lagring av kolonner ligger som rene funksjoner i `Components/UI/dataTable.js`, som testene kjører i Node. Tabellen bruker `role="grid"` med ett radfokus i tabulatorrekkefølgen (roving tabindex); avkrysningsboksene og primærcellen nås med `x` og `Enter`. Kolonner har i tillegg `accessor` (felt eller funksjon). Gruppeoverskrifter kan tilpasses med sloten `group`, og søkefeltet legges i sloten `toolbar`, som `/` fokuserer. `j` og `k` virker også når fokus står i detaljpanelet. Komponentsiden er `/dev/components` (`dev.components`) og står i sideregisteret som `components` og `components-drawer` (`?open=3`).
 
 ### 4.4 Detaljpanel (U18)
+
+Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-for-arbeidsflaten.md`).
 
 **Komponent:** `Components/UI/Drawer.vue`, bygget på Headless UI `Dialog` uten modal bakgrunn på desktop (skisse 2 og 3).
 

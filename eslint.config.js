@@ -114,8 +114,12 @@ const formatThroughFormatJs = {
 const FORMAT_RULE = 'ekko/format-through-format-js';
 const GUARD_RULE = 'ekko/format-exception-needs-reason';
 
-/** null when a comment is fine, otherwise 'unlimited', 'guard' or 'form'. */
+/** null when a comment is fine, otherwise 'config', 'unlimited', 'guard' or 'form'. */
 export function directiveProblem(text) {
+    // /* eslint ekko/format-through-format-js: "off" */ turns a rule off for the whole file.
+    if (/^\s*eslint\s/.test(text) && (text.includes(FORMAT_RULE) || text.includes(GUARD_RULE))) {
+        return 'config';
+    }
     const directive = /^\s*eslint-disable(-next-line|-line)?(?:\s+([^]*?))?\s*$/.exec(text);
     if (!directive) {
         return null;
@@ -142,6 +146,7 @@ const formatExceptionNeedsReason = {
             form: `Line {{line}}: an exception to ${FORMAT_RULE} must be "eslint-disable-next-line ${FORMAT_RULE} -- reason".`,
             unlimited: `Line {{line}}: a disable comment without rule names also turns off ${FORMAT_RULE}. Name the rules.`,
             guard: `Line {{line}}: ${GUARD_RULE} cannot be turned off.`,
+            config: `Line {{line}}: ${FORMAT_RULE} and ${GUARD_RULE} cannot be configured in a comment.`,
         },
     },
     create(context) {

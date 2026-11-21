@@ -65,7 +65,8 @@ export function inertiaRequest(method, url, data, { only = [] } = {}, client = r
  * row and field (URL and field) has its own lane, so different fields and rows save at the same
  * time. A save resolves with the outcome of the last value sent for its field, once nothing more
  * waits. reset() (another row in the panel) detaches the screen from the old row: its waiting
- * values are still sent to the old row's URL, in order, but no longer change the view.
+ * values are still sent to the old row's URL, in order, and only change the view again if that row
+ * is open when they succeed.
  */
 export function createAutosave({
     url,
@@ -123,6 +124,11 @@ export function createAutosave({
             await request(method, lane.url, { [field]: value }, { only });
             if (generation[field] === gen) {
                 confirmed[field] = value;
+            } else if (lane.url === toValue(url) && status(field) !== 'saving') {
+                // The row was closed and opened again while this save was on its way: the server
+                // now has this value, so show it (unless the user is already saving a newer one).
+                confirmed[field] = value;
+                values[field] = value;
             }
         } catch (error) {
             outcome = error instanceof SaveCancelled ? 'cancelled' : 'failed';

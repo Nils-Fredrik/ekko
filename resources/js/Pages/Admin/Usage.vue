@@ -10,7 +10,8 @@ defineProps({
     engines: Array,
 });
 function usd(value) {
-    return formatDecimal(value, 2);
+    // No cost yet is 0,00 here, as before format.js.
+    return formatDecimal(value ?? 0, 2);
 }
 </script>
 
