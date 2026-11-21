@@ -8,6 +8,7 @@ use App\Models\AggDaily;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Engine;
+use App\Models\EntityDecision;
 use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\UsageEvent;
@@ -226,6 +227,15 @@ test('new_competitor does not fire at exactly the threshold', function () {
 
 test('new_competitor needs enough answers in the market', function () {
     answersWithUnknown($this->w, 29, 20);
+
+    expect(evaluated())->toBe([]);
+});
+
+test('new_competitor skips a name with a decision and a name the brand knows under another spelling', function () {
+    answersWithUnknown($this->w, 30, 6);
+    answersWithUnknown($this->w, 30, 6, 'Nordlys AS');
+    EntityDecision::query()->create(['brand_id' => $this->w->brand->id, 'name_key' => 'nordisk bønne', 'display_name' => 'Nordisk Bønne',
+        'variants' => ['Nordisk Bønne'], 'decision' => 'other', 'alias_ids' => [], 'decided_at' => now()]);
 
     expect(evaluated())->toBe([]);
 });

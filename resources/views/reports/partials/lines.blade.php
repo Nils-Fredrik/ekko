@@ -57,7 +57,7 @@
                 if ($segment !== []) {
                     $segments[] = $segment;
                 }
-                $color = ($line['own'] ?? false) ? '#b62b1b' : $colors[$index % count($colors)];
+                $color = ($line['own'] ?? false) ? '#b62b1b' : $colors[($line['color_index'] ?? $index) % count($colors)];
             @endphp
             @foreach ($segments as $segment)
                 @if (count($segment) > 1)
@@ -115,7 +115,7 @@
                 if ($segment !== []) {
                     $segments[] = $segment;
                 }
-                $color = ($line['own'] ?? false) ? '#b62b1b' : $colors[$index % count($colors)];
+                $color = ($line['own'] ?? false) ? '#b62b1b' : $colors[($line['color_index'] ?? $index) % count($colors)];
             @endphp
             @foreach ($segments as $segment)
                 @if (count($segment) > 1)

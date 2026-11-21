@@ -12,19 +12,18 @@ use App\Metrics\Formulas;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Models\AlertRule;
-use App\Models\BrandAlias;
-use App\Models\Competitor;
-use App\Models\CompetitorAlias;
+use App\Prompts\EntityQueue;
 
 /**
  * new_competitor (docs/spec.md 11.1 and 11.3): an unknown brand in more than the threshold of the answers in a
  * market over the latest seven days, with at least as many answers as the alert needs. The threshold is the
- * brand's active new_competitor alert rule, else the alert default. The brand's own name and aliases and its
- * competitors and their aliases (added after the answers were extracted) are skipped.
+ * brand's active new_competitor alert rule, else the alert default. Names are read through EntityQueue: the brand's
+ * own name and aliases and its competitors and their aliases (added after the answers were extracted) are skipped,
+ * and so are names with a decision (docs/ux-arbeidsflate.md 6.3).
  */
 final readonly class NewCompetitorSource implements ActionSource
 {
-    public function __construct(private MetricsService $metrics) {}
+    public function __construct(private MetricsService $metrics, private EntityQueue $queue) {}
 
     public function type(): ActionType
     {
@@ -40,14 +39,6 @@ final readonly class NewCompetitorSource implements ActionSource
         $rule = AlertRule::query()->where('type', AlertType::NewCompetitor->value)->where('brand_id', $brand->id)->where('is_active', true)->whereNotNull('threshold')->first();
         $threshold = $rule !== null ? (float) $rule->threshold : (float) config('ekko.actions.new_competitor.default_threshold_percent');
 
-        // Names added after the answers were extracted stay unknown in old mentions: the brand's own name and
-        // aliases are not a new competitor, nor are its competitors and their aliases.
-        $known = collect([$brand->name])
-            ->merge(BrandAlias::query()->where('brand_id', $brand->id)->pluck('alias'))
-            ->merge(Competitor::query()->where('brand_id', $brand->id)->pluck('name'))
-            ->merge(CompetitorAlias::query()->whereIn('competitor_id', Competitor::query()->where('brand_id', $brand->id)->select('id'))->pluck('alias'))
-            ->map(fn ($name): string => mb_strtolower(trim((string) $name)))->all();
-
         $evaluated = [];
         $candidates = [];
         foreach ($context->markets as $market) {
@@ -57,13 +48,12 @@ final readonly class NewCompetitorSource implements ActionSource
             }
             $evaluated[] = $market->id;
 
-            foreach ($this->metrics->unknownBrands($filter) as $unknown) {
+            foreach ($this->queue->unknown($brand, $filter) as $unknown) {
                 $metric = $unknown['metric'];
-                if ($metric->value === null || $metric->n < $minimum || round($metric->value * 100, 6) <= $threshold
-                    || in_array($unknown['key'], $known, true)) {
+                if ($metric->value === null || $metric->n < $minimum || round($metric->value * 100, 6) <= $threshold) {
                     continue;
                 }
-                $detail = $this->metrics->unknownBrandDetail($filter, $unknown['key']);
+                $detail = $this->metrics->unknownBrandDetail($filter, $unknown['variants']);
                 $share = (int) round($metric->value * 100);
 
                 $candidates[] = new ActionCandidate(

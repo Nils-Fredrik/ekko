@@ -72,19 +72,28 @@ final class SourcePage
 
         return [
             'sources' => $sources,
-            'competitors' => Competitor::query()
-                ->where('brand_id', $brand->id)->where('is_active', true)
-                ->orderBy('name')->orderBy('id')->get(['id', 'name'])
-                ->values()
-                ->map(fn (Competitor $competitor, int $index): array => [
-                    'id' => (int) $competitor->id, 'name' => (string) $competitor->name, 'color_index' => $index,
-                ])->all(),
+            'competitors' => $this->competitors($brand),
             'types' => [
                 'complete' => $distribution['complete'],
                 'items' => array_map(fn (string $type, int $citations): array => ['key' => $type, 'value' => $citations], array_keys($types), array_values($types)),
             ],
             'gaps' => $this->gaps($brand, $filter),
         ];
+    }
+
+    /**
+     * The active competitors in color order with their fixed color place (Competitor::colorIndexes).
+     *
+     * @return list<array{id: int, name: string, color_index: int}>
+     */
+    private function competitors(Brand $brand): array
+    {
+        $indexes = Competitor::colorIndexes($brand);
+
+        return Competitor::query()->where('brand_id', $brand->id)->where('is_active', true)->inColorOrder()->get(['id', 'name'])
+            ->map(fn (Competitor $competitor): array => [
+                'id' => (int) $competitor->id, 'name' => (string) $competitor->name, 'color_index' => $indexes[(int) $competitor->id] ?? 0,
+            ])->values()->all();
     }
 
     /**

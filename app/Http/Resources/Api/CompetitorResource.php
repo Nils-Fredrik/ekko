@@ -12,6 +12,7 @@ class CompetitorResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
-        return $this->resource->only('id', 'brand_id', 'name', 'is_active');
+        // position: the color order of the workspace (docs/ux-arbeidsflate.md 6.3).
+        return $this->resource->only('id', 'brand_id', 'name', 'is_active', 'position');
     }
 }
