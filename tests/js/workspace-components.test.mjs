@@ -158,6 +158,33 @@ test('overlapping saves that both fail roll back to the last accepted value', as
     assert.equal(autosave.errors.name, 'C er ugyldig');
 });
 
+test('an older save that succeeds after the newest one failed shows the saved value', async () => {
+    const first = deferred();
+    const second = deferred();
+    const answers = [first, second];
+    const values = reactive({ name: 'A' });
+    const autosave = createAutosave({ url: '/x', values, request: () => answers.shift().promise, ...fakeTimers() });
+
+    const one = autosave.save('name', 'B');
+    const two = autosave.save('name', 'C');
+    second.reject(new SaveError({ name: 'C er ugyldig' }));
+    await two;
+    assert.equal(values.name, 'A');
+    first.resolve();
+    await one;
+    assert.equal(values.name, 'B');
+    assert.equal(autosave.errors.name, 'C er ugyldig');
+
+    // A new failure now rolls back to B, the value the server has.
+    const later = deferred();
+    answers.push(later);
+    const three = autosave.save('name', 'D');
+    assert.equal(values.name, 'D');
+    later.reject(new SaveError({ name: 'D er ugyldig' }));
+    await three;
+    assert.equal(values.name, 'B');
+});
+
 test('after an accepted save, a later failure rolls back to the accepted value', async () => {
     const first = deferred();
     const second = deferred();

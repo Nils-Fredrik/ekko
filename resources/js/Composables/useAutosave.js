@@ -77,6 +77,8 @@ export function createAutosave({
     // rolls back to it, never to a value that is still waiting for its answer.
     const confirmed = {};
     const confirmedToken = {};
+    // The save that last rolled a field back. An older save that succeeds after it moves the view on.
+    const rolledBack = {};
 
     function status(field) {
         return statuses[field] ?? 'idle';
@@ -102,6 +104,10 @@ export function createAutosave({
             if (token > confirmedToken[field]) {
                 confirmed[field] = value;
                 confirmedToken[field] = token;
+                // A→B→C where C failed first and B succeeded after: the server has B, so show B.
+                if (rolledBack[field] === latest[field]) {
+                    values[field] = value;
+                }
             }
             if (latest[field] !== token) {
                 return true;
@@ -125,6 +131,7 @@ export function createAutosave({
                 return false;
             }
             values[field] = confirmed[field];
+            rolledBack[field] = token;
             statuses[field] = 'error';
             const messages = error instanceof SaveError ? error.errors : {};
             const message = messages[field] ?? Object.values(messages)[0];
@@ -158,6 +165,7 @@ export function createAutosave({
         for (const field of Object.keys(confirmed)) {
             delete confirmed[field];
             delete confirmedToken[field];
+            delete rolledBack[field];
         }
     }
 
