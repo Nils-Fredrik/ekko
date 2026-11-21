@@ -4,6 +4,8 @@ import { test, expect } from '@playwright/test';
 // themselves are tested in tests/js/data-table.test.mjs; this checks the wiring to the DOM, such as
 // the keyboard following a click inside a row.
 
+// One login for the whole file, with the filter user: login is limited to five per minute per user,
+// and the smoke user is already used by five other logins in this run.
 test.describe.configure({ mode: 'serial' });
 let page;
 const errors = [];
@@ -12,7 +14,7 @@ test.beforeAll(async ({ browser }) => {
     page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('/login');
-    await page.locator('#email').fill(process.env.SMOKE_EMAIL);
+    await page.locator('#email').fill(process.env.FILTER_EMAIL);
     await page.locator('#password').fill(process.env.SMOKE_PASSWORD);
     await page.locator('button[type="submit"]').click();
     await expect(page).toHaveURL(/\/dashboard$/);
