@@ -73,3 +73,68 @@ test('unknown and stale Codex data cannot be misclassified as a factual rejectio
         assert.equal(codexReviewState(comments, sha, request), 'pending');
     assert.equal(codexReviewState([summary({ has_any_findings: true }), receipt], sha, request), 'changes_requested');
 });
+
+test('resolved Codex findings on earlier commits do not block a clean result on the current head', () => {
+    const old = 'c'.repeat(40);
+    const clean = { ...receipt, body: receipt.body.replace('\n', "\n\nCodex Review: Didn't find any major issues. Swish!\n\n") };
+    const findings = (commit, submitted_at = '2025-12-31T00:00:00Z') => ({
+        user: { id: 199175422 },
+        commit_id: commit,
+        submitted_at,
+        state: 'COMMENTED',
+        body: '<!-- codex-review-receipt:v1 -->\n### Codex Review\n**Reviewed commit:** `' + commit.slice(0, 10) + '`',
+    });
+    const resolved = summary({ has_any_findings: true, has_unresolved_findings: false });
+
+    // Findings on an earlier commit, all resolved, and a fresh clean receipt on this head.
+    assert.equal(codexReviewState([resolved, clean], sha, request, [findings(old)]), 'approved');
+    assert.equal(codexReviewState([resolved, clean], sha, request), 'approved');
+
+    // The clean result must be fresh, on this head, from the Codex bot, and in the clean format.
+    for (const other of [
+        { ...clean, created_at: request },
+        { ...clean, body: clean.body.replace(sha, old) },
+        { ...clean, user: { id: 1 } },
+        receipt,
+        { ...clean, body: clean.body.replace("Didn't find any major issues", 'Found some issues') },
+    ])
+        assert.equal(codexReviewState([resolved, other, receipt], sha, request, [findings(old)]), 'changes_requested');
+
+    // Unresolved findings still block, also with a clean receipt on the head.
+    assert.equal(
+        codexReviewState([summary({ has_any_findings: true, has_unresolved_findings: true }), clean], sha, request, [
+            findings(old),
+        ]),
+        'changes_requested',
+    );
+});
+
+test('Codex findings on the current head block even when their threads are resolved', () => {
+    const clean = { ...receipt, body: receipt.body.replace('\n', "\n\nCodex Review: Didn't find any major issues.\n\n") };
+    const resolved = summary({ has_any_findings: true, has_unresolved_findings: false });
+    const onHead = {
+        user: { id: 199175422 },
+        commit_id: sha,
+        submitted_at: '2026-01-01T00:00:02Z',
+        state: 'COMMENTED',
+        body: '<!-- codex-review-receipt:v1 -->\n**Reviewed commit:** `' + sha.slice(0, 10) + '`',
+    };
+    // Fresh findings review on the head is its own receipt.
+    assert.equal(codexReviewState([resolved], sha, request, [onHead]), 'changes_requested');
+    // A later clean re-run on the same head does not clear findings posted on it, even old ones.
+    assert.equal(codexReviewState([resolved, clean], sha, request, [onHead]), 'changes_requested');
+    assert.equal(
+        codexReviewState([resolved, clean], sha, request, [{ ...onHead, submitted_at: '2025-12-31T00:00:00Z' }]),
+        'changes_requested',
+    );
+    // The head is matched by the review's commit or by its reviewed-commit line.
+    assert.equal(codexReviewState([resolved, clean], sha, request, [{ ...onHead, commit_id: undefined }]), 'changes_requested');
+    assert.equal(
+        codexReviewState([resolved, clean], sha, request, [{ ...onHead, body: 'Reply without receipt' }]),
+        'changes_requested',
+    );
+    // Also when the summary claims there never were any findings.
+    assert.equal(codexReviewState([summary(), clean], sha, request, [onHead]), 'changes_requested');
+    // Reviews from other accounts are not Codex findings.
+    assert.equal(codexReviewState([resolved, clean], sha, request, [{ ...onHead, user: { id: 1 } }]), 'approved');
+});
