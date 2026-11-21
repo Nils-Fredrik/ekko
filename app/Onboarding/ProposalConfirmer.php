@@ -2,6 +2,7 @@
 
 namespace App\Onboarding;
 
+use App\Brands\MarketLibrary;
 use App\FactCheck\BrandFactManager;
 use App\Integrations\BrandIntegrations;
 use App\MeasurementPlan\MeasurementPlans;
@@ -72,10 +73,7 @@ final class ProposalConfirmer
             $brand = $analysis->kind === Analysis::MARKET
                 ? $this->existingBrand($analysis)
                 : $this->createBrand($plan, $data);
-            if ($brand->markets()->where('country', strtoupper((string) $data['country']))->where('language', $data['language'])->exists()) {
-                throw ValidationException::withMessages(['country' => __('onboarding.errors.market_exists')]);
-            }
-            $this->guardMarketLimit($brand, $plan);
+            MarketLibrary::ensureAvailable($brand, $data['country'], $data['language'], $plan?->max_markets_per_brand);
             $market = $brand->markets()->create([
                 'country' => strtoupper((string) $data['country']),
                 'language' => (string) $data['language'],
@@ -152,13 +150,6 @@ final class ProposalConfirmer
         }
 
         return $brand;
-    }
-
-    private function guardMarketLimit(Brand $brand, ?Plan $plan): void
-    {
-        if ($plan instanceof Plan && $plan->max_markets_per_brand !== null && $brand->markets()->count() >= $plan->max_markets_per_brand) {
-            throw ValidationException::withMessages(['country' => __('onboarding.errors.market_limit')]);
-        }
     }
 
     /**

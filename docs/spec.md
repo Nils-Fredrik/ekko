@@ -939,7 +939,7 @@ Arbeidsflaten (U16–U27, [ux-arbeidsflate.md](ux-arbeidsflate.md)) endrer siden
 | `Pages/Brands/Crawlers.vue` | AI-robottreff og AI-trafikk |
 | `Pages/Brands/Actions.vue`, `Pages/Brands/ActionShow.vue` | Tiltaksliste med filtre, detalj, egne tiltak og status (11.3, T44) |
 | `Pages/Brands/Facts.vue` | Fakta (legge til, godkjenne, slå av, endre, slette) og påstander med kilder (11.6, T49) |
-| `Pages/Brands/Settings.vue` | Navn, alias, domener, markeder og integrasjoner. Måleplanen i 7.6 viser merkevarens standard, egne markedsvalg og kostnadsestimat før lagring. |
+| `Pages/Brands/Settings.vue` | Navn, alias, domener, markeder og integrasjoner. Måleplanen i 7.6 viser merkevarens standard, egne markedsvalg og kostnadsestimat før lagring. U23 deler skrivetjenestene med denne siden og gir matchtest og egne ruter i `docs/ux-arbeidsflate.md` 6.4. |
 | `Pages/Onboarding/Wizard.vue` | Veiviseren fra kapittel 13 |
 | `Pages/Alerts/Index.vue` | Varsler med kvittering, og regler per merkevare |
 | `Pages/Reports/Index.vue`, `Pages/Reports/Show.vue` | Rapportplaner, mottakere, historikk, nedlasting og nettversjon av rapportseksjonen for tiltak (T44) |
