@@ -22,7 +22,14 @@ Avvik fra spesifikasjonen registreres på Board og føres inn her i samme PR (AG
 | 4 · Markeder og måleplan | `docs/ux-skisser/Plan.dc.html` | 5.4 |
 | 5 · Innboks | `docs/ux-skisser/Inbox.dc.html` | 5.6 |
 
-Skissene ligger også som klikkbart lerret i Claude Design: [Ekko arbeidsflate – skisser](https://claude.ai/artifact/MnGLCPDupdsqNmDGD3CVpv). Lenken er privat. Agentene bruker kildefilene i repoet.
+Skissene ligger også som klikkbart lerret i Claude Design: [Ekko arbeidsflate – skisser](https://claude.ai/artifact/MnGLCPDupdsqNmDGD3CVpv). Lenken er privat. Agentene bruker filene i repoet:
+
+- **Bilder:** `docs/ux-skisser/png/<navn>.png` viser hver skisse i 1440 px bredde, mørkt tema.
+- **Klikkbar versjon:** åpne `docs/ux-skisser/<navn>.dc.html` direkte i en nettleser.
+  - `docs/ux-skisser/support.js` er en liten lokal renderer for malene. Den har ikke noe med appen å gjøre.
+  - Skriftene lastes fra `public/fonts`.
+  - Sidemenyen lenker mellom skissene. Skisse 2, 3 og 5 kan klikkes i.
+- **Nye bilder** etter en endring i en skisse lages ved å åpne filen i Playwright (Chromium) med 1440×1080 og ta skjermbilde av hele siden.
 
 **Slik leser du kildefilene**
 
