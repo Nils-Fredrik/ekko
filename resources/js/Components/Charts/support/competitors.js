@@ -21,6 +21,22 @@ function score(item) {
     return weight > 0 ? weighted / weight : (last ?? -1);
 }
 
+function byScore(left, right) {
+    return score(right) - score(left) || String(left.label).localeCompare(String(right.label));
+}
+
+/**
+ * The six competitors with the largest share, in that order.
+ * Both charts use this order so one competitor keeps one colour.
+ */
+export function rankedCompetitorKeys(series, { limit = 6 } = {}) {
+    return series
+        .filter((item) => !item.own)
+        .sort(byScore)
+        .slice(0, limit)
+        .map((item) => item.key);
+}
+
 function combine(items, index, reduce) {
     let total = 0;
     let samples = 0;
@@ -45,17 +61,25 @@ function combine(items, index, reduce) {
     };
 }
 
-export function limitCompetitors(series, { limit = 6, otherLabel, reduce = 'sum' } = {}) {
+export function limitCompetitors(series, { limit = 6, otherLabel, reduce = 'sum', order } = {}) {
     const own = [];
     const competitors = [];
     for (const item of series) {
         (item.own ? own : competitors).push(item);
     }
-    const ranked = [...competitors].sort(
-        (left, right) => score(right) - score(left) || String(left.label).localeCompare(String(right.label)),
-    );
-    const kept = ranked.slice(0, limit).map((item, index) => ({ ...item, colorIndex: index }));
-    const rest = ranked.slice(limit);
+    const shared = Array.isArray(order)
+        ? order
+              .map((key) => competitors.find((item) => String(item.key) === String(key)))
+              .filter((item) => item !== undefined)
+        : [];
+    const usingSharedOrder = shared.length > 0;
+    const keptSource = usingSharedOrder ? shared : [...competitors].sort(byScore).slice(0, limit);
+    const kept = keptSource.map((item, index) => ({
+        ...item,
+        colorIndex: usingSharedOrder ? order.findIndex((key) => String(key) === String(item.key)) : index,
+    }));
+    const keptKeys = new Set(kept.map((item) => String(item.key)));
+    const rest = competitors.filter((item) => !keptKeys.has(String(item.key)));
     if (rest.length === 0) {
         return [...own, ...kept];
     }

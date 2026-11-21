@@ -29,7 +29,6 @@ final class DashboardPeriod
         public readonly string $previousTo,
         public readonly string $comparison = 'previous',
         public readonly ?string $measuredFrom = null,
-        public readonly bool $automatic = false,
     ) {}
 
     public static function forCurrentTenant(int $days): self
@@ -138,7 +137,7 @@ final class DashboardPeriod
 
         return new self($days, $base->timezone, $from->toDateString(), $to->toDateString(),
             $previousFrom->toDateString(), $previousTo->toDateString(), $comparison,
-            $history['from'] ?? null, $automatic);
+            $history['from'] ?? null);
     }
 
     /**
@@ -166,7 +165,7 @@ final class DashboardPeriod
     {
         return ['days' => $this->days, 'from' => $this->from, 'to' => $this->to,
             'previous_from' => $this->previousFrom, 'previous_to' => $this->previousTo, 'comparison' => $this->comparison,
-            'measured_from' => $this->measuredFrom, 'automatic' => $this->automatic];
+            'measured_from' => $this->measuredFrom];
     }
 
     /**

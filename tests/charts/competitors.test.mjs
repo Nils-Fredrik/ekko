@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { limitCompetitors } from '../../resources/js/Components/Charts/support/competitors.js';
+import { limitCompetitors, rankedCompetitorKeys } from '../../resources/js/Components/Charts/support/competitors.js';
 import { heatmapRows, rowHasCells, wrapLabel } from '../../resources/js/Components/Charts/support/heatmapRows.js';
 import { emptyBeforeSpan } from '../../resources/js/Components/Charts/support/gap.js';
 
@@ -28,6 +28,29 @@ test('sixteen competitors become six colours plus others', () => {
     assert.equal(folded.at(-1).dashed, true);
     assert.equal(rest[0].key, 'c0');
     assert.ok(folded.at(-1).points[0].value > rest.at(-1).points[0].value);
+});
+
+test('the visibility trend keeps the share ranking and colours', () => {
+    const share = [
+        { key: 'brand', label: 'Own', own: true, points: [point(0.4)] },
+        ...Array.from({ length: 8 }, (_, index) => series(`c${index}`, (16 - index) / 100)),
+    ];
+    const trend = [
+        { key: 'brand', label: 'Own', own: true, points: [point(0.2)] },
+        ...Array.from({ length: 8 }, (_, index) => series(`c${index}`, index / 100)),
+    ];
+    const order = rankedCompetitorKeys(share);
+    const options = { order, otherLabel: (count) => `Others (${count})` };
+    const foldedShare = limitCompetitors(share, options);
+    const foldedTrend = limitCompetitors(trend, { ...options, reduce: 'mean' });
+    const keys = (items) => items.filter((item) => !item.own && !item.neutral).map((item) => item.key);
+    const colours = (items) => items.filter((item) => !item.own && !item.neutral).map((item) => item.colorIndex);
+
+    assert.deepEqual(order, ['c0', 'c1', 'c2', 'c3', 'c4', 'c5']);
+    assert.deepEqual(keys(foldedTrend), keys(foldedShare));
+    assert.deepEqual(colours(foldedTrend), colours(foldedShare));
+    assert.deepEqual(colours(foldedTrend), [0, 1, 2, 3, 4, 5]);
+    assert.equal(foldedTrend.at(-1).key, 'others');
 });
 
 test('heatmap rows follow the selected market or group every market', () => {

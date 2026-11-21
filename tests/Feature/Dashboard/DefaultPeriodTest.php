@@ -103,3 +103,19 @@ test('a deferred insight uses the automatic period', function () {
         ->assertJsonPath('props.analysisFilters.query.days', 7)
         ->assertJsonPath('props.analysisFilters.automaticPeriod', true);
 });
+
+test('norwegian calls the dashboard Oversikt and usage pages format the figures', function () {
+    $norwegian = json_decode((string) file_get_contents(lang_path('nb.json')), true);
+    $usage = (string) file_get_contents(resource_path('js/Pages/Usage/Index.vue'));
+    $admin = (string) file_get_contents(resource_path('js/Pages/Admin/Usage.vue'));
+
+    expect($norwegian['Dashboard'] ?? null)->toBe('Oversikt')
+        ->and($usage)->toContain('formatCurrency')
+        ->and($usage)->toContain('formatNumber')
+        ->and($usage)->toContain('formatDate')
+        ->and($admin)->toContain('formatCurrency')
+        ->and($admin)->toContain('formatNumber')
+        ->and($admin)->toContain('formatDate')
+        ->and(__('app.library.unknown_market', [], 'nb'))->toBe('Ukjent marked.')
+        ->and(__('app.library.unknown_market_group', [], 'nb'))->toBe('Ukjent marked');
+});

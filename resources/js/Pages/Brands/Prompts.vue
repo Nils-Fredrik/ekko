@@ -41,7 +41,7 @@ const view = ref('heatmap');
 const heatRows = computed(() =>
     heatmapRows(props.prompts, {
         marketSelected: Boolean(props.filters.market),
-        unnamed: trans('app.library.unknown_market'),
+        unnamed: trans('app.library.unknown_market_group'),
     }),
 );
 

@@ -7,7 +7,7 @@ import SmallMultiplesChart from '@/Components/Charts/SmallMultiplesChart.vue';
 import StackedAreaChart from '@/Components/Charts/StackedAreaChart.vue';
 import ChartLegend from '@/Components/Charts/ChartLegend.vue';
 import TrendLineChart from '@/Components/Charts/TrendLineChart.vue';
-import { limitCompetitors } from '@/Components/Charts/support/competitors.js';
+import { limitCompetitors, rankedCompetitorKeys } from '@/Components/Charts/support/competitors.js';
 import { alignComparison, periodBuckets } from '@/Components/Charts/support/data.js';
 import { formatValue } from '@/Components/Charts/support/format.js';
 import { pickLeadingEngine } from './leadingEngine.js';
@@ -129,6 +129,40 @@ const competitorIndex = computed(() => {
     return new Map(ids.map((id, index) => [id, index]));
 });
 
+const shareItems = computed(() => {
+    if (categories.value.length === 0) {
+        return [];
+    }
+    const groups = new Map();
+    const add = (id, label, own, period, metric) => {
+        if (!groups.has(id)) {
+            groups.set(id, { label, own, points: new Map() });
+        }
+        groups.get(id).points.set(period, metric);
+    };
+    for (const row of props.chartData?.series ?? []) {
+        add('brand', props.brand.name, true, row.period, row.metrics?.share_of_voice);
+    }
+    for (const row of props.chartData?.competitors ?? []) {
+        for (const entity of row.entities ?? []) {
+            if (entity.id === 'brand') {
+                continue;
+            }
+            add(entity.id, entity.name ?? entity.id, false, row.period, entity.share_of_voice);
+        }
+    }
+
+    return [...groups.entries()].map(([key, group]) => ({
+        key,
+        label: group.label,
+        own: group.own || undefined,
+        colorIndex: group.own ? undefined : (competitorIndex.value.get(key) ?? 0),
+        points: categories.value.map((period) => point(group.points.get(period))),
+    }));
+});
+
+const competitorOrder = computed(() => rankedCompetitorKeys(shareItems.value));
+
 const trendSeries = computed(() => {
     if (categories.value.length === 0) {
         return [];
@@ -161,6 +195,7 @@ const trendSeries = computed(() => {
         }));
 
     return limitCompetitors([own, ...competitors], {
+        order: competitorOrder.value,
         otherLabel: (count) => trans('app.dashboard.others', { count }),
         reduce: 'mean',
     });
@@ -225,40 +260,12 @@ const panelMarkers = computed(() => {
     return grouped;
 });
 
-const shareSeries = computed(() => {
-    if (categories.value.length === 0) {
-        return [];
-    }
-    const groups = new Map();
-    const add = (id, label, own, period, metric) => {
-        if (!groups.has(id)) {
-            groups.set(id, { label, own, points: new Map() });
-        }
-        groups.get(id).points.set(period, metric);
-    };
-    for (const row of props.chartData?.series ?? []) {
-        add('brand', props.brand.name, true, row.period, row.metrics?.share_of_voice);
-    }
-    for (const row of props.chartData?.competitors ?? []) {
-        for (const entity of row.entities ?? []) {
-            if (entity.id === 'brand') {
-                continue;
-            }
-            add(entity.id, entity.name ?? entity.id, false, row.period, entity.share_of_voice);
-        }
-    }
-
-    return limitCompetitors(
-        [...groups.entries()].map(([key, group]) => ({
-            key,
-            label: group.label,
-            own: group.own || undefined,
-            colorIndex: group.own ? undefined : (competitorIndex.value.get(key) ?? 0),
-            points: categories.value.map((period) => point(group.points.get(period))),
-        })),
-        { otherLabel: (count) => trans('app.dashboard.others', { count }) },
-    );
-});
+const shareSeries = computed(() =>
+    limitCompetitors(shareItems.value, {
+        order: competitorOrder.value,
+        otherLabel: (count) => trans('app.dashboard.others', { count }),
+    }),
+);
 
 const sentimentRows = computed(() => {
     const sentiment = props.chartData?.sentiment;
