@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Dashboard\BrandPage;
+use App\Detection\AnswerExcerpt;
 use App\Detection\EntityName;
 use App\Models\Brand;
 use App\Models\EntityDecision;
@@ -20,9 +21,6 @@ use Illuminate\Validation\Rule;
  */
 class EntityDecisionController extends Controller
 {
-    /** Characters of answer text on each side of the name in an excerpt. */
-    public const EXCERPT_CONTEXT = 80;
-
     public const EXCERPTS = 3;
 
     public function store(Request $request, Brand $brand, EntityDecisions $decisions): JsonResponse
@@ -111,7 +109,7 @@ class EntityDecisionController extends Controller
                 if (isset($seen[$row->response_id]) || count($excerpts) >= self::EXCERPTS) {
                     continue;
                 }
-                $excerpt = self::excerpt((string) $row->answer_text, (string) $row->surface_name, $row->first_char_offset === null ? null : (int) $row->first_char_offset);
+                $excerpt = AnswerExcerpt::around((string) $row->answer_text, (string) $row->surface_name, $row->first_char_offset === null ? null : (int) $row->first_char_offset);
                 if ($excerpt === null) {
                     continue;
                 }
@@ -125,33 +123,5 @@ class EntityDecisionController extends Controller
         }
 
         return response()->json(['key' => $key, 'excerpts' => $excerpts]);
-    }
-
-    /**
-     * The name in the text with up to EXCERPT_CONTEXT characters on each side. The stored offset is used when the
-     * name stands there, otherwise the first occurrence without case.
-     *
-     * @return array{before: string, match: string, after: string}|null
-     */
-    public static function excerpt(string $text, string $name, ?int $offset): ?array
-    {
-        $length = mb_strlen($name);
-        if ($length === 0) {
-            return null;
-        }
-        if ($offset === null || mb_strtolower(mb_substr($text, $offset, $length)) !== mb_strtolower($name)) {
-            $found = mb_stripos($text, $name);
-            if ($found === false) {
-                return null;
-            }
-            $offset = $found;
-        }
-        $start = max(0, $offset - self::EXCERPT_CONTEXT);
-
-        return [
-            'before' => ($start > 0 ? '…' : '').mb_substr($text, $start, $offset - $start),
-            'match' => mb_substr($text, $offset, $length),
-            'after' => mb_substr($text, $offset + $length, self::EXCERPT_CONTEXT).(mb_strlen($text) > $offset + $length + self::EXCERPT_CONTEXT ? '…' : ''),
-        ];
     }
 }

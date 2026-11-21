@@ -401,6 +401,8 @@ return [
     ],
 
     'workspace' => [
+        'copy_language' => 'Choose a market with the same language.',
+        'last_alias' => 'Keep at least one alias for the brand.',
         'integration_status' => [
             'pending' => 'Pending',
             'synced' => 'Synced',

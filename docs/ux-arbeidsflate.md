@@ -921,6 +921,10 @@ Angre er tillatt i 24 timer. Etter det sendes brukeren til konkurrentens panel f
 - Kallet er begrenset til 30 per minutt per bruker.
 - Svaret logges ikke.
 
+Som i gjenkjenningen teller første forekomst av enheten én gang per svar. Et annet registrert merkenavn eller en konkurrent gir konflikt når det lagrede treffet overlapper det foreslåtte treffet. Hvert svar telles høyst én gang per konfliktpart. De tre nyeste eksemplene har `excerpt: { before, match, after }`, motorens nøkkel, `market: { id, label }` og `date` som ISO-tidspunkt.
+
+Ved kopiering av prompts prioriteres aktive kjerneprompts, deretter øvrige aktive prompts, med ID som stabil rekkefølge innen hver gruppe. Land/språk må være ledig på merkevaren. Frem til U17 registrerer `brands.setup.markets` går vellykket opprettelse til `brands.settings`. Integrasjonstypene er `ga4` og `clickhouse_logs`, med hver sin gruppe felt fra dagens innstillinger.
+
 **Tjenester:**
 
 - `App\Brands\MarketLibrary`

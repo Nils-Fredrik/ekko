@@ -401,6 +401,8 @@ return [
     ],
 
     'workspace' => [
+        'copy_language' => 'Velg et marked med samme språk.',
+        'last_alias' => 'Merkevaren må beholde minst ett alias.',
         'integration_status' => [
             'pending' => 'Venter',
             'synced' => 'Synkronisert',

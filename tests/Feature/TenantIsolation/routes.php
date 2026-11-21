@@ -51,6 +51,29 @@ function isolationBrandId(int $tenantId): int
     return app(TenantContext::class)->run($tenantId, fn () => Brand::factory()->create()->id);
 }
 
+/** @return array{brand: int, alias: int} */
+function isolationBrandAlias(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $brand = Brand::factory()->create();
+        $brand->aliases()->create(['alias' => 'Spare fixture', 'match_mode' => 'exact_word']);
+        $alias = $brand->aliases()->create(['alias' => 'Selected fixture', 'match_mode' => 'case_insensitive']);
+
+        return ['brand' => $brand->id, 'alias' => $alias->id];
+    });
+}
+
+/** @return array{brand: int, domain: int} */
+function isolationBrandDomain(int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function (): array {
+        $brand = Brand::factory()->create();
+        $domain = $brand->domains()->create(['domain' => 'fixture.example', 'include_subdomains' => false]);
+
+        return ['brand' => $brand->id, 'domain' => $domain->id];
+    });
+}
+
 /** @return array{report: int, link: int} */
 function isolationReportLink(int $tenantId): array
 {
@@ -157,14 +180,14 @@ function isolationCompetitorDomain(int $tenantId): array
     });
 }
 
-/** @return array{brand: int} */
-function isolationMarket(int $tenantId): array
+/** @return array{brand: int, market?: int} */
+function isolationMarket(int $tenantId, bool $includeMarket = false): array
 {
-    return app(TenantContext::class)->run($tenantId, function (): array {
+    return app(TenantContext::class)->run($tenantId, function () use ($includeMarket): array {
         $brand = Brand::factory()->create();
-        Market::factory()->for($brand)->create(['country' => 'NO']);
+        $market = Market::factory()->for($brand)->create(['country' => 'NO']);
 
-        return ['brand' => $brand->id];
+        return $includeMarket ? ['brand' => $brand->id, 'market' => $market->id] : ['brand' => $brand->id];
     });
 }
 
@@ -543,6 +566,60 @@ return [
         foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)], 'data' => ['name' => 'Other']],
         own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)], 'data' => ['name' => 'Renamed']],
         deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.markets.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)], 'data' => ['country' => 'NO', 'language' => 'nb']],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)], 'data' => ['country' => 'NO', 'language' => 'nb']],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.markets.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationMarket($s->tenantB->id, true), 'data' => ['is_active' => false]],
+        own: fn (Scenario $s) => ['params' => isolationMarket($s->tenantA->id, true), 'data' => ['is_active' => false]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.identity.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)], 'data' => ['name' => 'New fixture']],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)], 'data' => ['name' => 'New fixture']],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.aliases.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)], 'data' => ['alias' => 'Fixture', 'match_mode' => 'exact_word']],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)], 'data' => ['alias' => 'Fixture', 'match_mode' => 'exact_word']],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.aliases.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationBrandAlias($s->tenantB->id), 'data' => ['match_mode' => 'exact_word']],
+        own: fn (Scenario $s) => ['params' => isolationBrandAlias($s->tenantA->id), 'data' => ['match_mode' => 'exact_word']],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.aliases.destroy' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationBrandAlias($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationBrandAlias($s->tenantA->id)],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.domains.store' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)], 'data' => ['domain' => 'fixture.example', 'include_subdomains' => true]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)], 'data' => ['domain' => 'fixture.example', 'include_subdomains' => true]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.domains.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationBrandDomain($s->tenantB->id), 'data' => ['include_subdomains' => true]],
+        own: fn (Scenario $s) => ['params' => isolationBrandDomain($s->tenantA->id), 'data' => ['include_subdomains' => true]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.domains.destroy' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => isolationBrandDomain($s->tenantB->id)],
+        own: fn (Scenario $s) => ['params' => isolationBrandDomain($s->tenantA->id)],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.integrations.update' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id), 'type' => 'ga4'], 'data' => ['ga4_property_id' => '']],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id), 'type' => 'ga4'], 'data' => ['ga4_property_id' => '']],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.aliases.test' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)], 'data' => ['alias' => 'Fixture', 'match_mode' => 'case_insensitive', 'entity' => 'brand']],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)], 'data' => ['alias' => 'Fixture', 'match_mode' => 'case_insensitive', 'entity' => 'brand']],
     ),
     // The measurement plan (T53): another tenant's brand is a 404; a foreign market ID on an own brand is
     // rejected without writing in tests/Feature/MeasurementPlan/PlanAccessTest.php.

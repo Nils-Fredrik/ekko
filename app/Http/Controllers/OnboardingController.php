@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Brands\MarketLibrary;
 use App\Integrations\BrandIntegrations;
 use App\Jobs\RunOnboardingAnalysis;
 use App\MeasurementPlan\MeasurementPlans;
@@ -143,7 +144,7 @@ class OnboardingController extends Controller
             'language' => __('onboarding.ui.language'),
             'prompts.*.text' => __('onboarding.ui.prompt'),
         ]);
-        $data['language'] = $this->language((string) $data['language']);
+        $data['language'] = MarketLibrary::languageTag((string) $data['language']);
         $data['country'] = strtoupper((string) $data['country']);
 
         $result = $confirmer->confirm($this->tenant(), $found, $data);
@@ -178,7 +179,7 @@ class OnboardingController extends Controller
             // Always the bare host: the wizard fetches over https only.
             'primary_domain' => (string) SiteUrl::hostFromUserInput($data['primary_domain']),
             'country' => strtoupper($data['country']),
-            'language' => $this->language($data['language']),
+            'language' => MarketLibrary::languageTag($data['language']),
         ]);
     }
 
@@ -197,7 +198,7 @@ class OnboardingController extends Controller
         if ($plan instanceof Plan && $plan->max_markets_per_brand !== null && $brand->markets()->count() >= $plan->max_markets_per_brand) {
             return $this->refuse('market_limit', 422);
         }
-        if ($brand->markets()->where('country', strtoupper($data['country']))->where('language', $this->language($data['language']))->exists()) {
+        if (MarketLibrary::localeExists($brand, $data['country'], $data['language'])) {
             throw ValidationException::withMessages(['country' => __('onboarding.errors.market_exists')]);
         }
         if (! Topic::query()->where('brand_id', $brand->id)->whereNotNull('cross_market_key')->exists()) {
@@ -207,7 +208,7 @@ class OnboardingController extends Controller
         return $this->start($store, $tenant, Analysis::MARKET, [
             'brand_id' => $brand->id,
             'country' => strtoupper($data['country']),
-            'language' => $this->language($data['language']),
+            'language' => MarketLibrary::languageTag($data['language']),
         ]);
     }
 
@@ -340,13 +341,5 @@ class OnboardingController extends Controller
     private function tenant(): Team
     {
         return Team::query()->findOrFail((int) app(TenantContext::class)->require());
-    }
-
-    private function language(string $language): string
-    {
-        $parts = explode('-', $language);
-        $parts[0] = strtolower($parts[0]);
-
-        return implode('-', $parts);
     }
 }
