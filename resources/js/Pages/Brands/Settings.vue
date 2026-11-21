@@ -198,6 +198,9 @@ function save() {
                         />
                     </div>
                 </section>
+                <PrimaryButton v-if="can.manage" :disabled="form.processing">
+                    {{ $t('app.workspace.save') }}
+                </PrimaryButton>
             </form>
 
             <MeasurementPlan :plan="measurementPlan" :brand-id="brand.id" :can-manage="can.manage" />

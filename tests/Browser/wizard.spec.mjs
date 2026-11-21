@@ -314,7 +314,11 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
             response.request().method() === 'POST' &&
             response.ok(),
     );
-    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    const savedSettings = page.waitForResponse(
+        (response) => response.request().method() === 'PUT' && response.url().includes('/settings'),
+    );
+    await page.getByRole('textbox', { name: 'Name', exact: true }).press('Enter');
+    await savedSettings;
     await refreshedEstimate;
     await expect(page.getByRole('group', { name: 'SE / sv' }).getByText('Inactive market')).toBeVisible();
     await expect(page.getByRole('group', { name: 'NO / nb' }).getByText('Inactive market')).toHaveCount(0);
