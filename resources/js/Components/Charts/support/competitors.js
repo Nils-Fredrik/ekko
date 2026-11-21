@@ -54,7 +54,7 @@ export function limitCompetitors(series, { limit = 6, otherLabel, reduce = 'sum'
     const ranked = [...competitors].sort(
         (left, right) => score(right) - score(left) || String(left.label).localeCompare(String(right.label)),
     );
-    const kept = ranked.slice(0, limit);
+    const kept = ranked.slice(0, limit).map((item, index) => ({ ...item, colorIndex: index }));
     const rest = ranked.slice(limit);
     if (rest.length === 0) {
         return [...own, ...kept];

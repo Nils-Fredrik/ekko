@@ -9,7 +9,7 @@ import { bucketMarkers, hasIsolatedPoint, isLowSample } from './support/data.js'
 import { axisFormatter, formatDate, formatValue, tooltipHtml } from './support/format.js';
 import { timeTable } from './support/lines.js';
 import { markerNotes, markerSeries } from './support/markers.js';
-import { emptyBeforeSpan } from './support/gap.js';
+import { emptyBeforeSpan, hatch } from './support/gap.js';
 import { seriesColor } from './support/palette.js';
 import { formatDate as formatNoteDate } from '@/format';
 
@@ -74,20 +74,6 @@ const lowBands = computed(() => {
 
     return bands;
 });
-
-function hatch(color) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 8;
-    canvas.height = 8;
-    const context = canvas.getContext('2d');
-    context.strokeStyle = color;
-    context.beginPath();
-    context.moveTo(0, 8);
-    context.lineTo(8, 0);
-    context.stroke();
-
-    return { image: canvas, repeat: 'repeat' };
-}
 
 function markArea(palette) {
     const gap = emptyBeforeSpan(props.categories, props.emptyBefore);

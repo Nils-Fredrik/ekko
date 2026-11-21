@@ -40,11 +40,19 @@ test('non-metric partial reloads skip dashboard, action and model-change queries
         $response->assertJsonPath('props.insight', null)->assertJsonMissingPath('props.analysisFilters');
         expect(collect($this->queries)->filter(fn ($sql) => str_contains($sql, 'saved_views')))->toBeEmpty();
     } else {
-        $response->assertJsonPath('props.analysisFilters.views', []);
+        $response->assertJsonPath('props.analysisFilters.views', [])
+            ->assertJsonPath('props.analysisFilters.query.days', 7);
     }
-    foreach (['agg_daily', '"actions"', 'model_changes'] as $table) {
+    foreach (['"actions"', 'model_changes'] as $table) {
         expect(collect($this->queries)->filter(fn ($sql) => str_contains($sql, $table)))->toBeEmpty();
     }
+
+    $this->queries = [];
+    $this->get($this->url, [
+        'X-Inertia' => 'true', 'X-Inertia-Partial-Component' => 'Brands/Show',
+        'X-Inertia-Partial-Data' => $prop,
+    ])->assertOk();
+    expect(collect($this->queries)->filter(fn ($sql) => str_contains($sql, 'agg_daily')))->toBeEmpty();
 })->with(['insight', 'analysisFilters']);
 
 test('chart reloads use only chart queries and a warm graph cache needs no aggregate reads', function () {

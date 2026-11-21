@@ -275,7 +275,6 @@ const hasFunnel = computed(() => steps.value.some((step) => step.value !== null)
                             :series="botSeries"
                             kind="count"
                             :height="280"
-                            :empty-before="period.measured_from || ''"
                         />
                     </section>
 
@@ -308,7 +307,6 @@ const hasFunnel = computed(() => steps.value.some((step) => step.value !== null)
                                     :series="trafficSeries"
                                     :previous="previousTraffic"
                                     kind="count"
-                                    :empty-before="period.measured_from || ''"
                                 />
                                 <div
                                     role="region"

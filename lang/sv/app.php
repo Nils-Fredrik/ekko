@@ -320,7 +320,7 @@ return [
         'suggestion_count' => ':count svar',
         'imported' => 'Skapade :created. Ändrade :changed. Hoppade över :skipped.',
         'duplicate' => 'Finns redan.',
-        'unknown_market' => 'Okänd marknad.',
+        'unknown_market' => 'Okänd marknad',
         'ambiguous_market' => 'Flera marknader passar. Fyll i language, location eller market_id.',
         'unknown_topic' => 'Okänt ämne.',
         'invalid_row' => 'Ogiltig rad.',

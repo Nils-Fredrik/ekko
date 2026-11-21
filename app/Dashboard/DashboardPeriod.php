@@ -71,9 +71,31 @@ final class DashboardPeriod
         return $daysWithData >= 23 ? 28 : 7;
     }
 
-    public static function daysWithData(int $brandId): int
+    public static function daysWithData(int $brandId, ?string $from = null, ?string $to = null): int
     {
-        return (int) AggDaily::query()->where('brand_id', $brandId)->distinct()->count('date');
+        $query = AggDaily::query()->where('brand_id', $brandId);
+        if ($from !== null && $to !== null) {
+            $query->whereDate('date', '>=', $from)->whereDate('date', '<=', $to);
+        }
+
+        return (int) $query->distinct()->count('date');
+    }
+
+    /**
+     * Longest preset whose own window, ending today, is at least 80 % covered.
+     * Days outside that window do not count, so a long gap does not stretch the period.
+     */
+    public static function coveringLength(int $brandId): int
+    {
+        $zone = self::timezone();
+        foreach ([90 => 72, 28 => 23] as $length => $needed) {
+            $window = self::endingToday($length, $zone);
+            if (self::daysWithData($brandId, $window->from, $window->to) >= $needed) {
+                return $length;
+            }
+        }
+
+        return 7;
     }
 
     public static function measuredFrom(int $brandId): ?string
@@ -99,9 +121,9 @@ final class DashboardPeriod
             'comparison' => ['sometimes', Rule::in(['previous', 'year'])],
         ])->validate();
         $automatic = self::automatic($input);
-        $history = $brandId !== null && self::resolvesHistory() ? self::history($brandId) : null;
+        $history = $brandId !== null ? self::history($brandId) : null;
         $days = $automatic && $history !== null
-            ? self::lengthForHistory($history['days'])
+            ? $history['length']
             : (int) ($data['days'] ?? 28);
         $base = self::forCurrentTenant($days);
         $from = CarbonImmutable::parse($data['from'] ?? $base->from, $base->timezone);
@@ -120,31 +142,21 @@ final class DashboardPeriod
     }
 
     /**
-     * A partial reload of filters or insight text must not scan aggregates. The chosen length is cached so the
-     * deferred chart request uses the same window as the page without a second scan.
+     * The chosen length is cached for the tenant-local day, including deferred insight and chart requests,
+     * so a partial reload uses the same window without scanning the aggregates again.
      *
-     * @return array{days: int, from: ?string}
+     * @return array{length: int, from: ?string}
      */
     public static function history(int $brandId): array
     {
-        /** @var array{days: int, from: ?string} $history */
-        $history = Cache::remember("brand-coverage:{$brandId}", 60, fn (): array => [
-            'days' => self::daysWithData($brandId),
+        $today = CarbonImmutable::now(self::timezone())->toDateString();
+        /** @var array{length: int, from: ?string} $history */
+        $history = Cache::remember("brand-coverage:{$brandId}:{$today}", 60, fn (): array => [
+            'length' => self::coveringLength($brandId),
             'from' => self::measuredFrom($brandId),
         ]);
 
         return $history;
-    }
-
-    private static function resolvesHistory(): bool
-    {
-        $header = request()->header('X-Inertia-Partial-Data');
-        if (! is_string($header) || $header === '') {
-            return true;
-        }
-        $props = array_map(trim(...), explode(',', $header));
-
-        return array_diff($props, ['insight', 'analysisFilters']) !== [];
     }
 
     /** @return array{days: int, from: string, to: string, previous_from: string, previous_to: string, comparison: string} */

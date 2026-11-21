@@ -1001,13 +1001,12 @@ Ny tabell `user_brand_preferences`: `tenant_id`, `user_id`, `brand_id` og `check
 1. **Varsler** (`AlertController::index`): `subject` erstattes av `title` og `detail` fra `AlertPresenter`. Ingen side, e-post eller Slack-melding viser interne nøkler. Testen leter etter `market:`, `prompt:` og heksadesimale hasher på 32 tegn i HTML-en.
 2. **Formatering av forbruk og admin-forbruk:** beløp, tall og datoer formateres med en midlertidig `resources/js/format.js` med `formatNumber`, `formatCurrency` og `formatDate`. U18 utvider filen. Rekkefølgen U16 og så U18 betyr at U18 bygger videre på filen.
 3. **Stavefeil:** «Dashbord» blir «Oversikt» i `nb`.
-4. **Standardperiode** (`DashboardPeriod`): uten `days`, `from` og `to` i URL-en velges den lengste av 7, 28 og 90 dager der antall dager med data (`agg_daily` for merkevaren) dekker minst 80 % av perioden. Perioden vokser altså med historikken: 7 dager fra start, 28 dager fra 23 dager med data og 90 dager fra 72 dager med data.
-   - Har merkevaren under 7 dager med data, brukes 7 dager.
-   - Analysesidene viser da datamerknaden (skisse 1) i `bg-shell-surface border-line-soft rounded-xl` med info-ikon: «Data fra *dato*. Perioden er satt til *n* dager, og grafene fylles ut etter hvert som målingene kommer.»
-   - En grafserie uten data før første dag tegner et skravert område med «Ingen målinger før *dato*».
-5. **Share of voice og trend:** høyst 6 konkurrenter med egen farge, sortert etter andel i perioden. Resten summeres i «Andre (*n*)» med `--data-neutral` og stiplet linje.
+4. **Standardperiode** (`DashboardPeriod`): uten `days`, `from` og `to` i URL-en velges den lengste av 7, 28 og 90 dager der antall dager med `agg_daily` *inne i det vinduet* dekker minst 80 % av lengden. Eldre dager utenfor vinduet teller ikke. 7 dager fra start, 28 dager fra 23 dager i de siste 28, og 90 dager fra 72 dager i de siste 90. Samme lengde brukes ved delvis innlasting av innsikt og filtre, via hurtiglager for den lokale dagen.
+   - Har merkevaren under 7 dager med data i vinduet, brukes 7 dager.
+   - Datamerknaden vises bare når første måledag er etter periodens start. Den står i `bg-shell-surface border-line-soft rounded-xl` med info-ikon: «Data fra *dato*. Perioden er satt til *n* dager, og grafene fylles ut etter hvert som målingene kommer.»
+   - En grafserie uten data før første dag tegner et skravert område med «Ingen målinger før *dato*». For uke og måned skraveres bare bøtter som slutter før første måledag. Kryping og trafikk bruker andre kilder og skraveres ikke ut fra `agg_daily`.
+5. **Share of voice og trend** på `Brands/Show`: høyst 6 konkurrenter, sortert etter andel i perioden, med farge 0–5 i den rekkefølgen. Resten blir «Andre (*n*)» med `--data-neutral` og stiplet linje. Andelen summeres. Synlighetstrenden bruker snittet, så raten holder seg mellom 0 og 1. «Andre» kan ikke velges som filter. Oversikten har ingen slik graf.
    - Forklaringen er en liste ved siden av grafen (flex `1 1 170px`) med fargeprikk, navn og verdi. Den går under grafen ved smal bredde og ligger aldri oppå aksen.
-   - Gjelder `Brands/Show` og `Home`.
 6. **Prompt-heatmap** (`brands.prompts.index`): med valgt marked vises bare prompts i markedet. Ved «Alle markeder» grupperes radene per marked med markedsnavn i gruppeoverskriften. Tekstene får to linjer før de kuttes, med full tekst i `title`. Rader uten celler viser «Ikke målt i perioden».
 
 **Akseptkriterier:** punkt 1–6 har tester. Referansebildene er oppdatert for sidene som er berørt.

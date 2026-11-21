@@ -192,7 +192,7 @@ async function removeView() {
             </div>
         </details>
         <p
-            v-if="config.automaticPeriod && period.measured_from"
+            v-if="config.automaticPeriod && period.measured_from && period.measured_from > period.from"
             class="flex items-start gap-3 rounded-xl border border-line-soft bg-shell-surface p-4 text-sm text-shell-text"
             data-testid="data-note"
         >

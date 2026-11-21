@@ -52,6 +52,9 @@ const secondaryCards = [
 ];
 
 function selectFilter(key, event) {
+    if (event?.key === 'others') {
+        return;
+    }
     const value = event?.key === 'brand' ? null : event?.key;
     if (value !== undefined) crossFilter(route('brands.show', props.brand.id), props.analysisFilters.query, key, value);
 }

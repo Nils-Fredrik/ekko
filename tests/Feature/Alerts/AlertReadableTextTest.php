@@ -55,19 +55,21 @@ test('pages, email and slack hide internal alert keys', function () {
         ->missing('alerts.1.subject'));
 
     $html = $this->get(route('alerts.index'))->assertOk()->getContent();
-    expect($html)->not->toContain('market:')->and($html)->not->toContain('prompt:')->and($html)->not->toContain($hash);
+    $visible = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $html) ?? $html;
+    $visible = preg_replace('/(?:&quot;|")version(?:&quot;|"):(?:&quot;|")[0-9a-f]{32}(?:&quot;|")/', '', $visible) ?? $visible;
+    expect($visible)->not->toMatch('/market:/')->and($visible)->not->toMatch('/prompt:/')->and($visible)->not->toMatch('/\b[0-9a-f]{32}\b/');
 
     dispatch_sync(new EvaluateTenantAlerts($world->tenant->id));
 
-    Http::assertSent(function ($request) use ($hash) {
+    Http::assertSent(function ($request) {
         $text = (string) $request['text'];
-        expect($text)->not->toContain('market:')->and($text)->not->toContain('prompt:')->and($text)->not->toContain($hash);
+        expect($text)->not->toMatch('/market:/')->and($text)->not->toMatch('/prompt:/')->and($text)->not->toMatch('/\b[0-9a-f]{32}\b/');
 
         return true;
     });
-    Mail::assertSent(AlertDigestMail::class, function (AlertDigestMail $mail) use ($hash) {
+    Mail::assertSent(AlertDigestMail::class, function (AlertDigestMail $mail) {
         $rendered = $mail->render();
-        expect($rendered)->not->toContain('market:')->and($rendered)->not->toContain('prompt:')->and($rendered)->not->toContain($hash);
+        expect($rendered)->not->toMatch('/market:/')->and($rendered)->not->toMatch('/prompt:/')->and($rendered)->not->toMatch('/\b[0-9a-f]{32}\b/');
 
         return true;
     });

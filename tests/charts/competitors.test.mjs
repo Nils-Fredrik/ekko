@@ -19,6 +19,10 @@ test('sixteen competitors become six colours plus others', () => {
     const rest = folded.filter((item) => !item.own && !item.neutral);
 
     assert.equal(rest.length, 6);
+    assert.deepEqual(
+        rest.map((item) => item.colorIndex),
+        [0, 1, 2, 3, 4, 5],
+    );
     assert.equal(folded.at(-1).label, 'Others (10)');
     assert.equal(folded.at(-1).neutral, true);
     assert.equal(folded.at(-1).dashed, true);
@@ -45,4 +49,6 @@ test('heatmap rows follow the selected market or group every market', () => {
     assert.equal(wrapped.split('\n').length, 2);
     assert.equal(rowHasCells('1', [{ row: '2', column: 'a' }]), false);
     assert.equal(emptyBeforeSpan(['2026-10-01', '2026-10-10', '2026-10-14'], '2026-10-10')[1], '2026-10-01');
+    assert.equal(emptyBeforeSpan(['2026-10-05', '2026-10-12'], '2026-10-10'), null);
+    assert.deepEqual(emptyBeforeSpan(['2026-10-05', '2026-10-12'], '2026-10-13'), ['2026-10-05', '2026-10-05']);
 });

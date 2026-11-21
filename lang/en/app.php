@@ -320,7 +320,7 @@ return [
         'suggestion_count' => ':count answers',
         'imported' => 'Created :created. Updated :changed. Skipped :skipped.',
         'duplicate' => 'Already exists.',
-        'unknown_market' => 'Unknown market.',
+        'unknown_market' => 'Unknown market',
         'ambiguous_market' => 'Several markets match. Fill in language, location or market_id.',
         'unknown_topic' => 'Unknown topic.',
         'invalid_row' => 'Invalid row.',
