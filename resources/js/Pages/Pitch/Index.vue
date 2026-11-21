@@ -1,4 +1,5 @@
 <script setup>
+import { formatDate } from '@/format';
 import PitchCreateForm from '@/Components/PitchCreateForm.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -20,11 +21,7 @@ const statusTone = {
 };
 
 function date(value) {
-    return value
-        ? new Intl.DateTimeFormat(document.documentElement.lang || 'nb', { dateStyle: 'medium' }).format(
-              new Date(value),
-          )
-        : '';
+    return value ? formatDate(value) : '';
 }
 
 function open(pitch) {

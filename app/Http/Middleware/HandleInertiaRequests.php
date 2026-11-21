@@ -64,6 +64,8 @@ class HandleInertiaRequests extends Middleware
 
                 return $shared;
             },
+            // The active tenant's time zone, for resources/js/format.js (docs/ux-arbeidsflate.md 4.2).
+            'tenant' => fn (): ?array => $this->tenant($request),
             // Providers with credentials; the login page shows a button for each.
             'ssoProviders' => fn (): array => $this->configuredSsoProviders(),
             // Providers the signed-in user can confirm with instead of a password (T07-F2).
@@ -115,6 +117,24 @@ class HandleInertiaRequests extends Middleware
             // Only the team page. Secrets stay on the server: the webhook and API keys are present or absent.
             'teamProfile' => fn () => $this->teamProfile($request),
         ];
+    }
+
+    /**
+     * @return array{timezone: string}|null
+     */
+    private function tenant(Request $request): ?array
+    {
+        $tenantId = app(TenantContext::class)->id();
+        if ($tenantId === null) {
+            return null;
+        }
+        // Usually the user's current team, which the other shared props have already loaded.
+        $current = $request->user()?->currentTeam;
+        $timezone = $current instanceof Team && $current->id === $tenantId
+            ? $current->timezone
+            : Team::query()->whereKey($tenantId)->value('timezone');
+
+        return ['timezone' => is_string($timezone) && $timezone !== '' ? $timezone : 'Europe/Oslo'];
     }
 
     /**

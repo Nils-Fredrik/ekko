@@ -536,10 +536,9 @@ return [
         'open' => 'Search',
         'placeholder' => 'Search brands, prompts, competitors and pages',
         'empty' => 'No matches.',
-        'create_report' => 'Create report',
         'switch_team' => 'Switch to :name',
         'groups' => [
-            'actions' => 'Actions',
+            'actions' => 'Shortcuts',
             'pages' => 'Pages',
             'brands' => 'Brands',
             'prompts' => 'Prompts',

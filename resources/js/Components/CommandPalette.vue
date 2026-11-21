@@ -9,12 +9,17 @@ import {
     TransitionChild,
     TransitionRoot,
 } from '@headlessui/vue';
+import { CheckIcon } from '@heroicons/vue/20/solid';
 import { router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { paletteActions } from './paletteActions.js';
 
 const open = ref(false);
 const query = ref('');
+// «Bytt marked …» and «Bytt merkevare …» open a list of their own.
+const submenu = ref(null);
+const input = ref(null);
 const results = ref({ brands: [], prompts: [], competitors: [] });
 const page = usePage();
 let timer;
@@ -28,8 +33,19 @@ function matches(label) {
     return needle === '' || label.toLowerCase().includes(needle);
 }
 
+// Actions for the workspace (docs/ux-arbeidsflate.md 4.6), shown by `workspace.can`.
+const workspaceActions = computed(() =>
+    paletteActions({
+        workspace: page.props.workspace ?? null,
+        url: page.url,
+        has: (name) => route().has(name),
+        to: (name, params) => route(name, params),
+        t: trans,
+    }).filter((item) => matches(item.label)),
+);
+
 const actions = computed(() => {
-    const items = [{ id: 'report', label: trans('app.palette.create_report'), href: route('reports.index') }];
+    const items = [];
     const teams = user.value?.all_teams ?? [];
 
     if (teams.length > 1 && !page.props.actingAs) {
@@ -81,15 +97,28 @@ const pages = computed(() => {
     return items.filter((item) => matches(item.label));
 });
 
-const groups = computed(() =>
-    [
+const groups = computed(() => {
+    if (submenu.value) {
+        const back = { id: 'back', label: trans('workspace.palette.back'), back: true };
+
+        return [
+            {
+                id: 'submenu',
+                label: submenu.value.label,
+                items: [back, ...submenu.value.children.filter((item) => matches(item.label))],
+            },
+        ];
+    }
+
+    return [
+        { id: 'workspace', label: trans('workspace.palette.group_actions'), items: workspaceActions.value },
         { id: 'actions', label: trans('app.palette.groups.actions'), items: actions.value },
         { id: 'pages', label: trans('app.palette.groups.pages'), items: pages.value },
         { id: 'brands', label: trans('app.palette.groups.brands'), items: results.value.brands },
         { id: 'prompts', label: trans('app.palette.groups.prompts'), items: results.value.prompts },
         { id: 'competitors', label: trans('app.palette.groups.competitors'), items: results.value.competitors },
-    ].filter((group) => group.items.length > 0),
-);
+    ].filter((group) => group.items.length > 0);
+});
 
 function show() {
     open.value = true;
@@ -137,8 +166,23 @@ async function search() {
     }
 }
 
+function resetQuery() {
+    clearTimeout(timer);
+    controller?.abort();
+    query.value = '';
+    results.value = { brands: [], prompts: [], competitors: [] };
+    if (input.value?.$el) {
+        input.value.$el.value = '';
+    }
+}
+
 function choose(item) {
     if (!item) {
+        return;
+    }
+    if (item.children || item.back) {
+        submenu.value = item.back ? null : item;
+        resetQuery();
         return;
     }
     open.value = false;
@@ -157,6 +201,7 @@ watch(open, (isOpen) => {
         clearTimeout(timer);
         controller?.abort();
         query.value = '';
+        submenu.value = null;
         results.value = { brands: [], prompts: [], competitors: [] };
     }
 });
@@ -201,6 +246,7 @@ defineExpose({ show });
                     >
                         <Combobox nullable @update:model-value="choose">
                             <ComboboxInput
+                                ref="input"
                                 class="w-full border-0 bg-transparent px-4 py-3 text-sm text-shell-text placeholder:text-shell-muted focus:ring-0"
                                 :placeholder="$t('app.palette.placeholder')"
                                 @input="
@@ -225,7 +271,13 @@ defineExpose({ show });
                                             class="mx-2 cursor-pointer rounded-lg px-3 py-2 text-sm"
                                             :class="active ? 'bg-shell-text/10' : ''"
                                         >
-                                            <span class="block">{{ item.label }}</span>
+                                            <span class="flex items-center gap-2">
+                                                <span>{{ item.label }}</span>
+                                                <template v-if="item.current">
+                                                    <CheckIcon class="h-4 w-4 text-success-text" aria-hidden="true" />
+                                                    <span class="sr-only">{{ $t('workspace.palette.current') }}</span>
+                                                </template>
+                                            </span>
                                             <span v-if="item.detail" class="block text-xs text-shell-muted">
                                                 {{ item.detail }}
                                             </span>

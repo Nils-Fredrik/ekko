@@ -6,6 +6,7 @@ import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 import { i18nVue, loadLanguageAsync } from 'laravel-vue-i18n';
+import { configureFormat } from './format';
 import { applyTheme, currentTheme, watchSystemTheme } from './theme';
 
 // i18n is created once, from the first page. Later visits (login, language switch)
@@ -23,8 +24,14 @@ function applyLocale(locale) {
     loadLanguageAsync(locale);
 }
 
+// format.js formats in the user's language and the tenant's time zone.
+function applyFormat(props) {
+    configureFormat({ locale: props.locale, timeZone: props.tenant?.timezone ?? null });
+}
+
 router.on('success', (event) => {
     applyLocale(event.detail.page.props.locale);
+    applyFormat(event.detail.page.props);
 });
 
 const appName = import.meta.env.VITE_APP_NAME || 'Ekko';
@@ -34,6 +41,7 @@ createInertiaApp({
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
         appliedLocale = typeof props.initialPage.props.locale === 'string' ? props.initialPage.props.locale : 'nb';
+        applyFormat(props.initialPage.props);
 
         const themePref = { current: currentTheme() };
         applyTheme(themePref.current);

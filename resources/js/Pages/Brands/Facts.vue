@@ -1,4 +1,5 @@
 <script setup>
+import { formatDate } from '@/format';
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -6,7 +7,7 @@ import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const props = defineProps({
     brand: { type: Object, required: true },
@@ -27,6 +28,14 @@ const active = computed(() => props.facts.filter((fact) => fact.is_active));
 const inactive = computed(() => props.facts.filter((fact) => !fact.is_active));
 
 const adding = useForm({ text: '' });
+const newFact = ref(null);
+
+// «Nytt faktum» in the command palette links here with ?create=fact (docs/ux-arbeidsflate.md 4.6).
+onMounted(() => {
+    if (props.canManage && new URLSearchParams(window.location.search).get('create') === 'fact') {
+        newFact.value?.focus();
+    }
+});
 const changing = useForm({ text: '', is_active: true });
 const editing = ref(null);
 const busy = ref(null);
@@ -84,11 +93,7 @@ function filter(verdict) {
 }
 
 function date(value) {
-    return value
-        ? new Intl.DateTimeFormat(document.documentElement.lang || 'nb', { dateStyle: 'medium' }).format(
-              new Date(value),
-          )
-        : '';
+    return value ? formatDate(value) : '';
 }
 </script>
 
@@ -115,6 +120,7 @@ function date(value) {
                         <label for="new-fact" class="sr-only">{{ $t('fact_check.ui.add_label') }}</label>
                         <input
                             id="new-fact"
+                            ref="newFact"
                             v-model="adding.text"
                             :aria-label="$t('fact_check.ui.add_label')"
                             :placeholder="$t('fact_check.ui.add_placeholder')"

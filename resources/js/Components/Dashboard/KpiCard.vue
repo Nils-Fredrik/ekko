@@ -1,5 +1,6 @@
 <script setup>
 // KPI card with a minigraph, change and n (docs/ui-forbedring.md 4.3 and 6, U04).
+import { formatNumber } from '@/format';
 import SparklineChart from '@/Components/Charts/SparklineChart.vue';
 import { formatChange, formatN, formatValue, isMissing } from '@/Components/Charts/support/format.js';
 import { trans } from 'laravel-vue-i18n';
@@ -57,9 +58,9 @@ const spoken = computed(() => {
         return trans('app.dashboard.change_flat');
     }
 
-    const amount = new Intl.NumberFormat(document.documentElement.lang || 'nb', {
+    const amount = formatNumber(Math.abs(props.kind === 'rate' ? delta.value * 100 : delta.value), {
         maximumFractionDigits: props.kind === 'count' ? 0 : 1,
-    }).format(Math.abs(props.kind === 'rate' ? delta.value * 100 : delta.value));
+    });
     const change = props.kind === 'rate' ? trans('app.dashboard.change_points_spoken', { change: amount }) : amount;
     const key = props.higherIsBetter
         ? direction.value === 'up'

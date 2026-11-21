@@ -536,7 +536,6 @@ return [
         'open' => 'Søk',
         'placeholder' => 'Søk i merkevarer, prompter, konkurrenter og sider',
         'empty' => 'Ingen treff.',
-        'create_report' => 'Lag rapport',
         'switch_team' => 'Bytt til :name',
         'groups' => [
             'actions' => 'Hurtigvalg',

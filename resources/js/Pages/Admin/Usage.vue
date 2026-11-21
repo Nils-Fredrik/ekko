@@ -1,4 +1,5 @@
 <script setup>
+import { formatDecimal } from '@/format';
 import AdminNav from '@/Components/AdminNav.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -9,10 +10,8 @@ defineProps({
     engines: Array,
 });
 function usd(value) {
-    return new Intl.NumberFormat(document.documentElement.lang || 'nb', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-    }).format(Number(value));
+    // No cost yet is 0,00 here, as before format.js.
+    return formatDecimal(value ?? 0, 2);
 }
 </script>
 

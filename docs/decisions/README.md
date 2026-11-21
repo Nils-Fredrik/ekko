@@ -52,3 +52,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0041: Analysefiltre og lagrede visninger](0041-analysefiltre-og-lagrede-visninger.md)
 - [0042: Måleplan: arv og egne markedsvalg](0042-maleplan-arv-og-egne-markedsvalg.md)
 - [0043: Beslutninger om ukjente merkevarer](0043-beslutninger-om-ukjente-merkevarer.md)
+- [0044: Felles komponenter og formatering for arbeidsflaten](0044-felles-komponenter-for-arbeidsflaten.md)

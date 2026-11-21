@@ -97,7 +97,7 @@ Arbeidet deles i tolv oppgaver (U16–U27):
 - **Én oppgave = én gren = én PR** (spec 19.2). Hver PR får kryssreview og CI. En samlet PR på flere tusen linjer kan ikke reviewes skikkelig.
 - **Backend og grensesnitt kan gå parallelt.** Kontrakten (ruter, request og svar) står i kapittel 6, og den deles.
 - **Visuell regresjon styrer rekkefølgen for UI.** Referansebildene i `tests/Browser/visual/snapshots/` versjoneres i PR-en (`docs/ui-quality.md`).
-  - Skallet (U17) endrer alle 168 bildene. Derfor går U17 alene: ingen annen UI-PR merges mens U17 er åpen.
+  - Skallet (U17) endrer alle bildene (176 etter U18). Derfor går U17 alene: ingen annen UI-PR merges mens U17 er åpen.
   - Etter U17 endrer hver UI-oppgave bare bildene for sine egne sider. Ved konflikt rebases PR-en, og bare egne bilder genereres på nytt.
 - **Oppgavene er vertikale der det lønner seg.** Samme agent tar backend og grensesnitt for ukjente merkevarer (U21 og U22), fordi modellen og arbeidsflyten henger tett sammen.
 
@@ -237,6 +237,8 @@ Hver agent får fire oppgaver.
 
 ### 4.2 Formatering (U18)
 
+Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-for-arbeidsflaten.md`).
+
 `resources/js/format.js` er det eneste stedet tall, valuta, prosent og datoer formateres. Locale kommer fra `useLocale()` og tidssonen fra `teams.timezone`, delt som `tenant.timezone`.
 
 | Funksjon | Eksempel (nb) | Regel |
@@ -254,8 +256,16 @@ Hver agent får fire oppgaver.
 - **Lint:** en ESLint-regel i `eslint.config.js` stopper `toFixed(`, `toLocaleString(` og `Intl.` utenfor `format.js` i `resources/js/**`. Unntak krever en kommentar med begrunnelse.
 - **Tester:** `tests/js/format.test.mjs` dekker `nb`, `sv` og `en` og negative tall.
 - **Eksisterende kall:** U18 erstatter `useDateTime.js` og bytter alle eksisterende kall til `format.js`.
+- **Slik U18 er bygget:**
+  - `HandleInertiaRequests` deler `tenant: { timezone }` for aktiv tenant (`null` for gjester). `app.js` kaller `configureFormat({ locale, timeZone })` ved første side og hvert besøk. Innstillingene er reaktive, så et språkbytte oppdaterer formaterte verdier.
+  - I tillegg til tabellen: `formatTime(iso)`, `compareText(a, b)` (sortering etter språket, erstatter `Intl.Collator`), `intlLocale()` og valgfrie Intl-innstillinger som tredje argument (f.eks. `formatPercent(v, { maximumFractionDigits: 1 })` for grafene). Manglende verdi gir «–».
+  - `formatRelative` og `formatCount` henter tekstene fra `lang/*/workspace.php` (`workspace.format.*`). ICU skriver «om 3 døgn» på norsk, derfor brukes ikke `Intl.RelativeTimeFormat`. Mer enn 30 dager unna vises som dato.
+  - Lint-regelen heter `ekko/format-through-format-js` og stopper også `toLocaleDateString(` og `toLocaleTimeString(`. Et unntak skrives bare som `// eslint-disable-next-line ekko/format-through-format-js -- begrunnelse`. Regelen `ekko/format-exception-needs-reason` stopper unntak uten begrunnelse, unntak på samme linje eller som blokk, `eslint-disable` uten regelnavn og direktiver som slår av vaktregelen selv, både i script og i Vue-maler. Et direktiv øverst i en fil kan likevel skjule enhver ESLint-rapport, så `tests/js/format-lint.test.mjs` leser i tillegg alle filene i `resources/js` med samme regel (`directiveProblem` i `eslint.config.js`).
+  - Datoer i eksisterende sider vises nå i tenantens tidssone og uten år i inneværende år. Referansebildene for sidene med datoer endres derfor.
 
 ### 4.3 Datatabell (U18)
+
+Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-for-arbeidsflaten.md`).
 
 **Komponent:** `Components/UI/DataTable.vue`, bygget på `@tanstack/vue-table` og `@tanstack/vue-virtual`. Den er headless, og all stil kommer fra tokens.
 
@@ -303,7 +313,11 @@ Hver agent får fire oppgaver.
 
 **Bundle:** måles mot budsjettet i U15, og økningen står i PR-en.
 
+**Slik U18 er bygget:** `@tanstack/vue-table` 9 (med `columnVisibilityFeature`, `rowSortingFeature` og sortert radmodell) eier kolonner, sortering og kolonnevalg. Utvalg, shift-område, gruppering, tastatur og lagring av kolonner ligger som rene funksjoner i `Components/UI/dataTable.js`, som testene kjører i Node. Tabellen bruker `role="grid"` med ett radfokus i tabulatorrekkefølgen (roving tabindex); avkrysningsboksene og primærcellen nås med `x` og `Enter`. Kolonner har i tillegg `accessor` (felt eller funksjon). Gruppeoverskrifter kan tilpasses med sloten `group`, og søkefeltet legges i sloten `toolbar`, som `/` fokuserer. `j` og `k` virker også når fokus står i detaljpanelet. Komponentsiden er `/dev/components` (`dev.components`) og står i sideregisteret som `components` og `components-drawer` (`?open=3`).
+
 ### 4.4 Detaljpanel (U18)
+
+Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-for-arbeidsflaten.md`).
 
 **Komponent:** `Components/UI/Drawer.vue`, bygget på Headless UI `Dialog` uten modal bakgrunn på desktop (skisse 2 og 3).
 
@@ -318,6 +332,8 @@ Hver agent får fire oppgaver.
 - **URL:** den åpne raden står i URL-en som `?open=<id>`, med `preserveState` og `replace`. Lenken kan deles, og tilbake lukker panelet.
 - **Faner:** panelet kan ha faner (`role="tablist"`), slik prompt-panelet har Resultater, Siste svar og Historikk.
 
+**Avvik i U18:** på desktop er panelet en `<aside>` uten Headless UI `Dialog`. `Dialog` fanger alltid fokus og gjør resten av siden inert, og det ville stoppe tabellen og `j`/`k` ved siden av panelet. Under 1280 px brukes `Dialog` med bakgrunn og fokusfelle som beskrevet. `?open=<id>` styres av `useOpenRow()`: åpning legger til en historikkoppføring (tilbake lukker panelet), mens bytte av rad og lukking erstatter den. Besøkene er klientbesøk i Inertia uten nytt kall til serveren.
+
 ### 4.5 Lagring, handlingslinje og angre (U18)
 
 - **`useAutosave(url, { method: 'patch' })`:** gir `save(field, value)` og status per felt: `idle`, `saving`, `saved` eller `error`.
@@ -331,6 +347,7 @@ Hver agent får fire oppgaver.
   - Bare én melding vises om gangen, og den står i en `aria-live="polite"`-region.
   - Angre kaller den motsatte handlingen på serveren. Det finnes ingen utsatt sletting.
 - **Felles lagring** brukes bare for måleplanen (5.4).
+- **Slik U18 er bygget:** `useAutosave(url, { method, only, values })` gir `values`, `save`, `status(field)`, `errors`, en samlet `state` for panelhodet og `reset()` når panelet bytter rad. Lagringer til samme felt sendes én om gangen, så serveren alltid får dem i riktig rekkefølge: mens én er på vei, venter den nyeste nye verdien og sendes deretter. Ulike felt lagres samtidig (asynkrone Inertia-besøk). Feiler den siste verdien, rulles feltet tilbake til siste godtatte verdi; et avbrutt besøk ruller ikke tilbake. Valideringsfeil fra Laravel vises ved feltet; andre feil gir «Kunne ikke lagre. Prøv igjen.». Angre-meldingen vises av `Components/UI/UndoToast.vue` i `AppLayout`; mislykket angre erstatter meldingen med en feil.
 
 ### 4.6 Kommandopalett med handlinger (U18)
 
@@ -341,6 +358,8 @@ Hver agent får fire oppgaver.
 - «Åpne innboks» og «Lag rapport nå» (`reports` som i dag).
 
 Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.manage`.
+
+**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes ennå (`brands.setup.*`, `inbox.index`), vises ikke. Inntil U17 deler `workspace`, viser paletten bare «Lag rapport nå», som før. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg».
 
 ## 5. Skjermer
 

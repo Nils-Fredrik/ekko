@@ -1,4 +1,5 @@
 <script setup>
+import { formatDateTime } from '@/format';
 import AnswerText from '@/Components/Brand/AnswerText.vue';
 import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
@@ -79,10 +80,7 @@ function when(value) {
         return '';
     }
 
-    return new Intl.DateTimeFormat(document.documentElement.lang || 'nb', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(new Date(value));
+    return formatDateTime(value);
 }
 
 function changeKey(change) {

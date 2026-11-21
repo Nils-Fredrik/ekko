@@ -1,12 +1,10 @@
 <script setup>
-import { useDateTime } from '@/Composables/useDateTime';
+import { formatDateTime } from '@/format';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, useForm } from '@inertiajs/vue3';
-
-const { dateTime } = useDateTime();
 
 const props = defineProps({
     schedules: { type: Array, required: true },
@@ -208,7 +206,7 @@ function add() {
                             {{ $t('app.workspace.download') }}
                         </a>
                         <span v-else class="text-shell-muted">
-                            {{ report.sent_at ? dateTime(report.sent_at) : $t('app.workspace.not_sent') }}
+                            {{ report.sent_at ? formatDateTime(report.sent_at) : $t('app.workspace.not_sent') }}
                         </span>
                     </span>
                 </article>

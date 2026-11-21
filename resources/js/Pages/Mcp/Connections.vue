@@ -1,4 +1,5 @@
 <script setup>
+import { formatDateTime } from '@/format';
 import { computed } from 'vue';
 import { router } from '@inertiajs/vue3';
 import EmptyState from '@/Components/UI/EmptyState.vue';
@@ -13,7 +14,7 @@ const props = defineProps({
 // A command, not a user text: the same in every language.
 const claudeCodeCommand = computed(() => `claude mcp add --transport http ekko ${props.serverUrl}`);
 
-const formatDate = (value) => (value ? new Date(value).toLocaleString() : '–');
+const formatDate = (value) => (value ? formatDateTime(value) : '–');
 
 const revoke = (connection, message) => {
     if (window.confirm(message)) {
