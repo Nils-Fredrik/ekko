@@ -60,6 +60,10 @@ Legg tallene i en tabell under «Bevis» nederst. Lagre ingen kundedata, tenantn
 
 Forutsetning: #910 er avklart, og baseline er registrert.
 
+**Status før `shadow` (21.11.2026):** #910 er avklart (terminal fallback, #944), baseline i `legacy` er registrert (PR #141), og `ready` er anvendt med alle kontroller i avsnitt 2.4 bestått (Board #1395 og #1407). Rekkefølgen og én tilbakerullingsøvelse mellom `shadow` og `event` er bestemt av eieren (#946).
+
+**Lesende plan for `shadow` (21.11.2026, `-lock=false`, produksjonens tfvars):** `0 to add, 7 to change, 0 to destroy`. Web og de fem jobbene får `EKKO_WORK_CHAINING=true` og `EKKO_WORK_PUBLISHER=cloud_tasks`, `ekko-wake` får etiketten `shadow`, og vernet får `shadow`. Navnet på web-revisjonen nullstilles som før. Ingen Scheduler-plan, IAM eller andre ressurser endres. Planen er for gjennomgang; apply krever eierens godkjenning av en ny plan laget rett før apply.
+
 1. PR: `work_rollout_stage = "shadow"`. Planen skal bare endre `EKKO_WORK_CHAINING=true` og `EKKO_WORK_PUBLISHER=cloud_tasks` på web og jobber, i tillegg til etiketten. Planene står fortsatt aktive.
 2. Apply etter godkjenning, røyktest og trafikkflytting som i trinn 2.
 3. Kontroll i første time: `work.wake` med `queued`, deretter `idle` eller `not_due`. Ingen 401 eller 503 fra `/internal/work/*`. Køen tømmes (`gcloud tasks list`). `work_signals` får ingen ventende rader eldre enn 1 time, og ingen stoppede.

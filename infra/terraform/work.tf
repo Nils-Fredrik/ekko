@@ -4,7 +4,7 @@
 # so an apply from any up-to-date worktree gives the same schedules and flags. It only moves through a reviewed PR
 # (docs/t40-f4-produksjonsaksept.md):
 #
-#   legacy  Today's production. No Cloud Tasks resources; the queue publisher and chaining stay off; extraction-poll,
+#   legacy  Production before T40-F4. No Cloud Tasks resources; the queue publisher and chaining stay off; extraction-poll,
 #           aggregate and usage-rollup follow enable_schedules / enable_dashboard_schedules as before.
 #   ready   Cloud Tasks API, queue, wake-up identity and IAM exist and the hourly recovery check runs; the application
 #           still uses the queue publisher with chaining off. extraction-poll, aggregate and usage-rollup run, whatever
@@ -18,7 +18,7 @@
 # needs -var=allow_work_rollout_downgrade=true for that one reviewed plan (it also skips reading the label, which
 # the first apply of a new environment needs, before ekko-wake exists).
 locals {
-  work_rollout_stage = "ready"
+  work_rollout_stage = "shadow"
 
   work_rollout_ranks = { legacy = 0, ready = 1, shadow = 2, event = 3 }
   work_rollout_rank  = local.work_rollout_ranks[local.work_rollout_stage]
