@@ -62,7 +62,7 @@ final class AlertContext
      */
     public function rule(AlertType $type, ?int $brandId): ?AlertRule
     {
-        $brandId = $type->isTenantWide() ? null : $brandId;
+        $brandId = $type->isTenantWide() && $type !== AlertType::IntegrationError ? null : $brandId;
         $key = $type->value.':'.($brandId ?? '');
 
         $this->rules[$key] ??= app(AlertRules::class)->forSource($type, $brandId);

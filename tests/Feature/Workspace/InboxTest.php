@@ -2,6 +2,8 @@
 
 use App\ActionEngine\ActionGenerator;
 use App\ActionEngine\Sources\FactCorrectionSource;
+use App\Alerts\AlertRules;
+use App\Alerts\AlertType;
 use App\Brands\BrandHealth;
 use App\Enums\ActionStatus;
 use App\Inbox\InboxQuery;
@@ -29,6 +31,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia;
 use Spatie\LaravelPdf\Facades\Pdf;
 use Spatie\LaravelPdf\FakePdfBuilder;
 use Tests\Support\Metrics\MetricsWorld;
@@ -71,6 +74,8 @@ test('the five inbox sources group and count visible rows, then clear as their s
     expect($query->counts($w->tenant, $w->brand)['alert'])->toBe(1);
     $this->post(route('alerts.acknowledge.bulk'), ['ids' => $alerts->modelKeys()])->assertRedirect();
     $this->postJson(route('brands.entities.decide', $w->brand), ['decision' => 'ignored', 'keys' => ['Havnelys Studio']])->assertSuccessful();
+    $foreignBrand = Brand::factory()->create();
+    $this->post(route('brands.claims.action', [$foreignBrand, $claim]))->assertNotFound();
     $this->post(route('brands.claims.action', [$w->brand, $claim]))->assertRedirect();
     $this->post(route('brands.claims.action', [$w->brand, $claim]))->assertRedirect();
     $correction = Action::where('type', 'fact_correction')->where('evidence->fact_id', $fact->id)->sole();
@@ -96,6 +101,7 @@ test('bulk acknowledgment is atomic across requested ids and undo preserves othe
     $this->post(route('alerts.acknowledge.bulk'), ['ids' => [$one->id, 99999999]])->assertNotFound();
     expect($one->fresh()->acknowledged_at)->toBeNull();
     $this->post(route('alerts.acknowledge.bulk'), ['ids' => [$one->id, $two->id]])->assertSessionHas('acknowledged_ids', [$one->id]);
+    $this->get(route('alerts.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('flash.acknowledged_ids', [$one->id]));
     $this->delete(route('alerts.unacknowledge.bulk'), ['ids' => [$one->id, $two->id]])->assertRedirect();
     expect($two->fresh()->acknowledged_by)->toBe($other->id)->and($one->fresh()->acknowledged_at)->toBeNull();
 });
@@ -158,12 +164,16 @@ test('brand notification settings share legacy data, preserve archive and only s
     $this->post(route('brands.report-schedules.store', $w->brand), $data)->assertRedirect();
     $schedule = $w->brand->reportSchedules()->sole();
     $this->put(route('brands.report-schedules.update', [$other, $schedule]), $data)->assertNotFound();
+    $this->delete(route('brands.report-schedules.destroy', [$other, $schedule]))->assertNotFound();
     $this->put(route('reports.schedules.update', $schedule), $data)->assertRedirect();
     $previewUrl = route('brands.report-schedules.test', [$w->brand, $schedule]);
     foreach (range(1, 3) as $attempt) {
         $this->post($previewUrl)->assertRedirect();
     }
     $this->post($previewUrl)->assertTooManyRequests();
+    Queue::assertPushed(SendTestReport::class, 3);
+    $this->travel(61)->minutes();
+    $this->post(route('brands.report-schedules.test', [$other, $schedule]))->assertNotFound();
     Queue::assertPushed(SendTestReport::class, 3);
     Mail::fake();
     Storage::fake(config('ekko.reports.disk'));
@@ -230,4 +240,28 @@ test('the test report wakes the dispatcher after its job is visible on the datab
     $this->post(route('brands.report-schedules.test', [$w->brand, $schedule]))->assertRedirect();
     expect($queued)->toBe(1);
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/jobs/ekko-wake:run') && $request->body() === '{}');
+});
+
+test('creating an integration rule preserves legacy opt-outs and either settings screen can still change them', function () {
+    $w = MetricsWorld::create();
+    $owner = $w->tenant->owner;
+    $owner->switchTeam($w->tenant);
+    $this->actingAs($owner);
+    $other = Brand::factory()->create();
+    $type = AlertType::IntegrationError;
+    $legacy = AlertRule::factory()->for($w->brand)->create(['type' => $type->value, 'is_active' => false, 'channels' => ['in_app']]);
+    $rules = app(AlertRules::class);
+    $effective = fn () => $rules->forSource($type, $w->brand->id);
+    $global = $rules->forSource($type, $other->id);
+    expect($global->brand_id)->toBeNull()->and($global->is_active)->toBeTrue()
+        ->and($effective()->id)->toBe($legacy->id)->and($effective()->is_active)->toBeFalse();
+
+    $url = route('brands.alert-rules.upsert', [$other, $type->value]);
+    $this->put($url, ['channels' => ['email']])->assertRedirect();
+    expect($effective()->is_active)->toBeFalse()->and($effective()->channels)->toBe(['inbox', 'email'])
+        ->and($global->fresh()->channels)->toBe(['inbox', 'email']);
+    $this->put($url, ['is_active' => true])->assertRedirect();
+    expect($effective()->is_active)->toBeTrue();
+    $this->put(route('alerts.rules.update', $legacy), ['is_active' => false])->assertRedirect();
+    expect($effective()->is_active)->toBeFalse()->and($global->fresh()->is_active)->toBeTrue();
 });

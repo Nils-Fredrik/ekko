@@ -39,7 +39,7 @@ final class AlertRules
         $query = AlertRule::where('type', $type->value);
         if ($type === AlertType::IntegrationError && $brandId !== null) {
             return $query->where(fn ($q) => $q->whereNull('brand_id')->orWhere('brand_id', $brandId))
-                ->orderByRaw('brand_id IS NULL DESC')->orderBy('id')->first();
+                ->orderByRaw('brand_id IS NULL')->orderBy('id')->first();
         }
 
         return $query->where('brand_id', $type->isTenantWide() ? null : $brandId)->orderBy('id')->first();
@@ -68,6 +68,14 @@ final class AlertRules
                 $rule->channels = array_values(array_unique(['inbox', ...$changes['channels']]));
             }
             $rule->save();
+            if ($type === AlertType::IntegrationError && $rule->brand_id === null) {
+                // Historical alerts still reference their brand rule. Keep it effective and apply only
+                // the fields the administrator explicitly changed for the tenant.
+                $fields = array_intersect_key($rule->getAttributes(), $changes, array_flip(['channels', 'is_active', 'threshold']));
+                if ($fields !== []) {
+                    AlertRule::where('type', $type->value)->whereNotNull('brand_id')->update($fields);
+                }
+            }
 
             return $rule;
         });

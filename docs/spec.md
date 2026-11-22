@@ -924,6 +924,8 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 
 Arbeidsflaten (U16–U27, [ux-arbeidsflate.md](ux-arbeidsflate.md)) endrer sidene under. Den innfører sidemeny, oppsettssider under `/brands/{brand}/setup/*` og innboks, og erstatter `Brands/Settings.vue`. U27 oppdaterer tabellen når arbeidet er ferdig.
 
+Integrasjonsvarsler har en felles regel per tenant. Eldre merkevareregler beholder sine valg frem til en administrator eksplisitt endrer det aktuelle feltet i fellesinnstillingen.
+
 I innboksen kan en bruker med `prompts.manage` opprette et rettetiltak fra første motsagte påstand i 30-dagersvinduet. Dette bruker samme faktum, bevis og fingeravtrykk som den ukentlige genereringen (11.3 og 11.6). En uttrykkelig bestilling blir stående gjennom ukentlige genereringer frem til brukeren behandler tiltaket. Den starter med maltekst. En senere ukentlig kandidat kan få modellformulering etter de vanlige reglene. Innboksen bruker ferdig ekstraherte svar fra de siste 30 lokale datoene til og med bestillingstidspunktet. Den ukentlige jobben bruker avsluttede døgn. Når en rapportplan slettes, stopper planlagte utsendinger og tidligere rapporter beholder tilknytningen til planen. En testutsending går til den som bestilte den og gjelder siste avsluttede periode.
 
 | Komponent | Innhold |

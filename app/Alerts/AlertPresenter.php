@@ -26,6 +26,9 @@ final class AlertPresenter
     /** @var array<int, string> */
     private array $prompts = [];
 
+    /** @var array<int, array<int, string>> */
+    private array $integrationBrands = [];
+
     /**
      * Alerts grouped by type, in the order of the alert types, each group with its heading.
      *
@@ -92,7 +95,8 @@ final class AlertPresenter
         $brand = $alert->alertRule->brand_id === null ? '' : $alert->alertRule->brand->name;
 
         if ($type === AlertType::IntegrationError && $brand === '' && isset($payload['integration_id'])) {
-            $brand = Integration::with('brand:id,name')->find($payload['integration_id'])?->brand->name ?? '';
+            $id = (int) $payload['integration_id'];
+            $brand = $this->integrationBrands[current_tenant_id()][$id] ??= Integration::with('brand:id,name')->find($id)?->brand->name ?? '';
         }
 
         return match ($type) {
