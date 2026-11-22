@@ -261,6 +261,9 @@ function refreshSoon(extra = []) {
     clearTimeout(reload);
     reload = setTimeout(() => {
         const only = ['workspace', 'competitors', 'others', 'ignored', 'targets', ...reloadExtra];
+        if (reloadExtra.has('queue')) {
+            only.push('queueTotal');
+        }
         router.reload({
             only,
             preserveScroll: true,
@@ -325,13 +328,20 @@ async function decideKeys(keys, decision, target = null) {
 /** Reverses decisions made in this visit. Throws when one fails, so the message shows «could not undo». */
 async function undoKeys(keys) {
     const entries = keys.map((key) => [key, decided.get(key)]).filter(([, entry]) => entry?.id);
-    await Promise.all(
+    const results = await Promise.allSettled(
         entries.map(([, entry]) => window.axios.delete(route('brands.entities.undo', [props.brand.id, entry.id]))),
     );
-    for (const [key] of entries) {
-        decided.delete(key);
-    }
+    // The names that were undone are undecided again, also when another one failed.
+    entries.forEach(([key], index) => {
+        if (results[index].status === 'fulfilled') {
+            decided.delete(key);
+        }
+    });
     refreshSoon();
+    const failed = results.find((result) => result.status === 'rejected');
+    if (failed) {
+        throw failed.reason;
+    }
 }
 
 async function undoRow(row) {
@@ -598,9 +608,11 @@ function reorderTo(id, index) {
                 ...item,
                 color_index: data.color_indexes?.[item.id] ?? null,
             }));
+            refreshSoon();
         } catch (failure) {
-            localCompetitors.value = props.competitors.map((item) => ({ ...item }));
+            // The server's order is the truth; fetch it instead of guessing what an earlier move did.
             error.value = responseError(failure) ?? trans('workspace.competitors.failed');
+            refreshSoon();
         }
     });
 
@@ -755,7 +767,7 @@ const eyebrow = computed(() => trans('workspace.competitors.eyebrow', { brand: p
                     data-testid="add-competitor"
                     @click="addCompetitor"
                 >
-                    {{ $t('workspace.competitors.add') }}
+                    {{ $t('workspace.palette.add_competitor') }}
                 </button>
             </div>
 
@@ -983,7 +995,7 @@ const eyebrow = computed(() => trans('workspace.competitors.eyebrow', { brand: p
 
             <!-- Konkurrenter -->
             <section
-                v-if="activeTab === 'competitors'"
+                v-show="activeTab === 'competitors'"
                 id="panel-competitors"
                 role="tabpanel"
                 aria-labelledby="tab-competitors"

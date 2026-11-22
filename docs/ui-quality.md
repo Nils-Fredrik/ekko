@@ -42,13 +42,12 @@ Første U15-kjøring, før fakta- og pitchsidene ble lagt til, hadde 0 kritiske 
 
 ## JavaScript-budsjetter
 
-**Endring i U22:** grensen for «App og statiske importer + største språkmodul» er hevet fra 160 000 til 164 000 byte. Hele språkmodulen for `sv` (JSON og genererte PHP-oversettelser) lastes med appen, og siden Konkurrenter og merkevarer legger til rundt 4 KB tekst per språk. Etter U20, U25 og U22 lå målingen på 160 095 (sist 159 900). Teksten er trimmet for ubrukte nøkler. Grensen skal ikke heves for hver side: neste gang bør språkfilene deles per side.
 
 `npm run test:budget` leser Vite-manifestet etter bygg. Størrelsene er gzip nivå 9, uten dobbelttelling av delte moduler. Det største språksettet (JSON og genererte PHP-oversettelser) inngår i førstegangsbudsjettet, mens grafer fortsatt må lastes asynkront.
 
 | Måling                                        | Grense i byte | Etter T49, T45 og U11 |
 | --------------------------------------------- | ------------: | -------------------: |
-| App og statiske importer + største språkmodul |       164 000 |              160 095 |
+| App og statiske importer + største språkmodul |       160 000 |              159 979 |
 | Største første sidelasting + app og språk     |       285 000 |              266 086 |
 | ECharts-chunk                                 |       240 000 |              211 419 |
 | Alle JavaScript-chunker                       |       700 000 |              662 058 |

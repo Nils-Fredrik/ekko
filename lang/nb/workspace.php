@@ -232,7 +232,6 @@ return [
     ],
     'competitors' => [
         'eyebrow' => ':brand · Oppsett',
-        'add' => 'Legg til konkurrent',
         'tabs_label' => 'Konkurrenter og merkevarer',
         'tab' => [
             'pending' => 'Til behandling',

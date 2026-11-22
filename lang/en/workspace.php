@@ -232,7 +232,6 @@ return [
     ],
     'competitors' => [
         'eyebrow' => ':brand · Setup',
-        'add' => 'Add competitor',
         'tabs_label' => 'Competitors and brands',
         'tab' => [
             'pending' => 'To review',
