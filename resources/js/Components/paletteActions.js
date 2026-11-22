@@ -18,9 +18,9 @@ const CREATE = [
 ];
 
 // Setup routes that still forward to today's pages (docs/ux-arbeidsflate.md 6.1). The forwarded page cannot
-// open `?create=`, so the create actions stay hidden until U20, U22 and U24 build the page and take the
-// route out of this list.
-export const FORWARDING_ROUTES = ['brands.setup.markets'];
+// open `?create=`, so the create action stays hidden until that page is built. U20, U22 and U24 have taken
+// their routes out.
+export const FORWARDING_ROUTES = [];
 
 /** The same URL with `market` set, or removed for all markets. Other parameters stay. */
 export function urlWithMarket(url, marketId) {

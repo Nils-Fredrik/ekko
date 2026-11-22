@@ -34,7 +34,7 @@ const STEPS = ['fetched', 'cited', 'visits'];
 
 const grain = computed(() => props.period.grain ?? 'day');
 const categories = computed(() => periodBuckets(props.period.from, props.period.to, grain.value));
-const settingsHref = computed(() => route('brands.settings', props.brand.id));
+const settingsHref = computed(() => route('brands.setup.integrations', props.brand.id));
 const pages = computed(() => props.chartData?.pages ?? []);
 // A source counts as connected when it is set up or has delivered figures for the period.
 const hasBotLogs = computed(() => props.connections.bot_logs || props.bots.length > 0);

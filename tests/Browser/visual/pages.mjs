@@ -35,7 +35,9 @@ export const pages = [
     ['actions', 'Brands/Actions', 'owner', () => brand('/actions')],
     ['facts', 'Brands/Facts', 'owner', () => brand('/facts')],
     ['action', 'Brands/ActionShow', 'owner', () => brand(`/actions/${env('UI_ACTION_ID')}`)],
-    ['settings', 'Brands/Settings', 'owner', () => brand('/settings')],
+    ['setup-markets', 'Brands/Setup/Markets', 'owner', () => brand('/setup/markets')],
+    ['setup-identity', 'Brands/Setup/Identity', 'owner', () => brand('/setup/identity')],
+    ['setup-integrations', 'Brands/Setup/Integrations', 'owner', () => brand('/setup/integrations')],
     ['wizard', 'Onboarding/Wizard', 'owner', () => '/onboarding/wizard'],
     ['inbox', 'Inbox/Index', 'owner', () => '/inbox'],
     ['setup-notifications', 'Brands/Setup/Notifications', 'owner', () => brand('/setup/notifications')],
@@ -82,6 +84,7 @@ export const pages = [
     ['shared-missing', null, 'guest', () => `/shared-report/${env('SMOKE_TENANT_ID')}/missing-selector`],
 ];
 export const inactivePages = {
+    'Brands/Settings': 'U24 sends /brands/{brand}/settings to identity. U27 removes the old settings page and its update route.',
     'Alerts/Index': 'U26 sends /alerts to the inbox. The legacy rule form stays until U27 removes alerts.rules.',
     TermsOfService: 'Jetstream termsAndPrivacyPolicy is disabled; there is no registered page route.',
     PrivacyPolicy: 'Jetstream termsAndPrivacyPolicy is disabled; there is no registered page route.',

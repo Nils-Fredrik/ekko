@@ -48,11 +48,16 @@ class Integration extends Model
     public function recordSync(?CarbonImmutable $failedDay = null): void
     {
         $status = $failedDay === null ? 'synced' : 'error';
-        self::whereKey($this->id)->update([
+        $updates = [
             'status' => $status,
             'last_failed_on' => $failedDay?->toDateString(),
-            ($failedDay === null ? 'last_sync_at' : 'last_error_at') => now(),
-        ]);
+        ];
+        if ($failedDay === null) {
+            $updates['last_sync_at'] = now();
+        } elseif ($this->status !== 'error' || $this->last_error_at === null) {
+            $updates['last_error_at'] = now();
+        }
+        self::whereKey($this->id)->update($updates);
         if ($this->status !== $status) {
             DB::afterCommit(fn () => WorkspaceCounts::forget($this->tenant_id));
         }

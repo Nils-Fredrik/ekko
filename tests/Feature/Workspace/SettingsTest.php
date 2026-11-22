@@ -62,6 +62,31 @@ test('brand settings save aliases domains and markets and reject a retired engin
         ->and($world->brand->fresh()->name)->toBe('Fjordkaffe AS');
 });
 
+test('identity counts subdomains only for a domain that includes them', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $parent = $world->brand->domains()->create(['domain' => 'eksempel.no', 'include_subdomains' => true]);
+    $exact = $world->brand->domains()->create(['domain' => 'blogg.eksempel.no', 'include_subdomains' => false]);
+    $world->answer($world->p1, now()->subDay()->toIso8601String(), ['citations' => [
+        ['eksempel.no', 'own'],
+        ['blogg.eksempel.no', 'own'],
+        ['blogg.eksempel.no', 'own'],
+        ['noteksempel.no', 'third_party'],
+    ]]);
+    $old = $world->answer($world->p1, now()->subDays(40)->toIso8601String(), ['citations' => [['nyhet.eksempel.no', 'own']]]);
+    $old->citations()->update(['created_at' => now()->subDays(40)]);
+
+    $this->actingAs($owner)->get(route('brands.setup.identity', $world->brand))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('domains', function ($domains) use ($parent, $exact): bool {
+                $byId = collect($domains)->keyBy('id');
+
+                return $byId[$parent->id]['citations'] === 3 && $byId[$exact->id]['citations'] === 2;
+            }));
+});
+
 test('a blank alert threshold uses the default', function () {
     $world = MetricsWorld::create();
     $owner = $world->tenant->owner;
@@ -122,7 +147,7 @@ test('a clickhouse host must be on the allowlist and the stored config stays off
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
 
-    $this->actingAs($owner)->get(route('brands.settings', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.integrations', $world->brand))
         ->assertOk()
         ->assertDontSee('clickhouse-secret-value')
         ->assertDontSee('https://old.example.test');
@@ -171,12 +196,13 @@ test('a brand admin can connect clickhouse and ga4 without the secrets returning
         ->and($ga4)->not->toBeNull()
         ->and($ga4->config['service_account']['private_key'])->toBe($key);
 
-    $this->actingAs($owner)->get(route('brands.settings', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.integrations', $world->brand))
         ->assertOk()
         ->assertDontSee($secret)
         ->assertDontSee($key)
         ->assertDontSee('ga4@example.test')
         ->assertInertia(fn ($page) => $page
+            ->component('Brands/Setup/Integrations')
             ->where('logUploadUrl', route('bot-log-uploads.index', ['team' => $world->tenant->id]))
             ->has('integrations', 2));
 
@@ -203,7 +229,7 @@ test('clickhouse fields stay hidden and unsaved when no endpoint is configured',
     $owner->switchTeam($world->tenant);
     $name = $world->brand->name;
 
-    $this->actingAs($owner)->get(route('brands.settings', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.integrations', $world->brand))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('clickhouseEndpoints', []));
 
