@@ -41,6 +41,7 @@ class SetupPromptController extends Controller
         $engines = $this->engines($marketIds->all());
         $limit = $team->plan?->max_prompts_per_market;
         $active = $market === null ? null : Prompt::query()->where('market_id', $market->id)->where('is_active', true)->count();
+        $detail = $request->filled('open') ? $this->detail($brand, $request, $zone) : null;
 
         return Inertia::render('Brands/Setup/Prompts', [
             'brand' => BrandPage::payload($brand),
@@ -67,8 +68,8 @@ class SetupPromptController extends Controller
                 'funnel' => array_values(array_filter((array) $request->query('funnel', []))),
                 'priority' => array_values(array_filter((array) $request->query('priority', []))),
             ],
-            'open' => $request->filled('open') ? (int) $request->query('open') : null,
-            'detail' => $request->filled('open') ? $this->detail($brand, $request, $zone) : null,
+            'open' => $detail === null ? null : (int) $request->query('open'),
+            'detail' => $detail,
             'importResult' => session('prompt_import'),
             'personalData' => (bool) session('personal_data'),
         ]);

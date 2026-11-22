@@ -45,6 +45,7 @@ const csvText = ref('');
 const preview = ref(null);
 const suggestions = ref([]);
 const suggestCount = ref(5);
+const suggestTopicId = ref(null);
 const searchTimer = ref(null);
 const dragId = ref(null);
 
@@ -54,6 +55,9 @@ const selectedTopic = computed(() =>
     props.filters.topic && props.filters.topic !== 'none'
         ? props.library.topics.find((item) => String(item.id) === String(props.filters.topic))
         : null,
+);
+const suggestTarget = computed(
+    () => selectedTopic.value ?? props.library.topics.find((item) => item.id === suggestTopicId.value) ?? null,
 );
 const atLimit = computed(
     () => props.quota.limit !== null && props.quota.limit !== undefined && props.quota.active >= props.quota.limit,
@@ -97,6 +101,23 @@ watch(
         });
     },
     { immediate: true },
+);
+
+watch(
+    () => props.detail?.prompt,
+    (row) => {
+        if (!row || row.id !== props.open || autosave.state.value === 'saving') {
+            return;
+        }
+        Object.assign(values, {
+            text: row.text,
+            topic_id: row.topic_id,
+            intent: row.intent,
+            funnel_stage: row.funnel_stage,
+            priority: row.priority,
+            is_active: row.is_active,
+        });
+    },
 );
 
 const columns = computed(() => {
@@ -366,7 +387,13 @@ async function startDraft() {
 }
 
 function onKey(event) {
-    if (event.metaKey || event.ctrlKey || event.altKey || (event.key !== 'n' && event.key !== 'N')) {
+    if (
+        props.open !== null ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey ||
+        (event.key !== 'n' && event.key !== 'N')
+    ) {
         return;
     }
     const tag = event.target?.tagName;
@@ -457,12 +484,12 @@ function runImport() {
 }
 
 async function loadSuggestions() {
-    if (!selectedTopic.value || !props.market) {
+    if (!suggestTarget.value || !props.market) {
         return;
     }
     try {
         const { data } = await window.axios.post(
-            route('brands.topics.suggestions', [props.brand.id, selectedTopic.value.id]),
+            route('brands.topics.suggestions', [props.brand.id, suggestTarget.value.id]),
             {
                 market_id: props.market.id,
                 count: suggestCount.value,
@@ -488,7 +515,7 @@ function addSuggestions() {
                 intent: item.intent,
                 funnel_stage: item.funnel_stage,
                 priority: item.priority ?? 'standard',
-                topic_id: selectedTopic.value.id,
+                topic_id: suggestTarget.value.id,
                 is_active: true,
             })),
         },
@@ -529,12 +556,17 @@ const emptyCopy = computed(() =>
                     </p>
                 </div>
                 <div v-if="canManage" class="flex flex-wrap items-center gap-2">
-                    <a
-                        :href="route('brands.prompts.export', brand.id)"
-                        class="rounded-full border border-line px-3 py-1.5 text-sm no-underline"
-                    >
-                        {{ $t('workspace.prompts.export') }}
-                    </a>
+                    <details class="relative">
+                        <summary class="cursor-pointer rounded-full border border-line px-3 py-1.5 text-sm">
+                            {{ $t('workspace.prompts.more') }}
+                        </summary>
+                        <a
+                            :href="route('brands.prompts.export', brand.id)"
+                            class="absolute end-0 z-10 mt-1 block whitespace-nowrap rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm no-underline"
+                        >
+                            {{ $t('workspace.prompts.export') }}
+                        </a>
+                    </details>
                     <button
                         type="button"
                         class="rounded-full border border-line px-3 py-1.5 text-sm"
@@ -664,15 +696,24 @@ const emptyCopy = computed(() =>
             <section v-if="showSuggest && canManage" class="rounded-xl border border-line bg-shell-surface p-4 text-sm">
                 <h3 class="font-medium">
                     {{
-                        selectedTopic
+                        suggestTarget
                             ? $t('workspace.prompts.suggest_title', {
-                                  topic: selectedTopic.name,
+                                  topic: suggestTarget.name,
                                   market: market?.label,
                               })
                             : $t('workspace.prompts.suggest_any', { market: market?.label })
                     }}
                 </h3>
                 <p class="mt-1 text-shell-muted">{{ $t('workspace.prompts.suggest_cost') }}</p>
+                <label v-if="!selectedTopic" class="mt-2 block">
+                    {{ $t('workspace.prompts.topic') }}
+                    <select v-model.number="suggestTopicId" class="mt-1 w-full rounded-lg border border-line px-2 py-1">
+                        <option :value="null" />
+                        <option v-for="topic in library.topics" :key="topic.id" :value="topic.id">
+                            {{ topic.name }}
+                        </option>
+                    </select>
+                </label>
                 <label class="mt-2 block">
                     <select
                         v-model.number="suggestCount"
@@ -682,7 +723,12 @@ const emptyCopy = computed(() =>
                         <option :value="10">{{ $t('workspace.prompts.count_10') }}</option>
                     </select>
                 </label>
-                <button type="button" class="mt-3 rounded-full border border-line px-3 py-1.5" @click="loadSuggestions">
+                <button
+                    type="button"
+                    class="mt-3 rounded-full border border-line px-3 py-1.5 disabled:opacity-50"
+                    :disabled="!suggestTarget"
+                    @click="loadSuggestions"
+                >
                     {{ $t('workspace.prompts.suggest') }}
                 </button>
                 <ul class="mt-3 space-y-2">
@@ -985,7 +1031,7 @@ const emptyCopy = computed(() =>
                         <button
                             type="button"
                             class="text-sm text-primary disabled:opacity-50"
-                            :disabled="!market || !selectedTopic"
+                            :disabled="!market"
                             @click="openSuggest"
                         >
                             {{ $t('workspace.prompts.suggest') }}

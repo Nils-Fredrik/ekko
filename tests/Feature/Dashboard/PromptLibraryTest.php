@@ -226,13 +226,13 @@ test('deleting the open prompt returns to the list instead of a missing page', f
         ->from(route('brands.setup.prompts', [$this->brand, 'open' => $prompt->id]))
         ->delete(route('brands.prompts.destroy', [$this->brand, $prompt]))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('detail', null));
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('detail', null)->where('open', null));
 });
 
 test('a missing prompt closes the panel and a foreign market is not found', function () {
     $this->get(route('brands.setup.prompts', [$this->brand, 'open' => 99999999]))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->where('detail', null));
+        ->assertInertia(fn ($page) => $page->where('detail', null)->where('open', null));
     $this->get(route('brands.setup.prompts', [$this->brand, 'market' => 99999999]))->assertNotFound();
     $this->get(route('brands.setup.prompts', [$this->brand, 'open' => 'nope']))->assertNotFound();
 });
