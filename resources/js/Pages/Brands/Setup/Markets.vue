@@ -21,7 +21,6 @@ const props = defineProps({
 
 const page = usePage();
 const modes = ref({});
-const estimate = ref(null);
 const selectedId = ref(props.selectedMarketId ?? props.markets[0]?.id ?? null);
 const creating = ref(new URL(page.url, 'http://ekko.invalid').searchParams.get('create') === 'market');
 const languageEdited = ref(false);
@@ -68,13 +67,7 @@ watch(
 );
 
 function nextMeasurement(market) {
-    const row = estimate.value?.markets?.find((item) => item.id === market.id);
-    const date = (row?.rules ?? [])
-        .map((rule) => rule.next_due_on)
-        .filter(Boolean)
-        .sort()[0];
-
-    return date ? formatDate(date) : empty();
+    return market.next_due_on ? formatDate(market.next_due_on) : empty();
 }
 
 function planText(market) {
@@ -264,7 +257,6 @@ function createMarket() {
                 :can-manage="canManage"
                 :prompts="prompts"
                 @modes="modes = $event"
-                @estimate="estimate = $event"
             />
         </div>
     </AppLayout>

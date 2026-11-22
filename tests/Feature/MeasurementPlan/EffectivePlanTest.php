@@ -4,6 +4,7 @@ use App\AnthropicBudget\Estimator;
 use App\AnthropicBudget\Planner;
 use App\Dashboard\AnalysisFilters;
 use App\Models\AnthropicBudgetPlan;
+use App\Models\Market;
 use App\Models\Run;
 use App\Models\User;
 use App\Onboarding\FirstRun;
@@ -146,4 +147,21 @@ it('shows each market\'s rules in settings, the engine filters and list_brands',
         ->and($brand['markets'][0]['engines'])->toBe($mcp($standard))
         ->and($brand['markets'][1]['plan_mode'])->toBe('own')
         ->and($brand['markets'][1]['engines'])->toBe($mcp($own));
+});
+
+it('shows the saved plan next measurement to a reader, including when a market is off or inactive', function () {
+    [$tenant, $reader] = planTenant([], 'reader');
+    $w = planWorld($tenant, [planRule('chatgpt_api', 'daily')], [planRule('chatgpt_api', 'off')]);
+    $paused = inTenant($tenant, fn () => Market::factory()->for($w['brand'])->create([
+        'country' => 'DK', 'language' => 'da', 'is_active' => false,
+    ]));
+
+    $this->actingAs($reader)->get(route('brands.setup.markets', $w['brand']))->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->where('canManage', false)
+        ->where('markets.0.id', $w['a']->id)
+        ->where('markets.0.next_due_on', '2026-11-20')
+        ->where('markets.1.id', $w['b']->id)
+        ->where('markets.1.next_due_on', null)
+        ->where('markets.2.id', $paused->id)
+        ->where('markets.2.next_due_on', null));
 });

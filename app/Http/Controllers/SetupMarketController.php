@@ -5,11 +5,17 @@ namespace App\Http\Controllers;
 use App\Brands\CountryList;
 use App\Dashboard\BrandPage;
 use App\MeasurementPlan\MeasurementPlans;
+use App\MeasurementPlan\PlanDraft;
+use App\MeasurementPlan\PromptPopulation;
 use App\Models\Brand;
 use App\Models\Market;
 use App\Models\Prompt;
+use App\Models\RunBatch;
 use App\Models\Team;
+use App\Onboarding\CostEstimator;
+use App\Scheduling\NextMeasurement;
 use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -20,12 +26,13 @@ use Inertia\Response;
  */
 class SetupMarketController extends Controller
 {
-    public function __invoke(Brand $brand, MeasurementPlans $plans): Response
+    public function __invoke(Brand $brand, MeasurementPlans $plans, CostEstimator $estimator, NextMeasurement $next): Response
     {
         BrandPage::authorizeView($brand);
         $brand->load(['markets' => fn ($query) => $query->orderBy('id')]);
         $tenant = Team::query()->findOrFail((int) app(TenantContext::class)->require());
         $ids = $brand->markets->modelKeys();
+        $due = $this->nextMeasurements($brand, $tenant, $plans, $estimator, $next);
         $counts = $ids === [] ? collect() : Prompt::query()
             ->whereIn('market_id', $ids)
             ->where('is_active', true)
@@ -39,7 +46,7 @@ class SetupMarketController extends Controller
         return Inertia::render('Brands/Setup/Markets', [
             'brand' => ['id' => $brand->id, 'name' => $brand->name],
             'tenantName' => $tenant->name,
-            'markets' => $brand->markets->map(function (Market $market) use ($counts): array {
+            'markets' => $brand->markets->map(function (Market $market) use ($counts, $due): array {
                 $row = $counts->get($market->id);
 
                 return [
@@ -53,6 +60,7 @@ class SetupMarketController extends Controller
                     'plan_mode' => $market->plan_mode,
                     'prompts' => (int) ($row->prompts ?? 0),
                     'core' => (int) ($row->core ?? 0),
+                    'next_due_on' => $market->is_active ? ($due[$market->id] ?? null) : null,
                 ];
             })->values(),
             'measurementPlan' => $plans->present($tenant, $brand),
@@ -68,5 +76,37 @@ class SetupMarketController extends Controller
             'selectedMarketId' => is_numeric($selected) ? (int) $selected : null,
             'canManage' => Gate::allows('update', $brand),
         ]);
+    }
+
+    /**
+     * Next measurement from the saved plan, for every role. The live estimate is the unsaved draft and is not
+     * available to readers.
+     *
+     * @return array<int, ?string>
+     */
+    private function nextMeasurements(Brand $brand, Team $tenant, MeasurementPlans $plans, CostEstimator $estimator, NextMeasurement $next): array
+    {
+        $populations = PromptPopulation::forMarkets($brand->markets->modelKeys());
+        $input = [];
+        foreach ($plans->preview($brand, new PlanDraft(null, [])) as $id => $settings) {
+            if ($settings['is_active']) {
+                $input[] = $settings + ['id' => $id, 'prompts' => $populations[$id] ?? new PromptPopulation];
+            }
+        }
+        $estimate = $estimator->estimate($tenant, $input);
+        $today = CarbonImmutable::today($tenant->timezone);
+        $active = array_column($input, 'id');
+        $planned = $active === [] ? collect() : RunBatch::query()->whereIn('market_id', $active)
+            ->where('dispatch_date', $today->toDateString())->pluck('market_id')->flip();
+        $prompts = $active === [] ? collect() : Prompt::query()->whereIn('market_id', $active)->where('is_active', true)
+            ->get(['id', 'market_id', 'priority'])->groupBy('market_id');
+        $due = [];
+        foreach ($estimate['markets'] as $market) {
+            $id = $market['id'];
+            $start = $planned->has($id) ? $today->addDay() : $today;
+            $due[$id] = $next->on($market['rules'], $prompts->get($id, collect()), $start);
+        }
+
+        return $due;
     }
 }

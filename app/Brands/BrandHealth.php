@@ -14,7 +14,7 @@ use App\Models\UsageEvent;
 use App\Models\UserBrandPreference;
 use App\Onboarding\CostEstimator;
 use App\Prompts\EntityQueue;
-use App\Scheduling\PromptSchedule;
+use App\Scheduling\NextMeasurement;
 use App\Usage\MonthlyUsage;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 
 final readonly class BrandHealth
 {
-    public function __construct(private MeasurementPlans $plans, private CostEstimator $estimator, private EntityQueue $queue, private MonthlyUsage $usage) {}
+    public function __construct(private MeasurementPlans $plans, private CostEstimator $estimator, private EntityQueue $queue, private MonthlyUsage $usage, private NextMeasurement $next) {}
 
     /** @return array<string, mixed> */
     public function for(Brand $brand): array
@@ -56,7 +56,7 @@ final readonly class BrandHealth
             $measurements[] = [
                 'id' => $id, 'label' => $market->location_label ?: strtoupper($market->country),
                 'last_completed_at' => $latest->has($id) ? CarbonImmutable::parse($latest[$id])->utc()->toIso8601String() : null,
-                'next_due_on' => $this->nextDue($estimateMarket['rules'], $prompts->get($id, collect()), $start),
+                'next_due_on' => $this->next->on($estimateMarket['rules'], $prompts->get($id, collect()), $start),
             ];
         }
 
@@ -92,37 +92,6 @@ final readonly class BrandHealth
         return ['markets' => $measurements, 'engines_active' => count($engines), 'answers_per_month' => $estimate['answers'],
             'problems' => $problems, 'checklist' => $checklist,
             'checklist_hidden' => UserBrandPreference::where('brand_id', $brand->id)->where('user_id', auth()->id())->whereNotNull('checklist_hidden_at')->exists()];
-    }
-
-    /**
-     * The estimator's example date is for one prompt. Find the first dispatch day for any eligible prompt.
-     *
-     * @param  list<array<string, mixed>>  $rules
-     * @param  iterable<Prompt>  $prompts
-     */
-    private function nextDue(array $rules, iterable $prompts, CarbonImmutable $start): ?string
-    {
-        $engines = collect($rules)->groupBy('engine_key');
-        $next = 32;
-        foreach ($prompts as $prompt) {
-            foreach ($engines as $rows) {
-                $rule = MeasurementPlans::ruleFor($rows, $prompt->priority === 'core');
-                if ($rule === null || $rule['frequency'] === 'off') {
-                    continue;
-                }
-                for ($i = 0; $i < $next; $i++) {
-                    if (PromptSchedule::due($prompt->id, $rule['frequency'], $start->addDays($i))) {
-                        $next = $i;
-                        break;
-                    }
-                }
-                if ($next === 0) {
-                    return $start->toDateString();
-                }
-            }
-        }
-
-        return $next === 32 ? null : $start->addDays($next)->toDateString();
     }
 
     private function setupUrl(Brand $brand, string $section): string
