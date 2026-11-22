@@ -44,3 +44,26 @@ export function rowChanged(standard, row) {
         (standard.core_frequency || '') !== (row.core_frequency || '')
     );
 }
+
+/**
+ * The validation message for one engine, matched on the rule index in the saved payload.
+ * prefix is standard.engines or markets.N.engines.
+ */
+export function cellError(errors, rules, prefix, engineKey) {
+    const head = `${prefix}.`;
+    for (const [key, message] of Object.entries(errors ?? {})) {
+        if (!key.startsWith(head)) {
+            continue;
+        }
+        const index = Number(key.slice(head.length).split('.')[0]);
+        if (!Number.isInteger(index) || rules?.[index]?.engine_key !== engineKey) {
+            continue;
+        }
+        const text = Array.isArray(message) ? message[0] : message;
+        if (text) {
+            return text;
+        }
+    }
+
+    return '';
+}

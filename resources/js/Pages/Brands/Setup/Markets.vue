@@ -47,6 +47,26 @@ watch(
     },
 );
 
+function resetCreateForm() {
+    languageEdited.value = false;
+    form.country = 'NO';
+    form.language = props.languages.NO ?? 'en';
+    form.location_label = '';
+    form.copy_from = '';
+}
+
+watch(
+    () => props.selectedMarketId,
+    (id) => {
+        if (id == null) {
+            return;
+        }
+        selectedId.value = id;
+        creating.value = false;
+        resetCreateForm();
+    },
+);
+
 function nextMeasurement(market) {
     const row = estimate.value?.markets?.find((item) => item.id === market.id);
     const date = (row?.rules ?? [])

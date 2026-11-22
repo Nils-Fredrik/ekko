@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { answersFor, nextDue, rowChanged, samplePromptId } from '../../resources/js/planMatrix.js';
+import { answersFor, cellError, nextDue, rowChanged, samplePromptId } from '../../resources/js/planMatrix.js';
 
 const estimate = {
     engines: [{ engine_key: 'chatgpt_api', answers: 12 }],
@@ -26,6 +26,29 @@ test('a cell reads answers for the brand standard or one market', () => {
 test('the panel uses the earliest next measurement and its example prompt', () => {
     assert.equal(nextDue(estimate, 4, 'chatgpt_api'), '2026-11-20');
     assert.equal(samplePromptId(estimate, 4, 'chatgpt_api'), 9);
+});
+
+test('a validation error is shown on the engine whose rule failed', () => {
+    const rules = [{ engine_key: 'chatgpt_api' }, { engine_key: 'chatgpt' }];
+    const errors = {
+        'standard.engines.1.frequency': 'The interval for ChatGPT is more frequent than the package allows.',
+        country: 'Pick a country',
+        'markets.0.engines.0.frequency': 'Too often for this market',
+    };
+
+    assert.equal(
+        cellError(errors, rules, 'standard.engines', 'chatgpt'),
+        'The interval for ChatGPT is more frequent than the package allows.',
+    );
+    assert.equal(cellError(errors, rules, 'standard.engines', 'chatgpt_api'), '');
+    assert.equal(
+        cellError(errors, [{ engine_key: 'chatgpt' }], 'markets.0.engines', 'chatgpt'),
+        'Too often for this market',
+    );
+    assert.equal(
+        cellError({ 'standard.engines.0.frequency': ['Capped'] }, rules, 'standard.engines', 'chatgpt_api'),
+        'Capped',
+    );
 });
 
 test('an own choice is changed only when it differs from the brand standard', () => {

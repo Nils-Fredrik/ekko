@@ -36,7 +36,8 @@ it('creates an inheriting market and copies active prompts of the same language 
     $path = route('brands.markets.store', $w->brand);
     $data = ['country' => 'se', 'language' => 'NB', 'copy_from' => $w->market->id];
     $this->postJson($path, array_replace($data, ['language' => 'sv']))->assertUnprocessable()->assertJsonValidationErrors('copy_from');
-    $id = $this->post($path, $data)->assertRedirect()->assertSessionHasNoErrors()->getSession()->get('market_id');
+    $id = $this->post($path, $data)->assertRedirect(route('brands.setup.markets', $w->brand))->assertSessionHasNoErrors()->getSession()->get('market_id');
+    $this->get(route('brands.setup.markets', $w->brand))->assertOk()->assertInertia(fn ($page) => $page->where('selectedMarketId', $id));
     app(TenantContext::class)->run($w->tenant->id, function () use ($id, $w, $topic) {
         $market = Market::findOrFail($id);
         $copy = $market->prompts()->sole();

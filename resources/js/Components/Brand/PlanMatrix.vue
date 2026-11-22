@@ -11,7 +11,7 @@ import {
     rulesLackPrice,
     rulesToRows,
 } from '@/measurementPlan';
-import { INTERVALS, answersFor, nextDue, rowChanged, samplePromptId } from '@/planMatrix';
+import { INTERVALS, answersFor, cellError, nextDue, rowChanged, samplePromptId } from '@/planMatrix';
 import { router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
@@ -95,6 +95,44 @@ const delta = computed(() => {
 });
 const month = computed(() => formatDate(new Date().toISOString().slice(0, 7), { year: false }));
 const fieldErrors = computed(() => page.props.errors ?? {});
+const planErrors = computed(() =>
+    Object.fromEntries(
+        Object.entries(fieldErrors.value).filter(([key]) => key.startsWith('standard.') || key.startsWith('markets.')),
+    ),
+);
+const loosePlanError = computed(() => {
+    const entry = Object.entries(planErrors.value).find(
+        ([key]) => !/^standard\.engines\.\d+\./.test(key) && !/^markets\.\d+\.engines\.\d+\./.test(key),
+    );
+    if (!entry) {
+        return '';
+    }
+
+    return Array.isArray(entry[1]) ? entry[1][0] : entry[1];
+});
+
+function cellMessage(engineKey, marketId) {
+    if (marketId == null) {
+        return cellError(
+            planErrors.value,
+            rowsToRules(standardRows.value, maxRepetitions.value),
+            'standard.engines',
+            engineKey,
+        );
+    }
+    const index = markets.value.findIndex((item) => item.id === marketId);
+    const market = markets.value[index];
+    if (!market || market.plan_mode !== 'own') {
+        return '';
+    }
+
+    return cellError(
+        planErrors.value,
+        rowsToRules(market.rules, maxRepetitions.value),
+        `markets.${index}.engines`,
+        engineKey,
+    );
+}
 function marketById(marketId) {
     return markets.value.find((market) => market.id === marketId) ?? null;
 }
@@ -293,7 +331,17 @@ watch(
             const current = markets.value.find((market) => market.id === incoming.id);
             if (current) {
                 current.is_active = incoming.is_active;
+                continue;
             }
+            markets.value.push({
+                id: incoming.id,
+                country: incoming.country,
+                language: incoming.language,
+                location_label: incoming.location_label,
+                is_active: incoming.is_active,
+                plan_mode: incoming.plan_mode,
+                rules: rulesToRows(incoming.engines, props.plan.options.engines, props.plan.options.max_repetitions),
+            });
         }
         if (selected.value?.marketId != null && !marketById(selected.value.marketId)?.is_active) {
             selected.value = null;
@@ -475,11 +523,15 @@ watch(dirty, (value) => {
                                     </span>
                                 </template>
                             </button>
+                            <InputError
+                                v-if="selected?.engineKey !== engine.engine_key || selected?.marketId !== marketId"
+                                :message="cellMessage(engine.engine_key, marketId)"
+                            />
                         </td>
                     </tr>
                 </tbody>
             </table>
-            <InputError class="px-2 py-1" :message="Object.values(fieldErrors)[0]" />
+            <InputError class="px-2 py-1" :message="loosePlanError" />
         </div>
 
         <section
@@ -506,6 +558,7 @@ watch(dirty, (value) => {
                     })
                 }}
             </h3>
+            <InputError class="mt-2" :message="cellMessage(editing.engineKey, editing.marketId)" />
             <p class="mt-2 text-xs text-shell-muted">{{ $t('workspace.setup.interval') }}</p>
             <div class="mt-1 flex flex-wrap gap-1">
                 <button
