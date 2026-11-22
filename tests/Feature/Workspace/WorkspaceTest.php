@@ -158,8 +158,11 @@ test('the usage shows this month against the quota for those who may see it', fu
         ->and(array_filter($workspace['can']))->toBe([]);
 });
 
-test('a guest gets no workspace', function () {
-    $this->get('/login')->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->missing('workspace'));
+test('a guest gets no workspace and no deferred request for it', function () {
+    $this->get('/login')->assertOk()->assertInertia(function (AssertableInertia $page) {
+        $page->where('workspace', null);
+        expect($page->toArray()['deferredProps'] ?? [])->not->toHaveKey('workspace');
+    });
 });
 
 test('the setup routes forward to the pages of today and keep the market where it is read', function () {

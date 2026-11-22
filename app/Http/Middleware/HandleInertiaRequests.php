@@ -69,8 +69,11 @@ class HandleInertiaRequests extends Middleware
             // The active tenant's time zone, for resources/js/format.js (docs/ux-arbeidsflate.md 4.2).
             'tenant' => fn (): ?array => $this->tenant($request),
             // The shell's brand, market, counts and usage (docs/ux-arbeidsflate.md 4.1). Deferred in a group
-            // of its own, so the page renders first and the sidebar does not wait for the charts.
-            'workspace' => Inertia::defer(fn (): ?array => $this->workspace($request), 'workspace'),
+            // of its own, so the page renders first and the sidebar does not wait for the charts. Guests have
+            // no shell and get null without a second request.
+            'workspace' => $request->user() instanceof User
+                ? Inertia::defer(fn (): ?array => $this->workspace($request), 'workspace')
+                : null,
             // Providers with credentials; the login page shows a button for each.
             'ssoProviders' => fn (): array => $this->configuredSsoProviders(),
             // Providers the signed-in user can confirm with instead of a password (T07-F2).

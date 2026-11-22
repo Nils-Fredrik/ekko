@@ -13,6 +13,7 @@ import { CheckIcon } from '@heroicons/vue/20/solid';
 import { router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useWorkspace } from '@/Composables/useWorkspace';
 import { paletteActions } from './paletteActions.js';
 
 const open = ref(false);
@@ -26,6 +27,8 @@ let timer;
 let controller;
 
 const user = computed(() => page.props.auth?.user ?? null);
+// The same scope as the sidebar: the market comes from the address, which partial visits keep current.
+const { workspace, marketId } = useWorkspace();
 
 function matches(label) {
     const needle = query.value.trim().toLowerCase();
@@ -36,7 +39,7 @@ function matches(label) {
 // Actions for the workspace (docs/ux-arbeidsflate.md 4.6), shown by `workspace.can`.
 const workspaceActions = computed(() =>
     paletteActions({
-        workspace: page.props.workspace ?? null,
+        workspace: workspace.value ? { ...workspace.value, market_id: marketId.value } : null,
         url: page.url,
         has: (name) => route().has(name),
         to: (name, params) => route(name, params),
