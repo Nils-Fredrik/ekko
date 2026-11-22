@@ -380,7 +380,7 @@ Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-fo
 
 Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.manage`.
 
-**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg». «Ny prompt» og «Nytt tema» vises, fordi U20 har tatt `brands.setup.prompts` ut av `FORWARDING_ROUTES`. «Legg til konkurrent» og «Nytt marked» er skjult så lenge ruten bare sender videre, fordi dagens side ikke åpner `?create=`. U22 og U24 tar sin rute ut av listen når siden er bygget.
+**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg». «Ny prompt» og «Nytt tema» vises, fordi U20 har tatt `brands.setup.prompts` ut av `FORWARDING_ROUTES`. «Legg til konkurrent» vises fra U22, fordi siden åpner `?create=competitor`. «Nytt marked» er skjult så lenge ruten bare sender videre, fordi dagens side ikke åpner `?create=`. U24 tar sin rute ut av listen når siden er bygget.
 
 ## 5. Skjermer
 
@@ -581,6 +581,22 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
 - Et ignorert navn kommer ikke tilbake i køen, i `new_competitor`-varsler eller i `new_competitor`-tiltak.
 - Et navn lagt som alias vises under konkurrenten i grafene etter neste aggregering (6.3).
 - Endret rekkefølge gir samme farge for konkurrenten på dashboard, konkurrentside, kildeside og i rapport.
+
+**Slik U22 er bygget:**
+
+- **Filer:** `SetupCompetitorController` (siden, tar over `brands.setup.competitors` fra videresendingen), `Pages/Brands/Setup/Competitors.vue`, `Components/Setup/` (`EntityPanel`, `CompetitorPanel`, `AliasPicker` og de rene reglene i `entityQueue.js`, testet i `tests/js/competitor-setup.test.mjs`). Skrivingen går til JSON-rutene fra U21. «Legg til konkurrent» bruker `brands.competitors.store`. `DataTable` har fått `row-selectable`, så en behandlet rad mister avkrysningen.
+- **Tall uten sidelasting:** tallet på «Til behandling» regnes lokalt (køen minus behandlede navn) og endres med en gang. Sidemenyen og de andre fanene (`competitors`, `others`, `ignored`, `targets`, `workspace`) hentes med en delvis Inertia-omlasting 200 ms etter siste endring. Selve køen lastes ikke på nytt, så behandlede rader blir stående.
+- **Tastatur:** `1`–`4` gjelder de valgte radene, ellers den åpne raden. Etter en beslutning åpnes og fokuseres neste ubehandlede rad (`cursor` i siden, så raske tastetrykk ikke treffer en rad som allerede er behandlet). `3` åpner `AliasPicker` for én rad. Siden bruker `x`, `Enter`, `j`, `k` og `/` fra `DataTable`.
+- **Rekkefølge:** dra og slipp bruker HTML5 drag and drop på håndtaket, og `Alt` med piltastene flytter raden for tastaturbrukere (med `aria-live`-melding). Inaktive konkurrenter beholder plassen sin (`reorder` får bare de aktive).
+- **Avvik og tillegg:**
+  - Detaljpanelet viser første ubehandlede rad når ingen rad er åpnet, på skjermer fra 1280 px. På smalere skjermer åpnes det bare for en rad brukeren har åpnet.
+  - Matchtesten under «Legg til alias» (5.5) er ikke med. Den trenger `aliases/test` fra U23 (6.4). Domener normaliseres i nettleseren (uten protokoll, sti og `www`) før de sendes.
+  - Konkurrentpanelet lagrer med egne kall og `SaveStatus`, ikke `useAutosave`, fordi rutene svarer med JSON og ikke med en Inertia-respons.
+  - Under «Andre aktører» og «Ignorert» finnes «Angre» bare i 24 timer (6.3). Etter det står teksten «Kan ikke angres etter 24 timer». «Gjør til konkurrent» under Andre aktører angrer først beslutningen og tar en ny, og etter 24 timer legger den til konkurrenten med `brands.competitors.store`, mens beslutningen `other` blir stående.
+  - Andel i «Andre aktører» regnes over de siste 30 dagene (`ekko.entities.queue_days`) i markedene på siden. Synlighet og endring i konkurrenttabellen er over 28 dager mot de 28 foregående, i samme markeder.
+  - Analysesiden beholder tabellen «Alias og domener». Bare forslagsveggen er byttet ut med lenken. Tallet i lenken er antall navn i køen for markedene i filteret, uten motor- og temafilter, slik at det stemmer med siden den lenker til.
+  - Angre-meldingen gjelder siste beslutning. Eldre beslutninger angres med «Angre» på raden.
+- **Tester:** `tests/Feature/Entities/SetupCompetitorPageTest.php`, `tests/js/competitor-setup.test.mjs` og `tests/Browser/triage.spec.mjs` (50 syntetiske navn på under to minutter med tastatur og flervalg, tall på fane og i sidemenyen uten sidelasting, angre, dra og slipp, konkurrentpanelet). Siden står i sideregisteret som `setup-competitors`.
 
 ### 5.4 Markeder og måleplan (skisse 4)
 

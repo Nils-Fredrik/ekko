@@ -35,6 +35,7 @@ use App\Http\Controllers\PromptLibraryController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReportLinkController;
 use App\Http\Controllers\SavedViewController;
+use App\Http\Controllers\SetupCompetitorController;
 use App\Http\Controllers\SetupPromptController;
 use App\Http\Controllers\SharedReportController;
 use App\Http\Controllers\TeamSettingsController;
@@ -132,8 +133,8 @@ Route::middleware([
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
     // The sidebar's setup pages and the inbox (docs/ux-arbeidsflate.md 6.1). Redirects until each page is built.
     Route::get('/brands/{brand}/setup/prompts', SetupPromptController::class)->name('brands.setup.prompts');
+    Route::get('/brands/{brand}/setup/competitors', SetupCompetitorController::class)->name('brands.setup.competitors');
     Route::prefix('/brands/{brand}/setup')->name('brands.setup.')->controller(WorkspaceRedirectController::class)->group(function () {
-        Route::get('/competitors', 'competitors')->name('competitors');
         Route::get('/markets', 'markets')->name('markets');
         Route::get('/identity', 'identity')->name('identity');
         Route::get('/integrations', 'integrations')->name('integrations');

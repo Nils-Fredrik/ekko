@@ -21,6 +21,12 @@ export const pages = [
     ['brand-empty', 'Brands/Show', 'owner', () => `/brands/${env('UI_EMPTY_BRAND_ID')}`],
     ['prompts', 'Brands/Prompts', 'owner', () => brand('/prompts')],
     ['setup-prompts', 'Brands/Setup/Prompts', 'owner', () => brand('/setup/prompts')],
+    [
+        'setup-competitors',
+        'Brands/Setup/Competitors',
+        'owner',
+        () => `/brands/${env('UI_TRIAGE_BRAND_ID')}/setup/competitors`,
+    ],
     ['prompt', 'Brands/PromptShow', 'owner', () => brand(`/prompts/${env('UI_PROMPT_ID')}`)],
     ['competitors', 'Brands/Competitors', 'owner', () => brand('/competitors')],
     ['sources', 'Brands/Sources', 'owner', () => brand('/sources')],

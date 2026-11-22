@@ -1,8 +1,9 @@
 <script setup>
 // Competitors (docs/ui-forbedring.md 7.4, U07): the rank of the brand and its active competitors over time, a
-// table with visibility, change, rank and sentiment per brand, the sentiment distribution, suggested competitors
-// as cards with «Add», and the competitors' aliases and domains. A competitor's color is its fixed position among
-// the active competitors sorted by name (`color_index`), the same as on the dashboard and the sources page.
+// table with visibility, change, rank and sentiment per brand, the sentiment distribution, a link to the unknown
+// brands that wait for a decision (Setup › Competitors and brands, U22), and the competitors' aliases and domains.
+// A competitor's color is its fixed place among the active competitors (`color_index`), the same as on the
+// dashboard and the sources page.
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import { crossFilter } from '@/Components/Brand/filters.js';
 import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
@@ -11,8 +12,9 @@ import { periodBuckets } from '@/Components/Charts/support/data.js';
 import { formatChange, formatValue, isLowSample } from '@/Components/Charts/support/format.js';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { router } from '@inertiajs/vue3';
-import { trans } from 'laravel-vue-i18n';
+import { formatNumber } from '@/format';
+import { Link, router } from '@inertiajs/vue3';
+import { trans, transChoice } from 'laravel-vue-i18n';
 import { computed, ref } from 'vue';
 
 const props = defineProps({
@@ -22,7 +24,7 @@ const props = defineProps({
     analysisFilters: { type: Object, required: true },
     markets: { type: Array, required: true },
     competitors: { type: Array, required: true },
-    suggestions: { type: Array, required: true },
+    pendingEntities: { type: Number, required: true },
     canManage: { type: Boolean, required: true },
     chartData: { type: Object, default: null },
 });
@@ -30,8 +32,15 @@ const props = defineProps({
 const TOP = 6;
 const CATEGORIES = 6;
 
-const pending = ref([]);
 const deleting = ref(false);
+
+const setupHref = computed(() =>
+    route('brands.setup.competitors', {
+        brand: props.brand.id,
+        tab: 'pending',
+        ...(props.filters.market ? { market: props.filters.market } : {}),
+    }),
+);
 
 const selected = computed(() => (props.filters.competitor ? String(props.filters.competitor) : null));
 
@@ -156,24 +165,6 @@ function sentimentText(sentiment) {
         positive: formatValue(sentiment.positive, 'rate', 0),
         negative: formatValue(sentiment.negative, 'rate', 0),
     });
-}
-
-function add(suggestion) {
-    if (pending.value.includes(suggestion.name)) {
-        return;
-    }
-
-    pending.value = [...pending.value, suggestion.name];
-    router.post(
-        route('brands.competitors.store', props.brand.id),
-        { name: suggestion.name },
-        {
-            preserveScroll: true,
-            onFinish: () => {
-                pending.value = pending.value.filter((name) => name !== suggestion.name);
-            },
-        },
-    );
 }
 
 function remove(competitor) {
@@ -356,44 +347,19 @@ function remove(competitor) {
                     </section>
                 </template>
 
-                <section
-                    class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text"
-                    data-testid="competitor-suggestions"
+                <p
+                    v-if="pendingEntities > 0"
+                    class="rounded-2xl border border-line bg-shell-panel px-5 py-3 text-sm text-shell-text"
+                    data-testid="pending-entities"
                 >
-                    <h3 class="text-sm font-medium">{{ $t('app.library.suggestions') }}</h3>
-                    <p class="mt-1 text-xs text-shell-muted">{{ $t('app.competitors.suggestions_hint') }}</p>
-                    <EmptyState
-                        v-if="suggestions.length === 0"
-                        class="mt-3"
-                        :title="$t('app.empty.suggestions_title')"
-                        :body="$t('app.empty.suggestions_body')"
-                    />
-                    <ul v-else class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        <li
-                            v-for="suggestion in suggestions"
-                            :key="suggestion.name"
-                            class="flex items-center justify-between gap-3 rounded-xl border border-line bg-shell-surface p-4"
-                            data-testid="competitor-suggestion"
-                        >
-                            <span class="min-w-0">
-                                <span class="block truncate font-medium">{{ suggestion.name }}</span>
-                                <span class="text-xs text-shell-muted">
-                                    {{ $t('app.library.suggestion_count', { count: suggestion.responses }) }}
-                                </span>
-                            </span>
-                            <button
-                                v-if="canManage"
-                                type="button"
-                                class="shrink-0 rounded-full bg-primary px-3 py-1 text-xs font-medium text-white hover:bg-primary-deep disabled:opacity-40"
-                                :aria-label="`${$t('app.library.add_competitor')}: ${suggestion.name}`"
-                                :disabled="pending.includes(suggestion.name)"
-                                @click="add(suggestion)"
-                            >
-                                {{ $t('app.competitors.add') }}
-                            </button>
-                        </li>
-                    </ul>
-                </section>
+                    <Link class="text-shell-accent underline" :href="setupHref">
+                        {{
+                            transChoice('app.competitors.pending_entities', pendingEntities, {
+                                n: formatNumber(pendingEntities),
+                            })
+                        }}
+                    </Link>
+                </p>
 
                 <section
                     v-if="competitors.length"

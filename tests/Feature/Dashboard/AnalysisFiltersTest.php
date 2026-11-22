@@ -77,7 +77,7 @@ test('saved views belong to one user, brand and tenant and support readers', fun
     $this->deleteJson(route('brands.views.destroy', [$world->brand, $id]))->assertOk();
 });
 
-test('competitor suggestions honor engine and topic filters and stay within the brand', function () {
+test('the link to the queue counts the names the setup page shows: any engine and topic, only this brand', function () {
     $world = MetricsWorld::create();
     $topic = Topic::factory()->create(['brand_id' => $world->brand->id]);
     $world->p1->update(['topic_id' => $topic->id]);
@@ -93,7 +93,7 @@ test('competitor suggestions honor engine and topic filters and stay within the 
     }
     $world->tenant->owner->switchTeam($world->tenant);
     $this->actingAs($world->tenant->owner)->get(route('brands.competitors.index', [$world->brand, 'engine' => $world->engine->key, 'topic' => $topic->id]))
-        ->assertOk()->assertInertia(fn ($page) => $page->where('suggestions', [['name' => 'Chosen fixture', 'responses' => 2]]));
+        ->assertOk()->assertInertia(fn ($page) => $page->where('pendingEntities', 3));
 });
 
 test('grouping is retained only by the dashboard including saved views', function (string $page) {

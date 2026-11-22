@@ -521,10 +521,11 @@ test('create actions stay hidden while their setup route only forwards to todayâ
     const all = can(Object.fromEntries(Object.keys(can()).map((key) => [key, true])));
     const ids = paletteActions(context(workspace({ can: all }), undefined, FORWARDING_ROUTES)).map((item) => item.id);
 
-    assert.deepEqual(FORWARDING_ROUTES, ['brands.setup.competitors', 'brands.setup.markets']);
+    assert.deepEqual(FORWARDING_ROUTES, ['brands.setup.markets']);
     assert.deepEqual(ids, [
         'create-prompt',
         'create-topic',
+        'create-competitor',
         'create-fact',
         'switch-market',
         'switch-brand',
