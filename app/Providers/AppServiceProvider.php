@@ -17,13 +17,7 @@ use App\FactCheck\Judge\FactJudge;
 use App\Insights\InsightTextWriter;
 use App\Logging\LogContext;
 use App\Mcp\McpTokens;
-use App\Models\Action;
-use App\Models\Alert;
-use App\Models\BrandAlias;
-use App\Models\Competitor;
-use App\Models\CompetitorAlias;
-use App\Models\EntityDecision;
-use App\Models\Integration;
+use App\Models\Claim;
 use App\Onboarding\Analysis;
 use App\Onboarding\Fetch\DnsHostResolver;
 use App\Onboarding\Fetch\HostResolver;
@@ -52,6 +46,7 @@ use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\WorkerStopping;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -120,15 +115,23 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
-        // The sidebar's badge counts are cached; a change behind a count clears them for the tenant (U17).
-        foreach ([Alert::class, Action::class, EntityDecision::class, Integration::class, Competitor::class, CompetitorAlias::class, BrandAlias::class] as $model) {
-            $model::saved(fn (Model $record) => WorkspaceCounts::forget((int) $record->getAttribute('tenant_id')));
-            $model::deleted(fn (Model $record) => WorkspaceCounts::forget((int) $record->getAttribute('tenant_id')));
+        foreach (WorkspaceCounts::SOURCES as $model) {
+            foreach (['saved', 'deleted'] as $event) {
+                Event::listen("eloquent.{$event}: {$model}", function (Model $changed): void {
+                    // Most extracted claims never appear in the inbox.
+                    if ($changed instanceof Claim && $changed->verdict !== Claim::CONTRADICTED && $changed->getRawOriginal('verdict') !== Claim::CONTRADICTED) {
+                        return;
+                    }
+                    $tenantId = (int) $changed->getAttribute('tenant_id');
+                    DB::afterCommit(fn () => WorkspaceCounts::forget($tenantId));
+                });
+            }
         }
 
         // The wizard's proposals are not models, so their policy is registered by hand (ADR 0009, ADR 0018).
         Gate::policy(Analysis::class, OnboardingPolicy::class);
 
+        RateLimiter::for('report-preview', fn (Request $request) => Limit::perHour(3)->by((string) $request->user()?->getAuthIdentifier()));
         RateLimiter::for('alias-match-test', fn (Request $request) => Limit::perMinute(30)->by((string) $request->user()?->getAuthIdentifier()));
         RateLimiter::for('prompt-suggestions', fn (Request $request) => Limit::perMinute(10)->by((string) $request->user()?->getAuthIdentifier()));
         // Each wizard analysis fetches a site and calls the model, so starting them is limited per user.

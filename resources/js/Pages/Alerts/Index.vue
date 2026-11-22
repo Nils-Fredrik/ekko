@@ -9,6 +9,7 @@ import { computed } from 'vue';
 const props = defineProps({
     alerts: { type: Array, required: true },
     rules: { type: Array, required: true },
+    tenantWideTypes: { type: Array, required: true },
     brands: { type: Array, required: true },
     canManage: { type: Boolean, required: true },
 });
@@ -21,7 +22,7 @@ const form = useForm({
 });
 const receipt = useForm({});
 
-const tenantWide = computed(() => form.type === 'quota' || form.type === 'model_change');
+const tenantWide = computed(() => props.tenantWideTypes.includes(form.type));
 const field = 'rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 
 function addRule() {

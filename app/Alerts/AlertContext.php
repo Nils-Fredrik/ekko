@@ -62,13 +62,10 @@ final class AlertContext
      */
     public function rule(AlertType $type, ?int $brandId): ?AlertRule
     {
-        $brandId = $type->isTenantWide() ? null : $brandId;
+        $brandId = $type->isTenantWide() && $type !== AlertType::IntegrationError ? null : $brandId;
         $key = $type->value.':'.($brandId ?? '');
 
-        $this->rules[$key] ??= AlertRule::query()->firstOrCreate(
-            ['type' => $type->value, 'brand_id' => $brandId],
-            ['threshold' => $type->defaultThreshold(), 'channels' => config('ekko.alerts.default_channels'), 'is_active' => true],
-        );
+        $this->rules[$key] ??= app(AlertRules::class)->forSource($type, $brandId);
 
         return $this->rules[$key]->is_active ? $this->rules[$key] : null;
     }

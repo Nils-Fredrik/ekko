@@ -2,13 +2,30 @@
 
 namespace App\Scheduling;
 
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
+use Throwable;
 
 /** Web can only wake this fixed poll dispatcher, without command or environment overrides. */
 final class DispatcherLauncher
 {
     public function __construct(private CloudRunAccessToken $tokens) {}
+
+    /** Wake the fixed dispatcher after the queued job becomes visible to a separate worker. */
+    public function startAfterCommit(): void
+    {
+        DB::afterCommit(function (): void {
+            try {
+                $this->start();
+            } catch (LockTimeoutException) {
+                // A concurrent request is already waking the worker.
+            } catch (Throwable $failure) {
+                report($failure);
+            }
+        });
+    }
 
     public function start(): bool
     {

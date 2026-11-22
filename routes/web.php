@@ -24,6 +24,7 @@ use App\Http\Controllers\CommandPaletteController;
 use App\Http\Controllers\CompetitorSetupController;
 use App\Http\Controllers\EntityDecisionController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\InboxController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MarketSetupController;
 use App\Http\Controllers\OnboardingController;
@@ -140,6 +141,15 @@ Route::middleware([
     });
     Route::get('/inbox', [WorkspaceRedirectController::class, 'inbox'])->name('inbox.index');
 
+    Route::post('/alerts/acknowledge', [AlertController::class, 'acknowledgeBulk'])->name('alerts.acknowledge.bulk');
+    Route::delete('/alerts/acknowledge', [AlertController::class, 'undoBulk'])->name('alerts.unacknowledge.bulk');
+    Route::post('/brands/{brand}/claims/{claim}/action', [InboxController::class, 'correct'])->name('brands.claims.action');
+    Route::post('/brands/{brand}/checklist/hide', [InboxController::class, 'hide'])->name('brands.checklist.hide');
+    Route::put('/brands/{brand}/alert-rules/{type}', [AlertController::class, 'upsert'])->name('brands.alert-rules.upsert');
+    Route::post('/brands/{brand}/report-schedules', [ReportController::class, 'store'])->name('brands.report-schedules.store');
+    Route::put('/brands/{brand}/report-schedules/{schedule}', [ReportController::class, 'updateForBrand'])->name('brands.report-schedules.update');
+    Route::delete('/brands/{brand}/report-schedules/{schedule}', [ReportController::class, 'destroy'])->name('brands.report-schedules.destroy');
+    Route::post('/brands/{brand}/report-schedules/{schedule}/send-test', [ReportController::class, 'sendTest'])->middleware('throttle:report-preview')->name('brands.report-schedules.test');
     Route::get('/alerts', [AlertController::class, 'index'])->name('alerts.index');
     Route::post('/alerts/rules', [AlertController::class, 'storeRule'])->name('alerts.rules.store');
     Route::put('/alerts/rules/{alertRule}', [AlertController::class, 'updateRule'])->name('alerts.rules.update');

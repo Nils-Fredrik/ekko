@@ -2,11 +2,12 @@
 
 namespace App\Console\Commands;
 
+use App\Alerts\AlertRules;
+use App\Alerts\AlertType;
 use App\BotLogs\BotHits;
 use App\BotLogs\BrandLogDomains;
 use App\BotLogs\ClickHouseBotHits;
 use App\BotLogs\ClickHouseSyncFailed;
-use App\Models\AlertRule;
 use App\Models\BotLogUpload;
 use App\Models\Brand;
 use App\Models\Integration;
@@ -102,9 +103,7 @@ final class SyncBotHits extends Command
         }
 
         $hits->replace($lockedBrand, [$date->toDateString()], $rows);
-        Integration::query()->whereKey($lockedIntegration->id)->update([
-            'status' => 'synced', 'last_sync_at' => now(), 'last_failed_on' => null,
-        ]);
+        $lockedIntegration->recordSync();
 
         return true;
     }
@@ -113,24 +112,12 @@ final class SyncBotHits extends Command
     {
         $previousFailure = $integration->last_failed_on?->toDateString();
         // The integration row is locked. Retries on the same local day cannot duplicate the alert.
-        // Update operational state directly so a broken encrypted config is never read again.
-        Integration::query()->whereKey($integration->id)->update([
-            'status' => 'error',
-            'last_failed_on' => $today->toDateString(),
-        ]);
+        $integration->recordSync($today);
         if ($previousFailure !== $today->subDay()->toDateString()) {
             return;
         }
 
-        $rule = AlertRule::query()->where('type', 'integration_error')
-            ->where(fn ($query) => $query->where('brand_id', $integration->brand_id)->orWhereNull('brand_id'))
-            ->orderByRaw('brand_id IS NULL')->oldest('id')->first()
-            ?? AlertRule::query()->create([
-                'brand_id' => $integration->brand_id,
-                'type' => 'integration_error',
-                'channels' => ['in_app'],
-                'is_active' => true,
-            ]);
+        $rule = app(AlertRules::class)->forSource(AlertType::IntegrationError, $integration->brand_id);
 
         if ($rule->is_active) {
             $rule->alerts()->create([

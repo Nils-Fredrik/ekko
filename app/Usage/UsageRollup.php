@@ -2,7 +2,8 @@
 
 namespace App\Usage;
 
-use App\Models\AlertRule;
+use App\Alerts\AlertRules;
+use App\Alerts\AlertType;
 use App\Models\Team;
 use App\Models\UsageMonthly;
 use Carbon\CarbonImmutable;
@@ -71,12 +72,10 @@ final readonly class UsageRollup
 
     private function alert(UsageMonthly $usage, int $threshold, CarbonImmutable $now): void
     {
-        $rule = AlertRule::query()->firstOrCreate([
-            'type' => 'quota',
-            'brand_id' => null,
-        ], [
-            'channels' => config('ekko.alerts.default_channels'),
-        ]);
+        $rule = app(AlertRules::class)->forSource(AlertType::Quota, null);
+        if (! $rule->is_active) {
+            return;
+        }
 
         foreach ([80, 100] as $level) {
             if ($level > $usage->quota_alerted_threshold && $level <= $threshold) {

@@ -47,6 +47,7 @@ function tenantModelRights(): array
         Models\Claim::class => $system(POLICY_EVERY_ROLE),
 
         // These rights apply only to the requesting user's own saved views (U11).
+        Models\UserBrandPreference::class => $edit(POLICY_EVERY_ROLE, POLICY_EVERY_ROLE),
         Models\SavedView::class => $edit(POLICY_EVERY_ROLE, POLICY_EVERY_ROLE),
 
         // Alerts and reports (6.5): set by the admin, seen by everyone.
@@ -131,7 +132,7 @@ function policyMember(Team $tenant, string $role): User
  */
 function policyModelIn(string $class, Team $tenant, ?User $owner = null): Model
 {
-    return (new $class)->forceFill(['id' => 1, 'tenant_id' => $tenant->id, ...($class === Models\SavedView::class ? ['user_id' => $owner?->id] : [])]);
+    return (new $class)->forceFill(['id' => 1, 'tenant_id' => $tenant->id, ...(in_array($class, [Models\SavedView::class, Models\UserBrandPreference::class], true) ? ['user_id' => $owner?->id] : [])]);
 }
 
 beforeEach(function () {
