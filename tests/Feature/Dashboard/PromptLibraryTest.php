@@ -229,6 +229,12 @@ test('deleting the open prompt returns to the list instead of a missing page', f
         ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('detail', null)->where('open', null));
 });
 
+test('a list in the search or topic query does not break the page', function () {
+    $this->get(route('brands.setup.prompts', $this->brand).'?q[]=x&topic[]=1&status[]=active')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('filters.search', '')->where('filters.topic', null)->where('filters.status', 'active'));
+});
+
 test('a missing prompt closes the panel and a foreign market is not found', function () {
     $this->get(route('brands.setup.prompts', [$this->brand, 'open' => 99999999]))
         ->assertOk()

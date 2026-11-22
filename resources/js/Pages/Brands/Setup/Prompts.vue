@@ -46,6 +46,8 @@ const preview = ref(null);
 const suggestions = ref([]);
 const suggestCount = ref(5);
 const suggestTopicId = ref(null);
+const suggestedFor = ref(null);
+let suggestGeneration = 0;
 const searchTimer = ref(null);
 const dragId = ref(null);
 
@@ -58,6 +60,17 @@ const selectedTopic = computed(() =>
 );
 const suggestTarget = computed(
     () => selectedTopic.value ?? props.library.topics.find((item) => item.id === suggestTopicId.value) ?? null,
+);
+const marketCount = computed(
+    () => props.unscoped + props.library.topics.reduce((sum, topic) => sum + Number(topic.count || 0), 0),
+);
+watch(
+    () => suggestTarget.value?.id ?? null,
+    () => {
+        suggestGeneration += 1;
+        suggestions.value = [];
+        suggestedFor.value = null;
+    },
 );
 const atLimit = computed(
     () => props.quota.limit !== null && props.quota.limit !== undefined && props.quota.active >= props.quota.limit,
@@ -230,7 +243,6 @@ function onSearch(event) {
 async function bulk(body, message) {
     try {
         const { data } = await window.axios.post(route('brands.prompts.bulk', props.brand.id), body);
-        selection.value = new Set();
         const undo = data.undo;
         toast.show(message(data.affected), undo ? () => undoBulk(undo) : null);
         router.reload({ only: ['library', 'unscoped', 'quota', 'detail'], preserveScroll: true });
@@ -328,7 +340,15 @@ function mergeTopic(from, into) {
 }
 
 function deleteTopic(topic) {
-    router.delete(route('brands.topics.destroy', [props.brand.id, topic.id]), { preserveScroll: true });
+    const selected = String(props.filters.topic) === String(topic.id);
+    router.delete(route('brands.topics.destroy', [props.brand.id, topic.id]), {
+        preserveScroll: true,
+        onSuccess: () => {
+            if (selected) {
+                visit({ topic: null });
+            }
+        },
+    });
 }
 
 function applyOne(action) {
@@ -484,17 +504,20 @@ function runImport() {
 }
 
 async function loadSuggestions() {
-    if (!suggestTarget.value || !props.market) {
+    const topic = suggestTarget.value;
+    if (!topic || !props.market) {
         return;
     }
+    const generation = ++suggestGeneration;
     try {
-        const { data } = await window.axios.post(
-            route('brands.topics.suggestions', [props.brand.id, suggestTarget.value.id]),
-            {
-                market_id: props.market.id,
-                count: suggestCount.value,
-            },
-        );
+        const { data } = await window.axios.post(route('brands.topics.suggestions', [props.brand.id, topic.id]), {
+            market_id: props.market.id,
+            count: suggestCount.value,
+        });
+        if (generation !== suggestGeneration) {
+            return;
+        }
+        suggestedFor.value = topic.id;
         suggestions.value = (data.suggestions ?? []).map((item) => ({ ...item, selected: true }));
     } catch (error) {
         const errors = error.response?.data?.errors ?? {};
@@ -505,7 +528,11 @@ async function loadSuggestions() {
 }
 
 function addSuggestions() {
+    const topicId = suggestedFor.value;
     const chosen = suggestions.value.filter((item) => item.selected);
+    if (!topicId || chosen.length === 0) {
+        return;
+    }
     bulk(
         {
             action: 'create',
@@ -515,7 +542,7 @@ function addSuggestions() {
                 intent: item.intent,
                 funnel_stage: item.funnel_stage,
                 priority: item.priority ?? 'standard',
-                topic_id: suggestTarget.value.id,
+                topic_id: topicId,
                 is_active: true,
             })),
         },
@@ -578,7 +605,7 @@ const emptyCopy = computed(() =>
                     <button
                         type="button"
                         class="rounded-full border border-line px-3 py-1.5 text-sm disabled:opacity-50"
-                        :disabled="!market || !selectedTopic"
+                        :disabled="!market"
                         @click="openSuggest"
                     >
                         {{ $t('workspace.prompts.suggest') }}
@@ -742,7 +769,8 @@ const emptyCopy = computed(() =>
                 </ul>
                 <button
                     type="button"
-                    class="mt-3 rounded-full bg-primary px-3 py-1.5 font-medium text-white"
+                    class="mt-3 rounded-full bg-primary px-3 py-1.5 font-medium text-white disabled:opacity-50"
+                    :disabled="!suggestedFor"
                     @click="addSuggestions"
                 >
                     {{ $t('workspace.prompts.add_selected') }}
@@ -1024,7 +1052,7 @@ const emptyCopy = computed(() =>
                     >
                         {{ newRowLabel }}
                     </button>
-                    <div v-if="canManage && !library.prompts.length && !filters.topic" class="mt-3 flex gap-2">
+                    <div v-if="canManage && marketCount === 0 && !filters.topic" class="mt-3 flex gap-2">
                         <button type="button" class="text-sm text-primary" @click="showImport = true">
                             {{ $t('workspace.prompts.import') }}
                         </button>

@@ -63,7 +63,7 @@ class SetupPromptController extends Controller
             'filters' => [
                 'topic' => $topic,
                 'status' => $filters['status'],
-                'search' => (string) $request->query('q', ''),
+                'search' => $filters['search'],
                 'intent' => array_values(array_filter((array) $request->query('intent', []))),
                 'funnel' => array_values(array_filter((array) $request->query('funnel', []))),
                 'priority' => array_values(array_filter((array) $request->query('priority', []))),
@@ -98,7 +98,12 @@ class SetupPromptController extends Controller
             return (string) (int) $created;
         }
 
-        return $request->query('topic');
+        $topic = $request->query('topic');
+        if ($topic === 'none') {
+            return 'none';
+        }
+
+        return is_numeric($topic) ? (string) (int) $topic : null;
     }
 
     /**
@@ -106,10 +111,10 @@ class SetupPromptController extends Controller
      */
     private function filters(Request $request, mixed $topic): array
     {
-        $status = $request->query('status', 'active');
+        $status = $this->text($request, 'status', 'active');
         $filters = [
             'status' => in_array($status, ['active', 'inactive', 'archived', 'all'], true) ? $status : 'active',
-            'search' => (string) $request->query('q', ''),
+            'search' => $this->text($request, 'q'),
             'intent' => array_values(array_filter((array) $request->query('intent', []))),
             'funnel_stage' => array_values(array_filter((array) $request->query('funnel', []))),
             'priority' => array_values(array_filter((array) $request->query('priority', []))),
@@ -121,6 +126,13 @@ class SetupPromptController extends Controller
         }
 
         return $filters;
+    }
+
+    private function text(Request $request, string $key, string $default = ''): string
+    {
+        $value = $request->query($key, $default);
+
+        return is_string($value) ? $value : $default;
     }
 
     /**
