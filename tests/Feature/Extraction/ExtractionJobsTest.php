@@ -336,6 +336,27 @@ it('keeps recomputing after a re-detect: model enrichment never relies on earlie
     });
 });
 
+it('stores the quote for the sentiment only when it stands word for word in the answer (U29)', function () {
+    $a = extractionTenant();
+    Bus::fake([PollExtractionBatch::class]);
+    $response = collectedResponse($a, 'Fjordkaffe har jevn og god kvalitet. Nordlys Rosteri får klager på service. Kaffebønna AS er nytt.');
+    app()->instance(ExtractionClient::class, new FakeExtractionClient(fn (string $id): array => entry([
+        [...reported('Fjordkaffe', 'brand', $a['brand'], true, 0.7), 'sentiment_quote' => '«Fjordkaffe har jevn og god kvalitet.»'],
+        // Not in the answer: the model reworded it.
+        [...reported('Nordlys Rosteri', 'competitor', $a['competitor'], false, -0.6), 'sentiment_quote' => 'Nordlys Rosteri har dårlig service'],
+        [...reported('Kaffebønna AS', 'unknown', null, false, 0.0), 'sentiment_quote' => 'Kaffebønna AS er nytt.'],
+    ])));
+
+    dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
+    runPoll($a['tenant'], ExtractionJob::query()->withoutGlobalScopes()->sole()->id);
+
+    app(TenantContext::class)->run($a['tenant']->id, function () use ($response) {
+        $quotes = Mention::query()->where('response_id', $response->id)->orderBy('first_char_offset')->pluck('sentiment_quote')->all();
+        // Quotation marks around the quote are dropped; a reworded quote and a neutral mention get none.
+        expect($quotes)->toBe(['Fjordkaffe har jevn og god kvalitet.', null, null]);
+    });
+});
+
 it('lets annotated citations win and only adds source_type to them', function () {
     $a = extractionTenant();
     $response = collectedResponse($a, 'Fjordkaffe, se https://www.dagbladet.no/test og https://example.org/other.');

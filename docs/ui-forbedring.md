@@ -131,7 +131,7 @@ Den første versjonen sendte `{ row }` (`DivergingBarChart`), `{ row, column }` 
 
 - **Rangeringsgraf over tid** (`RankChart`): plass blant merkevaren og de aktive konkurrentene etter synlighet i hver bøtte, delt plass ved likhet og ingen plass uten svar (`MetricsService::competitorVisibilitySeries`). Grafen viser de seks best plasserte i perioden og alltid merkevaren selv. Aksen går ned til den laveste plassen blant seriene som vises, så merkevaren eller en valgt konkurrent under sjetteplass beholder linjen. Siden har ikke dag/uke/måned-valg (U11), så bøtten følger periodens lengde: dag til og med 31 dager, ellers ISO-uke.
 - **Tabell** med merkevaren og hver aktiv konkurrent, best plassert først: synlighet med n og lav n, endring i prosentpoeng mot sammenligningsperioden, plass i perioden (med forrige periodes plass når den er en annen) og sentiment som andel positive og negative omtaler med n. Posisjon i listesvar (`list_position`) aggregeres bare for merkevaren (ADR 0016), så kolonnen viser plassen i rangeringen, som kan sammenlignes på tvers. Mangler sentimentfordelingen for en dag i perioden, står ikke sentiment i tabellen, og grafen sier at tallene mangler.
-- **Sentiment** som divergerende stolpe per merkevare. Klikk på en konkurrent filtrerer på den.
+- **Sentiment** som divergerende stolpe per merkevare. Et klikk på et segment åpner svarlisten for den merkevaren og det sentimentet (`Brands/Responses`, U28), og det samme gjør andelene og n i tabellen. Listen viser modellens begrunnelse for scoren når den finnes (U29).
 - **Foreslåtte konkurrenter** som kort med «Legg til» (ukjente merkevarer som går igjen, T27).
 - **Alias og domener** står som før, for alle konkurrenter, også inaktive.
 

@@ -66,6 +66,7 @@ final class ExtractionWriter
                         ->update([
                             'is_recommended' => $mention->isRecommended,
                             'sentiment' => $mention->sentiment === null ? null : round($mention->sentiment, 3),
+                            'sentiment_quote' => $mention->sentimentQuote,
                         ]);
 
                     continue;
@@ -80,6 +81,7 @@ final class ExtractionWriter
                     'list_position' => $mention->listPosition,
                     'is_recommended' => $mention->isRecommended,
                     'sentiment' => $mention->sentiment === null ? null : round($mention->sentiment, 3),
+                    'sentiment_quote' => $mention->sentimentQuote,
                     'detection' => 'llm',
                 ]);
             }

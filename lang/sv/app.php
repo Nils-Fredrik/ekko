@@ -619,6 +619,7 @@ return [
         'score' => 'Sentiment :score',
         'recommended' => 'Rekommenderat',
         'full' => 'Visa hela svaret',
+        'quote' => 'Motivering för värdet',
         'empty_title' => 'Inga svar',
         'empty_body' => 'Inga svar med detta sentiment i perioden och filtren.',
         'pages' => 'Sidor',

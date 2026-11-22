@@ -5,7 +5,7 @@ namespace App\Extraction;
 /**
  * The model's answer, validated against the schema in docs/spec.md 8.2. {@see self::fromJson()} returns null
  * for anything that is not valid JSON of the right shape; that is what triggers the single retry. Values
- * that are only out of range are corrected instead (sentiment is clamped to -1..1, evidence cut to 200
+ * that are only out of range are corrected instead (sentiment is clamped to -1..1, evidence and sentiment_quote cut to 200
  * characters, an unknown source type becomes "other"), because the provider cannot enforce bounds.
  */
 final class ExtractionResult
@@ -99,6 +99,8 @@ final class ExtractionResult
         }
 
         $evidence = $row['evidence'] ?? '';
+        // Missing in answers recorded before U29, so it is optional here even though the schema requires it.
+        $quote = $row['sentiment_quote'] ?? '';
 
         return new ModelMention(
             mb_substr(trim($row['surface_name']), 0, self::MAX_SURFACE),
@@ -108,6 +110,7 @@ final class ExtractionResult
             $row['is_recommended'],
             max(-1.0, min(1.0, (float) $row['sentiment'])),
             is_string($evidence) ? mb_substr($evidence, 0, self::MAX_EVIDENCE) : '',
+            is_string($quote) ? mb_substr(trim($quote), 0, self::MAX_EVIDENCE) : '',
         );
     }
 }

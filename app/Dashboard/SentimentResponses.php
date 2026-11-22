@@ -122,6 +122,37 @@ final class SentimentResponses
     }
 
     /**
+     * The model's reason for the sentiment (U29) in the same shape as {@see excerpt()}, with the name highlighted when
+     * the quote contains it. Null when the mention has no quote or it is no longer in the answer, so the page shows the
+     * excerpt instead. An ellipsis marks that the quote is a part of the answer.
+     *
+     * @return array{before: string, match: string, after: string, cut_start: bool, cut_end: bool}|null
+     */
+    public static function quote(string $answer, ?string $quote, string $surface): ?array
+    {
+        if ($quote === null || $quote === '') {
+            return null;
+        }
+        $at = mb_strpos($answer, $quote);
+        if ($at === false) {
+            return null;
+        }
+        $cuts = ['cut_start' => $at > 0, 'cut_end' => $at + mb_strlen($quote) < mb_strlen($answer)];
+        $name = AnswerSegments::findWord($quote, $surface, true);
+        if ($name === null) {
+            return ['before' => $quote, 'match' => '', 'after' => '', ...$cuts];
+        }
+        $span = mb_strlen($surface);
+
+        return [
+            'before' => mb_substr($quote, 0, $name),
+            'match' => mb_substr($quote, $name, $span),
+            'after' => mb_substr($quote, $name + $span),
+            ...$cuts,
+        ];
+    }
+
+    /**
      * @return Builder<Mention>
      */
     private function query(): Builder
