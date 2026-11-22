@@ -619,6 +619,7 @@ return [
         'score' => 'Sentiment :score',
         'recommended' => 'Recommended',
         'full' => 'Show the whole answer',
+        'quote' => 'Why this score',
         'empty_title' => 'No answers',
         'empty_body' => 'No answers with this sentiment in the period and filters.',
         'pages' => 'Pages',

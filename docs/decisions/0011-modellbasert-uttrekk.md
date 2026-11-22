@@ -33,6 +33,13 @@ Koden ligger i `App\Extraction` og to køjobber, `SubmitExtractionBatch` og `Pol
    - **Evalueringen** måler nå `source_type` både for modellens svar og for det som lagres etter reglene, og lister sitatene som lagres med feil type, slik at neste ekte kjøring viser nøyaktig hvilke tilfeller som feiler. Et svar der modellleddet feilet, telles som lagret uten type, slik produksjonen gjør (skriveren hopper da over sitatene).
    - Avgrensning: tabellen er bevisst kort og skal bare inneholde nettsteder der typen er entydig. Et nettsted som ikke står i tabellen og ikke eies av en kjent entitet, avgjøres av modellen. Eieren kjører `ANTHROPIC_API_KEY=… php artisan ekko:extraction:eval --record=/tmp/haiku.json` etter merge og fører tallene på Board.
 
+11. **Begrunnelse for sentiment (U29, `task:141`).** Svarlisten bak sentimentet (U28) viste bare scoren og utdraget rundt nevnelsen, så brukeren måtte lese hele svaret for å se hvorfor en konkurrent fikk negativ score. `evidence` begrunner `is_recommended` og ble aldri lagret. Skjemaet har fått et eget felt, `sentiment_quote`: ordene i svaret som viser hvordan det omtaler entiteten, kopiert ordrett, høyst 200 tegn, og tom streng ved sentiment 0. `evidence` er beholdt uendret, så evalueringen av `is_recommended` ikke påvirkes.
+   - `ExtractionResult` kutter sitatet ved 200 tegn. Et svar uten feltet (innspilt før U29) er fortsatt gyldig.
+   - `ExtractionAssembler` beholder sitatet bare når sentimentet ikke er 0 og sitatet står ordrett i svarteksten (`mb_strpos`, skiller store og små bokstaver), etter at anførselstegn rundt det og escapingen av `&`, `<` og `>` fra forespørselen er fjernet. Et omskrevet sitat forkastes i stedet for å vises som om motoren skrev det. Det gjelder kjente og ukjente nevnelser.
+   - `ExtractionWriter` lagrer det i `mentions.sentiment_quote` (`varchar(200)`, null når det mangler). Kolonnen settes på nytt ved hvert uttrekk, som `is_recommended` og `sentiment`.
+   - Bare nye uttrekk får sitat. Eldre nevnelser trekkes ikke ut på nytt (det ville kostet et nytt betalt kall per svar), og svarlisten viser da utdraget rundt nevnelsen.
+   - Prisen er noen flere utdata-tokens per nevnelse. Hvor ofte modellen gir et sitat som består kontrollen, er ikke målt mot ekte Haiku. Gullsettet har ikke fasit for sitater, og det innspilte opptaket i CI er syntetisk.
+
 ## Konsekvenser
 
 - Eieren må kjøre `ANTHROPIC_API_KEY=… php artisan ekko:extraction:eval --record=/tmp/haiku.json` én gang for å få de ekte tallene. De skal føres inn i PR-en eller på Board. Er tallene for lave, justeres prompten (`ExtractionPromptBuilder::SYSTEM_PROMPT`), `effort` eller fasiten.

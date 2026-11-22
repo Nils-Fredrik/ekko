@@ -205,3 +205,32 @@ test('the whole answer highlights a case-insensitive alias in another spelling, 
             ->where('answers.0.response_id', $response->id)
             ->where('answers.0.segments', fn ($segments) => collect($segments)->contains(['text' => 'NORDLYS', 'kind' => 'competitor'])));
 });
+
+test('an answer shows the quote for the sentiment when there is one, and the excerpt otherwise (U29)', function () {
+    $world = sentimentWorld();
+    $quoted = sentimentAnswer($world, '2026-11-10T14:00:00Z', null, -0.7);
+    $quoted->mentions()->where('entity_type', 'competitor')->update(['sentiment_quote' => 'Nordlys får blandede omtaler for service.']);
+
+    $this->actingAs($world->tenant->owner)
+        ->get(route('brands.responses.index', [$world->brand, 'from' => '2026-11-10', 'to' => '2026-11-10',
+            'entity' => $world->c1->id, 'sentiment' => 'negative']))
+        ->assertInertia(fn ($page) => $page
+            ->has('answers', 3)
+            ->where('answers.0.response_id', $quoted->id)
+            ->where('answers.0.quote', ['before' => '', 'match' => 'Nordlys', 'after' => ' får blandede omtaler for service.',
+                'cut_start' => true, 'cut_end' => false])
+            ->where('answers.1.quote', null)
+            ->where('answers.1.excerpt.match', 'Nordlys'));
+});
+
+test('the quote is shown with the name highlighted, and not at all when it is no longer in the answer', function () {
+    $answer = 'Mange liker Fjordkaffe. Nordlys får klager på service, sier flere. Til slutt et råd.';
+
+    expect(SentimentResponses::quote($answer, 'Nordlys får klager på service, sier flere.', 'Nordlys'))
+        ->toBe(['before' => '', 'match' => 'Nordlys', 'after' => ' får klager på service, sier flere.', 'cut_start' => true, 'cut_end' => true])
+        // A quote without the name has nothing to highlight.
+        ->and(SentimentResponses::quote($answer, 'Til slutt et råd.', 'Nordlys'))
+        ->toBe(['before' => 'Til slutt et råd.', 'match' => '', 'after' => '', 'cut_start' => true, 'cut_end' => false])
+        ->and(SentimentResponses::quote($answer, 'Et sitat som ikke står der.', 'Nordlys'))->toBeNull()
+        ->and(SentimentResponses::quote($answer, null, 'Nordlys'))->toBeNull();
+});

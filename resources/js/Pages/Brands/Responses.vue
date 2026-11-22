@@ -53,8 +53,8 @@ function selectEntity(event) {
     router.get(url({ entity: event.target.value === 'brand' ? undefined : event.target.value, page: undefined }));
 }
 
-// The excerpt as answer segments, with the mention highlighted as on the prompt page. An ellipsis marks where
-// the excerpt cuts the answer.
+// The excerpt, or the model's quote for the sentiment (U29), as answer segments, with the mention highlighted as on
+// the prompt page. An ellipsis marks where it cuts the answer.
 function excerptSegments(excerpt) {
     return [
         { text: (excerpt.cut_start ? '… ' : '') + excerpt.before, kind: 'plain' },
@@ -167,7 +167,16 @@ function scoreClass(value) {
                         <span v-if="answer.recommended">· {{ $t('app.responses.recommended') }}</span>
                     </p>
 
+                    <figure v-if="answer.quote" class="mt-3" data-testid="responses-quote">
+                        <figcaption class="text-xs font-medium text-shell-muted">
+                            {{ $t('app.responses.quote') }}
+                        </figcaption>
+                        <blockquote class="mt-1 border-s-2 border-line ps-3">
+                            <AnswerText :segments="excerptSegments(answer.quote)" />
+                        </blockquote>
+                    </figure>
                     <AnswerText
+                        v-else
                         class="mt-3"
                         :segments="excerptSegments(answer.excerpt)"
                         data-testid="responses-excerpt"

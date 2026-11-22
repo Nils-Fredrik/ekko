@@ -25,6 +25,7 @@ class Mention extends Model
         'list_position',
         'is_recommended',
         'sentiment',
+        'sentiment_quote',
         'detection',
     ];
 

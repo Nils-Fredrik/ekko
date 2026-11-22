@@ -16,6 +16,7 @@ final class ModelMention
         public readonly bool $isRecommended,
         public readonly float $sentiment,
         public readonly string $evidence,
+        public readonly string $sentimentQuote = '',
     ) {}
 
     public function entityKey(): ?string

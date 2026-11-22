@@ -13,6 +13,8 @@ use App\Detection\EntityMatcher;
  *   reports but the deterministic stage did not find is dropped; one the model leaves out is kept.
  * - The model enriches the known mentions with is_recommended and sentiment. Offset and list position of a
  *   known mention always come from the deterministic stage.
+ * - The model's quote for the sentiment is kept only when the sentiment is not 0 and the quote stands word for word
+ *   in the answer (U29), so the reason shown to the user is always the engine's own words.
  * - The model adds mentions of unknown companies. An "unknown" the alias search recognises as a known
  *   entity is dropped, one whose name is not in the answer text is dropped (T39-F10), and the same name is
  *   kept once.
@@ -47,6 +49,7 @@ final class ExtractionAssembler
                 $enrichment[$key] = new ModelMention(
                     $enrichment[$key]->surfaceName, $enrichment[$key]->entityType, $enrichment[$key]->entityId,
                     $enrichment[$key]->listPosition, true, $enrichment[$key]->sentiment, $enrichment[$key]->evidence,
+                    $enrichment[$key]->sentimentQuote,
                 );
             }
         }
@@ -63,6 +66,7 @@ final class ExtractionAssembler
                 $reported->isRecommended ?? false,
                 $reported?->sentiment,
                 'deterministic',
+                $reported === null ? null : self::quote($answerText, $reported),
             );
         }
 
@@ -78,6 +82,7 @@ final class ExtractionAssembler
             $extra[] = new AssembledMention(
                 'unknown', null, $mention->surfaceName, $offset,
                 $mention->listPosition, $mention->isRecommended, $mention->sentiment, 'llm',
+                self::quote($answerText, $mention),
             );
         }
         usort($extra, fn (AssembledMention $a, AssembledMention $b): int => $a->firstCharOffset <=> $b->firstCharOffset);
@@ -88,5 +93,21 @@ final class ExtractionAssembler
             $model?->answerType,
             $model === null,
         );
+    }
+
+    /**
+     * The quote for the sentiment when it is word for word in the answer, otherwise null. Quotation marks the model
+     * put around the quote are not part of it, and neither is the escaping of &, < and > the model saw the answer with
+     * (ExtractionPromptBuilder). A neutral mention has no reason to show.
+     */
+    private static function quote(string $answerText, ModelMention $mention): ?string
+    {
+        $quote = str_replace(['&lt;', '&gt;', '&amp;'], ['<', '>', '&'], $mention->sentimentQuote);
+        $quote = (string) preg_replace('/^[\s"\'«»“”‘’„]+|[\s"\'«»“”‘’„]+$/u', '', $quote);
+        if ($mention->sentiment === 0.0 || $quote === '' || mb_strpos($answerText, $quote) === false) {
+            return null;
+        }
+
+        return $quote;
     }
 }
