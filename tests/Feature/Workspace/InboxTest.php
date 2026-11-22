@@ -103,7 +103,8 @@ test('bulk acknowledgment is atomic across requested ids and undo preserves othe
     $this->post(route('alerts.acknowledge.bulk'), ['ids' => [$one->id, 99999999]])->assertNotFound();
     expect($one->fresh()->acknowledged_at)->toBeNull();
     $this->post(route('alerts.acknowledge.bulk'), ['ids' => [$one->id, $two->id]])->assertSessionHas('acknowledged_ids', [$one->id]);
-    $this->get(route('alerts.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('flash.acknowledged_ids', [$one->id]));
+    $this->get(route('inbox.index'))->assertInertia(fn (AssertableInertia $page) => $page->where('flash.acknowledged_ids', [$one->id]));
+    $this->get(route('alerts.index'))->assertRedirect(route('inbox.index', ['type' => 'alerts']));
     $this->delete(route('alerts.unacknowledge.bulk'), ['ids' => [$one->id, $two->id]])->assertRedirect();
     expect($two->fresh()->acknowledged_by)->toBe($other->id)->and($one->fresh()->acknowledged_at)->toBeNull();
 });
@@ -289,8 +290,12 @@ test('the legacy alert form creates integration failure rules with explicit tena
     $owner = $w->tenant->owner;
     $owner->switchTeam($w->tenant);
     $this->actingAs($owner);
-    $this->get(route('alerts.index'))->assertInertia(fn (AssertableInertia $page) => $page
-        ->component('Alerts/Index')->where('tenantWideTypes', ['model_change', 'quota', 'integration_error']));
+    $this->get(route('alerts.index'))->assertRedirect(route('inbox.index', ['type' => 'alerts']));
+    $this->get(route('brands.setup.notifications', $w->brand))->assertOk()->assertInertia(fn (AssertableInertia $page) => $page
+        ->component('Brands/Setup/Notifications')
+        ->where('rules.4.type', 'model_change')->where('rules.4.tenant_wide', true)
+        ->where('rules.5.type', 'quota')->where('rules.5.tenant_wide', true)
+        ->where('rules.6.type', 'integration_error')->where('rules.6.tenant_wide', true));
     $data = ['type' => 'integration_error', 'is_active' => false];
     $this->post(route('alerts.rules.store'), $data + ['brand_id' => $w->brand->id])->assertSessionHasErrors('brand_id');
     expect(AlertRule::where('type', 'integration_error')->count())->toBe(0);

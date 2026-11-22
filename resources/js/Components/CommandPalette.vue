@@ -68,7 +68,7 @@ const pages = computed(() => {
     const items = [
         { id: 'dashboard', label: trans('Dashboard'), href: route('dashboard') },
         { id: 'brands', label: trans('app.nav.brands'), href: route('brands.index') },
-        { id: 'alerts', label: trans('app.nav.alerts'), href: route('alerts.index') },
+        { id: 'alerts', label: trans('app.nav.alerts'), href: route('inbox.index', { type: 'alerts' }) },
         { id: 'reports', label: trans('app.nav.reports'), href: route('reports.index') },
     ];
 

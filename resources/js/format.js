@@ -268,6 +268,33 @@ export function formatRelative(value, { now = new Date() } = {}) {
     });
 }
 
+/** Whole days from today to the value, in the tenant's time zone. Null when the value is not a date. */
+export function dayDistance(value, now = new Date()) {
+    const parsed = toDate(value);
+    if (!parsed) {
+        return null;
+    }
+    const then = parts(parsed.date, zoneOf(parsed));
+    const today = parts(now, settings.timeZone);
+
+    return Math.round(
+        (Date.UTC(then.year, then.month - 1, then.day) - Date.UTC(today.year, today.month - 1, today.day)) / DAY,
+    );
+}
+
+/** Weekday name in the tenant's time zone, for inbox day headings. */
+export function formatWeekday(value) {
+    const parsed = toDate(value);
+    if (!parsed) {
+        return empty();
+    }
+
+    return formatter('DateTimeFormat', intlLocale(), {
+        timeZone: zoneOf(parsed),
+        weekday: 'long',
+    }).format(parsed.date);
+}
+
 /** Compares two texts the way the language sorts them (æ, ø and å last in Norwegian). */
 export function compareText(a, b) {
     return formatter('Collator', intlLocale(), {}).compare(String(a ?? ''), String(b ?? ''));

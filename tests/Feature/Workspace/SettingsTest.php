@@ -308,11 +308,13 @@ test('alerts can be acknowledged and a rule rejects an invalid threshold', funct
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
 
-    $this->actingAs($owner)->get(route('alerts.index'))->assertOk()->assertInertia(fn ($page) => $page
-        ->component('Alerts/Index')
-        ->where('alerts.0.title', __('app.alert_types.visibility_drop'))
-        ->missing('alerts.0.subject')
-        ->where('canManage', true));
+    $this->actingAs($owner)->get(route('inbox.index'))->assertOk()->assertInertia(fn ($page) => $page
+        ->component('Inbox/Index')
+        ->where('items.0.title', __('app.alert_types.visibility_drop'))
+        ->missing('items.0.subject')
+        ->where('can.alerts', true)
+        ->where('counts.all', 1)
+        ->where('counts.alert', 1));
 
     $this->actingAs($owner)->post(route('alerts.acknowledge', $alert))->assertRedirect();
     expect($alert->fresh()->acknowledged_by)->toBe($owner->id);
@@ -426,8 +428,10 @@ test('usage shows the month against the quota and is hidden from a reader', func
         ->where('canViewUsage', true));
 
     $this->actingAs($reader)->get(route('usage.index'))->assertForbidden();
-    $this->actingAs($reader)->get(route('alerts.index'))->assertOk()->assertInertia(fn ($page) => $page
-        ->where('canViewUsage', false));
+    $this->actingAs($reader)->get(route('alerts.index'))->assertRedirect(route('inbox.index', ['type' => 'alerts']));
+    $this->actingAs($reader)->get(route('inbox.index'))->assertOk()->assertInertia(fn ($page) => $page
+        ->component('Inbox/Index')
+        ->where('can.alerts', false));
 });
 
 test('team settings store a slack webhook and an api key without sending either back', function () {

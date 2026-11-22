@@ -50,11 +50,12 @@ test('pages, email and slack hide internal alert keys', function () {
 
     Mail::fake();
     Http::fake(['https://hooks.slack.com/*' => Http::response('ok', 200)]);
-    $this->actingAs($owner)->get(route('alerts.index'))->assertOk()->assertInertia(fn ($page) => $page
-        ->missing('alerts.0.subject')
-        ->missing('alerts.1.subject'));
+    $this->actingAs($owner)->get(route('inbox.index'))->assertOk()->assertInertia(fn ($page) => $page
+        ->component('Inbox/Index')
+        ->missing('items.0.subject')
+        ->missing('items.1.subject'));
 
-    $html = $this->get(route('alerts.index'))->assertOk()->getContent();
+    $html = $this->get(route('inbox.index'))->assertOk()->getContent();
     $visible = preg_replace('/<script\b[^>]*>.*?<\/script>/is', '', $html) ?? $html;
     $visible = preg_replace('/(?:&quot;|")version(?:&quot;|"):(?:&quot;|")[0-9a-f]{32}(?:&quot;|")/', '', $visible) ?? $visible;
     expect($visible)->not->toMatch('/market:/')->and($visible)->not->toMatch('/prompt:/')->and($visible)->not->toMatch('/\b[0-9a-f]{32}\b/');

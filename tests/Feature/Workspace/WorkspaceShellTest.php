@@ -91,13 +91,21 @@ test('the market follows the URL, and a market of another brand is no market', f
 test('a global page has the workspace without a brand', function () {
     $world = shellWorld();
 
-    $this->actingAs($world->tenant->owner)->get(route('alerts.index'))
+    $this->actingAs($world->tenant->owner)->get(route('inbox.index'))
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->loadDeferredProps('workspace', fn (AssertableInertia $deferred) => $deferred
                 ->where('workspace.brand', null)
                 ->where('workspace.markets', [])
                 ->where('workspace.market_id', null)
                 ->has('workspace.brands', 1)));
+    $this->actingAs($world->tenant->owner)->get(route('inbox.index', ['brand' => $world->brand->id, 'market' => $world->market->id]))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('filters.brand', $world->brand->id)
+            ->where('filters.market', $world->market->id)
+            ->loadDeferredProps('workspace', fn (AssertableInertia $deferred) => $deferred
+                ->where('workspace.brand.id', $world->brand->id)
+                ->where('workspace.market_id', $world->market->id)
+                ->where('workspace.counts.inbox', 0)));
 });
 
 test('rights and usage follow the role', function () {
@@ -203,9 +211,13 @@ test('the setup routes send the user to today\'s pages until each page is built'
             ->assertRedirect(route('brands.settings', $brand));
     }
     $this->actingAs($owner)->get(route('brands.setup.notifications', $brand))
-        ->assertRedirect(route('alerts.index'));
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Notifications')->where('canAlerts', true)->has('rules', 7));
     $this->actingAs($owner)->get(route('inbox.index'))
-        ->assertRedirect(route('alerts.index'));
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Inbox/Index')->where('counts.all', 0));
+    $this->actingAs($owner)->get(route('alerts.index'))
+        ->assertRedirect(route('inbox.index', ['type' => 'alerts']));
 });
 
 test('a reader can open the setup routes, which show the pages without change buttons', function () {
@@ -217,5 +229,10 @@ test('a reader can open the setup routes, which show the pages without change bu
         ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('canManage', false));
     $this->actingAs($reader)->get(route('brands.setup.identity', $world->brand))
         ->assertRedirect(route('brands.settings', $world->brand));
-    $this->actingAs($reader)->get(route('inbox.index'))->assertRedirect(route('alerts.index'));
+    $this->actingAs($reader)->get(route('inbox.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Inbox/Index')->where('can.alerts', false));
+    $this->actingAs($reader)->get(route('brands.setup.notifications', $world->brand))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Notifications')->where('canAlerts', false)->where('canReports', false));
 });
