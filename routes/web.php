@@ -17,6 +17,7 @@ use App\Http\Controllers\BrandFactController;
 use App\Http\Controllers\BrandIdentityController;
 use App\Http\Controllers\BrandMeasurementPlanController;
 use App\Http\Controllers\BrandPromptController;
+use App\Http\Controllers\BrandResponseController;
 use App\Http\Controllers\BrandSettingsController;
 use App\Http\Controllers\BrandSourceController;
 use App\Http\Controllers\BrandTopicController;
@@ -167,6 +168,7 @@ Route::middleware([
     Route::post('/brands/{brand}/prompts/import', [BrandPromptController::class, 'import'])->name('brands.prompts.import');
     Route::get('/brands/{brand}/prompts/{prompt}', [BrandPromptController::class, 'show'])->name('brands.prompts.show');
     Route::patch('/brands/{brand}/prompts/{prompt}', [BrandPromptController::class, 'update'])->name('brands.prompts.update');
+    Route::get('/brands/{brand}/responses', [BrandResponseController::class, 'index'])->name('brands.responses.index');
     Route::get('/brands/{brand}/responses/{response}/raw', [BrandPromptController::class, 'raw'])->name('brands.responses.raw');
     Route::get('/brands/{brand}/competitors', [BrandCompetitorController::class, 'index'])->name('brands.competitors.index');
     Route::post('/brands/{brand}/competitors', [BrandCompetitorController::class, 'store'])->name('brands.competitors.store');

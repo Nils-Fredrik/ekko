@@ -14,7 +14,7 @@ use Illuminate\Validation\Rule;
 /** Canonical filters shared by each brand analysis page and saved views (U11). */
 final class AnalysisFilters
 {
-    public const PAGES = ['brands.show', 'brands.prompts.index', 'brands.prompts.show', 'brands.competitors.index', 'brands.sources', 'brands.crawlers'];
+    public const PAGES = ['brands.show', 'brands.prompts.index', 'brands.prompts.show', 'brands.competitors.index', 'brands.responses.index', 'brands.sources', 'brands.crawlers'];
 
     /** @return list<string> */
     public static function dimensions(string $page): array

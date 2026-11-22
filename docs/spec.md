@@ -938,7 +938,8 @@ I innboksen kan en bruker med `prompts.manage` opprette et rettetiltak fra førs
 | `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), innsiktslinje, nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
 | `Pages/Brands/Prompts.vue` | Prompt-tabell med resultater per prompt (synlighet, posisjon, stabilitet per motor), inline redigering, aktivering/deaktivering, import og eksport (CSV) |
 | `Pages/Brands/PromptShow.vue` | Ett prompt: alle svar over tid per motor, svartekst med uthevede nevnelser, kildeliste, råsvar-lenke |
-| `Pages/Brands/Competitors.vue` | Rangering over tid, konkurrenttabell med synlighet, endring, plass og sentiment, foreslåtte ukjente merkevarer, samt alias og domener (`docs/ui-forbedring.md` 7.4) |
+| `Pages/Brands/Competitors.vue` | Rangering over tid, konkurrenttabell med synlighet, endring, plass og sentiment, foreslåtte ukjente merkevarer, samt alias og domener (`docs/ui-forbedring.md` 7.4). Andelene positiv, nøytral og negativ i tabellen og segmentene i sentimentgrafen lenker til svarlisten (U28) |
+| `Pages/Brands/Responses.vue` | Svarene bak sentimentet (U28, rute `brands.responses.index`): nevnelsene av merkevaren eller én konkurrent med sentiment i perioden og filtrene, med faner for alle, negativ, nøytral og positiv. Hvert svar viser prompt (lenke til prompt-siden), motor, tid, score, utdrag med nevnelsen uthevet og hele svaret. Utvalget følger dagsaggregatet: bare kjøringer med status `extracted`, tenantens lokale dag og merkevarens egne prompts, slik at antallene er de samme som n i konkurrenttabellen. Under 0 er negativ, 0 er nøytral og over 0 er positiv |
 | `Pages/Brands/Sources.vue` | Siterte domener, kildeandel, kildegap mot konkurrenter |
 | `Pages/Brands/Crawlers.vue` | AI-robottreff og AI-trafikk |
 | `Pages/Brands/Actions.vue`, `Pages/Brands/ActionShow.vue` | Tiltaksliste med filtre, detalj, egne tiltak og status (11.3, T44) |

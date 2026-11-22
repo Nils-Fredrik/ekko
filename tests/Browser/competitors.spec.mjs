@@ -48,7 +48,14 @@ test('ranking, table, sentiment and suggestions use the dashboard colors', async
     const alpha = table.getByRole('row', { name: /Alpha rival/ });
     await expect(alpha.getByRole('cell').nth(2)).toHaveText(/^1\s*was 2$/);
     await expect(alpha.getByRole('cell').nth(0)).toContainText('n 40');
-    await expect(alpha.getByRole('cell').nth(3)).toContainText('40% positive, 40% negative');
+    // U28: each share links to the answers behind it, for this competitor and in the page's period.
+    const shares = alpha.getByTestId('competitor-sentiment-links');
+    await expect(shares.locator('[data-sentiment="positive"]')).toHaveText('40% positive');
+    await expect(shares.locator('[data-sentiment="negative"]')).toHaveText('40% negative');
+    await expect(shares.locator('[data-sentiment="negative"]')).toHaveAttribute(
+        'href',
+        new RegExp(`/brands/${brand}/responses\\?(?=.*days=7)(?=.*entity=\\d+)(?=.*sentiment=negative)`),
+    );
     const own = table.getByRole('row', { name: /Browser competitors brand/ });
     await expect(own.getByRole('cell').nth(2)).toContainText('2');
     await expect(own.getByRole('cell').nth(2)).toContainText('was 1');
@@ -70,6 +77,19 @@ test('ranking, table, sentiment and suggestions use the dashboard colors', async
     const sentiment = page.getByTestId('competitor-sentiment');
     await sentiment.scrollIntoViewIfNeeded();
     await expect(sentiment.locator('figure[data-chart-ready="true"]')).toBeVisible();
+
+    // A segment of the sentiment chart opens the answers of that row and that sentiment (U28).
+    const positiveColor = await page.evaluate(() =>
+        getComputedStyle(document.documentElement).getPropertyValue('--data-positive').trim().toLowerCase(),
+    );
+    const segments = sentiment.locator('svg path[fill]');
+    const fills = await segments.evaluateAll((paths) => paths.map((path) => path.getAttribute('fill').toLowerCase()));
+    await segments.nth(fills.indexOf(positiveColor)).click();
+    await expect(page).toHaveURL(new RegExp(`/brands/${brand}/responses\\?(?=.*sentiment=positive)`));
+    await expect(page.getByTestId('responses-tabs').locator('[aria-current="page"]')).toHaveAttribute(
+        'data-sentiment',
+        'positive',
+    );
 
     // The dashboard draws the same competitor with the same color.
     await page.goto(`/brands/${brand}?days=7`);

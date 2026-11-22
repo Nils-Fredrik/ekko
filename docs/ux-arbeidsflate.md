@@ -126,6 +126,8 @@ Fordelingen bygger på hva agentene har levert før:
 
 Hver agent får fire oppgaver.
 
+Lagt til etter planen: **U28** Svarliste per sentiment (Claude Code / Opus 5.5, ingen avhengighet) gjør sentimentet på konkurrentsiden klikkbart til svarene bak tallet (`docs/spec.md` 14.2, `Pages/Brands/Responses.vue`). **U29** Begrunnelse for sentiment (Claude Code / Opus 5.5, avhenger av U28) lar uttrekket lagre et kort sitat som begrunner sentimentet og viser det i svarlisten.
+
 **Bølger:**
 
 | Bølge | Oppgaver |
