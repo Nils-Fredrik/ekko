@@ -8,10 +8,9 @@ import SparklineChart from '@/Components/Charts/SparklineChart.vue';
 import { periodBuckets } from '@/Components/Charts/support/data.js';
 import { heatmapRows } from '@/Components/Charts/support/heatmapRows.js';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
-import InputError from '@/Components/InputError.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Link, router, useForm } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref } from 'vue';
 
@@ -23,11 +22,6 @@ const props = defineProps({
     chartData: { type: Object, default: null },
     markets: { type: Array, required: true },
     prompts: { type: Array, required: true },
-    intents: { type: Array, required: true },
-    priorities: { type: Array, required: true },
-    canManage: { type: Boolean, required: true },
-    importResult: { type: Object, default: null },
-    personalData: { type: Boolean, default: false },
 });
 
 function selectTopic(event) {
@@ -159,59 +153,6 @@ function openCell(event) {
         engine: event.column,
     });
 }
-
-const editing = ref(null);
-const form = useForm({ text: '', intent: '', priority: '', is_active: true });
-const toggleError = ref({ id: null, message: '' });
-
-const personal = computed(
-    () => /[^\s@]+@[^\s@]+\.[^\s@]+/.test(form.text) || /(?:\+|00)?\d(?:[\s-]?\d){7,}/.test(form.text),
-);
-
-function edit(prompt) {
-    editing.value = prompt.id;
-    form.clearErrors();
-    form.text = prompt.text;
-    form.intent = prompt.intent;
-    form.priority = prompt.priority;
-    form.is_active = prompt.is_active;
-}
-
-function save(prompt) {
-    form.patch(route('brands.prompts.update', [props.brand.id, prompt.id]), {
-        preserveScroll: true,
-        onSuccess: () => {
-            editing.value = null;
-        },
-    });
-}
-
-function toggle(prompt) {
-    toggleError.value = { id: null, message: '' };
-    router.patch(
-        route('brands.prompts.update', [props.brand.id, prompt.id]),
-        { is_active: !prompt.is_active },
-        {
-            preserveScroll: true,
-            onError: (errors) => {
-                toggleError.value = { id: prompt.id, message: errors.is_active || errors.text || '' };
-            },
-        },
-    );
-}
-
-function importCsv(event) {
-    const file = event.target.files?.[0];
-    if (!file) {
-        return;
-    }
-    router.post(
-        route('brands.prompts.import', props.brand.id),
-        { file },
-        { forceFormData: true, preserveScroll: true },
-    );
-    event.target.value = '';
-}
 </script>
 
 <template>
@@ -233,42 +174,17 @@ function importCsv(event) {
                     @select="selectTopic"
                 />
 
-                <div v-if="canManage" class="flex flex-wrap items-center gap-3">
-                    <a
-                        :href="route('brands.prompts.export', brand.id)"
-                        class="rounded-full border border-line px-4 py-2 text-sm no-underline"
-                    >
-                        {{ $t('app.library.export') }}
-                    </a>
-                    <label
-                        class="rounded-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-deep"
-                    >
-                        {{ $t('app.library.import') }}
-                        <input type="file" accept=".csv,text/csv" class="hidden" @change="importCsv" />
-                    </label>
-                </div>
-
-                <p v-if="importResult" class="text-sm text-shell-text">
-                    {{
-                        $t('app.library.imported', {
-                            created: importResult.created,
-                            changed: importResult.changed ?? 0,
-                            skipped: importResult.skipped,
+                <Link
+                    :href="
+                        route('brands.setup.prompts', {
+                            brand: brand.id,
+                            ...(filters.market ? { market: filters.market } : {}),
                         })
-                    }}
-                </p>
-                <ul v-if="importResult?.errors?.length" class="text-sm text-error">
-                    <li v-for="(error, index) in importResult.errors" :key="index">{{ error }}</li>
-                </ul>
-                <ul
-                    v-if="importResult?.warnings?.length"
-                    class="border-s-4 border-warning ps-3 text-sm text-shell-text"
+                    "
+                    class="text-sm text-primary no-underline"
                 >
-                    <li v-for="(warning, index) in importResult.warnings" :key="index">{{ warning }}</li>
-                </ul>
-                <p v-if="personalData" class="border-s-4 border-warning ps-3 text-sm text-shell-text">
-                    {{ $t('app.library.personal_data') }}
-                </p>
+                    {{ $t('app.library.edit_in_setup') }}
+                </Link>
 
                 <EmptyState
                     v-if="prompts.length === 0"
@@ -327,79 +243,16 @@ function importCsv(event) {
                                     class="border-b border-line-soft align-top last:border-0 hover:bg-row-hover"
                                 >
                                     <td class="px-4 py-3">
-                                        <div v-if="editing === prompt.id" class="flex flex-col gap-2">
-                                            <textarea
-                                                v-model="form.text"
-                                                rows="2"
-                                                class="w-full rounded-lg border border-line px-3 py-2 text-sm"
-                                            />
-                                            <InputError :message="form.errors.text" />
-                                            <p v-if="personal" class="text-xs text-warning">
-                                                {{ $t('app.library.personal_data') }}
-                                            </p>
-                                            <div class="flex flex-wrap gap-2">
-                                                <select
-                                                    v-model="form.intent"
-                                                    class="rounded-lg border border-line px-2 py-1 text-sm"
-                                                >
-                                                    <option
-                                                        v-for="item in intents"
-                                                        :key="item.value"
-                                                        :value="item.value"
-                                                    >
-                                                        {{ item.label }}
-                                                    </option>
-                                                </select>
-                                                <select
-                                                    v-model="form.priority"
-                                                    class="rounded-lg border border-line px-2 py-1 text-sm"
-                                                >
-                                                    <option
-                                                        v-for="item in priorities"
-                                                        :key="item.value"
-                                                        :value="item.value"
-                                                    >
-                                                        {{ item.label }}
-                                                    </option>
-                                                </select>
-                                            </div>
-                                            <div class="flex gap-2">
-                                                <button
-                                                    type="button"
-                                                    class="rounded-full bg-primary px-3 py-1 text-xs font-medium text-white"
-                                                    @click="save(prompt)"
-                                                >
-                                                    {{ $t('app.library.save') }}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="rounded-full border border-line px-3 py-1 text-xs"
-                                                    @click="editing = null"
-                                                >
-                                                    {{ $t('app.library.cancel') }}
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div v-else>
-                                            <Link
-                                                :href="route('brands.prompts.show', [brand.id, prompt.id])"
-                                                class="font-medium text-shell-text no-underline"
-                                            >
-                                                {{ prompt.text }}
-                                            </Link>
-                                            <p class="mt-1 text-xs text-shell-muted">
-                                                {{ prompt.intent_label }} · {{ prompt.funnel }} ·
-                                                {{ prompt.priority_label }}
-                                            </p>
-                                            <button
-                                                v-if="canManage"
-                                                type="button"
-                                                class="mt-1 text-xs text-primary"
-                                                @click="edit(prompt)"
-                                            >
-                                                {{ $t('app.library.edit') }}
-                                            </button>
-                                        </div>
+                                        <Link
+                                            :href="route('brands.prompts.show', [brand.id, prompt.id])"
+                                            class="font-medium text-shell-text no-underline"
+                                        >
+                                            {{ prompt.text }}
+                                        </Link>
+                                        <p class="mt-1 text-xs text-shell-muted">
+                                            {{ prompt.intent_label }} · {{ prompt.funnel }} ·
+                                            {{ prompt.priority_label }}
+                                        </p>
                                     </td>
                                     <td class="px-4 py-3 text-shell-muted">{{ prompt.market }}</td>
                                     <td class="px-4 py-3 text-right tabular-nums">
@@ -432,27 +285,11 @@ function importCsv(event) {
                                         </div>
                                     </td>
                                     <td class="px-4 py-3">
-                                        <button
-                                            v-if="canManage"
-                                            type="button"
-                                            class="text-sm"
-                                            :class="prompt.is_active ? 'text-success' : 'text-shell-muted'"
-                                            @click="toggle(prompt)"
-                                        >
-                                            {{
-                                                prompt.is_active ? $t('app.library.active') : $t('app.library.inactive')
-                                            }}
-                                        </button>
-                                        <span v-else :class="prompt.is_active ? 'text-success' : 'text-shell-muted'">
+                                        <span :class="prompt.is_active ? 'text-success' : 'text-shell-muted'">
                                             {{
                                                 prompt.is_active ? $t('app.library.active') : $t('app.library.inactive')
                                             }}
                                         </span>
-                                        <InputError
-                                            v-if="toggleError.id === prompt.id"
-                                            :message="toggleError.message"
-                                            class="mt-1"
-                                        />
                                     </td>
                                 </tr>
                             </tbody>

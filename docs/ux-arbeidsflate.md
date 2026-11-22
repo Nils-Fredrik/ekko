@@ -380,7 +380,7 @@ Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-fo
 
 Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.manage`.
 
-**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg». «Ny prompt», «Nytt tema», «Legg til konkurrent» og «Nytt marked» er skjult så lenge ruten bare sender videre, fordi dagens side ikke åpner `?create=`. Rutene står i `FORWARDING_ROUTES`, og U20, U22 og U24 tar sin rute ut av listen når siden er bygget.
+**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg». «Ny prompt» og «Nytt tema» vises, fordi U20 har tatt `brands.setup.prompts` ut av `FORWARDING_ROUTES`. «Legg til konkurrent» og «Nytt marked» er skjult så lenge ruten bare sender videre, fordi dagens side ikke åpner `?create=`. U22 og U24 tar sin rute ut av listen når siden er bygget.
 
 ## 5. Skjermer
 
@@ -419,8 +419,9 @@ Alle skjermer har dette hodet: brødsmule i 12 px `text-shell-muted` («Fjordbyr
 
 **Marked:**
 
-- Siden viser alltid ett marked. Uten `market` velges det første aktive markedet, og URL-en oppdateres med `replace`.
-- «Alle markeder» i omfangsvelgeren gir en markedskolonne og grupperte rader per marked. Da er knappen «Ny prompt» deaktivert, med verktøytipset «Velg et marked».
+- URL-en er kilden, som i skallet. Uten `market` vises alle markeder. Siden skriver ikke om URL-en til det første markedet, for da kan ikke «Alle markeder» i omfangsvelgeren bli stående.
+- «Alle markeder» gir en markedskolonne og grupperte rader per marked. Da er knappen «Ny prompt» deaktivert, med verktøytipset «Velg et marked».
+- «Ny prompt» i kommandopaletten tar med gjeldende marked når ett er valgt, så feltet åpnes med én gang. Uten marked viser siden «Velg et marked for å opprette prompten» og åpner feltet når et marked blir valgt. Siden skriver fortsatt ikke om URL-en til det første markedet.
 
 **Hode (høyre side):**
 

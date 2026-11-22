@@ -20,6 +20,7 @@ export const pages = [
     ['brand', 'Brands/Show', 'owner', () => brand('')],
     ['brand-empty', 'Brands/Show', 'owner', () => `/brands/${env('UI_EMPTY_BRAND_ID')}`],
     ['prompts', 'Brands/Prompts', 'owner', () => brand('/prompts')],
+    ['setup-prompts', 'Brands/Setup/Prompts', 'owner', () => brand('/setup/prompts')],
     ['prompt', 'Brands/PromptShow', 'owner', () => brand(`/prompts/${env('UI_PROMPT_ID')}`)],
     ['competitors', 'Brands/Competitors', 'owner', () => brand('/competitors')],
     ['sources', 'Brands/Sources', 'owner', () => brand('/sources')],

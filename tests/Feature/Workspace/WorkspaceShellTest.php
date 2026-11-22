@@ -191,9 +191,11 @@ test('the setup routes send the user to today\'s pages until each page is built'
     $brand = $world->brand;
 
     $this->actingAs($owner)->get(route('brands.setup.prompts', [$brand, 'market' => $world->market->id]))
-        ->assertRedirect(route('brands.prompts.index', [$brand, 'market' => $world->market->id]));
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('canManage', true));
     $this->actingAs($owner)->get(route('brands.setup.prompts', $brand))
-        ->assertRedirect(route('brands.prompts.index', $brand));
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('market', null));
     $this->actingAs($owner)->get(route('brands.setup.competitors', [$brand, 'market' => $world->market->id]))
         ->assertRedirect(route('brands.competitors.index', $brand));
     foreach (['markets', 'identity', 'integrations'] as $page) {
@@ -210,6 +212,9 @@ test('a reader can open the setup routes, which show the pages without change bu
     $world = shellWorld();
     $reader = shellMember($world, 'reader');
 
+    $this->actingAs($reader)->get(route('brands.setup.prompts', $world->brand))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('canManage', false));
     $this->actingAs($reader)->get(route('brands.setup.identity', $world->brand))
         ->assertRedirect(route('brands.settings', $world->brand));
     $this->actingAs($reader)->get(route('inbox.index'))->assertRedirect(route('alerts.index'));

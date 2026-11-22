@@ -493,9 +493,11 @@ test('an editor gets the create actions that lead to the setup pages', () => {
         items.map((item) => item.id),
         ['create-prompt', 'create-topic', 'create-competitor', 'switch-market', 'switch-brand', 'inbox', 'report'],
     );
-    assert.equal(items[0].href, 'brands.setup.prompts?brand=4&create=prompt');
+    assert.equal(items[0].href, 'brands.setup.prompts?brand=4&create=prompt&market=2');
     assert.equal(items[1].href, 'brands.setup.prompts?brand=4&create=topic');
     assert.equal(items[2].href, 'brands.setup.competitors?brand=4&create=competitor');
+    const allMarkets = paletteActions(context(workspace({ market_id: null, can: can({ manage_prompts: true }) })));
+    assert.equal(allMarkets[0].href, 'brands.setup.prompts?brand=4&create=prompt');
 });
 
 test('an owner also creates markets and facts', () => {
@@ -519,8 +521,16 @@ test('create actions stay hidden while their setup route only forwards to todayâ
     const all = can(Object.fromEntries(Object.keys(can()).map((key) => [key, true])));
     const ids = paletteActions(context(workspace({ can: all }), undefined, FORWARDING_ROUTES)).map((item) => item.id);
 
-    assert.deepEqual(FORWARDING_ROUTES, ['brands.setup.prompts', 'brands.setup.competitors', 'brands.setup.markets']);
-    assert.deepEqual(ids, ['create-fact', 'switch-market', 'switch-brand', 'inbox', 'report']);
+    assert.deepEqual(FORWARDING_ROUTES, ['brands.setup.competitors', 'brands.setup.markets']);
+    assert.deepEqual(ids, [
+        'create-prompt',
+        'create-topic',
+        'create-fact',
+        'switch-market',
+        'switch-brand',
+        'inbox',
+        'report',
+    ]);
 });
 
 test('switching market keeps the other filters and marks the current market', () => {

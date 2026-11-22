@@ -281,6 +281,7 @@ return [
         'active' => 'Active',
         'inactive' => 'Off',
         'edit' => 'Edit',
+        'edit_in_setup' => 'Edit in Setup → Prompts and topics',
         'save' => 'Save',
         'cancel' => 'Cancel',
         'export' => 'Export CSV',

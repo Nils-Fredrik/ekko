@@ -31,12 +31,14 @@ final class PromptLibraryView
         $all = Prompt::query()->whereIn('market_id', $markets->keys())->withMax('responses as last_measured_at', 'collected_at')
             ->withExists('runs')->orderBy('text')->orderBy('id')->get();
         $byTopic = $all->whereNull('archived_at')->groupBy('topic_id');
-        $topics = $brand->topics()->orderBy('name')->get()->map(function (Topic $topic) use ($market, $markets, $byTopic, $topicMetrics): array {
+        $allByTopic = $all->groupBy('topic_id');
+        $topics = $brand->topics()->orderBy('name')->get()->map(function (Topic $topic) use ($market, $markets, $byTopic, $allByTopic, $topicMetrics): array {
             $members = $byTopic->get($topic->id, collect());
 
             return [
                 'id' => $topic->id, 'name' => $topic->name, 'cross_market_key' => $topic->cross_market_key,
                 'count' => $market === null ? $members->count() : $members->where('market_id', $market->id)->count(),
+                'total' => $allByTopic->get($topic->id, collect())->count(),
                 'markets' => $markets->only($members->pluck('market_id')->all())->map->only(['id', 'country', 'language', 'location_label'])->values()->all(),
                 'visibility' => ($topicMetrics[$topic->id]->visibility ?? new Metric(null, 0))->toArray(),
             ];
