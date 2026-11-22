@@ -54,7 +54,7 @@ class Integration extends Model
             ($failedDay === null ? 'last_sync_at' : 'last_error_at') => now(),
         ]);
         if ($this->status !== $status) {
-            DB::afterCommit(fn () => WorkspaceCounts::flush($this->tenant_id));
+            DB::afterCommit(fn () => WorkspaceCounts::forget($this->tenant_id));
         }
     }
 

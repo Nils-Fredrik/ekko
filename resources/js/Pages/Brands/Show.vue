@@ -1,7 +1,6 @@
 <script setup>
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import { crossFilter } from '@/Components/Brand/filters.js';
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
 import SmallMultiplesChart from '@/Components/Charts/SmallMultiplesChart.vue';
 import StackedAreaChart from '@/Components/Charts/StackedAreaChart.vue';
@@ -319,7 +318,6 @@ function openMarker(marker) {
 
         <div class="py-4">
             <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brand.id" />
                 <Link v-if="hasPitchReport" :href="route('pitches.report', brand.id)" class="text-sm text-primary">
                     {{ $t('pitch.report') }}
                 </Link>

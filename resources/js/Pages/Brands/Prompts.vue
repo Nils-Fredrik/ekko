@@ -1,6 +1,5 @@
 <script setup>
 import { crossFilter } from '@/Components/Brand/filters.js';
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import DotRowChart from '@/Components/Charts/DotRowChart.vue';
 import HeatmapChart from '@/Components/Charts/HeatmapChart.vue';
@@ -223,7 +222,6 @@ function importCsv(event) {
 
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brand.id" />
                 <PeriodFilters :brand-id="brand.id" route-name="brands.prompts.index" />
 
                 <RankedBarChart

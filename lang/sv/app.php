@@ -538,7 +538,6 @@ return [
         ],
     ],
     'palette' => [
-        'open' => 'Sök',
         'placeholder' => 'Sök bland varumärken, prompter, konkurrenter och sidor',
         'empty' => 'Inga träffar.',
         'switch_team' => 'Byt till :name',

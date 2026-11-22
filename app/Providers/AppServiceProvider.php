@@ -123,7 +123,7 @@ class AppServiceProvider extends ServiceProvider
                         return;
                     }
                     $tenantId = (int) $changed->getAttribute('tenant_id');
-                    DB::afterCommit(fn () => WorkspaceCounts::flush($tenantId));
+                    DB::afterCommit(fn () => WorkspaceCounts::forget($tenantId));
                 });
             }
         }

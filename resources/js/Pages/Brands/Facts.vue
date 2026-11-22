@@ -1,6 +1,5 @@
 <script setup>
 import { formatDate } from '@/format';
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
@@ -105,8 +104,6 @@ function date(value) {
 
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brand.id" />
-
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <div class="flex flex-wrap items-baseline justify-between gap-2">
                         <h3 class="text-base font-medium text-shell-fg">{{ $t('fact_check.ui.title') }}</h3>

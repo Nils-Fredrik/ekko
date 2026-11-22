@@ -38,6 +38,7 @@ use App\Http\Controllers\SavedViewController;
 use App\Http\Controllers\SharedReportController;
 use App\Http\Controllers\TeamSettingsController;
 use App\Http\Controllers\UsageController;
+use App\Http\Controllers\WorkspaceRedirectController;
 use App\Http\Middleware\AuthenticateSessionAcrossGuards;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\SharedReportThrottle;
@@ -128,6 +129,16 @@ Route::middleware([
     Route::post('/brands/{brand}/views', [SavedViewController::class, 'store'])->name('brands.views.store');
     Route::delete('/brands/{brand}/views/{savedView}', [SavedViewController::class, 'destroy'])->name('brands.views.destroy');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+    // The sidebar's setup pages and the inbox (docs/ux-arbeidsflate.md 6.1). Redirects until each page is built.
+    Route::prefix('/brands/{brand}/setup')->name('brands.setup.')->controller(WorkspaceRedirectController::class)->group(function () {
+        Route::get('/prompts', 'prompts')->name('prompts');
+        Route::get('/competitors', 'competitors')->name('competitors');
+        Route::get('/markets', 'markets')->name('markets');
+        Route::get('/identity', 'identity')->name('identity');
+        Route::get('/integrations', 'integrations')->name('integrations');
+        Route::get('/notifications', 'notifications')->name('notifications');
+    });
+    Route::get('/inbox', [WorkspaceRedirectController::class, 'inbox'])->name('inbox.index');
 
     Route::post('/alerts/acknowledge', [AlertController::class, 'acknowledgeBulk'])->name('alerts.acknowledge.bulk');
     Route::delete('/alerts/acknowledge', [AlertController::class, 'undoBulk'])->name('alerts.unacknowledge.bulk');

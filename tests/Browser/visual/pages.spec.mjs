@@ -1,8 +1,26 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative } from 'node:path';
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { pages } from './pages.mjs';
 import { criticalViolations } from './accessibility.mjs';
 import { observeInertia, settleCharts } from './settle.mjs';
+
+// Pages rendered in Layouts/AppLayout.vue. Each has the sidebar (U17, docs/ux-arbeidsflate.md 4.1).
+const pagesRoot = 'resources/js/Pages';
+const vueFiles = (dir) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((entry) =>
+        entry.isDirectory()
+            ? vueFiles(join(dir, entry.name))
+            : entry.name.endsWith('.vue')
+              ? [join(dir, entry.name)]
+              : [],
+    );
+const appLayoutPages = new Set(
+    vueFiles(pagesRoot)
+        .filter((file) => readFileSync(file, 'utf8').includes("from '@/Layouts/AppLayout.vue'"))
+        .map((file) => relative(pagesRoot, file).replace(/\.vue$/, '')),
+);
 
 for (const [name, component, role, path] of pages) {
     test.describe(name, () => {
@@ -30,6 +48,12 @@ for (const [name, component, role, path] of pages) {
                 ).toBe(component);
             await settleCharts(page, { inertia: !!component, shared: name === 'shared-report' });
             if (component) await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+            if (appLayoutPages.has(component)) {
+                const mobile = info.project.name.startsWith('mobile-');
+                await expect(page.getByTestId(mobile ? 'open-sidebar' : 'sidebar')).toBeVisible();
+                if (!mobile && component.startsWith('Brands/') && component !== 'Brands/Index')
+                    await expect(page.getByTestId('sidebar').locator('[aria-current="page"]')).toHaveCount(1);
+            }
             const scan = await new AxeBuilder({ page })
                 .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
                 .analyze();

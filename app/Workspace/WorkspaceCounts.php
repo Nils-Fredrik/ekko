@@ -2,7 +2,6 @@
 
 namespace App\Workspace;
 
-use App\Inbox\InboxAlerts;
 use App\Inbox\InboxQuery;
 use App\Models\Action;
 use App\Models\Alert;
@@ -25,8 +24,6 @@ use LogicException;
 
 final readonly class WorkspaceCounts
 {
-    public const INBOX_DAYS = InboxAlerts::DAYS;
-
     public const TTL_SECONDS = 60;
 
     /** @var list<class-string<Model>> */
@@ -66,7 +63,7 @@ final readonly class WorkspaceCounts
         });
     }
 
-    public static function flush(int $tenantId): void
+    public static function forget(int $tenantId): void
     {
         Cache::put(self::versionKey($tenantId), (string) Str::uuid(), self::TTL_SECONDS * 2);
     }

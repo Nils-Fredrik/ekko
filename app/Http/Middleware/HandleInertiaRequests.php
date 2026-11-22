@@ -11,8 +11,10 @@ use App\Onboarding\Analysis;
 use App\Tenancy\ActingAs;
 use App\Tenancy\TenantAccess;
 use App\Tenancy\TenantContext;
+use App\Workspace\Workspace;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -117,7 +119,23 @@ class HandleInertiaRequests extends Middleware
             },
             // Only the team page. Secrets stay on the server: the webhook and API keys are present or absent.
             'teamProfile' => fn () => $this->teamProfile($request),
+            ...$this->workspace($request),
         ];
+    }
+
+    /**
+     * The sidebar's brands, scope, counts and usage (docs/ux-arbeidsflate.md 4.1, U17). Deferred, so the page
+     * renders first. Guests and users without a tenant get no prop and no extra request.
+     *
+     * @return array<string, mixed>
+     */
+    private function workspace(Request $request): array
+    {
+        if (! $request->user() instanceof User || app(TenantContext::class)->id() === null) {
+            return [];
+        }
+
+        return ['workspace' => Inertia::defer(fn (): ?array => Workspace::for($request), 'workspace')];
     }
 
     /**

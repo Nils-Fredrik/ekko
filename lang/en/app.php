@@ -538,7 +538,6 @@ return [
         ],
     ],
     'palette' => [
-        'open' => 'Search',
         'placeholder' => 'Search brands, prompts, competitors and pages',
         'empty' => 'No matches.',
         'switch_team' => 'Switch to :name',

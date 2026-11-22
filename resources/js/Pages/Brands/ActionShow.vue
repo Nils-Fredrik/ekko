@@ -1,5 +1,4 @@
 <script setup>
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 
@@ -32,7 +31,6 @@ function toggle(index, done) {
             <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
         </template>
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8">
-            <BrandNav :brand-id="brand.id" />
             <Link :href="route('brands.actions.index', brand.id)" class="text-sm text-primary no-underline">
                 {{ $t('action_items.ui.back') }}
             </Link>

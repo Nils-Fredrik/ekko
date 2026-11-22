@@ -82,7 +82,7 @@ test('a theme switch repaints the charts without a reload', async () => {
     });
 
     await page.getByTestId('account-menu').click();
-    await page.getByRole('button', { name: 'Light', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Light', exact: true }).click();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
     await expect.poll(() => axisColors(page, 'example-trend')).toContain(lightMuted);
