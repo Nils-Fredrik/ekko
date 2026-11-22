@@ -27,6 +27,13 @@ const navigating = ref(false);
 let stopNavigationStart;
 let stopNavigationFinish;
 let stopNavigate;
+let wide = null;
+
+function closeWhenWide(event) {
+    if (event.matches) {
+        menuOpen.value = false;
+    }
+}
 
 onMounted(() => {
     stopNavigationStart = router.on('start', (event) => {
@@ -43,6 +50,9 @@ onMounted(() => {
         navigating.value = false;
     });
     // The drawer closes when a link in it is followed.
+    // The drawer only exists under 768 px; widening the window closes it, so it never holds the focus unseen.
+    wide = window.matchMedia?.('(min-width: 768px)') ?? null;
+    wide?.addEventListener('change', closeWhenWide);
     stopNavigate = router.on('navigate', () => {
         menuOpen.value = false;
     });
@@ -52,6 +62,7 @@ onBeforeUnmount(() => {
     stopNavigationStart?.();
     stopNavigationFinish?.();
     stopNavigate?.();
+    wide?.removeEventListener('change', closeWhenWide);
 });
 </script>
 

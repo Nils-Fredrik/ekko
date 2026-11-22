@@ -56,10 +56,15 @@ test('the sidebar marks the page, works with the keyboard and keeps the market i
     await expect(other.getByTestId('market-picker')).toContainText('Norway');
     await other.close();
 
-    // Escape closes a menu and gives the focus back to its button.
+    // Escape closes a menu and gives the focus back to its button. Switching brand keeps the page, also with a
+    // query in the URL.
     await page.getByTestId('brand-picker').focus();
     await page.keyboard.press('Enter');
     await expect(page.getByRole('menu')).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: /Fjord Coffee/ })).toHaveAttribute(
+        'href',
+        new RegExp(`/brands/${process.env.SMOKE_BRAND_ID}/sources(\\?|$)`),
+    );
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menu')).toHaveCount(0);
     await expect(page.getByTestId('brand-picker')).toBeFocused();

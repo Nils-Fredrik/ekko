@@ -167,7 +167,7 @@ export function globalLinks({ canViewPartner = false, counts = null, current, to
 
 /**
  * Where «switch brand» goes: the same page for the other brand when its route takes only {brand}, otherwise the
- * overview. `parameters` are the route's own parameter names (Ziggy), never the query.
+ * overview. `parameters` are the route's own parameter names (Ziggy's `route().routeParams`), never the query.
  */
 export function brandTarget(name, parameters = []) {
     const own = Array.isArray(parameters) ? parameters : [];

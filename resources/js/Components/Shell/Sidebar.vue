@@ -96,9 +96,9 @@ function rememberMarket(id) {
 
 /** The same page for another brand when the route only takes {brand}, otherwise its overview. */
 function brandHref(id) {
-    // route().params also holds the query, so the route's own parameters come from the Ziggy definition.
-    const name = route().current();
-    const target = brandTarget(name, globalThis.Ziggy?.routes?.[name]?.parameters);
+    // route().params also holds the query; route().routeParams has only the route's own parameters.
+    const router = route();
+    const target = brandTarget(router.current(), Object.keys(router.routeParams ?? {}));
     const stored = readScope(id);
 
     return route(target, { brand: id, ...(stored === null ? {} : { market: stored }) });
