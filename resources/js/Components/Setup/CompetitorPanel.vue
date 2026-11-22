@@ -14,6 +14,10 @@ const props = defineProps({
     // The text of the last save on the server's side, for a new competitor.
     createError: { type: String, default: '' },
     creating: { type: Boolean, default: false },
+    // The name typed in the form for a new competitor. The page keeps it, so a panel that is built again (a page
+    // update while the user types) does not lose it.
+    draft: { type: String, default: '' },
+    setDraft: { type: Function, default: () => {} },
     // Called with the competitor as the server answers after each change.
     apply: { type: Function, required: true },
 });
@@ -140,23 +144,24 @@ defineExpose({ state, error });
 <template>
     <div v-if="!competitor" data-testid="competitor-new">
         <h3 class="text-[20px] leading-tight font-medium text-shell-fg">{{ $t('workspace.competitors.panel.new') }}</h3>
-        <form class="mt-4" @submit.prevent="emit('create', name.trim())">
+        <form class="mt-4" @submit.prevent="emit('create', draft.trim())">
             <label class="block text-xs text-shell-muted">
                 {{ $t('workspace.competitors.panel.name') }}
                 <input
-                    v-model="name"
+                    :value="draft"
                     type="text"
                     maxlength="200"
                     class="mt-1 w-full rounded-xl border border-line bg-shell-panel px-3 py-2 text-sm text-shell-fg"
                     data-testid="new-competitor-name"
                     :disabled="!canManage"
+                    @input="setDraft($event.target.value)"
                 />
             </label>
             <p v-if="createError" class="mt-1 text-xs text-error-text" role="alert">{{ createError }}</p>
             <button
                 type="submit"
                 class="mt-3 rounded-full bg-primary-deep px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                :disabled="!canManage || creating || name.trim() === ''"
+                :disabled="!canManage || creating || draft.trim() === ''"
                 data-testid="new-competitor-submit"
             >
                 {{ $t('workspace.competitors.panel.create') }}

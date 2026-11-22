@@ -74,6 +74,7 @@ const error = ref('');
 const announcement = ref('');
 const queueWrap = ref(null);
 const creating = ref(false);
+const newName = ref('');
 const createError = ref('');
 
 const wide = ref(typeof window === 'undefined' ? true : window.matchMedia('(min-width: 1280px)').matches);
@@ -249,17 +250,24 @@ function focusRow(key) {
 }
 
 let reload = null;
-/** The sidebar count, the competitors and the other tabs follow a change without loading the page again. */
+const reloadExtra = new Set();
+/**
+ * The sidebar count, the competitors and the other tabs follow a change without loading the page again. A visit
+ * that starts while the reload is on its way (the next row opening) cancels it, so a cancelled reload is asked for
+ * again; the names to reload from earlier calls are kept until a reload goes through.
+ */
 function refreshSoon(extra = []) {
+    extra.forEach((name) => reloadExtra.add(name));
     clearTimeout(reload);
-    reload = setTimeout(
-        () =>
-            router.reload({
-                only: ['workspace', 'competitors', 'others', 'ignored', 'targets', ...extra],
-                preserveScroll: true,
-            }),
-        200,
-    );
+    reload = setTimeout(() => {
+        const only = ['workspace', 'competitors', 'others', 'ignored', 'targets', ...reloadExtra];
+        router.reload({
+            only,
+            preserveScroll: true,
+            onCancel: () => refreshSoon(),
+            onSuccess: () => only.forEach((name) => reloadExtra.delete(name)),
+        });
+    }, 200);
 }
 
 async function decideKeys(keys, decision, target = null) {
@@ -512,7 +520,10 @@ function createCompetitor(name) {
         {
             preserveScroll: true,
             preserveState: true,
-            onSuccess: () => closeRow(),
+            onSuccess: () => {
+                newName.value = '';
+                closeRow();
+            },
             onError: (errors) => {
                 createError.value = errors.name ?? trans('workspace.competitors.failed');
             },
@@ -1066,6 +1077,8 @@ const eyebrow = computed(() => trans('workspace.competitors.eyebrow', { brand: p
                             :can-manage="canManage"
                             :create-error="createError"
                             :creating="creating"
+                            :draft="newName"
+                            :set-draft="(value) => (newName = value)"
                             :apply="mergeCompetitor"
                             @archive="archive"
                             @create="createCompetitor"
