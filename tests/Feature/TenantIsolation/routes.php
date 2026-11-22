@@ -851,6 +851,11 @@ return [
         ],
         deniedRoles: ['reader'],
     ),
+    // U28. Another tenant's competitor in the `entity` query is tested in SentimentResponsesTest (404).
+    'brands.responses.index' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
     'brands.responses.raw' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => isolationResponse($s->tenantB->id)],
         own: fn (Scenario $s) => ['params' => isolationResponse($s->tenantA->id)],

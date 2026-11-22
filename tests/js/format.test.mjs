@@ -12,6 +12,7 @@ import {
     formatPercent,
     formatPoints,
     formatRelative,
+    formatSentiment,
     formatTime,
 } from '../../resources/js/format.js';
 import { useLanguage } from './support/i18n.mjs';
@@ -183,4 +184,14 @@ test('the year is shown outside the current year, and a whole year can be forced
 test('texts sort the way the language does', () => {
     inLocale('nb');
     assert.deepEqual(['Å', 'Ø', 'Æ', 'B'].sort(compareText), ['B', 'Æ', 'Ø', 'Å']);
+});
+
+test('a sentiment score is never rounded to 0 unless it is 0', () => {
+    inLocale('nb');
+    assert.equal(plain(formatSentiment(0.04)), '+0,04');
+    assert.equal(plain(formatSentiment(-0.003)), '−0,003');
+    assert.equal(plain(formatSentiment(0.4)), '+0,4');
+    assert.equal(plain(formatSentiment(-0.625)), '−0,625');
+    assert.equal(plain(formatSentiment(0)), '0,0');
+    assert.equal(plain(formatSentiment(1)), '+1,0');
 });

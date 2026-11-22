@@ -4,6 +4,7 @@ namespace App\Prompts;
 
 use App\Detection\EntityMatcher;
 use App\Detection\TextNormalizer;
+use App\Models\Brand;
 use App\Models\Mention;
 
 /**
@@ -119,6 +120,44 @@ final class AnswerSegments
     public static function caseFoldKey(string $entityType, int|string|null $entityId, string $alias): ?string
     {
         return self::foldKey($entityType, $entityId, $alias);
+    }
+
+    /**
+     * The case_insensitive aliases of the brand and all its competitors, as keys for {@see from()}. Later copies of a
+     * mention keep the stored spelling, unless that surface is one of these aliases.
+     *
+     * @return array<string, true>
+     */
+    public static function caseFoldFor(Brand $brand): array
+    {
+        $brand->loadMissing('aliases');
+        $keys = [];
+        $add = function (string $type, int $id, iterable $aliases) use (&$keys): void {
+            foreach ($aliases as $alias) {
+                if ($alias->match_mode !== 'case_insensitive') {
+                    continue;
+                }
+                $key = self::foldKey($type, $id, (string) $alias->alias);
+                if ($key !== null) {
+                    $keys[$key] = true;
+                }
+            }
+        };
+
+        $add('brand', $brand->id, $brand->aliases);
+        foreach ($brand->competitors()->withTrashed()->with('aliases')->get() as $competitor) {
+            $add('competitor', $competitor->id, $competitor->aliases);
+        }
+
+        return $keys;
+    }
+
+    /**
+     * The first copy of $surface that stands as its own word, or null. Case must match unless $fold is set.
+     */
+    public static function findWord(string $answer, string $surface, bool $fold): ?int
+    {
+        return self::findBounded($answer, $surface, 0, $fold);
     }
 
     /**

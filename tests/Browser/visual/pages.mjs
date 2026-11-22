@@ -29,6 +29,7 @@ export const pages = [
     ],
     ['prompt', 'Brands/PromptShow', 'owner', () => brand(`/prompts/${env('UI_PROMPT_ID')}`)],
     ['competitors', 'Brands/Competitors', 'owner', () => brand('/competitors')],
+    ['responses', 'Brands/Responses', 'owner', () => brand('/responses?sentiment=positive')],
     ['sources', 'Brands/Sources', 'owner', () => brand('/sources')],
     ['crawlers', 'Brands/Crawlers', 'owner', () => brand('/crawlers')],
     ['actions', 'Brands/Actions', 'owner', () => brand('/actions')],

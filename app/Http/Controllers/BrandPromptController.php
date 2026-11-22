@@ -213,7 +213,7 @@ class BrandPromptController extends Controller
             ->limit(100)
             ->get();
 
-        $caseFold = $this->caseFold($brand);
+        $caseFold = AnswerSegments::caseFoldFor($brand);
         foreach ($responses as $response) {
             $key = $response->engine_key;
             if (! isset($groups[$key])) {
@@ -285,41 +285,6 @@ class BrandPromptController extends Controller
         }
 
         return array_reverse($chronological);
-    }
-
-    /**
-     * Later copies of a mention keep the stored spelling, unless that surface is a case_insensitive alias.
-     *
-     * @return array<string, true>
-     */
-    private function caseFold(Brand $brand): array
-    {
-        $brand->loadMissing('aliases');
-        $keys = [];
-
-        foreach ($brand->aliases as $alias) {
-            if ($alias->match_mode !== 'case_insensitive') {
-                continue;
-            }
-            $key = AnswerSegments::caseFoldKey('brand', $brand->id, (string) $alias->alias);
-            if ($key !== null) {
-                $keys[$key] = true;
-            }
-        }
-
-        foreach ($brand->competitors()->withTrashed()->with('aliases')->get() as $competitor) {
-            foreach ($competitor->aliases as $alias) {
-                if ($alias->match_mode !== 'case_insensitive') {
-                    continue;
-                }
-                $key = AnswerSegments::caseFoldKey('competitor', $competitor->id, (string) $alias->alias);
-                if ($key !== null) {
-                    $keys[$key] = true;
-                }
-            }
-        }
-
-        return $keys;
     }
 
     public function raw(Brand $brand, Response $response): HttpResponse
