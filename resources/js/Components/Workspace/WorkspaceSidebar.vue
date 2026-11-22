@@ -105,13 +105,14 @@ const linkClass = (active) =>
 
         <button
             type="button"
-            class="flex w-full items-center justify-between gap-2 rounded-[10px] border border-line bg-shell-surface px-2.5 py-2 text-[13px] text-shell-muted hover:text-shell-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            class="flex w-full items-center justify-between gap-2 rounded-[10px] border border-line bg-shell-surface px-2 py-2 text-[13px] text-shell-muted hover:text-shell-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             aria-keyshortcuts="Meta+K Control+K"
             data-testid="open-palette"
             @click="$emit('search')"
         >
-            <span class="flex items-center gap-2">
+            <span class="flex min-w-0 items-center gap-1.5">
                 <svg
+                    class="flex-none"
                     aria-hidden="true"
                     width="15"
                     height="15"
@@ -123,10 +124,10 @@ const linkClass = (active) =>
                     <circle cx="11" cy="11" r="7" />
                     <path d="m20 20-3.5-3.5" />
                 </svg>
-                {{ $t('workspace.shell.search') }}
+                <span class="truncate whitespace-nowrap">{{ $t('workspace.shell.search') }}</span>
             </span>
-            <kbd class="rounded-[5px] border border-line px-1.5 font-sans text-[11px]">
-                {{ isMac ? '⌘K' : 'Ctrl+K' }}
+            <kbd class="flex-none rounded-[5px] border border-line px-1 font-sans text-[11px]">
+                {{ isMac ? '⌘K' : 'Ctrl K' }}
             </kbd>
         </button>
 

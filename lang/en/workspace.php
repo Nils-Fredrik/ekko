@@ -43,7 +43,7 @@ return [
     ],
     'shell' => [
         'main_nav' => 'Main menu',
-        'search' => 'Search or run an action',
+        'search' => 'Search or run action',
         'portfolio' => 'Portfolio',
         'inbox' => 'Inbox',
         'reports' => 'Reports',
