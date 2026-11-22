@@ -197,6 +197,10 @@ it('keeps the quote for the sentiment only when it is word for word in the answe
     // A reworded quote is not the engine's own words and is dropped.
     $reworded = ExtractionResult::fromJson(modelJson([modelMention(['sentiment' => 0.6, 'sentiment_quote' => 'Fjordkaffe er byens beste.'])]));
     expect(assembler()->assemble($text, [$deterministic[0]], $reworded, knownAliases())->mentions[0]->sentimentQuote)->toBeNull();
+
+    // A sentiment that is stored as 0 after rounding to three decimals is neutral and has no reason either.
+    $almostNeutral = ExtractionResult::fromJson(modelJson([modelMention(['sentiment' => 0.0004, 'sentiment_quote' => 'Fjordkaffe er best i byen.'])]));
+    expect(assembler()->assemble($text, [$deterministic[0]], $almostNeutral, knownAliases())->mentions[0]->sentimentQuote)->toBeNull();
 });
 
 it('drops an unknown company whose name is not in the answer', function () {

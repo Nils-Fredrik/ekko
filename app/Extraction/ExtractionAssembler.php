@@ -104,7 +104,8 @@ final class ExtractionAssembler
     {
         $quote = str_replace(['&lt;', '&gt;', '&amp;'], ['<', '>', '&'], $mention->sentimentQuote);
         $quote = (string) preg_replace('/^[\s"\'«»“”‘’„]+|[\s"\'«»“”‘’„]+$/u', '', $quote);
-        if ($mention->sentiment === 0.0 || $quote === '' || mb_strpos($answerText, $quote) === false) {
+        // Neutral as stored: the writer rounds the sentiment to three decimals.
+        if (round($mention->sentiment, 3) == 0.0 || $quote === '' || mb_strpos($answerText, $quote) === false) {
             return null;
         }
 
