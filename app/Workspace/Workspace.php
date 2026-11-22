@@ -94,6 +94,13 @@ final class Workspace
         if (is_numeric($brand)) {
             return Brand::query()->find((int) $brand);
         }
+        // The inbox has no {brand} parameter. ?brand= is the scope, so the sidebar count matches the All tab.
+        if ($request->routeIs('inbox.index')) {
+            $query = filter_var($request->query('brand'), FILTER_VALIDATE_INT);
+            if ($query !== false) {
+                return Brand::query()->find($query);
+            }
+        }
 
         return null;
     }

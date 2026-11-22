@@ -56,7 +56,7 @@ final class OverviewTimeline
                 'sort' => $alert->triggered_at->getTimestamp(),
                 'at' => $alert->triggered_at->toIso8601String(),
                 'date_only' => false,
-                'brand' => $alert->alertRule->brand->name,
+                'brand' => $alert->alertRule->brand?->name,
                 'title' => DashboardLabels::alertType($alert->alertRule->type),
                 'detail' => null,
                 'href' => route('alerts.index'),

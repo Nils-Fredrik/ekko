@@ -136,7 +136,20 @@ export function sidebarGroups({ brandId, marketId = null, analysisQuery = null, 
  *
  * @param {{ canViewPartner?: boolean, counts?: object|null, current: (name: string) => boolean, to: (name: string, params?: object) => string }} context
  */
-export function globalLinks({ canViewPartner = false, counts = null, current, to }) {
+/** Query the inbox keeps so the sidebar scope and the All tab count the same rows. */
+export function inboxScope(brandId = null, marketId = null) {
+    const params = {};
+    if (brandId !== null && brandId !== undefined) {
+        params.brand = brandId;
+    }
+    if (marketId !== null && marketId !== undefined) {
+        params.market = marketId;
+    }
+
+    return params;
+}
+
+export function globalLinks({ canViewPartner = false, counts = null, brandId = null, marketId = null, current, to }) {
     const links = [
         {
             id: 'portfolio',
@@ -158,7 +171,7 @@ export function globalLinks({ canViewPartner = false, counts = null, current, to
     links.push({
         id: 'inbox',
         label: 'workspace.shell.inbox',
-        href: to('inbox.index'),
+        href: to('inbox.index', inboxScope(brandId, marketId)),
         active: current('inbox.index') || current('alerts.*'),
         badge: Number(counts?.inbox ?? 0),
     });

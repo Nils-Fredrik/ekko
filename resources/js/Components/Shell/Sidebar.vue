@@ -45,7 +45,14 @@ const brand = computed(() => workspace.value?.brand ?? null);
 const brands = computed(() => workspace.value?.brands ?? []);
 
 const links = computed(() =>
-    globalLinks({ canViewPartner: Boolean(page.props.canViewPartner), counts: counts.value, current, to }),
+    globalLinks({
+        canViewPartner: Boolean(page.props.canViewPartner),
+        counts: counts.value,
+        brandId: brandId.value,
+        marketId: marketId.value,
+        current,
+        to,
+    }),
 );
 const groups = computed(() =>
     sidebarGroups({
@@ -98,8 +105,23 @@ function rememberMarket(id) {
 function brandHref(id) {
     // route().params also holds the query; route().routeParams has only the route's own parameters.
     const router = route();
-    const target = brandTarget(router.current(), Object.keys(router.routeParams ?? {}));
     const stored = readScope(id);
+    if (router.current() === 'inbox.index') {
+        const current = new URL(page.url, 'http://ekko.invalid');
+        const params = { brand: id };
+        if (stored !== null) {
+            params.market = stored;
+        }
+        for (const key of ['type', 'handled']) {
+            const value = current.searchParams.get(key);
+            if (value) {
+                params[key] = value;
+            }
+        }
+
+        return route('inbox.index', params);
+    }
+    const target = brandTarget(router.current(), Object.keys(router.routeParams ?? {}));
 
     return route(target, { brand: id, ...(stored === null ? {} : { market: stored }) });
 }

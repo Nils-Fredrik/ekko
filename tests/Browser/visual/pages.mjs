@@ -21,6 +21,12 @@ export const pages = [
     ['brand-empty', 'Brands/Show', 'owner', () => `/brands/${env('UI_EMPTY_BRAND_ID')}`],
     ['prompts', 'Brands/Prompts', 'owner', () => brand('/prompts')],
     ['setup-prompts', 'Brands/Setup/Prompts', 'owner', () => brand('/setup/prompts')],
+    [
+        'setup-competitors',
+        'Brands/Setup/Competitors',
+        'owner',
+        () => `/brands/${env('UI_TRIAGE_BRAND_ID')}/setup/competitors`,
+    ],
     ['prompt', 'Brands/PromptShow', 'owner', () => brand(`/prompts/${env('UI_PROMPT_ID')}`)],
     ['competitors', 'Brands/Competitors', 'owner', () => brand('/competitors')],
     ['responses', 'Brands/Responses', 'owner', () => brand('/responses?sentiment=positive')],
@@ -31,7 +37,8 @@ export const pages = [
     ['action', 'Brands/ActionShow', 'owner', () => brand(`/actions/${env('UI_ACTION_ID')}`)],
     ['settings', 'Brands/Settings', 'owner', () => brand('/settings')],
     ['wizard', 'Onboarding/Wizard', 'owner', () => '/onboarding/wizard'],
-    ['alerts', 'Alerts/Index', 'owner', () => '/alerts'],
+    ['inbox', 'Inbox/Index', 'owner', () => '/inbox'],
+    ['setup-notifications', 'Brands/Setup/Notifications', 'owner', () => brand('/setup/notifications')],
     ['reports', 'Reports/Index', 'owner', () => '/reports'],
     ['report', 'Reports/Show', 'owner', () => `/reports/${env('UI_REPORT_ID')}`],
     ['usage', 'Usage/Index', 'owner', () => '/usage'],
@@ -75,6 +82,7 @@ export const pages = [
     ['shared-missing', null, 'guest', () => `/shared-report/${env('SMOKE_TENANT_ID')}/missing-selector`],
 ];
 export const inactivePages = {
+    'Alerts/Index': 'U26 sends /alerts to the inbox. The legacy rule form stays until U27 removes alerts.rules.',
     TermsOfService: 'Jetstream termsAndPrivacyPolicy is disabled; there is no registered page route.',
     PrivacyPolicy: 'Jetstream termsAndPrivacyPolicy is disabled; there is no registered page route.',
 };

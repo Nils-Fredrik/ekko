@@ -23,8 +23,8 @@ use Inertia\Response;
 
 /**
  * Competitors: their rank over time, visibility, change, rank and sentiment against the brand (U07,
- * docs/ui-forbedring.md 7.4), their aliases and domains, and unknown brands that can be added in one click
- * (docs/spec.md 14.2, T27).
+ * docs/ui-forbedring.md 7.4), their aliases and domains, and a link to the unknown brands that wait for a decision
+ * (docs/ux-arbeidsflate.md 5.3, U22).
  */
 class BrandCompetitorController extends Controller
 {
@@ -62,7 +62,7 @@ class BrandCompetitorController extends Controller
             'filters' => $query,
             'markets' => BrandPage::markets($brand),
             'competitors' => $competitors,
-            'suggestions' => $this->suggestions($brand, $filter, $queue),
+            'pendingEntities' => $this->pending($brand, $filter, $queue),
             'canManage' => Gate::allows('create', Competitor::class),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
                 'brand.competitors.u07.'.$grain.'.'.$period->comparison, $filter, $period->timezone,
@@ -108,19 +108,12 @@ class BrandCompetitorController extends Controller
     }
 
     /**
-     * Unknown brands of the page's filters in at least two answers, without known or decided names, most answers
-     * first (EntityQueue, docs/ux-arbeidsflate.md 6.3).
-     *
-     * @return list<array{name: string, responses: int}>
+     * How many unknown names wait for a decision in the markets of the page's filters, for the link to
+     * Setup › Competitors and brands (docs/ux-arbeidsflate.md 5.3). The names themselves are decided there.
      */
-    private function suggestions(Brand $brand, MetricsFilter $filter, EntityQueue $queue): array
+    private function pending(Brand $brand, MetricsFilter $filter, EntityQueue $queue): int
     {
-        $minimum = (int) config('ekko.entities.min_answers');
-
-        return array_values(array_map(
-            fn (array $row): array => ['name' => $row['name'], 'responses' => $row['answers']],
-            array_filter($queue->unknown($brand, $filter), fn (array $row): bool => $row['answers'] >= $minimum),
-        ));
+        return count($queue->pending($brand, $filter->marketIds));
     }
 
     public function destroy(Brand $brand, string $competitor): RedirectResponse

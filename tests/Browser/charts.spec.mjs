@@ -47,7 +47,7 @@ test.afterAll(async () => {
 
 test('the chart library is a separate chunk that pages without charts do not load', async () => {
     expect(chartChunk, 'ECharts chunk in the Vite manifest').toBeTruthy();
-    for (const path of ['/dashboard', '/brands', '/alerts', '/reports']) {
+    for (const path of ['/dashboard', '/brands', '/inbox', '/reports']) {
         await page.goto(path);
         await page.waitForLoadState('networkidle');
     }

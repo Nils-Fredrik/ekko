@@ -81,7 +81,7 @@ final readonly class InboxAlerts
             $type === 'integration_error' && $brand !== null => route(Route::has('brands.setup.integrations') ? 'brands.setup.integrations' : 'brands.settings', $brand),
             isset($alert->payload['prompt_id']) && $brand !== null => route('brands.prompts.show', [$brand, $alert->payload['prompt_id']]),
             $brand !== null => route('brands.show', $brand),
-            default => route('alerts.index'),
+            default => route('inbox.index'),
         };
 
         return new InboxItem('alert', (string) $alert->id, $brand, $market, $alert->triggered_at, $edge, $title, $detail, $buttons, $url, $handled, $ids,

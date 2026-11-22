@@ -200,7 +200,7 @@ Lagt til etter planen: **U28** Svarliste per sentiment (Claude Code / Opus 5.5, 
   - `setup.markets`, `setup.identity` og `setup.integrations` → `brands.settings`
   - `setup.notifications` → `alerts.index`
 
-  Oppgavene som bygger sidene, bytter ut videresendingen.
+  Oppgavene som bygger sidene, bytter ut videresendingen. U26 har gjort det for varsler: `brands.setup.notifications` er siden, og `inbox.index` er innboksen. `/alerts` sender til `/inbox?type=alerts`.
 
 **Markedsomfang:**
 
@@ -382,7 +382,7 @@ Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-fo
 
 Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.manage`.
 
-**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg». «Ny prompt» og «Nytt tema» vises, fordi U20 har tatt `brands.setup.prompts` ut av `FORWARDING_ROUTES`. «Legg til konkurrent» og «Nytt marked» er skjult så lenge ruten bare sender videre, fordi dagens side ikke åpner `?create=`. U22 og U24 tar sin rute ut av listen når siden er bygget.
+**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg». «Ny prompt» og «Nytt tema» vises, fordi U20 har tatt `brands.setup.prompts` ut av `FORWARDING_ROUTES`. «Legg til konkurrent» vises fra U22, fordi siden åpner `?create=competitor`. «Nytt marked» er skjult så lenge ruten bare sender videre, fordi dagens side ikke åpner `?create=`. U24 tar sin rute ut av listen når siden er bygget.
 
 ## 5. Skjermer
 
@@ -406,6 +406,8 @@ Alle skjermer har dette hodet: brødsmule i 12 px `text-shell-muted` («Fjordbyr
    - Kildene, sortert etter alvor: integrasjon med feil (`error`), manglende pris i planen (`error`), kvote over 80 % (`warning`), ukjente merkevarer som venter (`warning`) og nye tiltak (`warning`). Kvotestatus vises til brukere med tilgang til forbrukssiden.
    - Uten saker står «Alt ser bra ut» i `text-success-text`.
 3. **Kom i gang:** oppstartslisten (5.8) med «*x* av 6», fremdriftslinje i `success-text` og «Skjul».
+
+**Slik U26 er bygget:** «Alt ser bra ut» og haken bruker `text-success`. I mørkt tema peker den klassen på `--color-success-text` (`resources/css/app.css`), fordi `#4a7c59` er under 4,5:1 på det mørke skallet. I lyst tema er `#4a7c59` mørkere enn `#5d8a6a` og lesbar på hvitt. Fremdriftslinjen bruker `bg-success`, som er fyllfargen. Tokenet `--color-success-text` ligger utenfor `@theme`, så `text-success-text` er ikke en egen utility. En merkevare uten markeder viser «Legg til et marked» i helsehodet, og den gamle lenken skjules da. Når merkevaren har markeder, står «Legg til marked» igjen som vei til et nytt marked.
    - Valget om å skjule lagres per bruker og merkevare (`user_brand_preferences.checklist_hidden_at`, ny tabell i U25).
    - Når listen er fullført eller skjult, får kort 1 og 2 hver sin halvdel.
 
@@ -584,6 +586,26 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
 - Et navn lagt som alias vises under konkurrenten i grafene etter neste aggregering (6.3).
 - Endret rekkefølge gir samme farge for konkurrenten på dashboard, konkurrentside, kildeside og i rapport.
 
+**Slik U22 er bygget:**
+
+- **Filer:** `SetupCompetitorController` (siden, tar over `brands.setup.competitors` fra videresendingen), `Pages/Brands/Setup/Competitors.vue`, `Components/Setup/` (`EntityPanel`, `CompetitorPanel`, `AliasPicker` og de rene reglene i `entityQueue.js`, testet i `tests/js/competitor-setup.test.mjs`). Skrivingen går til JSON-rutene fra U21. «Legg til konkurrent» bruker `brands.competitors.store`. `DataTable` har fått `row-selectable`, så en behandlet rad mister avkrysningen.
+- **Tall uten sidelasting:** tallet på «Til behandling» regnes lokalt (køen minus behandlede navn) og endres med en gang. Sidemenyen og de andre fanene (`competitors`, `others`, `ignored`, `targets`, `workspace`) hentes med en delvis Inertia-omlasting 200 ms etter siste endring. Selve køen lastes ikke på nytt, så behandlede rader blir stående.
+- **Tastatur:** `1`–`4` gjelder de valgte radene, ellers den åpne raden. Etter en beslutning åpnes og fokuseres neste ubehandlede rad (`cursor` i siden, så raske tastetrykk ikke treffer en rad som allerede er behandlet). `3` åpner `AliasPicker` for én rad. Siden bruker `x`, `Enter`, `j`, `k` og `/` fra `DataTable`.
+- **Rekkefølge:** dra og slipp bruker HTML5 drag and drop på håndtaket, og `Alt` med piltastene flytter raden for tastaturbrukere (med `aria-live`-melding). Inaktive konkurrenter beholder plassen sin (`reorder` får bare de aktive).
+- **Avvik og tillegg:**
+  - Detaljpanelet viser første ubehandlede rad når ingen rad er åpnet, på skjermer fra 1280 px. På smalere skjermer åpnes det bare for en rad brukeren har åpnet.
+  - Matchtesten under «Legg til alias» (5.5) er ikke med. Den trenger `aliases/test` fra U23 (6.4). Domener normaliseres i nettleseren (uten protokoll, sti og `www`) før de sendes.
+  - Konkurrentpanelet lagrer med egne kall og `SaveStatus`, ikke `useAutosave`, fordi rutene svarer med JSON og ikke med en Inertia-respons.
+  - Under «Andre aktører» og «Ignorert» finnes «Angre» bare i 24 timer (6.3). Etter det står teksten «Kan ikke angres etter 24 timer». «Gjør til konkurrent» under Andre aktører angrer først beslutningen og tar en ny, og etter 24 timer legger den til konkurrenten med `brands.competitors.store`, mens beslutningen `other` blir stående.
+  - Andel i «Andre aktører» regnes over de siste 30 dagene (`ekko.entities.queue_days`) i markedene på siden. Synlighet og endring i konkurrenttabellen er over 28 dager mot de 28 foregående, i samme markeder.
+  - Analysesiden beholder tabellen «Alias og domener». Bare forslagsveggen er byttet ut med lenken. Tallet i lenken er antall navn i køen for markedene i filteret, uten motor- og temafilter, slik at det stemmer med siden den lenker til.
+  - Angre-meldingen gjelder siste beslutning. Eldre beslutninger angres med «Angre» på raden.
+  - Tallet på «Til behandling» står i `bg-primary-deep` (tokenet for den røde pillen). Bunnlinjen viser «Viser *x* av *n*» der *n* er alle ukjente navn i vinduet, også de under to svar (`queueTotal`).
+  - Flervalg sendes til serveren i grupper på høyst 100 navn. Dra og slipp flytter bare aktive konkurrenter (som `reorder` gjør), og håndtaket er av for inaktive rader.
+  - «Angre» og «Gjør til konkurrent» under de andre fanene laster køen på nytt, slik at navnet kommer tilbake. Behandlede rader i «Til behandling» forsvinner da før siden er lastet på nytt.
+  - Feiler «Gjør til konkurrent» etter at «annen aktør» er angret, gjøres den forrige beslutningen på nytt, og feilen vises på siden.
+- **Tester:** `tests/Feature/Entities/SetupCompetitorPageTest.php`, `tests/js/competitor-setup.test.mjs` og `tests/Browser/triage.spec.mjs` (50 syntetiske navn på under to minutter med tastatur og flervalg, tall på fane og i sidemenyen uten sidelasting, angre, dra og slipp, konkurrentpanelet). Siden står i sideregisteret som `setup-competitors`.
+
 ### 5.4 Markeder og måleplan (skisse 4)
 
 **Rute:** `GET /brands/{brand}/setup/markets` (`brands.setup.markets`), siden `Pages/Brands/Setup/Markets.vue`. Planen bruker dagens API (`brands.plan.show`, `estimate` og `update`, T53–T55). Logikken i `measurementPlan.js` og `usePlanEstimate.js` gjenbrukes.
@@ -679,14 +701,15 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
 
 - **Lesbar tekst:** tittel og detalj lages på serveren fra språknøkler (6.5). Interne nøkler vises aldri. Varsler bruker `AlertPresenter`.
 - **Gruppering:** varsler av samme type, merkevare og dag med mer enn to rader slås sammen («3 varsler om synlighetsfall i Sverige»). En sammenslått rad har «Vis alle» og «Kvitter alle».
-- **Behandling:** en handling fjerner raden med angre-melding. Tallet i sidemenyen og på fanen oppdateres (Inertia `only: ['items', 'counts', 'workspace']`).
+- **Behandling:** en handling fjerner raden. Tallet i sidemenyen og på fanen oppdateres (Inertia `only: ['items', 'counts', 'workspace']`).
+- **Slik U26 er bygget:** Kvittering og enhetsvedtak kan angres, fordi de har egne ruter. Plan, avvis og «Lag tiltak» kan ikke angres. En bruker kan ikke sette et tiltak tilbake til `new` (spec 11.3, `ActionStatus::userTargets`), og et tiltak som lages fra en motsagt påstand blir stående til brukeren behandler det. Optimistisk skjuling nullstilles når filteret endres, så «Vis behandlet» viser raden uten ny sidelasting.
 - **Tom innboks:** «Ingenting venter her. Nye varsler, merkevarer og tiltak dukker opp etter neste måling.»
 - **Dagens varselside:** `/alerts` sender til `/inbox?type=alerts`. Varselregler ligger i 5.7.
 
 **Akseptkriterier (U26):**
 
 - Antallet i sidemenyen er det samme som summen på fanen «Alle».
-- Kvittering og behandling fjerner raden uten ny sidelasting og kan angres.
+- Kvittering og enhetsvedtak fjerner raden uten ny sidelasting og kan angres. Plan, avvis og «Lag tiltak» fjerner raden uten angre (spec 11.3).
 - Ingen rad viser interne nøkler (automatisk test som leter etter `market:`, `prompt:` og heksadesimale hasher).
 
 ### 5.7 Varsler og rapporter per merkevare
@@ -737,7 +760,7 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
 | `GET /brands/{brand}/setup/identity` | `brands.setup.identity` | U24 |
 | `GET /brands/{brand}/setup/integrations` | `brands.setup.integrations` | U24 |
 | `GET /brands/{brand}/setup/notifications` | `brands.setup.notifications` | U26 |
-| `GET /inbox` | `inbox.index` | U26. Inntil da sender ruten til `alerts.index`. |
+| `GET /inbox` | `inbox.index` | U26. Siden er innboksen. `/alerts` sender til `/inbox?type=alerts`. |
 
 `brands.settings` sender videre til `brands.setup.identity` når U24 er merget. U27 fjerner `Brands/Settings.vue` og `BrandSettingsController::update`.
 
