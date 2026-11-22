@@ -1,5 +1,7 @@
 <?php
 
+use App\Alerts\AlertRules;
+use App\Alerts\AlertType;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
@@ -43,6 +45,24 @@ test('opening notifications does not create rules, and each field saves on its o
     expect(AlertRule::query()->count())->toBe(1)
         ->and($rule->fresh()->is_active)->toBeFalse()
         ->and((float) $rule->fresh()->threshold)->toBe(12.0);
+});
+
+test('the first edit of a legacy integration rule changes the rule the page shows', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $this->actingAs($owner);
+    $legacy = AlertRule::factory()->for($world->brand)->create([
+        'type' => 'integration_error',
+        'is_active' => true,
+        'channels' => ['in_app'],
+    ]);
+
+    $this->put(route('brands.alert-rules.upsert', [$world->brand, 'integration_error']), ['is_active' => false])
+        ->assertRedirect();
+
+    $shown = app(AlertRules::class)->forSource(AlertType::IntegrationError, $world->brand->id);
+    expect($shown->id)->toBe($legacy->id)->and($shown->is_active)->toBeFalse();
 });
 
 test('report history keeps reports after the plan is deleted', function () {
