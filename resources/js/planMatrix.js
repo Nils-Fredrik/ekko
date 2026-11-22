@@ -1,15 +1,21 @@
 /** Cell text for the measurement-plan matrix (docs/ux-arbeidsflate.md 5.4). */
 export const INTERVALS = ['daily', 'weekly', 'every_14_days', 'every_21_days', 'monthly', 'off'];
 
-/** Answers per month for the brand standard (no market) or one market. */
+/**
+ * Answers per month for one market.
+ * The brand standard is a template and has no prompt population of its own.
+ * estimate.engines is the sum of every market, so the standard column does not use it.
+ */
 export function answersFor(estimate, marketId, engineKey) {
-    if (!estimate) {
+    if (!estimate || marketId == null) {
         return null;
     }
-    const source =
-        marketId == null ? estimate.engines : estimate.markets?.find((market) => market.id === marketId)?.engines;
 
-    return source?.find((engine) => engine.engine_key === engineKey)?.answers ?? null;
+    return (
+        estimate.markets
+            ?.find((market) => market.id === marketId)
+            ?.engines?.find((engine) => engine.engine_key === engineKey)?.answers ?? null
+    );
 }
 
 /** Earliest next measurement for one engine in a market. */

@@ -16,8 +16,8 @@ const estimate = {
     ],
 };
 
-test('a cell reads answers for the brand standard or one market', () => {
-    assert.equal(answersFor(estimate, null, 'chatgpt_api'), 12);
+test('a market cell reads its own answers, and the standard column ignores the plan total', () => {
+    assert.equal(answersFor(estimate, null, 'chatgpt_api'), null);
     assert.equal(answersFor(estimate, 4, 'chatgpt_api'), 5);
     assert.equal(answersFor(estimate, 4, 'missing'), null);
     assert.equal(answersFor(null, 4, 'chatgpt_api'), null);
