@@ -41,7 +41,7 @@ class SetupPromptController extends Controller
         $engines = $this->engines($marketIds->all());
         $limit = $team->plan?->max_prompts_per_market;
         $active = $market === null ? null : Prompt::query()->where('market_id', $market->id)->where('is_active', true)->count();
-        $detail = $request->filled('open') ? $this->detail($brand, $request, $zone) : null;
+        $detail = $request->filled('open') ? $this->detail($brand, $request, $zone, $market) : null;
 
         return Inertia::render('Brands/Setup/Prompts', [
             'brand' => BrandPage::payload($brand),
@@ -167,7 +167,7 @@ class SetupPromptController extends Controller
     /**
      * @return array<string, mixed>|null
      */
-    private function detail(Brand $brand, Request $request, string $zone): ?array
+    private function detail(Brand $brand, Request $request, string $zone, ?Market $market): ?array
     {
         if (! $request->filled('open')) {
             return null;
@@ -179,6 +179,9 @@ class SetupPromptController extends Controller
             // Gone (just deleted) closes the panel. A prompt on another of this tenant's brands is not ours.
             abort_if(Prompt::query()->whereKey($id)->exists(), 404);
 
+            return null;
+        }
+        if ($market !== null && $prompt->market_id !== $market->id) {
             return null;
         }
         $today = CarbonImmutable::now($zone)->startOfDay();

@@ -22,8 +22,6 @@ const props = defineProps({
     chartData: { type: Object, default: null },
     markets: { type: Array, required: true },
     prompts: { type: Array, required: true },
-    intents: { type: Array, required: true },
-    priorities: { type: Array, required: true },
     canManage: { type: Boolean, required: true },
     importResult: { type: Object, default: null },
     personalData: { type: Boolean, default: false },

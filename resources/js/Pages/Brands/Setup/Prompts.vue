@@ -78,6 +78,9 @@ const atLimit = computed(
 const openRow = computed(() => props.library.prompts.find((item) => item.id === props.open) ?? null);
 const panelPrompt = computed(() => props.detail?.prompt ?? openRow.value);
 const formError = computed(() => {
+    if (props.open !== null) {
+        return '';
+    }
     const first = Object.values(page.props.errors ?? {}).flat()[0];
 
     return typeof first === 'string' ? first : '';
@@ -527,13 +530,13 @@ async function loadSuggestions() {
     }
 }
 
-function addSuggestions() {
+async function addSuggestions() {
     const topicId = suggestedFor.value;
     const chosen = suggestions.value.filter((item) => item.selected);
     if (!topicId || chosen.length === 0) {
         return;
     }
-    bulk(
+    const saved = await bulk(
         {
             action: 'create',
             market_id: props.market.id,
@@ -548,6 +551,11 @@ function addSuggestions() {
         },
         (count) => trans('workspace.prompts.added', { count: formatNumber(count) }),
     );
+    if (!saved) {
+        return;
+    }
+    suggestions.value = [];
+    suggestedFor.value = null;
     showSuggest.value = false;
 }
 
@@ -697,6 +705,9 @@ const emptyCopy = computed(() =>
                     <p>
                         {{ $t('workspace.prompts.preview_unchanged', { count: formatNumber(preview.unchanged ?? 0) }) }}
                     </p>
+                    <ul v-if="preview.warnings?.length" class="border-s-4 border-warning ps-3">
+                        <li v-for="(warning, index) in preview.warnings" :key="index">{{ warning }}</li>
+                    </ul>
                     <ul v-if="preview.errors?.length" class="text-error-text">
                         <li v-for="(error, index) in preview.errors" :key="index">
                             <template v-if="error.line != null">{{ error.line }}:</template>
@@ -715,6 +726,12 @@ const emptyCopy = computed(() =>
                     })
                 }}
             </p>
+            <ul v-if="importResult?.errors?.length" class="text-sm text-error-text">
+                <li v-for="(error, index) in importResult.errors" :key="index">{{ error }}</li>
+            </ul>
+            <ul v-if="importResult?.warnings?.length" class="border-s-4 border-warning ps-3 text-sm">
+                <li v-for="(warning, index) in importResult.warnings" :key="index">{{ warning }}</li>
+            </ul>
             <p v-if="personalData" class="border-s-4 border-warning ps-3 text-sm">
                 {{ $t('app.library.personal_data') }}
             </p>
@@ -849,7 +866,8 @@ const emptyCopy = computed(() =>
                                         mergeTopic(
                                             topic,
                                             library.topics.find((item) => item.id === Number($event.target.value)),
-                                        )
+                                        );
+                                        $event.target.value = '';
                                     "
                                 >
                                     <option value="" />
