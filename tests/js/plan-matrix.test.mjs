@@ -23,9 +23,14 @@ test('a market cell reads its own answers, and the standard column ignores the p
     assert.equal(answersFor(null, 4, 'chatgpt_api'), null);
 });
 
-test('the panel uses the earliest next measurement and its example prompt', () => {
+test('the panel uses the earliest next measurement and the example from that same rule', () => {
     assert.equal(nextDue(estimate, 4, 'chatgpt_api'), '2026-11-20');
-    assert.equal(samplePromptId(estimate, 4, 'chatgpt_api'), 9);
+    assert.equal(samplePromptId(estimate, 4, 'chatgpt_api'), null);
+
+    const paired = structuredClone(estimate);
+    paired.markets[0].rules[1].sample_prompt_id = 4;
+    assert.equal(nextDue(paired, 4, 'chatgpt_api'), '2026-11-20');
+    assert.equal(samplePromptId(paired, 4, 'chatgpt_api'), 4);
 });
 
 test('a validation error is shown on the engine whose rule failed', () => {

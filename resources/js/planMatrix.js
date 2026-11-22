@@ -18,23 +18,25 @@ export function answersFor(estimate, marketId, engineKey) {
     );
 }
 
-/** Earliest next measurement for one engine in a market. */
-export function nextDue(estimate, marketId, engineKey) {
+/** The rule whose next measurement is shown: the earliest date, with its own example. */
+function earliestRule(estimate, marketId, engineKey) {
     const market = estimate?.markets?.find((item) => item.id === marketId);
-    const dates = (market?.rules ?? [])
-        .filter((rule) => rule.engine_key === engineKey && rule.next_due_on)
-        .map((rule) => rule.next_due_on)
-        .sort();
 
-    return dates[0] ?? null;
+    return (
+        (market?.rules ?? [])
+            .filter((rule) => rule.engine_key === engineKey && rule.next_due_on)
+            .sort((left, right) => left.next_due_on.localeCompare(right.next_due_on))[0] ?? null
+    );
 }
 
-/** The prompt the estimate used as the example for that engine. */
-export function samplePromptId(estimate, marketId, engineKey) {
-    const market = estimate?.markets?.find((item) => item.id === marketId);
-    const rule = (market?.rules ?? []).find((item) => item.engine_key === engineKey && item.sample_prompt_id);
+/** Earliest next measurement for one engine in a market. */
+export function nextDue(estimate, marketId, engineKey) {
+    return earliestRule(estimate, marketId, engineKey)?.next_due_on ?? null;
+}
 
-    return rule?.sample_prompt_id ?? null;
+/** The example prompt from the same rule that supplies the next measurement. */
+export function samplePromptId(estimate, marketId, engineKey) {
+    return earliestRule(estimate, marketId, engineKey)?.sample_prompt_id ?? null;
 }
 
 /** Own choice that no longer matches the brand standard. */

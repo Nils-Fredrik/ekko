@@ -66,9 +66,9 @@ class SetupMarketController extends Controller
             'measurementPlan' => $plans->present($tenant, $brand),
             'prompts' => $ids === [] ? (object) [] : Prompt::query()
                 ->whereIn('market_id', $ids)
+                ->where('is_active', true)
                 ->whereNull('archived_at')
                 ->orderBy('id')
-                ->limit(200)
                 ->get(['id', 'text'])
                 ->mapWithKeys(fn (Prompt $prompt): array => [$prompt->id => $prompt->text]),
             'countries' => CountryList::options(app()->getLocale()),

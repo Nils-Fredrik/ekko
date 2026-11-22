@@ -5,6 +5,7 @@ use App\AnthropicBudget\Planner;
 use App\Dashboard\AnalysisFilters;
 use App\Models\AnthropicBudgetPlan;
 use App\Models\Market;
+use App\Models\Prompt;
 use App\Models\Run;
 use App\Models\User;
 use App\Onboarding\FirstRun;
@@ -147,6 +148,25 @@ it('shows each market\'s rules in settings, the engine filters and list_brands',
         ->and($brand['markets'][0]['engines'])->toBe($mcp($standard))
         ->and($brand['markets'][1]['plan_mode'])->toBe('own')
         ->and($brand['markets'][1]['engines'])->toBe($mcp($own));
+});
+
+it('includes every active prompt as an example, including past the old cap of 200', function () {
+    [$tenant, $owner] = planTenant();
+    $w = planWorld($tenant, [planRule('chatgpt_api', 'weekly')], [planRule('chatgpt_api', 'weekly')]);
+    [$kept, $hidden] = inTenant($tenant, function () use ($w) {
+        Prompt::factory()->for($w['a'])->count(200)->create();
+        $kept = Prompt::factory()->for($w['a'])->create(['text' => 'Prompt past the old cap?']);
+        $hidden = Prompt::factory()->for($w['a'])->create([
+            'text' => 'Inactive prompt must stay hidden?',
+            'is_active' => false,
+        ]);
+
+        return [$kept, $hidden];
+    });
+
+    $this->actingAs($owner)->get(route('brands.setup.markets', $w['brand']))->assertInertia(fn (Assert $page) => $page
+        ->where('prompts.'.$kept->id, 'Prompt past the old cap?')
+        ->missing('prompts.'.$hidden->id));
 });
 
 it('shows the saved plan next measurement to a reader, including when a market is off or inactive', function () {
