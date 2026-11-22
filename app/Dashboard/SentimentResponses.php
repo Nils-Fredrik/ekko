@@ -94,7 +94,9 @@ final class SentimentResponses
     {
         $length = mb_strlen($answer);
         $span = mb_strlen($surface);
-        if ($offset === null || $offset < 0 || $span === 0 || $offset + $span > $length) {
+        // A stored offset is used when it points at the name; otherwise the name is looked up in the text.
+        if ($offset === null || $offset < 0 || $span === 0 || $offset + $span > $length
+            || mb_strtolower(mb_substr($answer, $offset, $span)) !== mb_strtolower($surface)) {
             $found = $span === 0 ? false : mb_stripos($answer, $surface);
             $offset = $found === false ? null : $found;
         }

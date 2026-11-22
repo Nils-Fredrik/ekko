@@ -167,7 +167,11 @@ test('the excerpt is cut at whole words around the mention', function () {
         ->and($excerpt['before'])->toStartWith('ord ')
         ->and($excerpt['after'])->toEndWith('tekst')
         ->and(SentimentResponses::excerpt('Kort svar om Nordlys.', 'Nordlys', null))
-        ->toBe(['before' => 'Kort svar om ', 'match' => 'Nordlys', 'after' => '.', 'cut_start' => false, 'cut_end' => false]);
+        ->toBe(['before' => 'Kort svar om ', 'match' => 'Nordlys', 'after' => '.', 'cut_start' => false, 'cut_end' => false])
+        // An offset that does not point at the name falls back to a search.
+        ->and(SentimentResponses::excerpt('Kort svar om Nordlys.', 'Nordlys', 3)['before'])->toBe('Kort svar om ')
+        ->and(SentimentResponses::excerpt('Et svar uten navnet.', 'Nordlys', 0))
+        ->toBe(['before' => '', 'match' => '', 'after' => 'Et svar uten navnet.', 'cut_start' => false, 'cut_end' => false]);
 });
 
 test('prompts of another brand in the tenant are left out', function () {

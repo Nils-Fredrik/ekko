@@ -53,13 +53,14 @@ function selectEntity(event) {
     router.get(url({ entity: event.target.value === 'brand' ? undefined : event.target.value, page: undefined }));
 }
 
-// An ellipsis marks where the excerpt cuts the answer.
-function before(excerpt) {
-    return (excerpt.cut_start ? '… ' : '') + excerpt.before;
-}
-
-function after(excerpt) {
-    return excerpt.after + (excerpt.cut_end ? ' …' : '');
+// The excerpt as answer segments, with the mention highlighted as on the prompt page. An ellipsis marks where
+// the excerpt cuts the answer.
+function excerptSegments(excerpt) {
+    return [
+        { text: (excerpt.cut_start ? '… ' : '') + excerpt.before, kind: 'plain' },
+        { text: excerpt.match, kind: props.entity.own ? 'brand' : 'competitor' },
+        { text: excerpt.after + (excerpt.cut_end ? ' …' : ''), kind: 'plain' },
+    ].filter((part) => part.text !== '');
 }
 
 function score(value) {
@@ -175,13 +176,11 @@ function scoreClass(value) {
                         <span v-if="answer.recommended">· {{ $t('app.responses.recommended') }}</span>
                     </p>
 
-                    <p class="mt-3 text-sm whitespace-pre-wrap text-shell-text" data-testid="responses-excerpt">
-                        {{ before(answer.excerpt) }}
-                        <mark class="rounded-sm bg-primary/15 px-0.5 font-medium text-shell-text">
-                            {{ answer.excerpt.match }}
-                        </mark>
-                        {{ after(answer.excerpt) }}
-                    </p>
+                    <AnswerText
+                        class="mt-3"
+                        :segments="excerptSegments(answer.excerpt)"
+                        data-testid="responses-excerpt"
+                    />
 
                     <details class="mt-3 text-sm">
                         <summary class="cursor-pointer text-primary">{{ $t('app.responses.full') }}</summary>
