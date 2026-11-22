@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, useId } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { formatCurrency, formatMonth, formatNumber, formatPercent } from '@/format';
@@ -12,6 +12,8 @@ import { NAV_GROUPS, countFor, isActive, linkQuery } from './workspaceNav.js';
 defineEmits(['search']);
 
 const page = usePage();
+// The drawer mounts a second sidebar next to the hidden desktop one, so ids are per instance.
+const uid = useId();
 const { workspace, brandId, marketId, current } = useWorkspace();
 
 const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -153,9 +155,9 @@ const linkClass = (active) =>
 
         <ScopeSelector />
 
-        <section v-for="group in groups" :key="group.id" :aria-labelledby="`nav-group-${group.id}`">
+        <section v-for="group in groups" :key="group.id" :aria-labelledby="`${uid}-group-${group.id}`">
             <h2
-                :id="`nav-group-${group.id}`"
+                :id="`${uid}-group-${group.id}`"
                 class="px-2.5 pb-1 text-[11px] font-medium tracking-[0.08em] text-shell-muted uppercase"
             >
                 {{ group.label }}
