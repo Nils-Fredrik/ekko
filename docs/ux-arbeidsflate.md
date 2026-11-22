@@ -596,6 +596,10 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
   - Andel i «Andre aktører» regnes over de siste 30 dagene (`ekko.entities.queue_days`) i markedene på siden. Synlighet og endring i konkurrenttabellen er over 28 dager mot de 28 foregående, i samme markeder.
   - Analysesiden beholder tabellen «Alias og domener». Bare forslagsveggen er byttet ut med lenken. Tallet i lenken er antall navn i køen for markedene i filteret, uten motor- og temafilter, slik at det stemmer med siden den lenker til.
   - Angre-meldingen gjelder siste beslutning. Eldre beslutninger angres med «Angre» på raden.
+  - Tallet på «Til behandling» står i `bg-primary-deep` (tokenet for den røde pillen). Bunnlinjen viser «Viser *x* av *n*» der *n* er alle ukjente navn i vinduet, også de under to svar (`queueTotal`).
+  - Flervalg sendes til serveren i grupper på høyst 100 navn. Dra og slipp flytter bare aktive konkurrenter (som `reorder` gjør), og håndtaket er av for inaktive rader.
+  - «Angre» og «Gjør til konkurrent» under de andre fanene laster køen på nytt, slik at navnet kommer tilbake. Behandlede rader i «Til behandling» forsvinner da før siden er lastet på nytt.
+  - Feiler «Gjør til konkurrent» etter at «annen aktør» er angret, gjøres den forrige beslutningen på nytt, og feilen vises på siden.
 - **Tester:** `tests/Feature/Entities/SetupCompetitorPageTest.php`, `tests/js/competitor-setup.test.mjs` og `tests/Browser/triage.spec.mjs` (50 syntetiske navn på under to minutter med tastatur og flervalg, tall på fane og i sidemenyen uten sidelasting, angre, dra og slipp, konkurrentpanelet). Siden står i sideregisteret som `setup-competitors`.
 
 ### 5.4 Markeder og måleplan (skisse 4)

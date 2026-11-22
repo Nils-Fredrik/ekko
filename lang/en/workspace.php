@@ -304,6 +304,7 @@ return [
             'ignored' => ':n names are ignored.',
         ],
         'failed' => 'Could not save. Try again.',
+        'restore_failed' => ':name could not be made a competitor, and the earlier decision could not be restored. The name is in the queue.',
         'empty' => [
             'pending_title' => 'No names are waiting',
             'pending_body' => 'Every unknown name from the answers has been decided. New names appear here when they recur in the answers.',
@@ -315,7 +316,6 @@ return [
             'ignored_body' => 'Ignored names do not return to the queue, alerts or actions.',
         ],
         'footer' => 'Showing :shown of :total · names seen in fewer than :min answers are not shown',
-        'search' => 'Search names',
         'detail' => [
             'label' => 'Unknown brand',
             'summary' => 'Found in :answers (:percent) in the last 30 days',

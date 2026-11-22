@@ -304,6 +304,7 @@ return [
             'ignored' => ':n namn ignoreras.',
         ],
         'failed' => 'Kunde inte spara. Försök igen.',
+        'restore_failed' => ':name kunde inte sättas som konkurrent, och det tidigare beslutet kunde inte återställas. Namnet ligger i kön.',
         'empty' => [
             'pending_title' => 'Inga namn väntar',
             'pending_body' => 'Alla okända namn från svaren är behandlade. Nya namn dyker upp här när de återkommer i svaren.',
@@ -315,7 +316,6 @@ return [
             'ignored_body' => 'Ignorerade namn kommer inte tillbaka i kön, i aviseringar eller i åtgärder.',
         ],
         'footer' => 'Visar :shown av :total · namn som setts i färre än :min svar visas inte',
-        'search' => 'Sök i namn',
         'detail' => [
             'label' => 'Okänt varumärke',
             'summary' => 'Hittad i :answers (:percent) de senaste 30 dagarna',

@@ -71,3 +71,10 @@ test('the competitor analysis page links to the queue instead of listing suggest
     $this->actingAs($this->w->tenant->owner)->get(route('brands.competitors.index', $this->w->brand))
         ->assertOk()->assertInertia(fn (AssertableInertia $page) => $page->where('pendingEntities', 2)->missing('suggestions'));
 });
+
+test('the line under the queue counts every unknown name, also those seen in fewer than two answers', function () {
+    $this->w->answer($this->w->p1, '2026-11-18 11:00:00', ['unknown' => 'Seen Once']);
+
+    $this->actingAs($this->w->tenant->owner)->get(route('brands.setup.competitors', $this->w->brand))
+        ->assertInertia(fn (AssertableInertia $page) => $page->has('queue', 2)->where('queueTotal', 3));
+});

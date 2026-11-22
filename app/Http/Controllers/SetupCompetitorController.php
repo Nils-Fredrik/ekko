@@ -61,6 +61,7 @@ class SetupCompetitorController extends Controller
             'tab' => $tab,
             'engineNames' => $this->engineNames($brand),
             'queue' => $pending,
+            'queueTotal' => $this->unknownCount($brand, $queue, $marketIds),
             'competitors' => $this->competitors($brand, $metrics, $marketIds),
             'others' => $this->decided($decisions, EntityDecision::OTHER, $shares),
             'ignored' => $this->decided($decisions, EntityDecision::IGNORED, []),
@@ -150,13 +151,47 @@ class SetupCompetitorController extends Controller
      */
     private function shares(Brand $brand, MetricsService $metrics, array $marketIds): array
     {
+        $scope = $this->marketScope($brand, $marketIds);
+        if ($scope === []) {
+            return [];
+        }
         [$from, $to] = EntityQueue::window($brand, (int) config('ekko.entities.queue_days'));
         $shares = [];
-        foreach ($metrics->unknownBrands(new MetricsFilter($brand->id, $from, $to, $brand->markets->pluck('id')->map(fn ($id): int => (int) $id)->when($marketIds !== [], fn ($ids) => $ids->intersect($marketIds))->values()->all())) as $row) {
+        foreach ($metrics->unknownBrands(new MetricsFilter($brand->id, $from, $to, $scope)) as $row) {
             $shares[$row['key']] = ['share' => $row['metric']->value, 'answers' => $row['answers']];
         }
 
         return $shares;
+    }
+
+    /**
+     * Every unknown name of the window without a decision, also the ones seen in fewer than the minimum of answers,
+     * for the line under the queue («Showing x of n»).
+     *
+     * @param  list<int>  $marketIds
+     */
+    private function unknownCount(Brand $brand, EntityQueue $queue, array $marketIds): int
+    {
+        $scope = $this->marketScope($brand, $marketIds);
+        if ($scope === []) {
+            return 0;
+        }
+        [$from, $to] = EntityQueue::window($brand, (int) config('ekko.entities.queue_days'));
+
+        return count($queue->unknown($brand, new MetricsFilter($brand->id, $from, $to, $scope)));
+    }
+
+    /**
+     * The brand's markets, narrowed to the chosen ones.
+     *
+     * @param  list<int>  $marketIds
+     * @return list<int>
+     */
+    private function marketScope(Brand $brand, array $marketIds): array
+    {
+        $own = $brand->markets->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
+
+        return $marketIds === [] ? $own : array_values(array_intersect($own, $marketIds));
     }
 
     /**

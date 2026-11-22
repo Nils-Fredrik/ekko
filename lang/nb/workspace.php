@@ -304,6 +304,7 @@ return [
             'ignored' => ':n navn er ignorert.',
         ],
         'failed' => 'Kunne ikke lagre. Prøv igjen.',
+        'restore_failed' => ':name kunne ikke settes som konkurrent, og den forrige beslutningen kunne ikke gjenopprettes. Navnet ligger i køen.',
         'empty' => [
             'pending_title' => 'Ingen navn venter',
             'pending_body' => 'Alle ukjente navn fra svarene er behandlet. Nye navn dukker opp her når de går igjen i svarene.',
@@ -315,7 +316,6 @@ return [
             'ignored_body' => 'Ignorerte navn kommer ikke tilbake i køen, i varsler eller i tiltak.',
         ],
         'footer' => 'Viser :shown av :total · navn som er sett i færre enn :min svar, vises ikke',
-        'search' => 'Søk i navn',
         'detail' => [
             'label' => 'Ukjent merkevare',
             'summary' => 'Funnet i :answers (:percent) siste 30 dager',

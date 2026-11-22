@@ -126,6 +126,36 @@ test('a competitor panel saves the name, aliases and domains', async () => {
     expect(errors).toEqual([]);
 });
 
+test('«Make competitor» that fails shows the error and puts the earlier decision back', async () => {
+    await page.goto(`/brands/${process.env.TRIAGE_BRAND_ID}/setup/competitors?tab=other`);
+    const before = await number(count('other'));
+    expect(before).toBeGreaterThan(0);
+    const decisions = [];
+    await page.route('**/entity-decisions', async (route) => {
+        const { decision } = route.request().postDataJSON();
+        decisions.push(decision);
+        if (decision === 'competitor') {
+            return route.fulfill({
+                status: 422,
+                contentType: 'application/json',
+                body: JSON.stringify({ message: 'No room.', errors: { keys: ['The plan has no room for more competitors.'] } }),
+            });
+        }
+
+        return route.continue();
+    });
+    await page
+        .locator('#panel-other')
+        .getByRole('button', { name: /^Make .* a competitor$/ })
+        .first()
+        .click();
+    await expect(page.getByTestId('setup-error')).toContainText('no room for more competitors');
+    await expect.poll(() => decisions).toEqual(['competitor', 'other']);
+    await page.unroute('**/entity-decisions');
+    await page.reload();
+    expect(await number(count('other'))).toBe(before);
+});
+
 test('«Add competitor» creates one and «Archive» removes it again', async () => {
     await page.goto(`/brands/${process.env.TRIAGE_BRAND_ID}/setup/competitors`);
     await page.getByTestId('add-competitor').click();

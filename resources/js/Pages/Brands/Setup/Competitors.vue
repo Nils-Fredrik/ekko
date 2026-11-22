@@ -38,6 +38,7 @@ const props = defineProps({
     tab: { type: String, default: 'pending' },
     engineNames: { type: Object, default: () => ({}) },
     queue: { type: Array, required: true },
+    queueTotal: { type: Number, default: 0 },
     competitors: { type: Array, required: true },
     others: { type: Array, required: true },
     ignored: { type: Array, required: true },
@@ -363,7 +364,7 @@ function onKey(event) {
         return;
     }
     const decision = KEY_DECISIONS[event.key];
-    if (!decision) {
+    if (!decision || (decision === 'alias' && aliasOptions.value.length === 0)) {
         return;
     }
     const keys = decisionTargets({ selection: selection.value, open: shownKey.value, decided, order: order.value });
@@ -663,28 +664,52 @@ async function restore(row) {
 
 async function makeCompetitor(row) {
     error.value = '';
+    const done = () => toast.show(trans('workspace.competitors.toast.made_competitor', { name: row.name }));
+    if (!row.undoable) {
+        // Past the undo window the decision stays; the competitor is added the ordinary way.
+        router.post(
+            route('brands.competitors.store', props.brand.id),
+            { name: row.name },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onSuccess: done,
+                onError: (errors) => {
+                    error.value = errors.name ?? trans('workspace.competitors.failed');
+                },
+            },
+        );
+
+        return;
+    }
+    // The old decision is undone first, because a name has one decision. If the new one fails, the old one is
+    // made again, so the name is not left in the queue by mistake.
     try {
-        if (row.undoable) {
-            await window.axios.delete(route('brands.entities.undo', [props.brand.id, row.id]));
-            decided.delete(row.key);
-            await window.axios.post(route('brands.entities.decide', props.brand.id), {
-                keys: [row.key],
-                decision: 'competitor',
-            });
-            refreshSoon(['queue']);
-        } else {
-            // Past the undo window the decision stays; the competitor is added the ordinary way.
-            router.post(
-                route('brands.competitors.store', props.brand.id),
-                { name: row.name },
-                { preserveScroll: true, preserveState: true },
-            );
-        }
-        toast.show(trans('workspace.competitors.toast.made_competitor', { name: row.name }));
+        await window.axios.delete(route('brands.entities.undo', [props.brand.id, row.id]));
     } catch (failure) {
         error.value = responseError(failure) ?? trans('workspace.competitors.failed');
-        refreshSoon(['queue']);
+
+        return;
     }
+    decided.delete(row.key);
+    try {
+        await window.axios.post(route('brands.entities.decide', props.brand.id), {
+            keys: [row.key],
+            decision: 'competitor',
+        });
+        done();
+    } catch (failure) {
+        error.value = responseError(failure) ?? trans('workspace.competitors.failed');
+        try {
+            await window.axios.post(route('brands.entities.decide', props.brand.id), {
+                keys: [row.key],
+                decision: 'other',
+            });
+        } catch {
+            error.value = `${error.value} ${trans('workspace.competitors.restore_failed', { name: row.name })}`;
+        }
+    }
+    refreshSoon(['queue']);
 }
 
 const emptyCopy = (kind) => ({
@@ -904,7 +929,7 @@ const eyebrow = computed(() => trans('workspace.competitors.eyebrow', { brand: p
                             {{
                                 $t('workspace.competitors.footer', {
                                     shown: formatNumber(queue.length),
-                                    total: formatNumber(queue.length),
+                                    total: formatNumber(queueTotal),
                                     min: formatNumber(minAnswers),
                                 })
                             }}
