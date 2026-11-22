@@ -48,6 +48,7 @@ class BrandResponseController extends Controller
         $sentiment = $input['sentiment'] ?? null;
         $page = $responses->page($sentiment, (int) ($input['page'] ?? 1));
         $mentions = collect($page->items());
+        $caseFold = AnswerSegments::caseFoldFor($brand);
         $labels = DashboardLabels::engines($mentions->map(fn (Mention $m) => (string) $m->response?->engine_key)->unique()->values()->all());
 
         return Inertia::render('Brands/Responses', [
@@ -66,7 +67,7 @@ class BrandResponseController extends Controller
             ],
             'sentiment' => $sentiment,
             'counts' => $responses->counts(),
-            'answers' => $mentions->map(fn (Mention $mention): array => $this->answer($brand, $mention, $labels, $period->timezone))->values()->all(),
+            'answers' => $mentions->map(fn (Mention $mention): array => $this->answer($brand, $mention, $labels, $caseFold, $period->timezone))->values()->all(),
             'pagination' => [
                 'page' => $page->currentPage(),
                 'last' => $page->lastPage(),
@@ -78,8 +79,9 @@ class BrandResponseController extends Controller
     }
 
     /**
-     * The competitor named by `entity`, or null for the brand itself. A competitor of another brand, or of
-     * another tenant, is not found.
+     * The competitor named by `entity`, or null for the brand itself. A competitor of another brand or another
+     * tenant is not found, and neither is an inactive one, since the competitors table and the entity list leave
+     * those out.
      */
     private function competitor(Brand $brand, ?string $entity): ?Competitor
     {
@@ -88,14 +90,15 @@ class BrandResponseController extends Controller
         }
         abort_unless(ctype_digit($entity), 404);
 
-        return Competitor::query()->where('brand_id', $brand->id)->whereKey((int) $entity)->firstOrFail();
+        return Competitor::query()->where('brand_id', $brand->id)->where('is_active', true)->whereKey((int) $entity)->firstOrFail();
     }
 
     /**
      * @param  array<string, string>  $labels
+     * @param  array<string, true>  $caseFold
      * @return array<string, mixed>
      */
-    private function answer(Brand $brand, Mention $mention, array $labels, string $timezone): array
+    private function answer(Brand $brand, Mention $mention, array $labels, array $caseFold, string $timezone): array
     {
         $response = $mention->response;
         $prompt = $response?->run?->prompt;
@@ -118,7 +121,7 @@ class BrandResponseController extends Controller
             ],
             'excerpt' => SentimentResponses::excerpt($text, (string) $mention->surface_name,
                 $mention->first_char_offset === null ? null : (int) $mention->first_char_offset),
-            'segments' => AnswerSegments::from($text, $response->mentions ?? []),
+            'segments' => AnswerSegments::from($text, $response->mentions ?? [], $caseFold),
             'raw' => $response === null ? null : route('brands.responses.raw', [$brand, $response]),
         ];
     }

@@ -5,6 +5,7 @@ namespace App\Dashboard;
 use App\Metrics\DailyAggregator;
 use App\Metrics\MetricsFilter;
 use App\Models\Mention;
+use App\Prompts\AnswerSegments;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
@@ -76,7 +77,6 @@ final class SentimentResponses
             ->with([
                 'response' => fn ($response) => $response->with([
                     'mentions' => fn ($mentions) => $mentions->orderBy('first_char_offset')->orderBy('id'),
-                    'citations',
                     'run.prompt',
                 ]),
             ])
@@ -94,11 +94,11 @@ final class SentimentResponses
     {
         $length = mb_strlen($answer);
         $span = mb_strlen($surface);
-        // A stored offset is used when it points at the name; otherwise the name is looked up in the text.
+        // A stored offset is used when it points at the name; otherwise the first copy that stands as its own word,
+        // with the same word boundary as the highlighting on the prompt page.
         if ($offset === null || $offset < 0 || $span === 0 || $offset + $span > $length
             || mb_strtolower(mb_substr($answer, $offset, $span)) !== mb_strtolower($surface)) {
-            $found = $span === 0 ? false : mb_stripos($answer, $surface);
-            $offset = $found === false ? null : $found;
+            $offset = AnswerSegments::findWord($answer, $surface, true);
         }
         if ($offset === null) {
             $cut = $length > self::BEFORE + self::AFTER;

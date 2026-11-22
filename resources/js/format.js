@@ -88,6 +88,14 @@ export function formatDecimal(value, digits = 1, options = {}) {
     return number(value, { minimumFractionDigits: digits, maximumFractionDigits: digits, ...options });
 }
 
+/**
+ * A sentiment score from −1 to 1 with its sign: +0,4, −0,03, 0,0. The score is stored with three decimals, and only 0
+ * itself shows as 0, so the number always agrees with the negative, neutral or positive group it is listed in.
+ */
+export function formatSentiment(value) {
+    return formatDecimal(value, 1, { maximumFractionDigits: 3, signDisplay: 'exceptZero' });
+}
+
 /** Money with the currency code: 16,54 USD. `{ unit: true }` gives four decimals for unit prices. */
 export function formatCurrency(value, currency = 'USD', { unit = false, digits } = {}) {
     if (isMissing(value)) {

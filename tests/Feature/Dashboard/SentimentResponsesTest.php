@@ -151,7 +151,10 @@ test('a competitor of another brand or another tenant is not found', function ()
         return Competitor::factory()->for($brand)->create()->id;
     });
 
-    foreach ([$sibling->id, $foreign, 'abc', '12x'] as $entity) {
+    $inactive = Competitor::factory()->for($world->brand)->create(['is_active' => false]);
+
+    // An inactive competitor is left out of the table and the entity list, so it is not found here either.
+    foreach ([$sibling->id, $foreign, $inactive->id, 'abc', '12x'] as $entity) {
         $this->actingAs($owner)->get(route('brands.responses.index', [$world->brand, 'entity' => $entity]))->assertNotFound();
     }
     $this->actingAs($owner)->get(route('brands.responses.index', [$world->brand, 'sentiment' => 'angry']))->assertSessionHasErrors('sentiment');
@@ -170,6 +173,8 @@ test('the excerpt is cut at whole words around the mention', function () {
         ->toBe(['before' => 'Kort svar om ', 'match' => 'Nordlys', 'after' => '.', 'cut_start' => false, 'cut_end' => false])
         // An offset that does not point at the name falls back to a search.
         ->and(SentimentResponses::excerpt('Kort svar om Nordlys.', 'Nordlys', 3)['before'])->toBe('Kort svar om ')
+        // The search takes the name as its own word, as the highlighting does, not inside another word.
+        ->and(SentimentResponses::excerpt('Nordlysene skinner, og Nordlys svarer.', 'Nordlys', null)['before'])->toBe('Nordlysene skinner, og ')
         ->and(SentimentResponses::excerpt('Et svar uten navnet.', 'Nordlys', 0))
         ->toBe(['before' => '', 'match' => '', 'after' => 'Et svar uten navnet.', 'cut_start' => false, 'cut_end' => false]);
 });
@@ -184,4 +189,19 @@ test('prompts of another brand in the tenant are left out', function () {
     $this->actingAs($world->tenant->owner)
         ->get(route('brands.responses.index', [$world->brand, 'from' => '2026-11-10', 'to' => '2026-11-10', 'entity' => $world->c1->id]))
         ->assertInertia(fn ($page) => $page->where('counts.total', 4));
+});
+
+test('the whole answer highlights a case-insensitive alias in another spelling, as the prompt page does', function () {
+    $world = sentimentWorld();
+    $world->c1->aliases()->create(['alias' => 'Nordlys', 'match_mode' => 'case_insensitive']);
+    $response = sentimentAnswer($world, '2026-11-10T13:00:00Z', null, -0.5);
+    $response->update(['answer_text' => 'Nordlys får blandede omtaler. Flere nevner at NORDLYS svarer sent.']);
+    $response->mentions()->update(['first_char_offset' => 0]);
+
+    $this->actingAs($world->tenant->owner)
+        ->get(route('brands.responses.index', [$world->brand, 'from' => '2026-11-10', 'to' => '2026-11-10',
+            'entity' => $world->c1->id, 'sentiment' => 'negative']))
+        ->assertInertia(fn ($page) => $page
+            ->where('answers.0.response_id', $response->id)
+            ->where('answers.0.segments', fn ($segments) => collect($segments)->contains(['text' => 'NORDLYS', 'kind' => 'competitor'])));
 });

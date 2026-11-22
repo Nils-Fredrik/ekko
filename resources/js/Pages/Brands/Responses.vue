@@ -2,7 +2,7 @@
 // The answers behind the sentiment on the competitors page (U28): the brand's or one competitor's mentions with a
 // negative, neutral or positive sentiment in the page's period and filters. The counts on the tabs are the same
 // mentions the competitors table counts as n.
-import { formatDateTime, formatDecimal, formatNumber } from '@/format';
+import { formatDateTime, formatNumber, formatSentiment } from '@/format';
 import AnswerText from '@/Components/Brand/AnswerText.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
@@ -61,14 +61,6 @@ function excerptSegments(excerpt) {
         { text: excerpt.match, kind: props.entity.own ? 'brand' : 'competitor' },
         { text: excerpt.after + (excerpt.cut_end ? ' …' : ''), kind: 'plain' },
     ].filter((part) => part.text !== '');
-}
-
-function score(value) {
-    if (value === null || value === undefined) {
-        return '';
-    }
-
-    return formatDecimal(value, 1, { signDisplay: 'exceptZero' });
 }
 
 function scoreClass(value) {
@@ -167,7 +159,7 @@ function scoreClass(value) {
                             class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums"
                             :class="scoreClass(answer.sentiment)"
                         >
-                            {{ $t('app.responses.score', { score: score(answer.sentiment) }) }}
+                            {{ $t('app.responses.score', { score: formatSentiment(answer.sentiment) }) }}
                         </span>
                     </div>
                     <p class="mt-1 text-xs text-shell-muted">
