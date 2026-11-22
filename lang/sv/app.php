@@ -281,6 +281,7 @@ return [
         'active' => 'Aktiv',
         'inactive' => 'Av',
         'edit' => 'Redigera',
+        'edit_in_setup' => 'Redigera i Inställningar → Prompter och teman',
         'save' => 'Spara',
         'cancel' => 'Avbryt',
         'export' => 'Exportera CSV',

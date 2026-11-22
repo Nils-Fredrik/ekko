@@ -178,6 +178,28 @@ export function moveIndex(action, index, count) {
     }
 }
 
+/**
+ * Hidden columns for a table. A saved choice wins. Before the user has chosen, the page's default applies.
+ * Storage can be missing or throw (private mode).
+ *
+ * @param {string[]} fallback
+ */
+export function initialHiddenColumns(key, fallback = [], storage) {
+    if (!key) {
+        return [...fallback];
+    }
+    try {
+        const store = storage ?? globalThis.localStorage;
+        if (store?.getItem(STORE_PREFIX + key) == null) {
+            return [...fallback];
+        }
+    } catch {
+        return [...fallback];
+    }
+
+    return readHiddenColumns(key, storage);
+}
+
 /** Hidden columns remembered for a table. Storage can be missing or throw (private mode). */
 export function readHiddenColumns(key, storage) {
     if (!key) {

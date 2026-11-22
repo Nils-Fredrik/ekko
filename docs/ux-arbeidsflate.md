@@ -419,8 +419,8 @@ Alle skjermer har dette hodet: brødsmule i 12 px `text-shell-muted` («Fjordbyr
 
 **Marked:**
 
-- Siden viser alltid ett marked. Uten `market` velges det første aktive markedet, og URL-en oppdateres med `replace`.
-- «Alle markeder» i omfangsvelgeren gir en markedskolonne og grupperte rader per marked. Da er knappen «Ny prompt» deaktivert, med verktøytipset «Velg et marked».
+- URL-en er kilden, som i skallet. Uten `market` vises alle markeder. Siden skriver ikke om URL-en til det første markedet, for da kan ikke «Alle markeder» i omfangsvelgeren bli stående.
+- «Alle markeder» gir en markedskolonne og grupperte rader per marked. Da er knappen «Ny prompt» deaktivert, med verktøytipset «Velg et marked».
 
 **Hode (høyre side):**
 

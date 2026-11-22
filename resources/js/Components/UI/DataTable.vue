@@ -30,7 +30,7 @@ import {
     gridTemplate,
     keyAction,
     moveIndex,
-    readHiddenColumns,
+    initialHiddenColumns,
     selectRange,
     toggleAllVisible,
     toggleId,
@@ -56,6 +56,8 @@ const props = defineProps({
     minWidth: { type: String, default: '640px' },
     dense: { type: Boolean, default: false },
     loading: { type: Boolean, default: false },
+    // Hidden until the user picks columns. A saved choice in localStorage replaces this.
+    hidden: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['update:selection', 'open', 'close']);
@@ -79,11 +81,11 @@ const features = tableFeatures({
     sortedRowModel: createSortedRowModel(),
 });
 const sorting = ref([...props.sort]);
-const hidden = ref(readHiddenColumns(props.columnStoreKey));
+const hidden = ref(initialHiddenColumns(props.columnStoreKey, props.hidden));
 watch(
     () => props.columnStoreKey,
     (key) => {
-        hidden.value = readHiddenColumns(key);
+        hidden.value = initialHiddenColumns(key, props.hidden);
     },
 );
 const columnDefs = computed(() =>
@@ -591,7 +593,7 @@ const showEmpty = computed(() => !props.loading && props.rows.length === 0 && pr
                                     v-if="column.primary"
                                     type="button"
                                     tabindex="-1"
-                                    class="min-w-0 flex-1 truncate text-left"
+                                    class="min-w-0 flex-1 text-left whitespace-normal"
                                     @click="emit('open', entry.item.id)"
                                 >
                                     <slot
