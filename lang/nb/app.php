@@ -281,6 +281,7 @@ return [
         'active' => 'Aktiv',
         'inactive' => 'Av',
         'edit' => 'Rediger',
+        'edit_in_setup' => 'Rediger i Oppsett → Prompts og temaer',
         'save' => 'Lagre',
         'cancel' => 'Avbryt',
         'export' => 'Eksporter CSV',

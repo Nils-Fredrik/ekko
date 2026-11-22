@@ -17,6 +17,11 @@ const CREATE = [
     { id: 'fact', label: 'workspace.palette.new_fact', route: 'brands.facts.index', can: 'manage_brands' },
 ];
 
+// Setup routes that still forward to today's pages (docs/ux-arbeidsflate.md 6.1). The forwarded page cannot
+// open `?create=`, so the create actions stay hidden until U20, U22 and U24 build the page and take the
+// route out of this list.
+export const FORWARDING_ROUTES = ['brands.setup.competitors', 'brands.setup.markets'];
+
 /** The same URL with `market` set, or removed for all markets. Other parameters stay. */
 export function urlWithMarket(url, marketId) {
     const target = new URL(url, 'http://ekko.invalid');
@@ -30,10 +35,10 @@ export function urlWithMarket(url, marketId) {
 }
 
 /**
- * @param {{ workspace?: object|null, url: string, has: (name: string) => boolean, to: (name: string, params?: object) => string, t: (key: string, replace?: object) => string }} context
+ * @param {{ workspace?: object|null, url: string, has: (name: string) => boolean, to: (name: string, params?: object) => string, t: (key: string, replace?: object) => string, forwarding?: string[] }} context
  * @returns {Array<{ id: string, label: string, href?: string, children?: Array<{ id: string, label: string, href: string, current?: boolean }> }>}
  */
-export function paletteActions({ workspace, url, has, to, t }) {
+export function paletteActions({ workspace, url, has, to, t, forwarding = FORWARDING_ROUTES }) {
     const items = [];
     if (!workspace) {
         return has('reports.index')
@@ -45,11 +50,15 @@ export function paletteActions({ workspace, url, has, to, t }) {
 
     if (brand) {
         for (const action of CREATE) {
-            if (can[action.can] && has(action.route)) {
+            if (can[action.can] && has(action.route) && !forwarding.includes(action.route)) {
+                const params = { brand: brand.id, create: action.id };
+                if (action.id === 'prompt' && workspace.market_id != null) {
+                    params.market = workspace.market_id;
+                }
                 items.push({
                     id: `create-${action.id}`,
                     label: t(action.label),
-                    href: to(action.route, { brand: brand.id, create: action.id }),
+                    href: to(action.route, params),
                 });
             }
         }

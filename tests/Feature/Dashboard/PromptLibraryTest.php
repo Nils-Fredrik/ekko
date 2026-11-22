@@ -2,6 +2,7 @@
 
 use App\Models\Action;
 use App\Models\Market;
+use App\Models\MarketEngine;
 use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\Topic;
@@ -171,10 +172,15 @@ test('setup payload includes prompt results, topic counts and last measurement f
     $world = $this->world;
     $topic = Topic::factory()->for($this->brand)->create();
     $world->p1->update(['topic_id' => $topic->id, 'is_active' => true]);
+    app(TenantContext::class)->run($this->brand->tenant_id, fn () => Prompt::factory()->for($world->market)->create([
+        'topic_id' => $topic->id, 'archived_at' => now(),
+    ]));
     $world->answer($world->p1, now()->subDay()->toDateTimeString(), ['brand' => 1]);
     $payload = app(PromptLibrary::class)->payload($this->brand, $world->market, ['topic_id' => $topic->id]);
-    expect($payload['prompts'])->toHaveCount(1)->and($payload['prompts'][0]['runs_exists'])->toBeTrue()->and($payload['prompts'][0]['last_measured_at'])->not->toBeNull();
-    expect(collect($payload['topics'])->firstWhere('id', $topic->id)['count'])->toBe(1);
+    $row = collect($payload['topics'])->firstWhere('id', $topic->id);
+    $shown = collect($payload['prompts'])->firstWhere('id', $world->p1->id);
+    expect($shown['runs_exists'])->toBeTrue()->and($shown['last_measured_at'])->not->toBeNull();
+    expect($row['count'])->toBe(1)->and($row['total'])->toBe(2);
 });
 
 test('topic management and bulk reject another brand in the same tenant', function () {
@@ -199,6 +205,73 @@ test('suggestion limit is shared across topics for one user', function () {
     }
     $this->postJson($urls[0], ['market_id' => $this->world->market->id, 'count' => 5])->assertTooManyRequests();
     expect($fake->model->requests)->toBeEmpty();
+});
+
+test('creating a topic on the setup page selects it', function () {
+    $this->followingRedirects()
+        ->from(route('brands.setup.prompts', $this->brand))
+        ->post(route('brands.topics.store', $this->brand), ['name' => 'Selected topic'])
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where(
+            'filters.topic',
+            (string) app(TenantContext::class)->run(
+                $this->brand->tenant_id,
+                fn () => Topic::query()->where('name', 'Selected topic')->value('id'),
+            ),
+        ));
+});
+
+test('deleting the open prompt returns to the list instead of a missing page', function () {
+    $prompt = app(TenantContext::class)->run(
+        $this->brand->tenant_id,
+        fn () => Prompt::factory()->for($this->world->market)->create(),
+    );
+
+    $this->followingRedirects()
+        ->from(route('brands.setup.prompts', [$this->brand, 'open' => $prompt->id]))
+        ->delete(route('brands.prompts.destroy', [$this->brand, $prompt]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('detail', null)->where('open', null));
+});
+
+test('a list in the search or topic query does not break the page', function () {
+    $this->get(route('brands.setup.prompts', $this->brand).'?q[]=x&topic[]=1&status[]=active')
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('filters.search', '')->where('filters.topic', null)->where('filters.status', 'active'));
+});
+
+test('a missing prompt closes the panel and a foreign market is not found', function () {
+    $this->get(route('brands.setup.prompts', [$this->brand, 'open' => 99999999]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('detail', null)->where('open', null));
+    $this->get(route('brands.setup.prompts', [$this->brand, 'market' => 99999999]))->assertNotFound();
+    $this->get(route('brands.setup.prompts', [$this->brand, 'open' => 'nope']))->assertNotFound();
+});
+
+test('the prompt panel keeps an answer older than the seven day dots', function () {
+    $prompt = app(TenantContext::class)->run($this->brand->tenant_id, function () {
+        MarketEngine::factory()->create([
+            'market_id' => $this->world->market->id,
+            'engine_key' => $this->world->engine->key,
+            'frequency' => 'monthly',
+            'prompt_scope' => 'core',
+        ]);
+        $prompt = Prompt::factory()->for($this->world->market)->create(['priority' => 'standard']);
+        $this->world->answer($prompt, now()->subDays(20)->toDateTimeString());
+
+        return $prompt;
+    });
+
+    $this->get(route('brands.setup.prompts', [$this->brand, 'open' => $prompt->id]))
+        ->assertOk()
+        ->assertInertia(function ($page) use ($prompt) {
+            $detail = $page->toArray()['props']['detail'];
+            $engine = collect($detail['results'])->firstWhere('key', $this->world->engine->key);
+            expect($detail['prompt']['id'])->toBe($prompt->id)
+                ->and($engine['dots'])->toHaveCount(7)
+                ->and($engine['reason'])->toBe('core')
+                ->and($detail['answer'])->not->toBeNull();
+        });
 });
 
 test('undoing an archive restores the original activation state of each prompt', function () {
