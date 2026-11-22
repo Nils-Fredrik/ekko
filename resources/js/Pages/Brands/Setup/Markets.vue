@@ -35,14 +35,6 @@ const crumb = computed(() =>
     [props.tenantName, trans('workspace.shell.setup'), props.brand.name].filter(Boolean).join(' · '),
 );
 const selected = computed(() => props.markets.find((market) => market.id === selectedId.value) ?? null);
-const columnId = computed(() => {
-    const current = props.markets.find((market) => market.id === selectedId.value);
-    if (current?.is_active) {
-        return current.id;
-    }
-
-    return props.markets.find((market) => market.is_active)?.id ?? null;
-});
 const copySources = computed(() => props.markets.filter((market) => market.language === form.language));
 const errors = computed(() => page.props.errors ?? {});
 
@@ -74,6 +66,7 @@ function planText(market) {
 function saveMarket(market, changes) {
     router.patch(route('brands.markets.update', [props.brand.id, market.id]), changes, {
         preserveScroll: true,
+        preserveState: true,
         only: ['markets', 'measurementPlan'],
     });
 }
@@ -87,7 +80,7 @@ function createMarket() {
             location_label: form.location_label,
             copy_from: form.copy_from === '' ? null : Number(form.copy_from),
         },
-        { preserveScroll: true },
+        { preserveScroll: true, preserveState: true },
     );
 }
 </script>
@@ -224,6 +217,7 @@ function createMarket() {
                     <label class="mt-3 flex items-center gap-2 text-xs">
                         <input
                             type="checkbox"
+                            data-testid="market-active"
                             :checked="selected.is_active"
                             :disabled="!canManage"
                             @change="saveMarket(selected, { is_active: $event.target.checked })"
@@ -244,7 +238,6 @@ function createMarket() {
                 :plan="measurementPlan"
                 :brand-id="brand.id"
                 :can-manage="canManage"
-                :column-market-id="columnId"
                 :prompts="prompts"
                 @modes="modes = $event"
                 @estimate="estimate = $event"

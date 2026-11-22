@@ -261,3 +261,16 @@ test('an unexpected failure is recorded without stopping the following tenant', 
     });
     expect(app(TenantContext::class)->check())->toBeFalse();
 });
+
+test('a repeated failure keeps the time the error started', function () {
+    app(TenantContext::class)->run($this->tenant->id, function (): void {
+        $this->integration->forceFill(['status' => 'synced', 'last_error_at' => null])->save();
+        $this->integration->recordSync(now()->toImmutable());
+        $started = $this->integration->refresh()->last_error_at;
+        $this->travel(30)->minutes();
+        $this->integration->recordSync(now()->toImmutable());
+
+        expect($this->integration->refresh()->status)->toBe('error')
+            ->and($this->integration->last_error_at?->equalTo($started))->toBeTrue();
+    });
+});

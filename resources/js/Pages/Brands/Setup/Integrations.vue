@@ -48,8 +48,11 @@ function statusText(integration) {
             date: formatDate(integration.failing_since || integration.last_sync_at || new Date().toISOString()),
         });
     }
+    if (integration.status === 'synced') {
+        return trans('workspace.setup.ok');
+    }
 
-    return trans('workspace.setup.ok');
+    return trans('app.workspace.integration_status.pending');
 }
 
 function save(type) {

@@ -22,7 +22,6 @@ const props = defineProps({
     plan: { type: Object, required: true },
     brandId: { type: Number, required: true },
     canManage: { type: Boolean, required: true },
-    columnMarketId: { type: Number, default: null },
     prompts: { type: Object, default: () => ({}) },
 });
 
@@ -37,7 +36,8 @@ const selected = ref(null);
 const savedPayload = ref('');
 const savedAnswers = ref(null);
 
-const column = computed(() => markets.value.find((market) => market.id === props.columnMarketId) ?? null);
+const activeMarkets = computed(() => markets.value.filter((market) => market.is_active));
+const columnIds = computed(() => [null, ...activeMarkets.value.map((market) => market.id)]);
 const payload = computed(() => ({
     standard: { engines: rowsToRules(standardRows.value, maxRepetitions.value) },
     markets: markets.value.map((market) =>
@@ -80,14 +80,22 @@ const delta = computed(() => {
 });
 const month = computed(() => formatDate(new Date().toISOString().slice(0, 7), { year: false }));
 const fieldErrors = computed(() => page.props.errors ?? {});
+function marketById(marketId) {
+    return markets.value.find((market) => market.id === marketId) ?? null;
+}
+
 const editing = computed(() => {
     if (!selected.value) {
         return null;
     }
-    const rows = selected.value.marketId == null ? standardRows.value : column.value?.rules;
+    const market = selected.value.marketId == null ? null : marketById(selected.value.marketId);
+    if (market && (market.plan_mode !== 'own' || !market.is_active)) {
+        return null;
+    }
+    const rows = market ? market.rules : standardRows.value;
     const row = rows?.find((item) => item.engine_key === selected.value.engineKey);
 
-    return row ? { ...selected.value, row } : null;
+    return row ? { ...selected.value, row, market } : null;
 });
 
 let timer = 0;
@@ -142,8 +150,7 @@ function openCell(engineKey, marketId) {
     selected.value = { engineKey, marketId };
 }
 
-function setMode(mode) {
-    const market = column.value;
+function setMode(market, mode) {
     if (!market || !props.canManage) {
         return;
     }
@@ -213,12 +220,12 @@ function cellAnswers(engineKey, marketId) {
     return answersFor(estimate.value, marketId, engineKey);
 }
 
-function changed(engineKey) {
-    if (!column.value || column.value.plan_mode !== 'own') {
+function changed(engineKey, market) {
+    if (!market || market.plan_mode !== 'own') {
         return false;
     }
     const standard = standardRows.value.find((row) => row.engine_key === engineKey);
-    const row = column.value.rules.find((item) => item.engine_key === engineKey);
+    const row = market.rules.find((item) => item.engine_key === engineKey);
 
     return rowChanged(standard, row);
 }
@@ -273,6 +280,9 @@ watch(
                 current.is_active = incoming.is_active;
             }
         }
+        if (selected.value?.marketId != null && !marketById(selected.value.marketId)?.is_active) {
+            selected.value = null;
+        }
         if (props.canManage) {
             load();
         }
@@ -298,20 +308,25 @@ watch(dirty, (value) => {
                     <tr class="border-b border-line text-left text-shell-muted">
                         <th class="px-2 py-1 font-medium">{{ $t('workspace.setup.engine') }}</th>
                         <th class="px-2 py-1 font-medium">{{ $t('workspace.setup.standard') }}</th>
-                        <th v-if="column" class="px-2 py-1 font-medium">
-                            <span class="block text-shell-fg">{{ column.location_label || column.country }}</span>
+                        <th
+                            v-for="market in activeMarkets"
+                            :key="market.id"
+                            class="px-2 py-1 font-medium"
+                            data-testid="plan-column"
+                        >
+                            <span class="block text-shell-fg">{{ market.location_label || market.country }}</span>
                             <span class="mt-1 inline-flex rounded-full border border-line p-0.5">
                                 <button
                                     type="button"
                                     class="rounded-full px-2 py-0.5"
                                     :class="
-                                        column.plan_mode !== 'own'
+                                        market.plan_mode !== 'own'
                                             ? 'bg-shell-surface text-shell-fg'
                                             : 'text-shell-muted'
                                     "
-                                    :aria-pressed="column.plan_mode !== 'own'"
+                                    :aria-pressed="market.plan_mode !== 'own'"
                                     :disabled="!canManage"
-                                    @click="setMode('inherit')"
+                                    @click="setMode(market, 'inherit')"
                                 >
                                     {{ $t('workspace.setup.inherit') }}
                                 </button>
@@ -319,14 +334,14 @@ watch(dirty, (value) => {
                                     type="button"
                                     class="rounded-full px-2 py-0.5"
                                     :class="
-                                        column.plan_mode === 'own'
+                                        market.plan_mode === 'own'
                                             ? 'bg-shell-surface text-shell-fg'
                                             : 'text-shell-muted'
                                     "
-                                    :aria-pressed="column.plan_mode === 'own'"
+                                    :aria-pressed="market.plan_mode === 'own'"
                                     :disabled="!canManage"
                                     data-testid="own-choices"
-                                    @click="setMode('own')"
+                                    @click="setMode(market, 'own')"
                                 >
                                     {{ $t('workspace.setup.own') }}
                                 </button>
@@ -347,18 +362,14 @@ watch(dirty, (value) => {
                                 {{ $t('workspace.setup.requires_package') }}
                             </span>
                         </th>
-                        <td
-                            v-for="marketId in [null, ...(column ? [column.id] : [])]"
-                            :key="`${engine.engine_key}-${marketId}`"
-                            class="p-1"
-                        >
+                        <td v-for="marketId in columnIds" :key="`${engine.engine_key}-${marketId}`" class="p-1">
                             <button
                                 type="button"
                                 class="w-full rounded-lg px-2 py-1 text-left leading-tight"
                                 :class="[
                                     !rowsFor(marketId).find((row) => row.engine_key === engine.engine_key)
                                         ?.selectable ||
-                                    (marketId != null && column?.plan_mode !== 'own')
+                                    (marketId != null && marketById(marketId)?.plan_mode !== 'own')
                                         ? 'bg-shell-surface text-shell-muted'
                                         : 'bg-shell-panel text-shell-fg',
                                     selected?.engineKey === engine.engine_key && selected?.marketId === marketId
@@ -369,9 +380,11 @@ watch(dirty, (value) => {
                                     !canManage ||
                                     !rowsFor(marketId).find((row) => row.engine_key === engine.engine_key)
                                         ?.selectable ||
-                                    (marketId != null && column?.plan_mode !== 'own')
+                                    (marketId != null && marketById(marketId)?.plan_mode !== 'own')
                                 "
-                                :aria-haspopup="marketId == null || column?.plan_mode === 'own' ? 'true' : undefined"
+                                :aria-haspopup="
+                                    marketId == null || marketById(marketId)?.plan_mode === 'own' ? 'true' : undefined
+                                "
                                 :data-testid="`cell-${engine.engine_key}-${marketId ?? 'standard'}`"
                                 @click="openCell(engine.engine_key, marketId)"
                             >
@@ -436,7 +449,8 @@ watch(dirty, (value) => {
                                         <template v-if="marketId != null">
                                             {{
                                                 $t(
-                                                    column?.plan_mode !== 'own' || !changed(engine.engine_key)
+                                                    marketById(marketId)?.plan_mode !== 'own' ||
+                                                        !changed(engine.engine_key, marketById(marketId))
                                                         ? 'workspace.setup.inherited_suffix'
                                                         : 'workspace.setup.changed_suffix',
                                                 )
@@ -461,7 +475,7 @@ watch(dirty, (value) => {
                     market:
                         editing.marketId == null
                             ? $t('workspace.setup.standard')
-                            : column?.location_label || column?.country,
+                            : editing.market?.location_label || editing.market?.country,
                 })
             "
         >
@@ -472,7 +486,7 @@ watch(dirty, (value) => {
                         market:
                             editing.marketId == null
                                 ? $t('workspace.setup.standard')
-                                : column?.location_label || column?.country,
+                                : editing.market?.location_label || editing.market?.country,
                     })
                 }}
             </h3>
@@ -576,7 +590,7 @@ watch(dirty, (value) => {
             >
                 {{
                     $t('workspace.setup.engine_month', {
-                        market: column?.location_label || column?.country,
+                        market: editing.market?.location_label || editing.market?.country,
                         count: formatNumber(cellAnswers(editing.engineKey, editing.marketId)),
                     })
                 }}
