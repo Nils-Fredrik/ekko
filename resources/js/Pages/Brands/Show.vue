@@ -313,7 +313,7 @@ function openMarker(marker) {
         <template #header>
             <div class="flex items-center justify-between gap-4">
                 <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
-                <Link :href="route('brands.settings', brand.id)" class="text-sm text-shell-fg no-underline">
+                <Link :href="route('brands.setup.markets', brand.id)" class="text-sm text-shell-fg no-underline">
                     {{ $t('app.nav.settings') }}
                 </Link>
             </div>
@@ -410,7 +410,7 @@ function openMarker(marker) {
                         class="mt-3"
                         :title="$t('app.empty.trend_title')"
                         :body="$t('app.empty.trend_body')"
-                        :href="route('brands.settings', brand.id)"
+                        :href="route('brands.setup.markets', brand.id)"
                         :link="$t('app.empty.settings_link')"
                     />
                     <div v-else-if="trendSeries.length" class="mt-2 flex flex-wrap items-start gap-4">
