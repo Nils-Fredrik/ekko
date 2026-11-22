@@ -166,54 +166,40 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     const brandPath = new URL(page.url()).pathname;
     await page.unroute('**/measurement-plan/estimate');
 
-    await page.getByRole('banner').getByRole('link', { name: 'Settings', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Measurement plan' })).toBeVisible();
-    await expect(page.getByRole('group', { name: 'NO / nb' }).getByText('Inherits the brand plan')).toBeVisible();
-    await expect(page.getByRole('group', { name: 'SE / sv' }).getByText('Inherits the brand plan')).toBeVisible();
-    const standardInterval = page.getByRole('combobox', {
-        name: 'Interval for ChatGPT',
-        exact: true,
-        disabled: false,
+    await page.goto(`${brandPath}/setup/markets`);
+    await expect(page.getByRole('heading', { name: 'Markets and measurement plan' })).toBeVisible();
+    await expect(page.getByTestId('plan-column')).toHaveCount(2);
+    const norway = page.getByRole('columnheader', { name: /^NO\b/ });
+    const sweden = page.getByRole('columnheader', { name: /^SE\b/ });
+    await expect(norway.getByRole('button', { name: 'Inherits', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    await expect(sweden.getByRole('button', { name: 'Inherits', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    const chatgpt = page
+        .getByRole('row')
+        .filter({ has: page.getByRole('rowheader', { name: 'ChatGPT', exact: true }) });
+    const chatgptApi = page.getByRole('row').filter({
+        has: page.getByRole('rowheader', { name: /^ChatGPT API\b/ }),
     });
-    await expect(page.getByRole('combobox', { name: 'Interval for ChatGPT API', exact: true }).first()).toHaveValue(
-        'off',
-    );
-    await expect(standardInterval.locator('option')).toHaveText([
-        'Off',
-        'Monthly',
-        'Every 3 weeks',
-        'Every 14 days',
-        'Weekly',
-        'Daily',
-    ]);
-    await standardInterval.focus();
-    await expect(standardInterval).toBeFocused();
-    await page.keyboard.press('m');
-    await expect(standardInterval).toHaveValue('monthly');
-    await page.keyboard.press('Tab');
-    await expect(
-        page.getByRole('combobox', { name: 'Prompts for ChatGPT', exact: true, disabled: false }),
-    ).toBeFocused();
-    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeEnabled();
+    await expect(chatgptApi.getByRole('button').first()).toContainText('Not in the package');
+    await expect(chatgptApi.getByRole('button').first()).toBeDisabled();
+    await chatgpt.getByRole('button').first().click();
+    await page.getByRole('button', { name: 'Monthly', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeEnabled();
 
     const held = [];
-    const settingsPreview = page.getByRole('heading', { name: 'Preview' }).locator('..');
     await page.route('**/measurement-plan/estimate', async (route) => {
         await new Promise((resolve) => held.push(resolve));
         await route.continue();
     });
-    await standardInterval.selectOption('weekly');
+    await page.getByRole('button', { name: 'Weekly', exact: true }).click();
     await expect.poll(() => held.length, { timeout: 10000 }).toBe(1);
-    await standardInterval.selectOption('every_14_days');
+    await page.getByRole('button', { name: 'Every 14 days', exact: true }).click();
     await expect.poll(() => held.length, { timeout: 10000 }).toBe(2);
     held.shift()();
     await expect(page.getByText('Updating the preview…')).toBeVisible();
-    await expect(settingsPreview).toContainText('Monthly');
-    await expect(settingsPreview).not.toContainText('Weekly');
-    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeDisabled();
     held.shift()();
-    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeEnabled();
-    await expect(settingsPreview).toContainText('Every 14 days');
+    await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeEnabled();
+    await expect(chatgpt.getByRole('button').first()).toContainText('Every 14 days');
     await page.unroute('**/measurement-plan/estimate');
 
     await page.route('**/measurement-plan/estimate', async (route) => {
@@ -229,14 +215,12 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         body.markets[0].total_cost_usd = null;
         await route.fulfill({ response, json: body });
     });
-    await standardInterval.selectOption('monthly');
-    await expect(
-        page.getByText('A selected engine has no price. The plan cannot be saved until the price is set.'),
-    ).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Monthly', exact: true }).click();
+    await expect(page.getByText('Engine has no price.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeDisabled();
     await page.unroute('**/measurement-plan/estimate');
-    await standardInterval.selectOption('every_14_days');
-    const rejectedSave = page.getByRole('button', { name: 'Save measurement plan' });
+    await page.getByRole('button', { name: 'Every 14 days', exact: true }).click();
+    const rejectedSave = page.getByRole('button', { name: 'Save plan', exact: true });
     await expect(rejectedSave).toBeEnabled();
 
     await page.route(/\/measurement-plan$/, async (route) => {
@@ -250,20 +234,17 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         await route.continue({ postData: JSON.stringify(body) });
     });
     await rejectedSave.click();
-    await expect(
-        page
-            .getByRole('group', { name: 'Brand plan' })
-            .getByText('The interval for ChatGPT is more frequent than the package allows.'),
-    ).toBeVisible();
-    await expect(standardInterval).toHaveValue('every_14_days');
+    await expect(page.getByText('The interval for ChatGPT is more frequent than the package allows.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Every 14 days', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+    );
     await page.unroute(/\/measurement-plan$/);
 
-    const sweden = page.getByRole('group', { name: 'SE / sv' });
-    await sweden.getByRole('radio', { name: 'Own choices' }).check();
-    await sweden
-        .getByRole('combobox', { name: 'Interval for ChatGPT', exact: true, disabled: false })
-        .selectOption('monthly');
-    const savePlan = page.getByRole('button', { name: 'Save measurement plan' });
+    await sweden.getByRole('button', { name: 'Own choices', exact: true }).click();
+    await chatgpt.getByRole('button').nth(2).click();
+    await page.getByRole('button', { name: 'Monthly', exact: true }).click();
+    const savePlan = page.getByRole('button', { name: 'Save plan', exact: true });
     await expect(savePlan).toBeEnabled();
     await Promise.all([
         page.waitForResponse(
@@ -272,22 +253,15 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         savePlan.click(),
     ]);
     await page.reload();
-    await expect(
-        page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Own choices' }),
-    ).toBeChecked();
-    await expect(
-        page
-            .getByRole('group', { name: 'SE / sv' })
-            .getByRole('combobox', { name: 'Interval for ChatGPT', exact: true, disabled: false }),
-    ).toHaveValue('monthly');
-    await page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Use the brand plan' }).check();
-    await page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Own choices' }).check();
-    await expect(
-        page
-            .getByRole('group', { name: 'SE / sv' })
-            .getByRole('combobox', { name: 'Interval for ChatGPT', exact: true, disabled: false }),
-    ).toHaveValue('monthly');
-    await page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Use the brand plan' }).check();
+    await expect(sweden.getByRole('button', { name: 'Own choices', exact: true })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+    );
+    await expect(chatgpt.getByRole('button').nth(2)).toContainText('Monthly');
+    await sweden.getByRole('button', { name: 'Inherits', exact: true }).click();
+    await sweden.getByRole('button', { name: 'Own choices', exact: true }).click();
+    await expect(chatgpt.getByRole('button').nth(2)).toContainText('Monthly');
+    await sweden.getByRole('button', { name: 'Inherits', exact: true }).click();
     await expect(savePlan).toBeEnabled();
     await Promise.all([
         page.waitForResponse(
@@ -296,37 +270,27 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         savePlan.click(),
     ]);
     await page.reload();
-    await expect(
-        page.getByRole('group', { name: 'SE / sv' }).getByRole('radio', { name: 'Use the brand plan' }),
-    ).toBeChecked();
+    await expect(sweden.getByRole('button', { name: 'Inherits', exact: true })).toHaveAttribute('aria-pressed', 'true');
 
-    await standardInterval.selectOption('weekly');
-    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeEnabled();
-    const swedenActive = page
-        .getByRole('heading', { name: 'Markets' })
-        .locator('..')
-        .getByRole('checkbox', { name: 'Active' })
-        .nth(1);
-    await swedenActive.uncheck();
+    await chatgpt.getByRole('button').first().click();
+    await page.getByRole('button', { name: 'Weekly', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeEnabled();
+    await page.getByTestId('market-row').filter({ hasText: 'sv' }).click();
     const refreshedEstimate = page.waitForResponse(
         (response) =>
             response.url().includes('/measurement-plan/estimate') &&
             response.request().method() === 'POST' &&
             response.ok(),
     );
-    const savedSettings = page.waitForResponse(
-        (response) => response.request().method() === 'PUT' && response.url().includes('/settings'),
-    );
-    await page.getByRole('textbox', { name: 'Name', exact: true }).press('Enter');
-    await savedSettings;
+    await page.getByTestId('market-active').uncheck();
     await refreshedEstimate;
-    await expect(page.getByRole('group', { name: 'SE / sv' }).getByText('Inactive market')).toBeVisible();
-    await expect(page.getByRole('group', { name: 'NO / nb' }).getByText('Inactive market')).toHaveCount(0);
-    await expect(settingsPreview.getByText('Inactive market')).toBeVisible();
-    await expect(standardInterval).toHaveValue('weekly');
-    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toBeEnabled();
+    await expect(page.getByTestId('market-row').filter({ hasText: 'sv' })).toContainText('Inactive');
+    await expect(page.getByTestId('market-row').filter({ hasText: 'nb' })).toContainText('Active');
+    await expect(page.getByTestId('plan-column')).toHaveCount(1);
+    await expect(chatgpt.getByRole('button').first()).toContainText('Weekly');
+    await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeEnabled();
 
-    await page.goto(page.url().replace(/\/settings\/?$/, ''));
+    await page.goto(brandPath);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByTestId('open-sidebar').click();
     await page.getByTestId('sidebar-drawer').getByRole('link', { name: 'Competitors', exact: true }).click();
@@ -357,11 +321,11 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         }
     };
     page.on('request', countReaderEstimate);
-    await page.goto(`${brandPath}/settings`);
+    await page.goto(`${brandPath}/setup/markets`);
     await expect(page.getByText('You can view the measurement plan, but not change it.')).toBeVisible();
-    await expect(page.getByRole('combobox', { name: 'Interval for ChatGPT', exact: true }).first()).toBeDisabled();
-    await expect(page.getByRole('radio', { name: 'Own choices' }).first()).toBeDisabled();
-    await expect(page.getByRole('button', { name: 'Save measurement plan' })).toHaveCount(0);
+    await expect(chatgpt.getByRole('button').first()).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Own choices', exact: true }).first()).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Preview' })).toHaveCount(0);
     await page.waitForTimeout(1000);
     expect(readerEstimates).toBe(0);

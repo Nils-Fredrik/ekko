@@ -302,6 +302,7 @@ watch(dirty, (value) => {
 
 <template>
     <div class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <p v-if="!canManage" class="text-sm text-shell-muted lg:col-span-2">{{ $t('app.plan.reader') }}</p>
         <div data-testid="plan-matrix" class="overflow-x-auto rounded-xl border border-line">
             <table class="w-full border-collapse text-xs">
                 <thead>
