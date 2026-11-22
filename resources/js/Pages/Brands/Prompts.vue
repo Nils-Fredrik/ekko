@@ -22,9 +22,6 @@ const props = defineProps({
     chartData: { type: Object, default: null },
     markets: { type: Array, required: true },
     prompts: { type: Array, required: true },
-    canManage: { type: Boolean, required: true },
-    importResult: { type: Object, default: null },
-    personalData: { type: Boolean, default: false },
 });
 
 function selectTopic(event) {
@@ -188,28 +185,6 @@ function openCell(event) {
                 >
                     {{ $t('app.library.edit_in_setup') }}
                 </Link>
-
-                <p v-if="importResult" class="text-sm text-shell-text">
-                    {{
-                        $t('app.library.imported', {
-                            created: importResult.created,
-                            changed: importResult.changed ?? 0,
-                            skipped: importResult.skipped,
-                        })
-                    }}
-                </p>
-                <ul v-if="importResult?.errors?.length" class="text-sm text-error">
-                    <li v-for="(error, index) in importResult.errors" :key="index">{{ error }}</li>
-                </ul>
-                <ul
-                    v-if="importResult?.warnings?.length"
-                    class="border-s-4 border-warning ps-3 text-sm text-shell-text"
-                >
-                    <li v-for="(warning, index) in importResult.warnings" :key="index">{{ warning }}</li>
-                </ul>
-                <p v-if="personalData" class="border-s-4 border-warning ps-3 text-sm text-shell-text">
-                    {{ $t('app.library.personal_data') }}
-                </p>
 
                 <EmptyState
                     v-if="prompts.length === 0"

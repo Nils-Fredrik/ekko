@@ -43,6 +43,9 @@ const showImport = ref(false);
 const showSuggest = ref(false);
 const csvText = ref('');
 const preview = ref(null);
+// The CSV the preview was made from. A response for an older CSV is dropped, and import needs a current preview.
+const previewCsv = ref(null);
+const previewCurrent = computed(() => preview.value !== null && previewCsv.value === csvText.value);
 const suggestions = ref([]);
 const suggestCount = ref(5);
 const suggestTopicId = ref(null);
@@ -488,15 +491,18 @@ async function readCsv(event) {
 
 watch(csvText, () => {
     preview.value = null;
+    previewCsv.value = null;
 });
 
 async function runPreview() {
+    const csv = csvText.value;
     try {
-        const { data } = await window.axios.post(route('brands.prompts.import.preview', props.brand.id), {
-            csv: csvText.value,
-        });
+        const { data } = await window.axios.post(route('brands.prompts.import.preview', props.brand.id), { csv });
+        if (csv !== csvText.value) return;
         preview.value = data;
+        previewCsv.value = csv;
     } catch (error) {
+        if (csv !== csvText.value) return;
         preview.value = null;
         const errors = error.response?.data?.errors ?? {};
         const first = Object.values(errors).flat()[0];
@@ -505,6 +511,7 @@ async function runPreview() {
 }
 
 function runImport() {
+    if (!previewCurrent.value) return;
     router.post(
         route('brands.prompts.import', props.brand.id),
         { csv: csvText.value },
@@ -678,7 +685,7 @@ const emptyCopy = computed(() =>
                         {{ $t('workspace.prompts.preview') }}
                     </button>
                     <button
-                        v-if="preview"
+                        v-if="previewCurrent"
                         type="button"
                         class="rounded-full bg-primary px-3 py-1.5 font-medium text-white"
                         data-testid="confirm-import"

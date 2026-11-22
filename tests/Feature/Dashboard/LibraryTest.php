@@ -299,7 +299,7 @@ test('prompts can be edited, exported and imported, and a reader cannot change t
     $this->actingAs($owner)
         ->patch(route('brands.prompts.update', [$world->brand, $world->p1]), ['text' => 'Skriv til ola@example.test'])
         ->assertRedirect();
-    $this->actingAs($owner)->get(route('brands.prompts.index', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.prompts', $world->brand))
         ->assertInertia(fn ($page) => $page->where('personalData', true));
 
     $this->actingAs($owner)
@@ -351,7 +351,7 @@ test('csv import shows a personal-data warning for the imported row', function (
         ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\nSkriv til ola@example.test,NO\n"])
         ->assertRedirect();
 
-    $this->actingAs($owner)->get(route('brands.prompts.index', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.prompts', $world->brand))
         ->assertInertia(fn ($page) => $page->where(
             'importResult.warnings.0',
             __('app.library.personal_data_row', ['row' => 2]),
@@ -367,7 +367,7 @@ test('csv import rejects a file that is not utf-8, and a row that is empty of us
         ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\nKaff\xE6,NO\nHvem brenner den?,NO\n"])
         ->assertRedirect();
 
-    $this->actingAs($owner)->get(route('brands.prompts.index', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.prompts', $world->brand))
         ->assertInertia(fn ($page) => $page->where('importResult.errors.0', __('app.library.bad_encoding')));
 
     app(TenantContext::class)->run($world->tenant->id, function () use ($world) {
@@ -378,7 +378,7 @@ test('csv import rejects a file that is not utf-8, and a row that is empty of us
         ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\nKaffe\x00,NO\n".str_repeat('a', Prompt::TEXT_MAX + 1).",NO\nHvem brenner den?,NO\n"])
         ->assertRedirect();
 
-    $this->actingAs($owner)->get(route('brands.prompts.index', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.prompts', $world->brand))
         ->assertInertia(fn ($page) => $page
             ->where('importResult.errors.0', __('app.library.row_error', ['row' => 2, 'message' => __('app.library.invalid_row')]))
             ->where('importResult.errors.1', __('app.library.row_error', ['row' => 3, 'message' => __('app.library.invalid_row')]))
@@ -389,7 +389,7 @@ test('csv import rejects a file that is not utf-8, and a row that is empty of us
         ->post(route('brands.prompts.import', $world->brand), ['csv' => "text,market\n".$rows])
         ->assertRedirect();
 
-    $this->actingAs($owner)->get(route('brands.prompts.index', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.prompts', $world->brand))
         ->assertInertia(fn ($page) => $page->where(
             'importResult.errors',
             fn ($errors) => collect($errors)->contains(__('app.library.row_error', ['row' => 1002, 'message' => __('app.library.too_many_rows')]))

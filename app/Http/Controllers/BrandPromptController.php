@@ -100,9 +100,6 @@ class BrandPromptController extends Controller
             'filters' => $query,
             'markets' => BrandPage::markets($brand),
             'prompts' => $prompts,
-            'canManage' => Gate::allows('create', Prompt::class),
-            'importResult' => session('prompt_import'),
-            'personalData' => (bool) session('personal_data'),
             'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
                 'brand.prompts.u06', $filter, $period->timezone, function () use ($brand, $metrics, $filter, $dotsFilter, $period, $selection): array {
                     $sparkFrom = CarbonImmutable::parse($period->to)->subDays(27)->toDateString();
