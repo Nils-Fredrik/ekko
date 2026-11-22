@@ -6,6 +6,7 @@ import test from 'node:test';
 import {
     brandTarget,
     globalLinks,
+    inboxScope,
     linkQuery,
     marketFromUrl,
     scopeKey,
@@ -104,6 +105,12 @@ test('badges show the workspace counts on Tiltak, Konkurrenter og merkevarer and
     assert.deepEqual(badges, { actions: 3, setup_competitors: 23, setup_integrations: 1 });
     const inbox = globalLinks({ counts, current: () => false, to }).find((item) => item.id === 'inbox');
     assert.equal(inbox.badge, 9);
+    assert.deepEqual(inboxScope(7, 5), { brand: 7, market: 5 });
+    assert.deepEqual(inboxScope(null, null), {});
+    assert.equal(
+        globalLinks({ brandId: 7, marketId: 5, current: () => false, to }).find((item) => item.id === 'inbox').href,
+        'inbox.index/7?market=5',
+    );
     assert.equal(globalLinks({ counts: null, current: () => false, to }).find((i) => i.id === 'inbox').badge, 0);
 });
 

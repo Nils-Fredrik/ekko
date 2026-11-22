@@ -68,8 +68,11 @@ final class AlertRules
                 $rule->channels = array_values(array_unique(['inbox', ...$changes['channels']]));
             }
             $rule->save();
-            if ($type === AlertType::IntegrationError && $rule->brand_id === null && ! $rule->wasRecentlyCreated) {
+            if ($type === AlertType::IntegrationError && $rule->brand_id === null && ! ($createOnly && $rule->wasRecentlyCreated)) {
                 // The legacy form submits every control. The workspace sends the fields being edited.
+                // Creating the tenant rule from that form must not overwrite older brand rules.
+                // A workspace edit still copies the edited fields, including the first one, because
+                // the older brand rule stays the one the inbox and this page read.
                 $attributes = $existing === null ? $rule->getAttributes() : $rule->getChanges();
                 $fields = array_intersect_key($attributes, $changes, array_flip(['channels', 'is_active', 'threshold']));
                 if ($fields !== []) {

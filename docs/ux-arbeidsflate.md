@@ -198,7 +198,7 @@ Hver agent får fire oppgaver.
   - `setup.markets`, `setup.identity` og `setup.integrations` → `brands.settings`
   - `setup.notifications` → `alerts.index`
 
-  Oppgavene som bygger sidene, bytter ut videresendingen.
+  Oppgavene som bygger sidene, bytter ut videresendingen. U26 har gjort det for varsler: `brands.setup.notifications` er siden, og `inbox.index` er innboksen. `/alerts` sender til `/inbox?type=alerts`.
 
 **Markedsomfang:**
 
@@ -404,6 +404,8 @@ Alle skjermer har dette hodet: brødsmule i 12 px `text-shell-muted` («Fjordbyr
    - Kildene, sortert etter alvor: integrasjon med feil (`error`), manglende pris i planen (`error`), kvote over 80 % (`warning`), ukjente merkevarer som venter (`warning`) og nye tiltak (`warning`). Kvotestatus vises til brukere med tilgang til forbrukssiden.
    - Uten saker står «Alt ser bra ut» i `text-success-text`.
 3. **Kom i gang:** oppstartslisten (5.8) med «*x* av 6», fremdriftslinje i `success-text` og «Skjul».
+
+**Slik U26 er bygget:** «Alt ser bra ut» og haken bruker `text-success`. I mørkt tema peker den klassen på `--color-success-text` (`resources/css/app.css`), fordi `#4a7c59` er under 4,5:1 på det mørke skallet. I lyst tema er `#4a7c59` mørkere enn `#5d8a6a` og lesbar på hvitt. Fremdriftslinjen bruker `bg-success`, som er fyllfargen. Tokenet `--color-success-text` ligger utenfor `@theme`, så `text-success-text` er ikke en egen utility. En merkevare uten markeder viser «Legg til et marked» i helsehodet, og den gamle lenken skjules da. Når merkevaren har markeder, står «Legg til marked» igjen som vei til et nytt marked.
    - Valget om å skjule lagres per bruker og merkevare (`user_brand_preferences.checklist_hidden_at`, ny tabell i U25).
    - Når listen er fullført eller skjult, får kort 1 og 2 hver sin halvdel.
 
@@ -697,14 +699,15 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
 
 - **Lesbar tekst:** tittel og detalj lages på serveren fra språknøkler (6.5). Interne nøkler vises aldri. Varsler bruker `AlertPresenter`.
 - **Gruppering:** varsler av samme type, merkevare og dag med mer enn to rader slås sammen («3 varsler om synlighetsfall i Sverige»). En sammenslått rad har «Vis alle» og «Kvitter alle».
-- **Behandling:** en handling fjerner raden med angre-melding. Tallet i sidemenyen og på fanen oppdateres (Inertia `only: ['items', 'counts', 'workspace']`).
+- **Behandling:** en handling fjerner raden. Tallet i sidemenyen og på fanen oppdateres (Inertia `only: ['items', 'counts', 'workspace']`).
+- **Slik U26 er bygget:** Kvittering og enhetsvedtak kan angres, fordi de har egne ruter. Plan, avvis og «Lag tiltak» kan ikke angres. En bruker kan ikke sette et tiltak tilbake til `new` (spec 11.3, `ActionStatus::userTargets`), og et tiltak som lages fra en motsagt påstand blir stående til brukeren behandler det. Optimistisk skjuling nullstilles når filteret endres, så «Vis behandlet» viser raden uten ny sidelasting.
 - **Tom innboks:** «Ingenting venter her. Nye varsler, merkevarer og tiltak dukker opp etter neste måling.»
 - **Dagens varselside:** `/alerts` sender til `/inbox?type=alerts`. Varselregler ligger i 5.7.
 
 **Akseptkriterier (U26):**
 
 - Antallet i sidemenyen er det samme som summen på fanen «Alle».
-- Kvittering og behandling fjerner raden uten ny sidelasting og kan angres.
+- Kvittering og enhetsvedtak fjerner raden uten ny sidelasting og kan angres. Plan, avvis og «Lag tiltak» fjerner raden uten angre (spec 11.3).
 - Ingen rad viser interne nøkler (automatisk test som leter etter `market:`, `prompt:` og heksadesimale hasher).
 
 ### 5.7 Varsler og rapporter per merkevare
@@ -755,7 +758,7 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
 | `GET /brands/{brand}/setup/identity` | `brands.setup.identity` | U24 |
 | `GET /brands/{brand}/setup/integrations` | `brands.setup.integrations` | U24 |
 | `GET /brands/{brand}/setup/notifications` | `brands.setup.notifications` | U26 |
-| `GET /inbox` | `inbox.index` | U26. Inntil da sender ruten til `alerts.index`. |
+| `GET /inbox` | `inbox.index` | U26. Siden er innboksen. `/alerts` sender til `/inbox?type=alerts`. |
 
 `brands.settings` sender videre til `brands.setup.identity` når U24 er merget. U27 fjerner `Brands/Settings.vue` og `BrandSettingsController::update`.
 
