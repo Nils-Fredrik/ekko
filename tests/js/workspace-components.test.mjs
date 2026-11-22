@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { reactive } from 'vue';
-import { paletteActions, urlWithMarket } from '../../resources/js/Components/paletteActions.js';
+import { FORWARDING_ROUTES, paletteActions, urlWithMarket } from '../../resources/js/Components/paletteActions.js';
 import {
     SAVED_VISIBLE_MS,
     SaveCancelled,
@@ -438,8 +438,10 @@ const routes = new Set([
     'brands.setup.markets',
     'inbox.index',
 ]);
-const context = (workspace, has = (name) => routes.has(name)) => ({
+// The pages behind the setup routes as they will be once built; FORWARDING_ROUTES is tested on its own.
+const context = (workspace, has = (name) => routes.has(name), forwarding = []) => ({
     workspace,
+    forwarding,
     url: '/brands/4/prompts?days=28&market=2',
     has,
     to: (name, params = {}) => `${name}?${new URLSearchParams(params)}`,
@@ -513,6 +515,22 @@ test('actions for routes that are not built yet are left out', () => {
         items.map((item) => item.id),
         ['switch-market', 'switch-brand'],
     );
+});
+
+test('create actions stay hidden while their setup route only forwards to today’s page', () => {
+    const all = can(Object.fromEntries(Object.keys(can()).map((key) => [key, true])));
+    const ids = paletteActions(context(workspace({ can: all }), undefined, FORWARDING_ROUTES)).map((item) => item.id);
+
+    assert.deepEqual(FORWARDING_ROUTES, ['brands.setup.competitors', 'brands.setup.markets']);
+    assert.deepEqual(ids, [
+        'create-prompt',
+        'create-topic',
+        'create-fact',
+        'switch-market',
+        'switch-brand',
+        'inbox',
+        'report',
+    ]);
 });
 
 test('switching market keeps the other filters and marks the current market', () => {
