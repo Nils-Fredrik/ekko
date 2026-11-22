@@ -113,3 +113,47 @@ export function normalizeDomain(text) {
         .replace(/\.$/, '')
         .toLowerCase();
 }
+
+/** The API takes at most this many names in one decision. */
+export const DECISION_BATCH = 100;
+
+/** The list in pieces of at most `size` items. */
+export function chunks(list, size = DECISION_BATCH) {
+    const pieces = [];
+    for (let index = 0; index < list.length; index += size) {
+        pieces.push(list.slice(index, index + size));
+    }
+
+    return pieces;
+}
+
+/**
+ * The competitors after `id` is dragged to the place of the row at `index`. Like the server, only the active
+ * competitors change places among themselves; an inactive competitor keeps its place, and an inactive one cannot
+ * be moved. Dropping on an inactive row moves to the nearest active one in the direction of the move. The same
+ * array comes back when nothing changes.
+ */
+export function reorderActive(list, id, index) {
+    const from = list.findIndex((item) => item.id === id);
+    if (from < 0 || !list[from].is_active || index < 0 || index >= list.length || index === from) {
+        return list;
+    }
+    const step = index > from ? 1 : -1;
+    let target = index;
+    while (target >= 0 && target < list.length && !list[target].is_active) {
+        target += step;
+    }
+    if (target < 0 || target >= list.length || target === from) {
+        return list;
+    }
+    const active = list.filter((item) => item.is_active);
+    const moved = moveId(
+        active.map((item) => item.id),
+        id,
+        active.findIndex((item) => item.id === list[target].id),
+    );
+    const byId = new Map(active.map((item) => [item.id, item]));
+    let slot = 0;
+
+    return list.map((item) => (item.is_active ? byId.get(moved[slot++]) : item));
+}

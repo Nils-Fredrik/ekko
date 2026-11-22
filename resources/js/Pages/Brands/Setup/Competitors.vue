@@ -10,9 +10,11 @@ import EntityPanel from '@/Components/Setup/EntityPanel.vue';
 import {
     KEY_DECISIONS,
     aliasTargets,
+    DECISION_BATCH,
+    chunks,
     decisionTargets,
-    moveId,
     nextOpenKey,
+    reorderActive,
     responseError,
     shareBar,
     urlWithParams,
@@ -279,25 +281,35 @@ async function decideKeys(keys, decision, target = null) {
         }
     }
 
+    // The API takes at most 100 names at a time; a longer selection goes in several requests, one after the other.
+    const sent = [];
     try {
-        const { data } = await window.axios.post(route('brands.entities.decide', props.brand.id), {
-            keys,
-            decision,
-            ...(target ? { target_type: target.type, target_id: target.id } : {}),
-        });
-        for (const created of data.decisions) {
-            const entry = decided.get(created.key);
-            if (entry) {
-                entry.id = created.id;
+        for (const batch of chunks(keys, DECISION_BATCH)) {
+            const { data } = await window.axios.post(route('brands.entities.decide', props.brand.id), {
+                keys: batch,
+                decision,
+                ...(target ? { target_type: target.type, target_id: target.id } : {}),
+            });
+            sent.push(...batch);
+            for (const created of data.decisions) {
+                const entry = decided.get(created.key);
+                if (entry) {
+                    entry.id = created.id;
+                }
             }
         }
         toast.show(toastText(decision, keys, target), () => undoKeys(keys));
         refreshSoon();
     } catch (failure) {
-        for (const key of keys) {
+        // The names the server did not take go back to the queue; those it took stay decided.
+        for (const key of keys.filter((item) => !sent.includes(item))) {
             decided.delete(key);
         }
         error.value = responseError(failure) ?? trans('workspace.competitors.failed');
+        if (sent.length > 0) {
+            toast.show(toastText(decision, sent, target), () => undoKeys(sent));
+            refreshSoon();
+        }
     }
 }
 
@@ -559,13 +571,11 @@ function onDrop(event) {
 }
 
 function reorderTo(id, index) {
-    const ids = localCompetitors.value.map((item) => item.id);
-    const next = moveId(ids, id, index);
-    if (next === ids) {
+    const next = reorderActive(localCompetitors.value, id, index);
+    if (next === localCompetitors.value) {
         return false;
     }
-    const byId = new Map(localCompetitors.value.map((item) => [item.id, item]));
-    localCompetitors.value = next.map((value) => byId.get(value));
+    localCompetitors.value = next;
     const active = localCompetitors.value.filter((item) => item.is_active).map((item) => item.id);
     reorderChain = reorderChain.then(async () => {
         try {
@@ -968,7 +978,7 @@ const eyebrow = computed(() => trans('workspace.competitors.eyebrow', { brand: p
                                     type="button"
                                     class="cursor-grab rounded p-1 text-shell-muted hover:text-shell-text disabled:cursor-default disabled:opacity-40"
                                     :draggable="canManage"
-                                    :disabled="!canManage"
+                                    :disabled="!canManage || !row.is_active"
                                     :data-drag-id="row.id"
                                     data-testid="competitor-handle"
                                     :aria-label="$t('workspace.competitors.handle', { name: row.name })"

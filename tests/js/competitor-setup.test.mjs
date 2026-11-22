@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     aliasTargets,
+    chunks,
     decisionTargets,
     filterTargets,
     moveId,
     normalizeDomain,
     nextOpenKey,
+    reorderActive,
     responseError,
     shareBar,
     urlWithParams,
@@ -75,4 +77,27 @@ test('a domain is normalized without protocol, path and www', () => {
     assert.equal(normalizeDomain(' https://www.Beta-Rival.example.test:8080/about?x=1 '), 'beta-rival.example.test');
     assert.equal(normalizeDomain('user@shop.example.test/'), 'shop.example.test');
     assert.equal(normalizeDomain('example.test'), 'example.test');
+});
+
+test('a long selection is sent in batches of at most 100 names', () => {
+    const keys = Array.from({ length: 250 }, (_, index) => `n${index}`);
+    assert.deepEqual(chunks(keys).map((piece) => piece.length), [100, 100, 50]);
+    assert.deepEqual(chunks([]), []);
+});
+
+test('only active competitors change places, and an inactive one keeps its place', () => {
+    const list = [
+        { id: 1, is_active: true },
+        { id: 2, is_active: false },
+        { id: 3, is_active: true },
+        { id: 4, is_active: true },
+    ];
+    const ids = (result) => result.map((item) => item.id);
+    assert.deepEqual(ids(reorderActive(list, 4, 0)), [4, 2, 1, 3]);
+    assert.deepEqual(ids(reorderActive(list, 1, 3)), [3, 2, 4, 1]);
+    // Dropped on the inactive row: the nearest active one in the direction of the move.
+    assert.deepEqual(ids(reorderActive(list, 3, 1)), [3, 2, 1, 4]);
+    assert.equal(reorderActive(list, 2, 0), list);
+    assert.deepEqual(ids(reorderActive(list, 1, 1)), [3, 2, 1, 4]);
+    assert.equal(reorderActive(list, 1, 0), list);
 });
