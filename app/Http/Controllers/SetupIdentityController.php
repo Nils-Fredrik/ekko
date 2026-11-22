@@ -49,10 +49,13 @@ class SetupIdentityController extends Controller
         ]);
     }
 
-    /** @return array<string, int> */
+    /**
+     * Citations in the last 30 days per brand domain. Subdomains count only when the domain asks for them.
+     *
+     * @return array<string, int>
+     */
     private function citations(Brand $brand): array
     {
-        $counts = [];
         $rows = Citation::query()
             ->join('responses', 'responses.id', '=', 'citations.response_id')
             ->join('runs', 'runs.id', '=', 'responses.run_id')
@@ -63,8 +66,17 @@ class SetupIdentityController extends Controller
             ->selectRaw('citations.domain as domain, count(*) as citations')
             ->groupBy('citations.domain')
             ->get();
-        foreach ($rows as $row) {
-            $counts[(string) $row->getAttribute('domain')] = (int) $row->getAttribute('citations');
+        $counts = [];
+        foreach ($brand->domains as $domain) {
+            $registered = mb_strtolower($domain->domain);
+            $total = 0;
+            foreach ($rows as $row) {
+                $cited = mb_strtolower((string) $row->getAttribute('domain'));
+                if ($cited === $registered || ($domain->include_subdomains && str_ends_with($cited, '.'.$registered))) {
+                    $total += (int) $row->getAttribute('citations');
+                }
+            }
+            $counts[$domain->domain] = $total;
         }
 
         return $counts;
