@@ -491,9 +491,11 @@ test('an editor gets the create actions that lead to the setup pages', () => {
         items.map((item) => item.id),
         ['create-prompt', 'create-topic', 'create-competitor', 'switch-market', 'switch-brand', 'inbox', 'report'],
     );
-    assert.equal(items[0].href, 'brands.setup.prompts?brand=4&create=prompt');
+    assert.equal(items[0].href, 'brands.setup.prompts?brand=4&create=prompt&market=2');
     assert.equal(items[1].href, 'brands.setup.prompts?brand=4&create=topic');
     assert.equal(items[2].href, 'brands.setup.competitors?brand=4&create=competitor');
+    const allMarkets = paletteActions(context(workspace({ market_id: null, can: can({ manage_prompts: true }) })));
+    assert.equal(allMarkets[0].href, 'brands.setup.prompts?brand=4&create=prompt');
 });
 
 test('an owner also creates markets and facts', () => {

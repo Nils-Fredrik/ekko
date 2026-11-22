@@ -156,6 +156,7 @@ return [
         'suggest' => 'Foreslå prompts',
         'new_prompt' => 'Ny prompt',
         'choose_market' => 'Velg et marked',
+        'create_needs_market' => 'Velg et marked for å opprette prompten.',
         'at_limit' => 'Pakken er full. Deaktiver eller arkiver en prompt først.',
         'all_topics' => 'Alle temaer',
         'no_topic' => 'Uten tema',

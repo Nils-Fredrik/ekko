@@ -421,6 +421,7 @@ Alle skjermer har dette hodet: brødsmule i 12 px `text-shell-muted` («Fjordbyr
 
 - URL-en er kilden, som i skallet. Uten `market` vises alle markeder. Siden skriver ikke om URL-en til det første markedet, for da kan ikke «Alle markeder» i omfangsvelgeren bli stående.
 - «Alle markeder» gir en markedskolonne og grupperte rader per marked. Da er knappen «Ny prompt» deaktivert, med verktøytipset «Velg et marked».
+- «Ny prompt» i kommandopaletten tar med gjeldende marked når ett er valgt, så feltet åpnes med én gang. Uten marked viser siden «Velg et marked for å opprette prompten» og åpner feltet når et marked blir valgt. Siden skriver fortsatt ikke om URL-en til det første markedet.
 
 **Hode (høyre side):**
 

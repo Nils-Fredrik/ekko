@@ -100,8 +100,6 @@ class BrandPromptController extends Controller
             'filters' => $query,
             'markets' => BrandPage::markets($brand),
             'prompts' => $prompts,
-            'intents' => array_map(fn (string $intent): array => ['value' => $intent, 'label' => DashboardLabels::intent($intent)], Prompt::INTENTS),
-            'priorities' => array_map(fn (string $priority): array => ['value' => $priority, 'label' => DashboardLabels::priority($priority)], Prompt::PRIORITIES),
             'canManage' => Gate::allows('create', Prompt::class),
             'importResult' => session('prompt_import'),
             'personalData' => (bool) session('personal_data'),

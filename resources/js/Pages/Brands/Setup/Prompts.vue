@@ -400,10 +400,14 @@ async function setActive(row, active, event) {
     }
 }
 
+const awaitingMarket = ref(false);
+
 async function startDraft() {
     if (!props.canManage || !props.market || atLimit.value) {
+        awaitingMarket.value = props.canManage && !props.market && !atLimit.value;
         return;
     }
+    awaitingMarket.value = false;
     drafting.value = true;
     await nextTick();
     draftField.value?.focus();
@@ -440,6 +444,14 @@ onMounted(() => {
         naming.value = true;
     }
 });
+watch(
+    () => props.market?.id ?? null,
+    (id) => {
+        if (id && awaitingMarket.value) {
+            startDraft();
+        }
+    },
+);
 onBeforeUnmount(() => {
     window.removeEventListener('keydown', onKey);
     clearTimeout(searchTimer.value);
@@ -635,6 +647,10 @@ const emptyCopy = computed(() =>
                     </button>
                 </div>
             </div>
+
+            <p v-if="awaitingMarket" class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm">
+                {{ $t('workspace.prompts.create_needs_market') }}
+            </p>
 
             <section v-if="showImport && canManage" class="rounded-xl border border-line bg-shell-surface p-4 text-sm">
                 <label class="block">

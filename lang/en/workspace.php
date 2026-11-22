@@ -156,6 +156,7 @@ return [
         'suggest' => 'Suggest prompts',
         'new_prompt' => 'New prompt',
         'choose_market' => 'Choose a market',
+        'create_needs_market' => 'Choose a market to create the prompt.',
         'at_limit' => 'The plan is full. Deactivate or archive a prompt first.',
         'all_topics' => 'All topics',
         'no_topic' => 'No topic',

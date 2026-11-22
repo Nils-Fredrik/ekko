@@ -46,10 +46,14 @@ export function paletteActions({ workspace, url, has, to, t }) {
     if (brand) {
         for (const action of CREATE) {
             if (can[action.can] && has(action.route)) {
+                const params = { brand: brand.id, create: action.id };
+                if (action.id === 'prompt' && workspace.market_id != null) {
+                    params.market = workspace.market_id;
+                }
                 items.push({
                     id: `create-${action.id}`,
                     label: t(action.label),
-                    href: to(action.route, { brand: brand.id, create: action.id }),
+                    href: to(action.route, params),
                 });
             }
         }

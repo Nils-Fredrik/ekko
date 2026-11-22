@@ -156,6 +156,7 @@ return [
         'suggest' => 'Föreslå prompter',
         'new_prompt' => 'Ny prompt',
         'choose_market' => 'Välj en marknad',
+        'create_needs_market' => 'Välj en marknad för att skapa prompten.',
         'at_limit' => 'Paketet är fullt. Inaktivera eller arkivera en prompt först.',
         'all_topics' => 'Alla teman',
         'no_topic' => 'Utan tema',
