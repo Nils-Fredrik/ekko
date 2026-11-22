@@ -59,7 +59,7 @@ En tom time gir derfor én web-forespørsel og ingen jobbstart. `ekko:work:recov
 
 ### Varig utrullingstrinn
 
-Produksjonsvalget ligger i versjonert kode, ikke i en lokal tfvars: `local.work_rollout_stage` i `infra/terraform/work.tf` med trinnene `legacy` (dagens produksjon og standard), `ready`, `shadow` og `event` (se fila og [produksjonsaksepten](../t40-f4-produksjonsaksept.md)). Trinnet styrer API, kø, identitet og IAM, miljøvariablene `EKKO_WORK_CHAINING`, `EKKO_WORK_PUBLISHER` og `EKKO_WORK_TASKS_*`, reservekontrollen og om `extraction-poll`, `aggregate` og `usage-rollup` kjører. Fra `ready` overstyrer trinnet `enable_dashboard_schedules` for disse tre, så en annen arbeidskopi med annen tfvars ikke kan endre dem. Andre planer endres ikke.
+Produksjonsvalget ligger i versjonert kode, ikke i en lokal tfvars: `local.work_rollout_stage` i `infra/terraform/work.tf` med trinnene `legacy` (produksjonen da ADR-en ble skrevet), `ready`, `shadow` og `event` (se fila og [produksjonsaksepten](../t40-f4-produksjonsaksept.md)). Trinnet styrer API, kø, identitet og IAM, miljøvariablene `EKKO_WORK_CHAINING`, `EKKO_WORK_PUBLISHER` og `EKKO_WORK_TASKS_*`, reservekontrollen og om `extraction-poll`, `aggregate` og `usage-rollup` kjører. Fra `ready` overstyrer trinnet `enable_dashboard_schedules` for disse tre, så en annen arbeidskopi med annen tfvars ikke kan endre dem. Andre planer endres ikke.
 
 Det anvendte trinnet skrives som etiketten `ekko-work-rollout` på `ekko-wake`. Planen leser etiketten, og en forutsetning stopper en plan som ville flytte trinnet bakover, for eksempel fra en gren laget før siste trinnendring. Bevisst tilbakerulling krever `-var=allow_work_rollout_downgrade=true` for den ene gjennomgåtte planen. Vernet gjelder fra denne endringen er merget. Kode fra før den kjenner ikke vernet, og det er en grunn til å planlegge bare fra oppdatert `origin/main`.
 
@@ -67,7 +67,7 @@ Det anvendte trinnet skrives som etiketten `ekko-work-rollout` på `ekko-wake`. 
 
 | Bryter | Standard | Virkning |
 |---|---|---|
-| `work_rollout_stage` (Terraform-lokal) | `legacy` | Dagens produksjon; ingen Cloud Tasks-ressurser |
+| `work_rollout_stage` (Terraform-lokal) | trinnet i `main` | Levert som `legacy` (ingen Cloud Tasks-ressurser). Produksjonen kjører trinnet i `main` etter godkjent apply; status står i produksjonsaksepten |
 | `EKKO_WORK_PUBLISHER` | `queue` | `cloud_tasks` sender vekking via Cloud Tasks |
 | `EKKO_WORK_CHAINING` | `false` | Produsentene signalerer (ADR 0032) |
 | `allow_work_rollout_downgrade` (Terraform-variabel) | `false` | Tillater én bevisst tilbakerulling |

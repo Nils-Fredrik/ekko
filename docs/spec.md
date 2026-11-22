@@ -362,7 +362,7 @@ Implementasjonsvalg for idempotens, motorgrenser, forbruksføring og Scheduler-a
 - Svar: 204 når leveringen ikke har mer å vokte (ferdig, stoppet, ukjent, annen tenant, eller senere tidspunkt med egen vekking), og 425 til en worker har leaset eller kvittert arbeidet. 422 for misdannet innhold, 401 for feil identitet eller audience, og 503 hvis dispatcheren ikke kan vekkes.
 - En workerprosess som stopper mens køjobber venter på et senere tidspunkt, publiserer en køvekking til `POST /internal/work/queue-wake` for det tidligste av dem. Dermed gjenopptas forsinket arbeid uten fast poll.
 - Reservekontrollen `work-recover` publiserer vekking på nytt for forfalte signaler uten levende lease (aldri publisert, feilet publisering, utløpt lease). Den vekker dispatcheren bare når køjobber står klare uten aktiv worker. Den regner ikke om noe og starter ingenting i en tom time.
-- Utrullingen styres av det versjonerte trinnet `legacy` → `ready` → `shadow` → `event` i `infra/terraform/work.tf`. Standard er `legacy`, altså dagens produksjon. En plan som ville flytte trinnet bakover, stoppes; tilbakerulling er en bevisst plan med `allow_work_rollout_downgrade=true`. Produksjonsaksepten følger [docs/t40-f4-produksjonsaksept.md](t40-f4-produksjonsaksept.md).
+- Utrullingen styres av det versjonerte trinnet `legacy` → `ready` → `shadow` → `event` i `infra/terraform/work.tf`. Trinnet i `main` er det som gjelder for produksjon og anvendes bare etter eierens godkjenning av planen. En plan som ville flytte trinnet bakover, stoppes; tilbakerulling er en bevisst plan med `allow_work_rollout_downgrade=true`. Produksjonsaksepten følger [docs/t40-f4-produksjonsaksept.md](t40-f4-produksjonsaksept.md).
 
 ### 7.2 Kvotekontroll før kjøring
 
@@ -1594,7 +1594,7 @@ Konsernets tenants (Maksimer AS, Maksimer AB, Mediebruket, Funbit) og én partne
 - Kostnad avviker mindre enn 15 % fra estimatet i veiviseren.
 - Hendelsesstyrt behandling i tre deler: varig registrering av behandlingsbehov (T40-F2, ADR 0032), kjeding av innhenting, uttrekk og dashboardoppdatering (T40-F3) og målrettet vekking med reservekontroll (T40-F4).
 - T40-F3: kjedingen ligger bak `ekko.work.chaining` (av som standard). Produksjonsbevis og overgang leveres i T40-F4.
-- T40-F4: målrettet vekking med Cloud Tasks, reservekontroll og varig utrullingstrinn (ADR 0033). Koden og Terraform leveres med trinnet `legacy`, altså dagens produksjon. Overgangen (`ready` → `shadow` → `event`) skjer etter eierens godkjenning og målt baseline etter [produksjonsaksepten](t40-f4-produksjonsaksept.md). Oppgaven lukkes etter merge og dokumentert produksjonsaksept.
+- T40-F4: målrettet vekking med Cloud Tasks, reservekontroll og varig utrullingstrinn (ADR 0033). Koden og Terraform ble levert med trinnet `legacy`. Baseline er målt i `legacy`. DB-transaksjoner og dashboardforsinkelse er hentet i ettertid fra Cloud SQL-metrikken og loggene. Avstemmingen mot Cloud Billing gjøres i ettertid for hele dager. `ready` er anvendt (21.11.2026). Overgangen videre (`shadow` → `event`) skjer etter eierens godkjenning og målt baseline etter [produksjonsaksepten](t40-f4-produksjonsaksept.md). Oppgaven lukkes etter merge og dokumentert produksjonsaksept.
 
 ### T41 – Kredittstyrt planlegging for Anthropic
 `ekko:anthropic-budget` med prognose, buffer, fordeling av tillegg og redusert modus etter 12.5. Håndtering av svar fra API-et om at kredittene er brukt opp. Visning i `Admin/Usage.vue`.
