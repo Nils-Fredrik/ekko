@@ -207,10 +207,17 @@ test('the setup routes send the user to today\'s pages until each page is built'
     $this->actingAs($owner)->get(route('brands.setup.competitors', [$brand, 'market' => $world->market->id]))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Brands/Setup/Competitors')->where('market.id', $world->market->id));
-    foreach (['markets', 'identity', 'integrations'] as $page) {
-        $this->actingAs($owner)->get(route("brands.setup.{$page}", $brand))
-            ->assertRedirect(route('brands.settings', $brand));
-    }
+    $this->actingAs($owner)->get(route('brands.setup.markets', $brand))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Markets')->where('canManage', true)->has('measurementPlan'));
+    $this->actingAs($owner)->get(route('brands.setup.identity', $brand))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Identity')->where('canManage', true));
+    $this->actingAs($owner)->get(route('brands.setup.integrations', $brand))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Integrations')->where('canManage', true));
+    $this->actingAs($owner)->get(route('brands.settings', $brand))
+        ->assertRedirect(route('brands.setup.identity', $brand));
     $this->actingAs($owner)->get(route('brands.setup.notifications', $brand))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Brands/Setup/Notifications')->where('canAlerts', true)->has('rules', 7));
@@ -229,7 +236,11 @@ test('a reader can open the setup routes, which show the pages without change bu
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('canManage', false));
     $this->actingAs($reader)->get(route('brands.setup.identity', $world->brand))
-        ->assertRedirect(route('brands.settings', $world->brand));
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Identity')->where('canManage', false));
+    $this->actingAs($reader)->get(route('brands.setup.markets', $world->brand))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Markets')->where('canManage', false));
     $this->actingAs($reader)->get(route('inbox.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Inbox/Index')->where('can.alerts', false));

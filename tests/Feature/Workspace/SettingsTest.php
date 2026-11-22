@@ -122,7 +122,7 @@ test('a clickhouse host must be on the allowlist and the stored config stays off
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
 
-    $this->actingAs($owner)->get(route('brands.settings', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.integrations', $world->brand))
         ->assertOk()
         ->assertDontSee('clickhouse-secret-value')
         ->assertDontSee('https://old.example.test');
@@ -171,12 +171,13 @@ test('a brand admin can connect clickhouse and ga4 without the secrets returning
         ->and($ga4)->not->toBeNull()
         ->and($ga4->config['service_account']['private_key'])->toBe($key);
 
-    $this->actingAs($owner)->get(route('brands.settings', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.integrations', $world->brand))
         ->assertOk()
         ->assertDontSee($secret)
         ->assertDontSee($key)
         ->assertDontSee('ga4@example.test')
         ->assertInertia(fn ($page) => $page
+            ->component('Brands/Setup/Integrations')
             ->where('logUploadUrl', route('bot-log-uploads.index', ['team' => $world->tenant->id]))
             ->has('integrations', 2));
 
@@ -203,7 +204,7 @@ test('clickhouse fields stay hidden and unsaved when no endpoint is configured',
     $owner->switchTeam($world->tenant);
     $name = $world->brand->name;
 
-    $this->actingAs($owner)->get(route('brands.settings', $world->brand))
+    $this->actingAs($owner)->get(route('brands.setup.integrations', $world->brand))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('clickhouseEndpoints', []));
 

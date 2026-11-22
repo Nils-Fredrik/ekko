@@ -148,7 +148,7 @@ it('gives the same setup from the wizard and from brand settings', function () {
 
     // The wizard and the settings page get the same plan data to edit.
     $wizardProps = $this->get(route('brands.markets.create', $other['brand']))->viewData('page')['props'];
-    $settingsProps = $this->get(route('brands.settings', $other['brand']))->viewData('page')['props'];
+    $settingsProps = $this->get(route('brands.setup.markets', $other['brand']))->viewData('page')['props'];
     expect($wizardProps)->not->toHaveKey('engines')
         ->and($settingsProps)->not->toHaveKey('engines')
         ->and($wizardProps['measurementPlan']['standard'])->toBe($settingsProps['measurementPlan']['standard'])

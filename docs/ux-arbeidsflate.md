@@ -195,10 +195,10 @@ Hver agent får fire oppgaver.
 - **Rekkefølge av leveranser:** U17 lager rutene `brands.setup.*` (6.1) og sender de som ikke er bygget ennå, til dagens sider:
   - `setup.prompts` → `brands.prompts.index`
   - `setup.competitors` → `brands.competitors.index`
-  - `setup.markets`, `setup.identity` og `setup.integrations` → `brands.settings`
+  - `setup.markets`, `setup.identity` og `setup.integrations` pekte på `brands.settings` til U24 bygde sidene
   - `setup.notifications` → `alerts.index`
 
-  Oppgavene som bygger sidene, bytter ut videresendingen. U26 har gjort det for varsler: `brands.setup.notifications` er siden, og `inbox.index` er innboksen. `/alerts` sender til `/inbox?type=alerts`.
+  Oppgavene som bygger sidene, bytter ut videresendingen. U24 har sider for markeder, identitet og integrasjoner, og `brands.settings` sender til identitet. U26 har siden for varsler, og `inbox.index` er innboksen. `/alerts` sender til `/inbox?type=alerts`.
 
 **Markedsomfang:**
 
@@ -238,7 +238,7 @@ Hver agent får fire oppgaver.
 
 **Slik U17 er bygget:**
 
-- **Filer:** `Layouts/AppLayout.vue` (skall, toppstripe og skuff), `Components/Shell/Sidebar.vue` (sidemenyen), `Components/Shell/sidebarNav.js` (lenker, aktiv side, merketall og spørring, testet i `tests/js/sidebar-nav.test.mjs`) og `Composables/useWorkspace.js`. På serveren lager `App\Workspace\Workspace::for(Request)` propen og `App\Workspace\WorkspaceCounts` tallene. Videresendingene står i `WorkspaceRedirectController`.
+- **Filer:** `Layouts/AppLayout.vue` (skall, toppstripe og skuff), `Components/Shell/Sidebar.vue` (sidemenyen), `Components/Shell/sidebarNav.js` (lenker, aktiv side, merketall og spørring, testet i `tests/js/sidebar-nav.test.mjs`) og `Composables/useWorkspace.js`. På serveren lager `App\Workspace\Workspace::for(Request)` propen og `App\Workspace\WorkspaceCounts` tallene. U24 fjernet de siste videresendingene i `WorkspaceRedirectController`.
 - **Fjernet:** `BrandNav.vue` og Jetstreams ubrukte menykomponenter `NavLink`, `ResponsiveNavLink`, `Dropdown` og `DropdownLink`. Menyene i sidemenyen bruker Headless UI `Menu`, som gir piltaster, Escape og fokus tilbake til knappen.
 - **Markedet** leses fra `?market` i URL-en også i nettleseren, slik at lenkene følger valget umiddelbart. Filterlinjens delvise besøk henter også `workspace`, slik at merketallene gjelder markedet i URL-en.
 - **Lenkene til analysesidene** beholder analysefiltrene (periode, sammenligning, motor osv.) som `BrandNav` gjorde, og får gjeldende `market`. Roboter og trafikk, Arbeid og oppsettssidene unntatt Prompts og temaer får ikke `market`.
@@ -380,7 +380,7 @@ Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-fo
 
 Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.manage`.
 
-**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg». «Ny prompt» og «Nytt tema» vises, fordi U20 har tatt `brands.setup.prompts` ut av `FORWARDING_ROUTES`. «Legg til konkurrent» vises fra U22, fordi siden åpner `?create=competitor`. «Nytt marked» er skjult så lenge ruten bare sender videre, fordi dagens side ikke åpner `?create=`. U24 tar sin rute ut av listen når siden er bygget.
+**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg». «Ny prompt» og «Nytt tema» vises, fordi U20 har tatt `brands.setup.prompts` ut av `FORWARDING_ROUTES`. «Legg til konkurrent» vises fra U22, fordi siden åpner `?create=competitor`. «Nytt marked» vises fra U24, fordi `brands.setup.markets` åpner panelet for `?create=market`.
 
 ## 5. Skjermer
 
@@ -655,6 +655,13 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
 - Estimatet oppdateres innen 1 sekund etter en endring, med debounce på 300 ms.
 - Regneeksemplet i spec 7.6 gir samme tall som før.
 - Veiviseren bruker fortsatt samme API.
+
+**Slik U24 er bygget:**
+
+- **Sider:** `SetupMarketController`, `SetupIdentityController` og `SetupIntegrationController` tar over de tre rutene. `GET brands.settings` sender til identitet. `PUT brands.settings.update` og `Brands/Settings.vue` blir stående til U27.
+- **Plan:** matrisen bruker `measurementPlan.js` og `usePlanEstimate`. Estimatet venter 300 ms etter en endring. Arvede celler kan ikke redigeres. Ulagret navigasjon spør om bekreftelse.
+- **Identitet:** alias-testen kalles mens feltet skrives (500 ms) mot `brands.aliases.test`. Svaret logges ikke.
+- **Avvik:** farlig sone kan sette merkevaren på pause (`active` eller `paused`). U23-ruten godtar ikke arkivering, så siden sier at arkivering ikke er tilgjengelig ennå.
 
 ### 5.5 Identitet (ingen skisse, samme mønster som skisse 2 og 4)
 

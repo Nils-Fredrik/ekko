@@ -519,9 +519,8 @@ test('actions for routes that are not built yet are left out', () => {
 
 test('create actions stay hidden while their setup route only forwards to todayâ€™s page', () => {
     const all = can(Object.fromEntries(Object.keys(can()).map((key) => [key, true])));
-    const ids = paletteActions(context(workspace({ can: all }), undefined, FORWARDING_ROUTES)).map((item) => item.id);
+    const ids = paletteActions(context(workspace({ can: all }), undefined, ['brands.setup.markets'])).map((item) => item.id);
 
-    assert.deepEqual(FORWARDING_ROUTES, ['brands.setup.markets']);
     assert.deepEqual(ids, [
         'create-prompt',
         'create-topic',
@@ -532,6 +531,14 @@ test('create actions stay hidden while their setup route only forwards to todayâ
         'inbox',
         'report',
     ]);
+});
+
+test('a built markets page shows New market in the palette', () => {
+    const all = can(Object.fromEntries(Object.keys(can()).map((key) => [key, true])));
+    const ids = paletteActions(context(workspace({ can: all }), undefined, FORWARDING_ROUTES)).map((item) => item.id);
+
+    assert.deepEqual(FORWARDING_ROUTES, []);
+    assert.ok(ids.includes('create-market'));
 });
 
 test('switching market keeps the other filters and marks the current market', () => {

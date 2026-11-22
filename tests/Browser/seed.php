@@ -126,6 +126,7 @@ if (getenv('EKKO_UI_QUALITY') !== '1') {
     $values = [...$values, ...require __DIR__.'/portfolio-fixture.php'];
     $values = [...$values, ...require __DIR__.'/prompt-quota-fixture.php'];
     $values = [...$values, ...require __DIR__.'/triage-fixture.php'];
+    $values = [...$values, ...require __DIR__.'/markets-fixture.php'];
 }
 // The integrated T33/T34 contracts are exercised by the deployment smoke test.
 if (class_exists(TokenTenant::class)) {

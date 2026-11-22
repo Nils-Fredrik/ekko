@@ -4,80 +4,25 @@ namespace App\Http\Controllers;
 
 use App\Brands\IdentityLibrary;
 use App\Integrations\BrandIntegrations;
-use App\MeasurementPlan\MeasurementPlans;
 use App\Models\Brand;
-use App\Models\Integration;
-use App\Models\Market;
-use App\Models\Team;
-use App\Tenancy\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
-use Inertia\Inertia;
-use Inertia\Response;
 
 /**
- * Brand settings (docs/spec.md 14.2, T28): name, aliases, domains, markets and integrations.
- * The measurement plan is saved through BrandMeasurementPlanController (docs/spec.md 7.6).
- * Integration config is never sent to the browser.
+ * The old combined form still accepts PUT until U27 removes it.
+ * GET opens identity (docs/ux-arbeidsflate.md 6.1). Integration config is never sent to the browser.
  */
 class BrandSettingsController extends Controller
 {
-    public function __construct(private BrandIntegrations $integrations, private MeasurementPlans $plans) {}
+    public function __construct(private BrandIntegrations $integrations) {}
 
-    public function show(Brand $brand): Response
+    public function show(Brand $brand): RedirectResponse
     {
         Gate::authorize('view', $brand);
 
-        $brand->load([
-            'aliases',
-            'domains',
-            'markets' => fn ($query) => $query->orderBy('id'),
-            'integrations',
-        ]);
-        $seeIntegrations = Gate::allows('viewAny', Integration::class);
-
-        return Inertia::render('Brands/Settings', [
-            'brand' => [
-                'id' => $brand->id,
-                'name' => $brand->name,
-                'primary_domain' => $brand->primary_domain,
-            ],
-            'aliases' => $brand->aliases
-                ->where('match_mode', '!=', 'regex')
-                ->map(fn ($alias): array => [
-                    'alias' => $alias->alias,
-                    'match_mode' => $alias->match_mode,
-                ])->values(),
-            'domains' => $brand->domains->map(fn ($domain): array => [
-                'domain' => $domain->domain,
-                'include_subdomains' => $domain->include_subdomains,
-            ])->values(),
-            'markets' => $brand->markets->map(fn (Market $market): array => [
-                'id' => $market->id,
-                'country' => $market->country,
-                'language' => $market->language,
-                'location_label' => $market->location_label,
-                'is_active' => $market->is_active,
-                'plan_mode' => $market->plan_mode,
-            ])->values(),
-            // Standard plan, inheritance and own market choices (docs/spec.md 7.6).
-            'measurementPlan' => $this->plans->present(Team::query()->findOrFail((int) app(TenantContext::class)->require()), $brand),
-            'integrations' => $seeIntegrations
-                ? $brand->integrations->map(fn (Integration $integration): array => [
-                    'type' => $integration->type,
-                    'status' => $integration->status,
-                    'last_sync_at' => $integration->last_sync_at?->toIso8601String(),
-                ])->values()
-                : [],
-            'clickhouseEndpoints' => $seeIntegrations ? $this->integrations->endpoints() : [],
-            'logUploadUrl' => $seeIntegrations ? route('bot-log-uploads.index', ['team' => current_tenant_id()]) : null,
-            'can' => [
-                'manage' => Gate::allows('update', $brand),
-                'integrations' => $seeIntegrations,
-            ],
-        ]);
+        return to_route('brands.setup.identity', $brand);
     }
 
     public function update(Request $request, Brand $brand, IdentityLibrary $identity): RedirectResponse

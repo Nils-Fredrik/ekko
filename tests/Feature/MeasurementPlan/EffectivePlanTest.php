@@ -123,7 +123,7 @@ it('shows each market\'s rules in settings, the engine filters and list_brands',
     $own = [planRule('claude_haiku', 'monthly', 'all', 3)];
     $w = planWorld($tenant, $standard, $own);
 
-    $this->actingAs($owner)->get(route('brands.settings', $w['brand']))->assertInertia(fn (Assert $page) => $page
+    $this->actingAs($owner)->get(route('brands.setup.markets', $w['brand']))->assertInertia(fn (Assert $page) => $page
         ->where('measurementPlan.standard', sortedRules($standard))
         ->where('measurementPlan.markets.0.id', $w['a']->id)
         ->where('measurementPlan.markets.0.plan_mode', 'inherit')

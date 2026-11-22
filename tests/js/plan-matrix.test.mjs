@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { answersFor, nextDue, rowChanged, samplePromptId } from '../../resources/js/planMatrix.js';
+
+const estimate = {
+    engines: [{ engine_key: 'chatgpt_api', answers: 12 }],
+    markets: [
+        {
+            id: 4,
+            engines: [{ engine_key: 'chatgpt_api', answers: 5 }],
+            rules: [
+                { engine_key: 'chatgpt_api', next_due_on: '2026-12-02', sample_prompt_id: 9, answers: 3 },
+                { engine_key: 'chatgpt_api', next_due_on: '2026-11-20', sample_prompt_id: null, answers: 2 },
+            ],
+        },
+    ],
+};
+
+test('a cell reads answers for the brand standard or one market', () => {
+    assert.equal(answersFor(estimate, null, 'chatgpt_api'), 12);
+    assert.equal(answersFor(estimate, 4, 'chatgpt_api'), 5);
+    assert.equal(answersFor(estimate, 4, 'missing'), null);
+    assert.equal(answersFor(null, 4, 'chatgpt_api'), null);
+});
+
+test('the panel uses the earliest next measurement and its example prompt', () => {
+    assert.equal(nextDue(estimate, 4, 'chatgpt_api'), '2026-11-20');
+    assert.equal(samplePromptId(estimate, 4, 'chatgpt_api'), 9);
+});
+
+test('an own choice is changed only when it differs from the brand standard', () => {
+    const standard = { frequency: 'weekly', prompt_scope: 'all', repetitions: 1, core_frequency: '' };
+    assert.equal(rowChanged(standard, { ...standard }), false);
+    assert.equal(rowChanged(standard, { ...standard, frequency: 'monthly' }), true);
+});
