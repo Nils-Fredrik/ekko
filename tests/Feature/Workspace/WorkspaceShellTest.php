@@ -205,7 +205,8 @@ test('the setup routes send the user to today\'s pages until each page is built'
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('market', null));
     $this->actingAs($owner)->get(route('brands.setup.competitors', [$brand, 'market' => $world->market->id]))
-        ->assertRedirect(route('brands.competitors.index', $brand));
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Competitors')->where('market.id', $world->market->id));
     foreach (['markets', 'identity', 'integrations'] as $page) {
         $this->actingAs($owner)->get(route("brands.setup.{$page}", $brand))
             ->assertRedirect(route('brands.settings', $brand));

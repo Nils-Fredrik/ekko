@@ -80,14 +80,11 @@ test('ranking, table, sentiment and suggestions use the dashboard colors', async
     await expect(trend).toHaveAttribute('data-chart-ready', 'true');
     expect(await strokes(trend)).toContain(firstCompetitorColor);
 
-    // A suggested competitor is a card with «Add».
+    // The suggestion wall is gone (U22): a link leads to the queue on the setup page, where the name waits.
     await page.goto(`/brands/${brand}/competitors?days=7`);
-    const card = page.getByTestId('competitor-suggestion').filter({ hasText: 'Gamma tea house' });
-    await expect(card).toBeVisible();
-    await card.getByRole('button', { name: 'Add as competitor: Gamma tea house' }).click();
-    await expect(
-        page.getByTestId('competitor-setup').getByRole('cell', { name: 'Gamma tea house' }).first(),
-    ).toBeVisible();
-    await expect(card).toHaveCount(0);
+    await expect(page.getByTestId('competitor-suggestions')).toHaveCount(0);
+    await page.getByTestId('pending-entities').getByRole('link').click();
+    await expect(page).toHaveURL(/\/setup\/competitors\?tab=pending/);
+    await expect(page.getByTestId('queue-table')).toContainText('Gamma tea house');
     expect(errors).toEqual([]);
 });

@@ -185,7 +185,8 @@ test('an unknown brand that recurs can be added as a competitor in one click', f
     $this->actingAs($owner)->get(route('brands.competitors.index', $world->brand))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->where('suggestions', [['name' => 'Kaffebønna', 'responses' => 2]])
+            ->where('pendingEntities', 1)
+            ->missing('suggestions')
             ->where('competitors', fn ($rows) => collect($rows)->firstWhere('name', 'Nordlys')['domains'] === ['nordlys.example.test']));
 
     $this->post(route('brands.competitors.store', $world->brand), ['name' => 'Kaffebønna'])->assertRedirect();
@@ -199,7 +200,7 @@ test('an unknown brand that recurs can be added as a competitor in one click', f
     });
 
     $this->get(route('brands.competitors.index', $world->brand))
-        ->assertInertia(fn ($page) => $page->where('suggestions', []));
+        ->assertInertia(fn ($page) => $page->where('pendingEntities', 0));
 });
 
 test('a pitch cannot add a fourth competitor, but a converted customer can', function () {

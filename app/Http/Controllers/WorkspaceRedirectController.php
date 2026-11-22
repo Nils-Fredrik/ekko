@@ -12,13 +12,6 @@ use Illuminate\Support\Facades\Gate;
  */
 class WorkspaceRedirectController extends Controller
 {
-    public function competitors(Brand $brand): RedirectResponse
-    {
-        Gate::authorize('view', $brand);
-
-        return redirect()->route('brands.competitors.index', $brand);
-    }
-
     public function markets(Brand $brand): RedirectResponse
     {
         return $this->settings($brand);

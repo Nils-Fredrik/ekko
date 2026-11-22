@@ -65,6 +65,26 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
         'text' => 'Founded in 2005.', 'quote' => 'Fjord Coffee was founded in 2005.', 'verdict' => Claim::CONTRADICTED,
         'source_citation_ids' => $response->citations()->pluck('id')->all()]);
     $values['UI_REPORT_ID'] = (string) Report::query()->orderBy('id')->firstOrFail()->id;
+    // U22: a brand with unknown names waiting for a decision, for Setup › Competitors and brands. The sidebar of the
+    // other brands is not affected, because the count is per brand.
+    $triageBrand = Brand::factory()->create(['name' => 'Fjord Tea', 'primary_domain' => 'tea.example.test']);
+    $triageMarket = Market::factory()->for($triageBrand)->create(['country' => 'NO', 'language' => 'nb']);
+    $triageMarket->marketEngines()->create(['engine_key' => $engine->key, 'frequency' => 'weekly', 'repetitions' => 1]);
+    $triage = new MetricsWorld;
+    $triage->tenant = $team;
+    $triage->brand = $triageBrand;
+    $triage->market = $triageMarket;
+    $triage->engine = $engine;
+    $triageCompetitor = Competitor::factory()->for($triageBrand)->create(['name' => 'Harbour Tea']);
+    $triagePrompt = Prompt::factory()->for($triageMarket)->create(['text' => 'Which tea shops do you recommend?']);
+    foreach ([['Havnelys Studio', 6], ['Shopify', 5], ['Harbour Tea House', 4], ['Beste Byrå', 2]] as [$name, $count]) {
+        for ($i = 0; $i < $count; $i++) {
+            $reply = $triage->answer($triagePrompt, '2026-10-14T12:00:00Z', ['unknown' => $name]);
+            $reply->update(['answer_text' => "For tea, many people recommend {$name} as an alternative to the big chains in town."]);
+            $reply->mentions()->where('entity_type', 'unknown')->update(['first_char_offset' => strlen('For tea, many people recommend ')]);
+        }
+    }
+    $values['UI_TRIAGE_BRAND_ID'] = (string) $triageBrand->id;
     $values['UI_EMPTY_BRAND_ID'] = (string) Brand::factory()->create(['name' => 'New brand', 'primary_domain' => 'new.example.test'])->id;
 });
 $advisor = User::factory()->withTwoFactor()->create(['name' => 'Jamie Advisor', 'email' => 'ui-advisor@example.test', 'password' => Hash::make($password), 'locale' => 'en']);

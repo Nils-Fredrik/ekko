@@ -45,6 +45,8 @@ const props = defineProps({
     rowKey: { type: [String, Function], default: 'id' },
     // A Set of ids turns on selection; leave it out for a table without checkboxes.
     selection: { type: Set, default: undefined },
+    // A row for which this returns false has no checkbox and cannot be selected (a decided row in a queue).
+    rowSelectable: { type: Function, default: null },
     groupBy: { type: [String, Function], default: null },
     groupLabel: { type: Function, default: null },
     activeRow: { type: [String, Number], default: null },
@@ -160,7 +162,12 @@ const rowPositions = computed(() => {
 
 const selectable = computed(() => props.selection instanceof Set);
 const selected = computed(() => (selectable.value ? props.selection : new Set()));
-const allState = computed(() => visibleSelectionState(selected.value, ids.value));
+const selectableIds = computed(() =>
+    props.rowSelectable
+        ? items.value.filter((item) => item.type === 'row' && props.rowSelectable(item.row)).map((item) => item.id)
+        : ids.value,
+);
+const allState = computed(() => visibleSelectionState(selected.value, selectableIds.value));
 const template = computed(() => gridTemplate(visibleColumns.value, selectable.value));
 const virtual = computed(() => props.rows.length > VIRTUAL_THRESHOLD);
 
@@ -204,17 +211,19 @@ function setSelection(next) {
 }
 
 function check(id, shift) {
-    if (!selectable.value) {
+    if (!selectable.value || !selectableIds.value.includes(id)) {
         return;
     }
     setSelection(
-        shift && anchor !== null ? selectRange(selected.value, ids.value, anchor, id) : toggleId(selected.value, id),
+        shift && anchor !== null
+            ? selectRange(selected.value, selectableIds.value, anchor, id)
+            : toggleId(selected.value, id),
     );
     anchor = id;
 }
 
 function checkAll() {
-    setSelection(toggleAllVisible(selected.value, ids.value));
+    setSelection(toggleAllVisible(selected.value, selectableIds.value));
 }
 
 // Keyboard: one row is in the tab order (roving tabindex), the arrows move it.
@@ -453,7 +462,7 @@ const showEmpty = computed(() => !props.loading && props.rows.length === 0 && pr
                                 class="rounded border-line bg-shell-surface text-primary focus:ring-primary"
                                 :checked="allState === 'all'"
                                 :indeterminate="allState === 'some'"
-                                :disabled="ids.length === 0"
+                                :disabled="selectableIds.length === 0"
                                 :aria-label="$t('workspace.table.select_all')"
                                 @change="checkAll"
                             />
@@ -573,6 +582,7 @@ const showEmpty = computed(() => !props.loading && props.rows.length === 0 && pr
                         >
                             <div v-if="selectable" role="gridcell" class="flex items-center" :class="cellPadding">
                                 <input
+                                    v-if="!rowSelectable || rowSelectable(entry.item.row)"
                                     type="checkbox"
                                     tabindex="-1"
                                     class="rounded border-line bg-shell-surface text-primary focus:ring-primary"

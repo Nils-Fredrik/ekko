@@ -4,7 +4,7 @@
 
 Nettleseren kjører i det offisielle Playwright-imaget, låst til versjon, digest og `linux/amd64`, også på Apple Silicon. Runneren kobler den til PHP-serveren på verten og stopper sin egen container etter kjøringen. Ingen produksjonsdata eller eksterne modellkall brukes. Nettleseroppsettet nullstiller bare den verifiserte `_testing`-databasen; kjør ikke Pest eller andre nettlesertester samtidig mot samme database.
 
-Sideregisteret har 44 scenarioer, inkludert fakta, pitchprosjekter og komponentsiden (U18): 176 referansebilder og 192 kontroller når de åtte testene av sperrer og grafventing og de åtte testene av sidemenyen (`shell.spec.mjs`, U17) tas med. Sidemenytestene kjøres bare i mørkt tema, én for desktop og én for mobil; resten hoppes over.
+Sideregisteret har 46 scenarioer, inkludert fakta, pitchprosjekter og komponentsiden (U18): 184 referansebilder og 200 kontroller når de åtte testene av sperrer og grafventing og de åtte testene av sidemenyen (`shell.spec.mjs`, U17) tas med. Sidemenytestene kjøres bare i mørkt tema, én for desktop og én for mobil; resten hoppes over.
 
 ## Referansebilder
 
@@ -42,11 +42,12 @@ Første U15-kjøring, før fakta- og pitchsidene ble lagt til, hadde 0 kritiske 
 
 ## JavaScript-budsjetter
 
+
 `npm run test:budget` leser Vite-manifestet etter bygg. Størrelsene er gzip nivå 9, uten dobbelttelling av delte moduler. Det største språksettet (JSON og genererte PHP-oversettelser) inngår i førstegangsbudsjettet, mens grafer fortsatt må lastes asynkront.
 
 | Måling                                        | Grense i byte | Etter T49, T45 og U11 |
 | --------------------------------------------- | ------------: | -------------------: |
-| App og statiske importer + største språkmodul |       160 000 |              150 570 |
+| App og statiske importer + største språkmodul |       160 000 |              159 979 |
 | Største første sidelasting + app og språk     |       285 000 |              266 086 |
 | ECharts-chunk                                 |       240 000 |              211 419 |
 | Alle JavaScript-chunker                       |       700 000 |              662 058 |
