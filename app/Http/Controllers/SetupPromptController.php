@@ -226,7 +226,7 @@ class SetupPromptController extends Controller
             $results[] = [
                 'key' => (string) $key,
                 'name' => $names[(string) $key] ?? DashboardLabels::engine((string) $key),
-                'measured' => ! $coreOnly && $mine->isNotEmpty(),
+                'measured' => ! $coreOnly,
                 'reason' => $coreOnly ? 'core' : null,
                 'dots' => $dots,
                 'days' => count(array_filter($dots)),

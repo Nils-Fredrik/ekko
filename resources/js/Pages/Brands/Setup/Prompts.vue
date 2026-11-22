@@ -95,7 +95,7 @@ const values = reactive({
 });
 const autosave = useAutosave(() => route('brands.prompts.update', [props.brand.id, props.open]), {
     values,
-    only: ['library', 'detail', 'quota'],
+    only: ['library', 'detail', 'quota', 'unscoped'],
 });
 
 watch(
@@ -324,7 +324,7 @@ function mergeTopic(from, into) {
     if (
         !window.confirm(
             trans('workspace.prompts.merge_confirm', {
-                count: formatNumber(from.count),
+                count: formatNumber(from.total ?? from.count),
                 from: from.name,
                 into: into.name,
             }),
@@ -810,12 +810,14 @@ const emptyCopy = computed(() =>
                         class="group rounded-lg hover:bg-row-hover"
                         :draggable="canManage"
                         @dragstart="dragId = topic.id"
+                        @dragend="dragId = null"
                         @dragover.prevent
                         @drop="
                             mergeTopic(
                                 library.topics.find((item) => item.id === dragId),
                                 topic,
-                            )
+                            );
+                            dragId = null;
                         "
                     >
                         <div class="flex items-center gap-1 px-2 py-1.5">
@@ -883,8 +885,8 @@ const emptyCopy = computed(() =>
                             <button
                                 type="button"
                                 class="text-xs disabled:opacity-50"
-                                :disabled="topic.count > 0"
-                                :title="topic.count > 0 ? $t('workspace.prompts.topic_not_empty') : ''"
+                                :disabled="(topic.total ?? topic.count) > 0"
+                                :title="(topic.total ?? topic.count) > 0 ? $t('workspace.prompts.topic_not_empty') : ''"
                                 @click="deleteTopic(topic)"
                             >
                                 {{ $t('workspace.prompts.delete_topic') }}

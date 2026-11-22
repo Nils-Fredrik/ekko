@@ -172,10 +172,15 @@ test('setup payload includes prompt results, topic counts and last measurement f
     $world = $this->world;
     $topic = Topic::factory()->for($this->brand)->create();
     $world->p1->update(['topic_id' => $topic->id, 'is_active' => true]);
+    app(TenantContext::class)->run($this->brand->tenant_id, fn () => Prompt::factory()->for($world->market)->create([
+        'topic_id' => $topic->id, 'archived_at' => now(),
+    ]));
     $world->answer($world->p1, now()->subDay()->toDateTimeString(), ['brand' => 1]);
     $payload = app(PromptLibrary::class)->payload($this->brand, $world->market, ['topic_id' => $topic->id]);
-    expect($payload['prompts'])->toHaveCount(1)->and($payload['prompts'][0]['runs_exists'])->toBeTrue()->and($payload['prompts'][0]['last_measured_at'])->not->toBeNull();
-    expect(collect($payload['topics'])->firstWhere('id', $topic->id)['count'])->toBe(1);
+    $row = collect($payload['topics'])->firstWhere('id', $topic->id);
+    $shown = collect($payload['prompts'])->firstWhere('id', $world->p1->id);
+    expect($shown['runs_exists'])->toBeTrue()->and($shown['last_measured_at'])->not->toBeNull();
+    expect($row['count'])->toBe(1)->and($row['total'])->toBe(2);
 });
 
 test('topic management and bulk reject another brand in the same tenant', function () {
