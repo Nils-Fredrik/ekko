@@ -23,6 +23,7 @@ const props = defineProps({
     brandId: { type: Number, required: true },
     canManage: { type: Boolean, required: true },
     prompts: { type: Object, default: () => ({}) },
+    activity: { type: Object, default: null },
 });
 
 const emit = defineEmits(['modes', 'estimate']);
@@ -255,15 +256,16 @@ function save() {
     if (!canSave.value) {
         return;
     }
+    const submitted = JSON.parse(JSON.stringify(payload.value));
     saving.value = true;
-    router.put(route('brands.plan.update', props.brandId), payload.value, {
+    router.put(route('brands.plan.update', props.brandId), submitted, {
         preserveScroll: true,
         preserveState: true,
         onFinish: () => {
             saving.value = false;
         },
         onSuccess: () => {
-            remember();
+            savedPayload.value = JSON.stringify(submitted);
             savedAnswers.value = estimate.value?.answers ?? savedAnswers.value;
         },
     });
@@ -321,33 +323,45 @@ watch(
         }
     },
 );
+function syncActivity(nextActive) {
+    for (const incoming of props.plan.markets) {
+        const current = markets.value.find((market) => market.id === incoming.id);
+        const active = nextActive?.id === incoming.id ? nextActive.is_active : incoming.is_active;
+        if (current) {
+            current.is_active = active;
+            continue;
+        }
+        markets.value.push({
+            id: incoming.id,
+            country: incoming.country,
+            language: incoming.language,
+            location_label: incoming.location_label,
+            is_active: active,
+            plan_mode: incoming.plan_mode,
+            rules: rulesToRows(incoming.engines, props.plan.options.engines, props.plan.options.max_repetitions),
+        });
+    }
+    if (selected.value?.marketId != null && !marketById(selected.value.marketId)?.is_active) {
+        selected.value = null;
+    }
+    if (props.canManage) {
+        load();
+    }
+}
+
 watch(
     () => props.plan.markets.map((market) => `${market.id}:${market.is_active ? 1 : 0}`).join('|'),
     (next, previous) => {
-        if (next === previous) {
-            return;
+        if (next !== previous) {
+            syncActivity();
         }
-        for (const incoming of props.plan.markets) {
-            const current = markets.value.find((market) => market.id === incoming.id);
-            if (current) {
-                current.is_active = incoming.is_active;
-                continue;
-            }
-            markets.value.push({
-                id: incoming.id,
-                country: incoming.country,
-                language: incoming.language,
-                location_label: incoming.location_label,
-                is_active: incoming.is_active,
-                plan_mode: incoming.plan_mode,
-                rules: rulesToRows(incoming.engines, props.plan.options.engines, props.plan.options.max_repetitions),
-            });
-        }
-        if (selected.value?.marketId != null && !marketById(selected.value.marketId)?.is_active) {
-            selected.value = null;
-        }
-        if (props.canManage) {
-            load();
+    },
+);
+watch(
+    () => props.activity?.token ?? 0,
+    (token) => {
+        if (token) {
+            syncActivity(props.activity);
         }
     },
 );

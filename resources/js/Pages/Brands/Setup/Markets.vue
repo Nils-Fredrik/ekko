@@ -21,6 +21,7 @@ const props = defineProps({
 
 const page = usePage();
 const modes = ref({});
+const activity = ref(null);
 const selectedId = ref(props.selectedMarketId ?? props.markets[0]?.id ?? null);
 const creating = ref(new URL(page.url, 'http://ekko.invalid').searchParams.get('create') === 'market');
 const languageEdited = ref(false);
@@ -81,6 +82,16 @@ function saveMarket(market, changes) {
         preserveScroll: true,
         preserveState: true,
         only: ['markets', 'measurementPlan'],
+        onSuccess: () => {
+            if (!Object.hasOwn(changes, 'is_active')) {
+                return;
+            }
+            activity.value = {
+                id: market.id,
+                is_active: Boolean(changes.is_active),
+                token: (activity.value?.token ?? 0) + 1,
+            };
+        },
     });
 }
 
@@ -204,14 +215,26 @@ function createMarket() {
                                 <button type="button" class="block w-full text-left" @click="selectedId = market.id">
                                     <span class="block text-shell-fg">{{ market.name }}</span>
                                     <span class="text-shell-muted">
-                                        {{ $t('workspace.setup.language_place', market) }}
+                                        {{
+                                            $t('workspace.setup.language_place', {
+                                                language: market.language,
+                                                place: market.place,
+                                            })
+                                        }}
                                     </span>
                                 </button>
                             </td>
                             <td :class="market.is_active ? 'text-success' : 'text-shell-muted'">
                                 {{ market.is_active ? $t('workspace.setup.active') : $t('workspace.setup.inactive') }}
                             </td>
-                            <td>{{ $t('workspace.setup.prompt_counts', market) }}</td>
+                            <td>
+                                {{
+                                    $t('workspace.setup.prompt_counts', {
+                                        prompts: market.prompts,
+                                        core: market.core,
+                                    })
+                                }}
+                            </td>
                             <td>{{ planText(market) }}</td>
                             <td>{{ nextMeasurement(market) }}</td>
                         </tr>
@@ -256,6 +279,7 @@ function createMarket() {
                 :brand-id="brand.id"
                 :can-manage="canManage"
                 :prompts="prompts"
+                :activity="activity"
                 @modes="modes = $event"
             />
         </div>
