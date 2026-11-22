@@ -188,8 +188,12 @@ function createMarket() {
                             @click="selectedId = market.id"
                         >
                             <td class="py-1">
-                                <span class="block text-shell-fg">{{ market.name }}</span>
-                                <span class="text-shell-muted">{{ $t('workspace.setup.language_place', market) }}</span>
+                                <button type="button" class="block w-full text-left" @click="selectedId = market.id">
+                                    <span class="block text-shell-fg">{{ market.name }}</span>
+                                    <span class="text-shell-muted">
+                                        {{ $t('workspace.setup.language_place', market) }}
+                                    </span>
+                                </button>
                             </td>
                             <td :class="market.is_active ? 'text-success' : 'text-shell-muted'">
                                 {{ market.is_active ? $t('workspace.setup.active') : $t('workspace.setup.inactive') }}

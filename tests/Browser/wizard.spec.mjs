@@ -275,7 +275,11 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await chatgpt.getByRole('button').first().click();
     await page.getByRole('button', { name: 'Weekly', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeEnabled();
-    await page.getByTestId('market-row').filter({ hasText: 'sv' }).click();
+    const swedenMarket = page.getByRole('button', { name: /^SE\b/ });
+    await swedenMarket.focus();
+    await expect(swedenMarket).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('heading', { level: 2, name: 'SE', exact: true })).toBeVisible();
     const refreshedEstimate = page.waitForResponse(
         (response) =>
             response.url().includes('/measurement-plan/estimate') &&

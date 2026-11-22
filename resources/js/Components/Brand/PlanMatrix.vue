@@ -624,6 +624,7 @@ watch(dirty, (value) => {
         <span
             v-if="dirty"
             class="inline-block h-2 w-2 rounded-full bg-warning"
+            role="img"
             :aria-label="$t('workspace.setup.unsaved')"
         />
         <span data-testid="estimate-answers">
