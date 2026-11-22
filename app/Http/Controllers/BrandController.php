@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\ActionMarkers;
+use App\Brands\BrandHealth;
 use App\Dashboard\AnalysisFilters;
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
@@ -72,6 +73,7 @@ class BrandController extends Controller
         };
 
         return Inertia::render('Brands/Show', [
+            'health' => fn () => app(BrandHealth::class)->for($brand),
             'canCreateMarket' => fn () => Gate::allows('createMarketAnalysis', Analysis::class),
             'hasPitchReport' => fn () => Team::query()->whereKey(current_tenant_id())->whereNotNull('pitch_expires_at')->exists(),
             'brand' => [

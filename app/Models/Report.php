@@ -41,7 +41,7 @@ class Report extends Model
     /** @return BelongsTo<ReportSchedule, $this> */
     public function reportSchedule(): BelongsTo
     {
-        return $this->belongsTo(ReportSchedule::class);
+        return $this->belongsTo(ReportSchedule::class)->withTrashed();
     }
 
     /** @return array<string, string> */

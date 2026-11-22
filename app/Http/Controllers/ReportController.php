@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SendTestReport;
 use App\Models\Brand;
 use App\Models\Report;
 use App\Models\ReportLink;
 use App\Models\ReportSchedule;
 use App\Reports\ReportActions;
+use App\Scheduling\DispatcherLauncher;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as DownloadResponse;
@@ -57,17 +59,13 @@ class ReportController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, ?Brand $brand = null): RedirectResponse
     {
         Gate::authorize('create', ReportSchedule::class);
-        $data = $this->validated($request);
-        $brand = Brand::query()->findOrFail($data['brand_id']);
-        $brand->reportSchedules()->create([
-            'cadence' => $data['cadence'],
-            'recipients' => $data['recipients'],
-            'locale' => $data['locale'],
-            'branding' => $data['branding'],
-        ]);
+        $data = $this->validated($request, requireBrand: $brand === null);
+        $brand ??= Brand::query()->findOrFail($data['brand_id']);
+        unset($data['brand_id']);
+        $brand->reportSchedules()->create($data);
 
         return back();
     }
@@ -75,13 +73,33 @@ class ReportController extends Controller
     public function update(Request $request, ReportSchedule $schedule): RedirectResponse
     {
         Gate::authorize('update', $schedule);
-        $data = $this->validated($request, requireBrand: false);
-        $schedule->fill([
-            'cadence' => $data['cadence'],
-            'recipients' => $data['recipients'],
-            'locale' => $data['locale'],
-            'branding' => $data['branding'],
-        ])->save();
+        $schedule->update($this->validated($request, requireBrand: false));
+
+        return back();
+    }
+
+    public function updateForBrand(Request $request, Brand $brand, ReportSchedule $schedule): RedirectResponse
+    {
+        abort_unless($schedule->brand_id === $brand->id, 404);
+
+        return $this->update($request, $schedule);
+    }
+
+    public function destroy(Brand $brand, ReportSchedule $schedule): RedirectResponse
+    {
+        abort_unless($schedule->brand_id === $brand->id, 404);
+        Gate::authorize('delete', $schedule);
+        $schedule->delete();
+
+        return back();
+    }
+
+    public function sendTest(Request $request, Brand $brand, ReportSchedule $schedule, DispatcherLauncher $dispatcher): RedirectResponse
+    {
+        abort_unless($schedule->brand_id === $brand->id, 404);
+        Gate::authorize('update', $schedule);
+        SendTestReport::dispatch($brand->tenant_id, $schedule->id, (int) $request->user()?->id)->afterCommit();
+        $dispatcher->startAfterCommit();
 
         return back();
     }

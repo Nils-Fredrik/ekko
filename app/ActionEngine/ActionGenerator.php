@@ -64,11 +64,13 @@ final class ActionGenerator
 
                 $action = Action::query()->where('fingerprint', $fingerprint)->first();
                 if ($action === null) {
-                    $action = $this->create($brand, $candidate, $fingerprint, $markets->firstWhere('id', $candidate->marketId), $tenant, $now);
-                    $created++;
-                    $toWord[] = $action->id;
+                    $action = $this->create($brand, $candidate, $markets->firstWhere('id', $candidate->marketId), $tenant, $now);
+                    if ($action->wasRecentlyCreated) {
+                        $created++;
+                        $toWord[] = $action->id;
 
-                    continue;
+                        continue;
+                    }
                 }
                 if ($action->status === ActionStatus::Expired) {
                     $action->status = ActionStatus::New;
@@ -122,7 +124,23 @@ final class ActionGenerator
         return true;
     }
 
-    private function create(Brand $brand, ActionCandidate $candidate, string $fingerprint, ?Market $market, ?Team $tenant, CarbonImmutable $now): Action
+    /** Called with the fact row locked. A worker may concurrently create or refresh the same fingerprint. */
+    public function requestCorrection(Brand $brand, ActionCandidate $candidate, CarbonImmutable $now): Action
+    {
+        $action = Action::where('fingerprint', $candidate->fingerprint($brand->id))->lockForUpdate()->first()
+            ?? $this->create($brand, $candidate, null, $brand->tenant, $now);
+        if ($action->status === ActionStatus::Expired) {
+            $action->status = ActionStatus::New;
+            $this->refresh($action, $candidate, $now);
+        }
+        if ($action->status->isOpen() && $action->requested_at === null) {
+            $action->forceFill(['requested_at' => $now, 'unsupported_generations' => 0])->save();
+        }
+
+        return $action;
+    }
+
+    private function create(Brand $brand, ActionCandidate $candidate, ?Market $market, ?Team $tenant, CarbonImmutable $now): Action
     {
         // Only the template text is in nb, sv or en. The model is told the market's own BCP 47 tag
         // (ActionPromptBuilder::languageTag()), and locale becomes that tag once the model text is stored.
@@ -135,7 +153,7 @@ final class ActionGenerator
             'type' => $candidate->type,
             'status' => ActionStatus::New,
             'created_by' => Action::CREATED_BY_SYSTEM,
-            'fingerprint' => $fingerprint,
+            'fingerprint' => $candidate->fingerprint($brand->id),
             'title' => $text->title,
             'description' => $text->description,
             'steps' => $text->stepRows(),
@@ -143,8 +161,15 @@ final class ActionGenerator
             'locale' => $templateLocale,
         ]);
         $this->fill($action, $candidate, $now);
-        $action->save();
-        $this->syncPrompts($action, $candidate);
+        try {
+            DB::transaction(function () use ($action, $candidate) {
+                $action->save();
+                $this->syncPrompts($action, $candidate);
+            });
+        } catch (UniqueConstraintViolationException $exception) {
+            // Inbox and weekly generation may materialize the same candidate concurrently.
+            return Action::query()->where('fingerprint', $action->fingerprint)->lockForUpdate()->first() ?? throw $exception;
+        }
 
         return $action;
     }
@@ -206,12 +231,12 @@ final class ActionGenerator
             ->where('created_by', Action::CREATED_BY_SYSTEM)
             ->whereIn('status', [ActionStatus::New->value, ActionStatus::Planned->value])
             // Started work does not expire, also when the user has moved it back to planned.
-            ->whereNull('started_at')
+            ->whereNull('started_at')->whereNull('requested_at')
             ->whereNotIn('fingerprint', $seen)
             ->where(fn ($q) => $q
                 ->when($markets !== [], fn ($q) => $q->orWhereIn('market_id', $markets))
                 ->when($brandLevel, fn ($q) => $q->orWhereNull('market_id')))
-            ->get();
+            ->orderBy('id')->lockForUpdate()->get();
 
         $limit = max(1, (int) config('ekko.actions.expire_after_generations'));
         $expired = 0;

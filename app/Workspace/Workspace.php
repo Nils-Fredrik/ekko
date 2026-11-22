@@ -44,14 +44,9 @@ final class Workspace
         }
 
         $brand = self::brand($request);
-        $markets = $brand === null ? [] : $brand->markets()->orderBy('id')->get()
-            ->map(fn (Market $market): array => [
-                'id' => $market->id,
-                'label' => self::marketLabel($market),
-                'is_active' => $market->is_active,
-            ])->all();
+        $markets = $brand?->markets()->orderBy('id')->get() ?? collect();
         $marketId = filter_var($request->query('market'), FILTER_VALIDATE_INT);
-        $marketId = $marketId !== false && in_array($marketId, array_column($markets, 'id'), true) ? $marketId : null;
+        $market = $marketId === false ? null : $markets->firstWhere('id', $marketId);
         $can = static fn (TenantPermission $permission): bool => $access->can($user, $team, $permission);
         $role = $access->roleIn($user, $team);
 
@@ -59,9 +54,11 @@ final class Workspace
             'brands' => Brand::query()->orderBy('name')->get(['id', 'name'])
                 ->map(fn (Brand $item): array => ['id' => $item->id, 'name' => $item->name])->all(),
             'brand' => $brand === null ? null : ['id' => $brand->id, 'name' => $brand->name],
-            'markets' => $markets,
-            'market_id' => $marketId,
-            'counts' => WorkspaceCounts::for($team, $brand),
+            'markets' => $markets->map(fn (Market $item): array => [
+                'id' => $item->id, 'label' => self::marketLabel($item), 'is_active' => $item->is_active,
+            ])->all(),
+            'market_id' => $market?->id,
+            'counts' => WorkspaceCounts::for($team, $brand, $market),
             'usage' => Gate::forUser($user)->allows('viewAny', UsageEvent::class) ? self::usage($team) : null,
             'role' => $role === null ? null : __("roles.{$role->value}.name"),
             'can' => [

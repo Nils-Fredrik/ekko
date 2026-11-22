@@ -5,15 +5,20 @@ namespace App\Models;
 use App\Casts\EncryptedIntegrationConfig;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\RecordsRevisions;
+use App\Workspace\WorkspaceCounts;
+use Carbon\CarbonImmutable;
 use Database\Factories\IntegrationFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
+ * @property int $tenant_id
  * @property array<string, mixed> $config
  * @property Carbon|null $last_sync_at
+ * @property Carbon|null $last_error_at
  * @property Carbon|null $last_failed_on
  */
 class Integration extends Model
@@ -39,6 +44,20 @@ class Integration extends Model
         'config',
     ];
 
+    /** Update operational state directly so that a failed sync never needs to decrypt its config again. */
+    public function recordSync(?CarbonImmutable $failedDay = null): void
+    {
+        $status = $failedDay === null ? 'synced' : 'error';
+        self::whereKey($this->id)->update([
+            'status' => $status,
+            'last_failed_on' => $failedDay?->toDateString(),
+            ($failedDay === null ? 'last_sync_at' : 'last_error_at') => now(),
+        ]);
+        if ($this->status !== $status) {
+            DB::afterCommit(fn () => WorkspaceCounts::forget($this->tenant_id));
+        }
+    }
+
     /** @return BelongsTo<Brand, $this> */
     public function brand(): BelongsTo
     {
@@ -52,6 +71,7 @@ class Integration extends Model
             'config' => EncryptedIntegrationConfig::class,
             'last_sync_at' => 'datetime',
             'last_failed_on' => 'date',
+            'last_error_at' => 'datetime',
         ];
     }
 
