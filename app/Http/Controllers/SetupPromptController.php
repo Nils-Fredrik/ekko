@@ -34,11 +34,12 @@ class SetupPromptController extends Controller
         $topic = $this->selectedTopic($brand, $request);
         $filters = $this->filters($request, $topic);
         $payload = $library->payload($brand, $market, $filters);
-        $zone = Team::query()->findOrFail(current_tenant_id())->timezone ?? 'UTC';
+        $team = Team::query()->findOrFail(current_tenant_id());
+        $zone = $team->timezone ?? 'UTC';
         $marketIds = $market === null ? $brand->markets()->pluck('id') : collect([$market->id]);
         $unscoped = Prompt::query()->whereIn('market_id', $marketIds)->whereNull('topic_id')->whereNull('archived_at')->count();
         $engines = $this->engines($marketIds->all());
-        $limit = Team::query()->findOrFail(current_tenant_id())->plan?->max_prompts_per_market;
+        $limit = $team->plan?->max_prompts_per_market;
         $active = $market === null ? null : Prompt::query()->where('market_id', $market->id)->where('is_active', true)->count();
 
         return Inertia::render('Brands/Setup/Prompts', [
@@ -60,7 +61,7 @@ class SetupPromptController extends Controller
             ],
             'filters' => [
                 'topic' => $topic,
-                'status' => $request->query('status', 'active'),
+                'status' => $filters['status'],
                 'search' => (string) $request->query('q', ''),
                 'intent' => array_values(array_filter((array) $request->query('intent', []))),
                 'funnel' => array_values(array_filter((array) $request->query('funnel', []))),
@@ -104,8 +105,9 @@ class SetupPromptController extends Controller
      */
     private function filters(Request $request, mixed $topic): array
     {
+        $status = $request->query('status', 'active');
         $filters = [
-            'status' => $request->query('status', 'active'),
+            'status' => in_array($status, ['active', 'inactive', 'archived', 'all'], true) ? $status : 'active',
             'search' => (string) $request->query('q', ''),
             'intent' => array_values(array_filter((array) $request->query('intent', []))),
             'funnel_stage' => array_values(array_filter((array) $request->query('funnel', []))),
@@ -157,9 +159,15 @@ class SetupPromptController extends Controller
         if (! $request->filled('open')) {
             return null;
         }
-        $prompt = Prompt::query()->whereKey((int) $request->query('open'))
-            ->whereIn('market_id', $brand->markets()->pluck('id'))->first();
-        abort_if($prompt === null, 404);
+        $id = filter_var($request->query('open'), FILTER_VALIDATE_INT);
+        abort_if($id === false, 404);
+        $prompt = Prompt::query()->whereKey($id)->whereIn('market_id', $brand->markets()->pluck('id'))->first();
+        if ($prompt === null) {
+            // Gone (just deleted) closes the panel. A prompt on another of this tenant's brands is not ours.
+            abort_if(Prompt::query()->whereKey($id)->exists(), 404);
+
+            return null;
+        }
         $today = CarbonImmutable::now($zone)->startOfDay();
         $from = $today->subDays(6)->utc();
         $responses = Response::query()
@@ -209,7 +217,12 @@ class SetupPromptController extends Controller
                 'place' => $places === [] ? null : (int) round(array_sum($places) / count($places)),
             ];
         }
-        $latest = $responses->first();
+        $latest = Response::query()
+            ->whereHas('run', fn ($run) => $run->where('prompt_id', $prompt->id))
+            ->with(['mentions' => fn ($mentions) => $mentions->orderBy('first_char_offset')->orderBy('id')])
+            ->orderByDesc('collected_at')
+            ->orderByDesc('id')
+            ->first();
         $history = Activity::query()->where('subject_type', $prompt->getMorphClass())->where('subject_id', $prompt->id)
             ->with('causer')->latest()->limit(30)->get()->map(function (Activity $activity): array {
                 $changes = $activity->attribute_changes ?? collect();
@@ -228,6 +241,7 @@ class SetupPromptController extends Controller
             })->all();
 
         return [
+            'prompt' => $prompt->only('id', 'text', 'topic_id', 'market_id', 'intent', 'funnel_stage', 'priority', 'is_active'),
             'results' => $results,
             'answer' => $latest === null ? null : [
                 'at' => $latest->collected_at instanceof CarbonInterface ? $latest->collected_at->toIso8601String() : null,

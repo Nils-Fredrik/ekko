@@ -221,6 +221,7 @@ return [
         'preview_new' => 'Nya (:count)',
         'preview_changed' => 'Ändrade (:count)',
         'preview_unchanged' => 'Oförändrade (:count)',
+        'field_change' => ':field: :before → :after',
         'import_changes' => 'Importera :count ändringar',
         'export' => 'Exportera CSV',
         'empty_market' => 'Inga prompter i :market ännu',

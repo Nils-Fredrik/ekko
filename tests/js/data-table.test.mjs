@@ -6,6 +6,7 @@ import {
     gridTemplate,
     keyAction,
     moveIndex,
+    initialHiddenColumns,
     readHiddenColumns,
     selectRange,
     toggleAllVisible,
@@ -112,6 +113,18 @@ test('the focus stays inside the list', () => {
     assert.equal(moveIndex('last', 0, 6), 5);
     assert.equal(moveIndex('open-next', 1, 6), 2);
     assert.equal(moveIndex('next', 0, 0), -1);
+});
+
+test('a table without a saved choice starts from the page default', () => {
+    const memory = new Map();
+    const storage = { getItem: (key) => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value) };
+    assert.deepEqual(initialHiddenColumns('setup.prompts', ['last_measured', 'active'], storage), [
+        'last_measured',
+        'active',
+    ]);
+    writeHiddenColumns('setup.prompts', ['market'], storage);
+    assert.deepEqual(initialHiddenColumns('setup.prompts', ['last_measured', 'active'], storage), ['market']);
+    assert.deepEqual(initialHiddenColumns('', ['last_measured'], storage), ['last_measured']);
 });
 
 test('hidden columns are remembered per table, and a failing storage is ignored', () => {

@@ -221,6 +221,7 @@ return [
         'preview_new' => 'Nye (:count)',
         'preview_changed' => 'Endret (:count)',
         'preview_unchanged' => 'Uendret (:count)',
+        'field_change' => ':field: :before → :after',
         'import_changes' => 'Importer :count endringer',
         'export' => 'Eksporter CSV',
         'empty_market' => 'Ingen prompts i :market ennå',

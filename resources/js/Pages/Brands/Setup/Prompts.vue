@@ -7,9 +7,9 @@ import { useAutosave } from '@/Composables/useAutosave';
 import { useUndoToast } from '@/Composables/useUndoToast';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatNumber, formatPercent, formatRelative } from '@/format';
-import { Link, router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
 const props = defineProps({
     brand: { type: Object, required: true },
@@ -28,8 +28,11 @@ const props = defineProps({
     personalData: { type: Boolean, default: false },
 });
 
+const page = usePage();
 const selection = ref(new Set());
 const toast = useUndoToast();
+const draftField = ref(null);
+const tab = ref('results');
 const drafting = ref(false);
 const draftText = ref('');
 const naming = ref(false);
@@ -56,6 +59,12 @@ const atLimit = computed(
     () => props.quota.limit !== null && props.quota.limit !== undefined && props.quota.active >= props.quota.limit,
 );
 const openRow = computed(() => props.library.prompts.find((item) => item.id === props.open) ?? null);
+const panelPrompt = computed(() => props.detail?.prompt ?? openRow.value);
+const formError = computed(() => {
+    const first = Object.values(page.props.errors ?? {}).flat()[0];
+
+    return typeof first === 'string' ? first : '';
+});
 const values = reactive({
     text: '',
     topic_id: null,
@@ -70,9 +79,11 @@ const autosave = useAutosave(() => route('brands.prompts.update', [props.brand.i
 });
 
 watch(
-    openRow,
-    (row) => {
+    () => props.open,
+    () => {
         autosave.reset();
+        tab.value = 'results';
+        const row = props.detail?.prompt ?? props.library.prompts.find((item) => item.id === props.open);
         if (!row) {
             return;
         }
@@ -206,7 +217,11 @@ async function bulk(body, message) {
         const errors = error.response?.data?.errors ?? {};
         const first = Object.values(errors).flat()[0];
         toast.show(first || trans('workspace.save.failed'));
+
+        return false;
     }
+
+    return true;
 }
 
 function undoBulk(undo) {
@@ -227,6 +242,9 @@ function moveTo(value) {
 }
 
 function apply(action, value = null) {
+    if (value === '') {
+        return;
+    }
     bulk({ ids: [...selection.value], action, value }, (count) =>
         trans('workspace.prompts.updated', { count: formatNumber(count) }),
     );
@@ -242,9 +260,13 @@ function createTopic() {
         { name },
         {
             preserveScroll: true,
-            onSuccess: () => {
+            onSuccess: (visitPage) => {
                 naming.value = false;
                 topicName.value = '';
+                const selected = visitPage.props.filters?.topic;
+                if (selected) {
+                    visit({ topic: selected });
+                }
             },
         },
     );
@@ -274,7 +296,14 @@ function mergeTopic(from, into) {
     ) {
         return;
     }
-    router.post(route('brands.topics.merge', [props.brand.id, from.id]), { into: into.id }, { preserveScroll: true });
+    router.post(
+        route('brands.topics.merge', [props.brand.id, from.id]),
+        { into: into.id },
+        {
+            preserveScroll: true,
+            onSuccess: () => visit({ topic: into.id }),
+        },
+    );
 }
 
 function deleteTopic(topic) {
@@ -283,7 +312,10 @@ function deleteTopic(topic) {
 
 function applyOne(action) {
     if (action === 'delete') {
-        router.delete(route('brands.prompts.destroy', [props.brand.id, props.open]), { preserveScroll: true });
+        router.delete(route('brands.prompts.destroy', [props.brand.id, props.open]), {
+            preserveScroll: true,
+            onSuccess: () => visit({ open: null }),
+        });
 
         return;
     }
@@ -315,11 +347,22 @@ function saveDraft() {
     );
 }
 
-function startDraft() {
+async function setActive(row, active, event) {
+    const saved = await bulk({ ids: [row.id], action: active ? 'activate' : 'deactivate' }, (count) =>
+        trans('workspace.prompts.updated', { count: formatNumber(count) }),
+    );
+    if (!saved && event?.target) {
+        event.target.checked = row.is_active;
+    }
+}
+
+async function startDraft() {
     if (!props.canManage || !props.market || atLimit.value) {
         return;
     }
     drafting.value = true;
+    await nextTick();
+    draftField.value?.focus();
 }
 
 function onKey(event) {
@@ -334,20 +377,31 @@ function onKey(event) {
     startDraft();
 }
 
-onMounted(() => window.addEventListener('keydown', onKey));
+onMounted(() => {
+    window.addEventListener('keydown', onKey);
+    if (!props.canManage) {
+        return;
+    }
+    const create = new URLSearchParams(window.location.search).get('create');
+    if (create === 'prompt') {
+        startDraft();
+    }
+    if (create === 'topic') {
+        naming.value = true;
+    }
+});
 onBeforeUnmount(() => {
     window.removeEventListener('keydown', onKey);
     clearTimeout(searchTimer.value);
 });
 
-function optionLabel(group, value) {
-    return props.options[group]?.find((item) => item.value === value)?.label ?? '';
+function openSuggest() {
+    suggestions.value = [];
+    showSuggest.value = true;
 }
 
-function setActive(row, active) {
-    bulk({ ids: [row.id], action: active ? 'activate' : 'deactivate' }, (count) =>
-        trans('workspace.prompts.updated', { count: formatNumber(count) }),
-    );
+function optionLabel(group, value) {
+    return props.options[group]?.find((item) => item.value === value)?.label ?? '';
 }
 
 function heat(value) {
@@ -370,11 +424,22 @@ async function readCsv(event) {
     csvText.value = file ? await file.text() : '';
 }
 
+watch(csvText, () => {
+    preview.value = null;
+});
+
 async function runPreview() {
-    const { data } = await window.axios.post(route('brands.prompts.import.preview', props.brand.id), {
-        csv: csvText.value,
-    });
-    preview.value = data;
+    try {
+        const { data } = await window.axios.post(route('brands.prompts.import.preview', props.brand.id), {
+            csv: csvText.value,
+        });
+        preview.value = data;
+    } catch (error) {
+        preview.value = null;
+        const errors = error.response?.data?.errors ?? {};
+        const first = Object.values(errors).flat()[0];
+        toast.show(first || trans('workspace.save.failed'));
+    }
 }
 
 function runImport() {
@@ -395,15 +460,21 @@ async function loadSuggestions() {
     if (!selectedTopic.value || !props.market) {
         return;
     }
-    const { data } = await window.axios.post(
-        route('brands.topics.suggestions', [props.brand.id, selectedTopic.value.id]),
-        {
-            market_id: props.market.id,
-            count: suggestCount.value,
-        },
-    );
-    suggestions.value = (data.suggestions ?? []).map((item) => ({ ...item, selected: true }));
-    showSuggest.value = true;
+    try {
+        const { data } = await window.axios.post(
+            route('brands.topics.suggestions', [props.brand.id, selectedTopic.value.id]),
+            {
+                market_id: props.market.id,
+                count: suggestCount.value,
+            },
+        );
+        suggestions.value = (data.suggestions ?? []).map((item) => ({ ...item, selected: true }));
+    } catch (error) {
+        const errors = error.response?.data?.errors ?? {};
+        const message = error.response?.data?.message;
+        const first = Object.values(errors).flat()[0];
+        toast.show(first || message || trans('workspace.save.failed'));
+    }
 }
 
 function addSuggestions() {
@@ -476,7 +547,7 @@ const emptyCopy = computed(() =>
                         type="button"
                         class="rounded-full border border-line px-3 py-1.5 text-sm disabled:opacity-50"
                         :disabled="!market || !selectedTopic"
-                        @click="loadSuggestions"
+                        @click="openSuggest"
                     >
                         {{ $t('workspace.prompts.suggest') }}
                     </button>
@@ -541,6 +612,9 @@ const emptyCopy = computed(() =>
                     <p>
                         {{ $t('workspace.prompts.preview_new', { count: formatNumber(preview.created?.length ?? 0) }) }}
                     </p>
+                    <ul>
+                        <li v-for="(row, index) in preview.created" :key="index">{{ row.text }}</li>
+                    </ul>
                     <p>
                         {{
                             $t('workspace.prompts.preview_changed', {
@@ -548,12 +622,26 @@ const emptyCopy = computed(() =>
                             })
                         }}
                     </p>
+                    <ul>
+                        <li v-for="row in preview.changed" :key="row.id">
+                            <span v-for="(pair, field) in row.fields" :key="field" class="block">
+                                {{
+                                    $t('workspace.prompts.field_change', {
+                                        field,
+                                        before: pair[0] ?? '',
+                                        after: pair[1] ?? '',
+                                    })
+                                }}
+                            </span>
+                        </li>
+                    </ul>
                     <p>
                         {{ $t('workspace.prompts.preview_unchanged', { count: formatNumber(preview.unchanged ?? 0) }) }}
                     </p>
                     <ul v-if="preview.errors?.length" class="text-error-text">
                         <li v-for="(error, index) in preview.errors" :key="index">
-                            {{ error.line }}: {{ error.message }}
+                            <template v-if="error.line != null">{{ error.line }}:</template>
+                            {{ error.message }}
                         </li>
                     </ul>
                 </div>
@@ -571,6 +659,7 @@ const emptyCopy = computed(() =>
             <p v-if="personalData" class="border-s-4 border-warning ps-3 text-sm">
                 {{ $t('app.library.personal_data') }}
             </p>
+            <p v-if="formError" class="text-sm text-error-text">{{ formError }}</p>
 
             <section v-if="showSuggest && canManage" class="rounded-xl border border-line bg-shell-surface p-4 text-sm">
                 <h3 class="font-medium">
@@ -588,12 +677,14 @@ const emptyCopy = computed(() =>
                     <select
                         v-model.number="suggestCount"
                         class="rounded-lg border border-line bg-shell-panel px-2 py-1"
-                        @change="loadSuggestions"
                     >
                         <option :value="5">{{ $t('workspace.prompts.count_5') }}</option>
                         <option :value="10">{{ $t('workspace.prompts.count_10') }}</option>
                     </select>
                 </label>
+                <button type="button" class="mt-3 rounded-full border border-line px-3 py-1.5" @click="loadSuggestions">
+                    {{ $t('workspace.prompts.suggest') }}
+                </button>
                 <ul class="mt-3 space-y-2">
                     <li v-for="(item, index) in suggestions" :key="index" class="flex gap-2">
                         <input v-model="item.selected" type="checkbox" />
@@ -741,11 +832,13 @@ const emptyCopy = computed(() =>
                         <label class="block text-sm">
                             {{ newRowLabel }}
                             <input
+                                ref="draftField"
                                 v-model="draftText"
                                 data-testid="new-prompt"
                                 class="mt-1 w-full rounded-lg border border-line px-3 py-2"
                                 :aria-label="$t('workspace.prompts.prompt_text')"
                                 @keydown.enter.prevent="saveDraft"
+                                @keydown.esc.prevent="drafting = false"
                             />
                         </label>
                     </form>
@@ -758,7 +851,8 @@ const emptyCopy = computed(() =>
                         :group-label="(key) => marketName.get(Number(key)) ?? ''"
                         :active-row="open"
                         column-store-key="setup.prompts"
-                        :hidden="['last_measured', 'active']"
+                        wrap
+                        :default-hidden="['last_measured', 'active']"
                         :empty="emptyCopy"
                         :label="$t('workspace.shell.setup_prompts')"
                         :row-label="(row) => row.text"
@@ -863,7 +957,7 @@ const emptyCopy = computed(() =>
                                 :checked="value"
                                 :aria-label="$t('workspace.prompts.active')"
                                 @click.stop
-                                @change="setActive(row, $event.target.checked)"
+                                @change="setActive(row, $event.target.checked, $event)"
                             />
                             <span v-else>
                                 {{
@@ -877,11 +971,26 @@ const emptyCopy = computed(() =>
                     <button
                         v-if="canManage && market && !drafting"
                         type="button"
-                        class="mt-2 text-sm text-primary"
+                        class="mt-2 text-sm text-primary disabled:opacity-50"
+                        :disabled="atLimit"
+                        :title="atLimit ? $t('workspace.prompts.at_limit') : ''"
                         @click="startDraft"
                     >
                         {{ newRowLabel }}
                     </button>
+                    <div v-if="canManage && !library.prompts.length && !filters.topic" class="mt-3 flex gap-2">
+                        <button type="button" class="text-sm text-primary" @click="showImport = true">
+                            {{ $t('workspace.prompts.import') }}
+                        </button>
+                        <button
+                            type="button"
+                            class="text-sm text-primary disabled:opacity-50"
+                            :disabled="!market || !selectedTopic"
+                            @click="openSuggest"
+                        >
+                            {{ $t('workspace.prompts.suggest') }}
+                        </button>
+                    </div>
 
                     <BulkBar v-if="canManage" :count="selection.size" @clear="selection = new Set()">
                         <select
@@ -960,13 +1069,13 @@ const emptyCopy = computed(() =>
 
                 <Drawer
                     :open="open !== null"
-                    :label="trans('workspace.prompts.panel', { market: marketName.get(openRow?.market_id) ?? '' })"
+                    :label="trans('workspace.prompts.panel', { market: marketName.get(panelPrompt?.market_id) ?? '' })"
                     :save-state="autosave.state.value"
                     :save-error="autosave.error.value"
                     @close="visit({ open: null })"
                 >
-                    <template v-if="openRow">
-                        <label class="block text-sm">
+                    <template v-if="panelPrompt">
+                        <label v-if="canManage" class="block text-sm">
                             {{ $t('workspace.prompts.prompt_text') }}
                             <textarea
                                 :value="values.text"
@@ -979,10 +1088,17 @@ const emptyCopy = computed(() =>
                         <p v-if="autosave.errors.text" class="mt-1 text-xs text-error-text">
                             {{ autosave.errors.text }}
                         </p>
-                        <p v-if="looksPersonal(values.text)" class="mt-1 text-xs text-warning">
+                        <p v-if="canManage && looksPersonal(values.text)" class="mt-1 text-xs text-warning">
                             {{ $t('workspace.prompts.personal') }}
                         </p>
-                        <div class="mt-3 grid gap-2 text-sm">
+                        <div v-if="!canManage" class="text-sm">
+                            <p>{{ values.text }}</p>
+                            <p class="mt-1 text-shell-muted">
+                                {{ optionLabel('intents', values.intent) }} ·
+                                {{ optionLabel('funnels', values.funnel_stage) }}
+                            </p>
+                        </div>
+                        <div v-if="canManage" class="mt-3 grid gap-2 text-sm">
                             <select
                                 :value="values.topic_id ?? ''"
                                 @change="
@@ -1024,8 +1140,39 @@ const emptyCopy = computed(() =>
                                 {{ $t('workspace.prompts.active') }}
                             </label>
                         </div>
-                        <div class="mt-4 space-y-3 text-sm">
-                            <h3 class="font-medium">{{ $t('workspace.prompts.results') }}</h3>
+                        <div class="mt-4 flex gap-2 text-sm" role="tablist">
+                            <button
+                                type="button"
+                                role="tab"
+                                class="rounded-full px-3 py-1"
+                                :class="tab === 'results' ? 'bg-shell-panel font-medium' : ''"
+                                :aria-selected="tab === 'results'"
+                                @click="tab = 'results'"
+                            >
+                                {{ $t('workspace.prompts.results') }}
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                class="rounded-full px-3 py-1"
+                                :class="tab === 'latest' ? 'bg-shell-panel font-medium' : ''"
+                                :aria-selected="tab === 'latest'"
+                                @click="tab = 'latest'"
+                            >
+                                {{ $t('workspace.prompts.latest') }}
+                            </button>
+                            <button
+                                type="button"
+                                role="tab"
+                                class="rounded-full px-3 py-1"
+                                :class="tab === 'history' ? 'bg-shell-panel font-medium' : ''"
+                                :aria-selected="tab === 'history'"
+                                @click="tab = 'history'"
+                            >
+                                {{ $t('workspace.prompts.history') }}
+                            </button>
+                        </div>
+                        <div v-show="tab === 'results'" class="mt-3 space-y-3 text-sm">
                             <div
                                 v-for="engine in detail?.results ?? []"
                                 :key="engine.key"
@@ -1051,7 +1198,8 @@ const emptyCopy = computed(() =>
                                     </template>
                                 </span>
                             </div>
-                            <h3 class="font-medium">{{ $t('workspace.prompts.latest') }}</h3>
+                        </div>
+                        <div v-show="tab === 'latest'" class="mt-3 space-y-3 text-sm">
                             <p v-if="!detail?.answer" class="text-shell-muted">
                                 {{ $t('workspace.prompts.no_answer') }}
                             </p>
@@ -1061,13 +1209,14 @@ const emptyCopy = computed(() =>
                                 </p>
                                 <AnswerText :segments="detail.answer.segments" />
                                 <Link
-                                    :href="route('brands.prompts.show', [brand.id, openRow.id])"
+                                    :href="route('brands.prompts.show', [brand.id, panelPrompt.id])"
                                     class="mt-1 inline-block text-sm"
                                 >
                                     {{ $t('workspace.prompts.open_prompt') }}
                                 </Link>
                             </div>
-                            <h3 class="font-medium">{{ $t('workspace.prompts.history') }}</h3>
+                        </div>
+                        <div v-show="tab === 'history'" class="mt-3 space-y-3 text-sm">
                             <p v-if="!detail?.history?.length" class="text-shell-muted">
                                 {{ $t('workspace.prompts.no_history') }}
                             </p>

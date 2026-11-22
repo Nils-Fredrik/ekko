@@ -221,6 +221,7 @@ return [
         'preview_new' => 'New (:count)',
         'preview_changed' => 'Changed (:count)',
         'preview_unchanged' => 'Unchanged (:count)',
+        'field_change' => ':field: :before → :after',
         'import_changes' => 'Import :count changes',
         'export' => 'Export CSV',
         'empty_market' => 'No prompts in :market yet',

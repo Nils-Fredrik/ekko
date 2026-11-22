@@ -2,6 +2,7 @@
 
 use App\Models\Action;
 use App\Models\Market;
+use App\Models\MarketEngine;
 use App\Models\Plan;
 use App\Models\Prompt;
 use App\Models\Topic;
@@ -213,6 +214,53 @@ test('creating a topic on the setup page selects it', function () {
                 fn () => Topic::query()->where('name', 'Selected topic')->value('id'),
             ),
         ));
+});
+
+test('deleting the open prompt returns to the list instead of a missing page', function () {
+    $prompt = app(TenantContext::class)->run(
+        $this->brand->tenant_id,
+        fn () => Prompt::factory()->for($this->world->market)->create(),
+    );
+
+    $this->followingRedirects()
+        ->from(route('brands.setup.prompts', [$this->brand, 'open' => $prompt->id]))
+        ->delete(route('brands.prompts.destroy', [$this->brand, $prompt]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where('detail', null));
+});
+
+test('a missing prompt closes the panel and a foreign market is not found', function () {
+    $this->get(route('brands.setup.prompts', [$this->brand, 'open' => 99999999]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('detail', null));
+    $this->get(route('brands.setup.prompts', [$this->brand, 'market' => 99999999]))->assertNotFound();
+    $this->get(route('brands.setup.prompts', [$this->brand, 'open' => 'nope']))->assertNotFound();
+});
+
+test('the prompt panel keeps an answer older than the seven day dots', function () {
+    $prompt = app(TenantContext::class)->run($this->brand->tenant_id, function () {
+        MarketEngine::factory()->create([
+            'market_id' => $this->world->market->id,
+            'engine_key' => $this->world->engine->key,
+            'frequency' => 'monthly',
+            'prompt_scope' => 'core',
+        ]);
+        $prompt = Prompt::factory()->for($this->world->market)->create(['priority' => 'standard']);
+        $this->world->answer($prompt, now()->subDays(20)->toDateTimeString());
+
+        return $prompt;
+    });
+
+    $this->get(route('brands.setup.prompts', [$this->brand, 'open' => $prompt->id]))
+        ->assertOk()
+        ->assertInertia(function ($page) use ($prompt) {
+            $detail = $page->toArray()['props']['detail'];
+            $engine = collect($detail['results'])->firstWhere('key', $this->world->engine->key);
+            expect($detail['prompt']['id'])->toBe($prompt->id)
+                ->and($engine['dots'])->toHaveCount(7)
+                ->and($engine['reason'])->toBe('core')
+                ->and($detail['answer'])->not->toBeNull();
+        });
 });
 
 test('undoing an archive restores the original activation state of each prompt', function () {
