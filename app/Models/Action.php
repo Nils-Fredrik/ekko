@@ -41,6 +41,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
  * @property string $locale
  * @property string|null $fingerprint
  * @property int $unsupported_generations
+ * @property CarbonInterface|null $requested_at
  * @property CarbonInterface|null $last_generated_at
  * @property CarbonInterface|null $started_at
  * @property CarbonInterface|null $completed_at
@@ -158,6 +159,7 @@ class Action extends Model
             'impact_level' => 'integer',
             'impact_score' => 'decimal:2',
             'unsupported_generations' => 'integer',
+            'requested_at' => 'datetime',
             'last_generated_at' => 'datetime',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',

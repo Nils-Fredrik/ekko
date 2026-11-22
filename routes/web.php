@@ -24,6 +24,7 @@ use App\Http\Controllers\CommandPaletteController;
 use App\Http\Controllers\CompetitorSetupController;
 use App\Http\Controllers\EntityDecisionController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\InboxController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MarketSetupController;
 use App\Http\Controllers\OnboardingController;
@@ -37,6 +38,7 @@ use App\Http\Controllers\SavedViewController;
 use App\Http\Controllers\SharedReportController;
 use App\Http\Controllers\TeamSettingsController;
 use App\Http\Controllers\UsageController;
+use App\Http\Controllers\WorkspaceRedirectController;
 use App\Http\Middleware\AuthenticateSessionAcrossGuards;
 use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\SharedReportThrottle;
@@ -127,7 +129,26 @@ Route::middleware([
     Route::post('/brands/{brand}/views', [SavedViewController::class, 'store'])->name('brands.views.store');
     Route::delete('/brands/{brand}/views/{savedView}', [SavedViewController::class, 'destroy'])->name('brands.views.destroy');
     Route::get('/brands/{brand}', [BrandController::class, 'show'])->name('brands.show');
+    // The sidebar's setup pages and the inbox (docs/ux-arbeidsflate.md 6.1). Redirects until each page is built.
+    Route::prefix('/brands/{brand}/setup')->name('brands.setup.')->controller(WorkspaceRedirectController::class)->group(function () {
+        Route::get('/prompts', 'prompts')->name('prompts');
+        Route::get('/competitors', 'competitors')->name('competitors');
+        Route::get('/markets', 'markets')->name('markets');
+        Route::get('/identity', 'identity')->name('identity');
+        Route::get('/integrations', 'integrations')->name('integrations');
+        Route::get('/notifications', 'notifications')->name('notifications');
+    });
+    Route::get('/inbox', [WorkspaceRedirectController::class, 'inbox'])->name('inbox.index');
 
+    Route::post('/alerts/acknowledge', [AlertController::class, 'acknowledgeBulk'])->name('alerts.acknowledge.bulk');
+    Route::delete('/alerts/acknowledge', [AlertController::class, 'undoBulk'])->name('alerts.unacknowledge.bulk');
+    Route::post('/brands/{brand}/claims/{claim}/action', [InboxController::class, 'correct'])->name('brands.claims.action');
+    Route::post('/brands/{brand}/checklist/hide', [InboxController::class, 'hide'])->name('brands.checklist.hide');
+    Route::put('/brands/{brand}/alert-rules/{type}', [AlertController::class, 'upsert'])->name('brands.alert-rules.upsert');
+    Route::post('/brands/{brand}/report-schedules', [ReportController::class, 'store'])->name('brands.report-schedules.store');
+    Route::put('/brands/{brand}/report-schedules/{schedule}', [ReportController::class, 'updateForBrand'])->name('brands.report-schedules.update');
+    Route::delete('/brands/{brand}/report-schedules/{schedule}', [ReportController::class, 'destroy'])->name('brands.report-schedules.destroy');
+    Route::post('/brands/{brand}/report-schedules/{schedule}/send-test', [ReportController::class, 'sendTest'])->middleware('throttle:report-preview')->name('brands.report-schedules.test');
     Route::get('/alerts', [AlertController::class, 'index'])->name('alerts.index');
     Route::post('/alerts/rules', [AlertController::class, 'storeRule'])->name('alerts.rules.store');
     Route::put('/alerts/rules/{alertRule}', [AlertController::class, 'updateRule'])->name('alerts.rules.update');

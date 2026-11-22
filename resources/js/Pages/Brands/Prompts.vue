@@ -1,12 +1,12 @@
 <script setup>
 import { crossFilter } from '@/Components/Brand/filters.js';
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import DotRowChart from '@/Components/Charts/DotRowChart.vue';
 import HeatmapChart from '@/Components/Charts/HeatmapChart.vue';
 import RankedBarChart from '@/Components/Charts/RankedBarChart.vue';
 import SparklineChart from '@/Components/Charts/SparklineChart.vue';
 import { periodBuckets } from '@/Components/Charts/support/data.js';
+import { heatmapRows } from '@/Components/Charts/support/heatmapRows.js';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
 import InputError from '@/Components/InputError.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
@@ -38,16 +38,10 @@ function selectTopic(event) {
 const view = ref('heatmap');
 
 const heatRows = computed(() =>
-    [...props.prompts]
-        .sort(
-            (left, right) =>
-                (left.topic || '\uffff').localeCompare(right.topic || '\uffff') || left.text.localeCompare(right.text),
-        )
-        .map((prompt) => ({
-            key: String(prompt.id),
-            label: prompt.text,
-            group: prompt.topic || trans('app.library.no_topic'),
-        })),
+    heatmapRows(props.prompts, {
+        marketSelected: Boolean(props.filters.market),
+        unnamed: trans('app.library.unknown_market_group'),
+    }),
 );
 
 const heatColumns = computed(() =>
@@ -228,7 +222,6 @@ function importCsv(event) {
 
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brand.id" />
                 <PeriodFilters :brand-id="brand.id" route-name="brands.prompts.index" />
 
                 <RankedBarChart
@@ -294,11 +287,14 @@ function importCsv(event) {
                         </button>
                     </div>
                     <HeatmapChart
-                        v-if="view === 'heatmap' && heatCells.length"
+                        v-if="view === 'heatmap' && chartData && heatRows.length"
                         :label="$t('app.library.heatmap')"
                         :rows="heatRows"
                         :columns="heatColumns"
                         :cells="heatCells"
+                        :row-height="48"
+                        :label-lines="2"
+                        :label-length="28"
                         @select="openCell"
                     />
                     <p v-else-if="view === 'heatmap' && chartData" class="text-sm text-shell-muted">

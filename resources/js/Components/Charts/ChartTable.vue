@@ -41,6 +41,7 @@ defineProps({
                         :scope="index === 0 ? 'row' : undefined"
                         class="px-2 py-1.5 font-normal"
                         :class="column.numeric ? 'text-right tabular-nums' : ''"
+                        :title="index === 0 ? row.title : undefined"
                     >
                         {{ row[column.key] }}
                     </component>

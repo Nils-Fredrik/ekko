@@ -1,5 +1,5 @@
 <script setup>
-import { formatDecimal } from '@/format';
+import { formatCurrency, formatDate, formatNumber } from '@/format';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
@@ -9,14 +9,6 @@ defineProps({
     engines: { type: Array, required: true },
     projectUsage: { type: Array, required: true },
 });
-
-function amount(value) {
-    if (value === null || value === undefined || value === '') {
-        return null;
-    }
-
-    return formatDecimal(value, 2);
-}
 </script>
 
 <template>
@@ -27,18 +19,22 @@ function amount(value) {
 
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">
             <section class="space-y-2 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
-                <p class="text-sm text-shell-muted">{{ month }}</p>
+                <p class="text-sm text-shell-muted">{{ formatDate(month) }}</p>
                 <p>
-                    {{ $t('app.workspace.calls') }}: {{ usage.calls }} /
-                    {{ usage.quota_calls ?? $t('app.workspace.unlimited') }}
+                    {{ $t('app.workspace.calls') }}: {{ formatNumber(usage.calls) }} /
+                    {{ usage.quota_calls == null ? $t('app.workspace.unlimited') : formatNumber(usage.quota_calls) }}
                 </p>
                 <p>
-                    {{ $t('app.workspace.platform_cost') }}: {{ amount(usage.platform_cost) }} /
-                    {{ amount(usage.budget_usd) ?? $t('app.workspace.unlimited') }}
+                    {{ $t('app.workspace.platform_cost') }}: {{ formatCurrency(usage.platform_cost) }} /
+                    {{ usage.budget_usd == null ? $t('app.workspace.unlimited') : formatCurrency(usage.budget_usd) }}
                 </p>
                 <p>
-                    {{ $t('app.workspace.byok_cost') }}: {{ amount(usage.byok_cost) }} /
-                    {{ amount(usage.byok_budget_usd) ?? $t('app.workspace.unlimited') }}
+                    {{ $t('app.workspace.byok_cost') }}: {{ formatCurrency(usage.byok_cost) }} /
+                    {{
+                        usage.byok_budget_usd == null
+                            ? $t('app.workspace.unlimited')
+                            : formatCurrency(usage.byok_budget_usd)
+                    }}
                 </p>
                 <p>{{ $t('app.workspace.usage_status') }}: {{ $t(`app.workspace.status_${usage.status}`) }}</p>
             </section>
@@ -46,7 +42,7 @@ function amount(value) {
             <section class="space-y-2 rounded-xl border border-line bg-shell-panel p-5 text-shell-text">
                 <h3 class="font-medium">{{ $t('pitch.usage_by_kind') }}</h3>
                 <p v-for="row in projectUsage" :key="row.kind">
-                    {{ $t(`pitch.kind_${row.kind}`) }}: {{ row.calls }} · {{ amount(row.cost) }}
+                    {{ $t(`pitch.kind_${row.kind}`) }}: {{ formatNumber(row.calls) }} · {{ formatCurrency(row.cost) }}
                 </p>
             </section>
 
@@ -58,7 +54,7 @@ function amount(value) {
                     :body="$t('app.empty.usage_body')"
                 />
                 <p v-for="engine in engines" :key="engine.name">
-                    {{ engine.name }}: {{ engine.calls }} · {{ amount(engine.cost) }}
+                    {{ engine.name }}: {{ formatNumber(engine.calls) }} · {{ formatCurrency(engine.cost) }}
                 </p>
             </section>
         </div>

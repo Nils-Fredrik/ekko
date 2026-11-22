@@ -1,5 +1,6 @@
 <script setup>
-import { XMarkIcon } from '@heroicons/vue/24/outline';
+import { InformationCircleIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { formatDate } from '@/format';
 import BottomSheet from '@/Components/UI/BottomSheet.vue';
 import FilterFields from './FilterFields.vue';
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/vue';
@@ -79,14 +80,20 @@ function loadView() {
 async function save() {
     busy.value = true;
     error.value = '';
+    const path = window.location.pathname;
     try {
-        await axios.post(route('brands.views.store', props.brandId), {
+        const { data: view } = await axios.post(route('brands.views.store', props.brandId), {
             name: name.value,
             page: props.routeName,
             filters: config.value.query,
         });
+        if (window.location.pathname !== path) return;
         name.value = '';
-        router.reload({ only: ['analysisFilters'] });
+        router.replaceProp('analysisFilters.views', (views) =>
+            [...views.filter((item) => item.id !== view.id), view].sort((a, b) =>
+                a.name.localeCompare(b.name, page.props.locale),
+            ),
+        );
     } catch (failure) {
         error.value = failure.response?.data?.message ?? trans('filters.failed');
     } finally {
@@ -97,10 +104,13 @@ async function removeView() {
     if (!selectedView.value) return;
     busy.value = true;
     error.value = '';
+    const path = window.location.pathname;
+    const id = selectedView.value;
     try {
-        await axios.delete(route('brands.views.destroy', [props.brandId, selectedView.value]));
+        await axios.delete(route('brands.views.destroy', [props.brandId, id]));
+        if (window.location.pathname !== path) return;
         selectedView.value = '';
-        router.reload({ only: ['analysisFilters'] });
+        router.replaceProp('analysisFilters.views', (views) => views.filter((view) => String(view.id) !== id));
     } catch {
         error.value = trans('filters.failed');
     } finally {
@@ -190,6 +200,16 @@ async function removeView() {
                 </form>
             </div>
         </details>
+        <p
+            v-if="config.automaticPeriod && period.measured_from && period.measured_from > period.from"
+            class="flex items-start gap-3 rounded-xl border border-line-soft bg-shell-surface p-4 text-sm text-shell-text"
+            data-testid="data-note"
+        >
+            <InformationCircleIcon class="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
+            <span>
+                {{ $t('app.dashboard.data_note', { date: formatDate(period.measured_from), days: period.days }) }}
+            </span>
+        </p>
         <p v-if="error" role="alert" class="text-sm text-error">{{ error }}</p>
         <BottomSheet :show="open" :title="$t('app.dashboard.filters')" @close="open = false">
             <form :id="mobileFormId" class="space-y-4 py-3" @submit.prevent="apply()">

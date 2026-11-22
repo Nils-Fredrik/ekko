@@ -65,6 +65,12 @@ afterEach(function () {
 
 function brandUrl(MetricsWorld $w, string $query = ''): string
 {
+    // The comparison day in this fixture sits a month before the current day. These tests cover the
+    // insight text, so they keep the 28-day window they were written for. The automatic period is covered elsewhere.
+    if (! str_contains($query, 'days=') && ! str_contains($query, 'from=')) {
+        $query .= ($query === '' ? '?' : '&').'days=28';
+    }
+
     return '/brands/'.$w->brand->id.$query;
 }
 

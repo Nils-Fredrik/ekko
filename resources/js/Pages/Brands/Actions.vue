@@ -1,5 +1,4 @@
 <script setup>
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
@@ -63,7 +62,6 @@ function save() {
             <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
         </template>
         <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-            <BrandNav :brand-id="brand.id" />
             <div class="flex flex-wrap items-end gap-3">
                 <label class="flex flex-col gap-1 text-xs text-shell-muted">
                     {{ $t('action_items.ui.filter_status') }}

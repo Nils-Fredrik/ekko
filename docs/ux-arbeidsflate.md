@@ -218,13 +218,14 @@ Hver agent får fire oppgaver.
     market_id: int | null,
     counts: { inbox, actions_new, entities_pending, integrations_failing },
     usage: { month, calls, quota, cost_usd, percent } | null,
+    role: string | null,                  // rollenavnet, lagt til i U17
     can: { manage_prompts, manage_competitors, manage_brands, manage_markets, manage_alerts, manage_reports }
   }
   ```
-- **Tallene** kommer fra `App\Workspace\WorkspaceCounts::for(Team, ?Brand)`:
-  - `inbox`: summen fra innboksen (6.5). Inntil U25 er merget, brukes antall ukvitterte varsler.
+- **Tallene** kommer fra `App\Workspace\WorkspaceCounts::for(Team, ?Brand, ?Market = null)`:
+  - `inbox`: summen av ventende rader i innboksen (6.5) for valgt merkevare og marked.
   - `entities_pending`: antall navn i køen (6.3). Inntil U21 er merget, brukes antall forslag fra `UnknownBrands::suggestions` for 28 dager.
-- **Ytelse:** tallene caches per tenant og merkevare i 60 sekunder og nullstilles når en handling i 6.2–6.5 lagres.
+- **Ytelse:** tallene caches per tenant, merkevare og marked i 60 sekunder og nullstilles når en handling i 6.2–6.5 lagres.
 - **Mobil (under 768 px):** sidemenyen er en skuff som åpnes fra en toppstripe med logo, sidetittel og menyknapp. Skuffen lukkes ved navigasjon. Filtre bruker `BottomSheet` som før.
 
 **Akseptkriterier for U17:**
@@ -234,6 +235,26 @@ Hver agent får fire oppgaver.
 - Markedsvalg følger URL-en, og kopiert URL gir samme valg.
 - Hele sidemenyen kan brukes med tastatur. `⌘K` åpner paletten.
 - Referansebildene er oppdatert for alle sider, og axe gir ingen kritiske funn.
+
+**Slik U17 er bygget:**
+
+- **Filer:** `Layouts/AppLayout.vue` (skall, toppstripe og skuff), `Components/Shell/Sidebar.vue` (sidemenyen), `Components/Shell/sidebarNav.js` (lenker, aktiv side, merketall og spørring, testet i `tests/js/sidebar-nav.test.mjs`) og `Composables/useWorkspace.js`. På serveren lager `App\Workspace\Workspace::for(Request)` propen og `App\Workspace\WorkspaceCounts` tallene. Videresendingene står i `WorkspaceRedirectController`.
+- **Fjernet:** `BrandNav.vue` og Jetstreams ubrukte menykomponenter `NavLink`, `ResponsiveNavLink`, `Dropdown` og `DropdownLink`. Menyene i sidemenyen bruker Headless UI `Menu`, som gir piltaster, Escape og fokus tilbake til knappen.
+- **Markedet** leses fra `?market` i URL-en også i nettleseren, slik at lenkene følger valget umiddelbart. Filterlinjens delvise besøk henter også `workspace`, slik at merketallene gjelder markedet i URL-en.
+- **Lenkene til analysesidene** beholder analysefiltrene (periode, sammenligning, motor osv.) som `BrandNav` gjorde, og får gjeldende `market`. Roboter og trafikk, Arbeid og oppsettssidene unntatt Prompts og temaer får ikke `market`.
+- **Aktiv lenke for dagens sider:** `brands.settings` markerer Identitet, `brands.plan.show` og `brands.markets.create` markerer Markeder og måleplan, og Innboks er aktiv på `alerts.*`. Etter en videresending markeres siden brukeren havner på.
+- `entities_pending` er antall navn i `EntityQueue::pending`. En lagring eller sletting av en kilde i `WorkspaceCounts::SOURCES` nullstiller tellingene for tenanten etter commit. Integrasjonssynken gjør det samme når statusen endres.
+- **Utsatt prop:** `workspace` deles bare med innloggede brukere med en tenant. Mens propen lastes etter et besøk, viser sidemenyen forrige verdi for samme tenant og merkevare, så den ikke blinker.
+- **Avvik og tillegg:**
+  - `workspace.role` er lagt til: rollenavnet under brukernavnet nederst i sidemenyen (skisse 1).
+  - Partner-rådgivere får lenken «Pitch» (`pitches.index`) under Portefølje, fordi toppmenyen som hadde den, er fjernet.
+  - Rapporter (`reports.index`), Merkevarer (`brands.index`) og Veiviseren nås fra kommandopaletten, Portefølje og «Ny merkevare». Sidemenyen har ingen egen lenke til dem.
+  - Logoen er dagens Maksimer-merke ved siden av «Ekko», ikke den røde «e»-en i skissen.
+  - Forbruk kan vise over 100 %. Linjen stopper på full bredde.
+  - `workspace` deles med alle Inertia-sider for innloggede brukere med en tenant, ikke bare sidene i applayouten. Serveren vet ikke hvilken layout en side bruker. De få sidene utenfor (bekreft passord, MCP-godkjenning) får ett ekstra utsatt kall.
+  - Masseoppdateringer uten modellhendelser (for eksempel omklassifisering av nevnelser og nye svar med ukjente navn) nullstiller ikke tallene. De vises senest etter 60 sekunder.
+  - Valgt merkevare, marked, tenant, tema og språk i menyene har en prikk og teksten «Valgt nå» for skjermlesere (`CurrentMark.vue`).
+  - Sidetitlene på dagens sider er uendret. Overskrift og «Merkevare · Gruppe» som i skissen kommer med sideoppgavene (U20–U26).
 
 ### 4.2 Formatering (U18)
 
@@ -359,7 +380,7 @@ Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-fo
 
 Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.manage`.
 
-**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes ennå (`brands.setup.*`, `inbox.index`), vises ikke. Inntil U17 deler `workspace`, viser paletten bare «Lag rapport nå», som før. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg».
+**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg».
 
 ## 5. Skjermer
 
@@ -380,7 +401,7 @@ Alle skjermer har dette hodet: brødsmule i 12 px `text-shell-muted` («Fjordbyr
    - Er det ingen aktive motorer, står «Ingen motorer er aktive» med lenke.
 2. **Krever oppmerksomhet:**
    - Høyst tre rader med statuskant (4 px, `rounded`) og lenke til stedet saken løses.
-   - Kildene, sortert etter alvor: integrasjon med feil (`error`), manglende pris i planen (`error`), kvote over 80 % (`warning`), ukjente merkevarer som venter (`warning`) og nye tiltak (`warning`).
+   - Kildene, sortert etter alvor: integrasjon med feil (`error`), manglende pris i planen (`error`), kvote over 80 % (`warning`), ukjente merkevarer som venter (`warning`) og nye tiltak (`warning`). Kvotestatus vises til brukere med tilgang til forbrukssiden.
    - Uten saker står «Alt ser bra ut» i `text-success-text`.
 3. **Kom i gang:** oppstartslisten (5.8) med «*x* av 6», fremdriftslinje i `success-text` og «Skjul».
    - Valget om å skjule lagres per bruker og merkevare (`user_brand_preferences.checklist_hidden_at`, ny tabell i U25).
@@ -937,7 +958,7 @@ Ved kopiering av prompts prioriteres aktive kjerneprompts, deretter øvrige akti
 **`App\Inbox\InboxQuery`:**
 
 - `items(Team, ?Brand, ?Market, ?string $type, bool $handled): list<InboxItem>`
-- `counts(Team, ?Brand): array`
+- `counts(Team, ?Brand, ?Market = null): array` gir antall ventende rader for `all`, `alert`, `entity`, `action`, `claim` og `integration`. En gruppe teller som én rad. Sidemenyen bruker `all`.
 
 Den har ingen egen tabell. Den samler fra kildene under:
 
@@ -957,6 +978,7 @@ Den har ingen egen tabell. Den samler fra kildene under:
 ```
 
 - **Tekst:** `title` og `detail` lages fra språknøkler i `lang/*/inbox.php`. Varsler bruker `AlertPresenter`, og presenterens `line()` blir offentlig som `present(Alert): array{title, detail}`.
+- `handled=1` inkluderer også behandlede rader. Hver rad har `handled` og `source_ids`. Varselgrupper har også `members` med lesbar tekst per varsel. Ved gruppekvittering sendes opptil 200 ID-er om gangen. `flash.acknowledged_ids` inneholder ID-ene denne brukeren faktisk kvitterte. Angre bruker disse ID-ene. Nye merkenavn har `suggestion` fra navnekøen. Etter et bestilt rettetiltak inneholder `flash.action_id` tiltakets ID.
 - **`edge`:** en av `warning`, `error`, `medium-beige`, `marker-action` og `marker-model`.
 
 **Ruter:**
@@ -966,7 +988,7 @@ Den har ingen egen tabell. Den samler fra kildene under:
 | `POST /alerts/acknowledge` | `alerts.acknowledge.bulk` | `alerts.manage` | `ids[]` (1–200) |
 | `DELETE /alerts/acknowledge` | `alerts.unacknowledge.bulk` | `alerts.manage` | `ids[]` (angre) |
 | `POST /brands/{brand}/claims/{claim}/action` | `brands.claims.action` | `prompts.manage` | Lager et `fact_correction`-tiltak fra påstanden etter reglene i 11.3 og 11.6 og lenker påstandene for samme faktum. |
-| `PUT /brands/{brand}/alert-rules/{type}` | `brands.alert-rules.upsert` | `alerts.manage` | `is_active`, `threshold?`, `channels[]` (`slack`, `email`, `inbox`) |
+| `PUT /brands/{brand}/alert-rules/{type}` | `brands.alert-rules.upsert` | `alerts.manage` | Send feltene som redigeres. Valgbare felt er `is_active`, `threshold` og `channels[]` (`slack`, `email`, `inbox`). |
 | `POST /brands/{brand}/report-schedules` | `brands.report-schedules.store` | `reports.manage` | `cadence`, `recipients[]`, `locale`, `branding` |
 | `PUT /brands/{brand}/report-schedules/{schedule}` | `brands.report-schedules.update` | `reports.manage` | som `store` |
 | `DELETE /brands/{brand}/report-schedules/{schedule}` | `brands.report-schedules.destroy` | `reports.manage` | |
@@ -983,7 +1005,7 @@ Den har ingen egen tabell. Den samler fra kildene under:
   problems: [{ kind, severity, text, url }], checklist: [{ key, done, optional, text, hint, url }], checklist_hidden }
 ```
 
-Ny tabell `user_brand_preferences`: `tenant_id`, `user_id`, `brand_id` og `checklist_hidden_at`, unik på `(user_id, brand_id)`.
+Ny tabell `user_brand_preferences`: `tenant_id`, `user_id`, `brand_id` og `checklist_hidden_at`, unik på `(tenant_id, user_id, brand_id)`.
 
 `brands.entities_reviewed_at` settes av U21 når køen blir tom etter en beslutning. U25 leser feltet.
 
@@ -1001,13 +1023,12 @@ Ny tabell `user_brand_preferences`: `tenant_id`, `user_id`, `brand_id` og `check
 1. **Varsler** (`AlertController::index`): `subject` erstattes av `title` og `detail` fra `AlertPresenter`. Ingen side, e-post eller Slack-melding viser interne nøkler. Testen leter etter `market:`, `prompt:` og heksadesimale hasher på 32 tegn i HTML-en.
 2. **Formatering av forbruk og admin-forbruk:** beløp, tall og datoer formateres med en midlertidig `resources/js/format.js` med `formatNumber`, `formatCurrency` og `formatDate`. U18 utvider filen. Rekkefølgen U16 og så U18 betyr at U18 bygger videre på filen.
 3. **Stavefeil:** «Dashbord» blir «Oversikt» i `nb`.
-4. **Standardperiode** (`DashboardPeriod`): uten `days`, `from` og `to` i URL-en velges den lengste av 7, 28 og 90 dager der antall dager med data (`agg_daily` for merkevaren) dekker minst 80 % av perioden. Perioden vokser altså med historikken: 7 dager fra start, 28 dager fra 23 dager med data og 90 dager fra 72 dager med data.
-   - Har merkevaren under 7 dager med data, brukes 7 dager.
-   - Analysesidene viser da datamerknaden (skisse 1) i `bg-shell-surface border-line-soft rounded-xl` med info-ikon: «Data fra *dato*. Perioden er satt til *n* dager, og grafene fylles ut etter hvert som målingene kommer.»
-   - En grafserie uten data før første dag tegner et skravert område med «Ingen målinger før *dato*».
-5. **Share of voice og trend:** høyst 6 konkurrenter med egen farge, sortert etter andel i perioden. Resten summeres i «Andre (*n*)» med `--data-neutral` og stiplet linje.
+4. **Standardperiode** (`DashboardPeriod`): uten `days`, `from` og `to` i URL-en velges den lengste av 7, 28 og 90 dager der antall dager med `agg_daily` *inne i det vinduet* dekker minst 80 % av lengden. Eldre dager utenfor vinduet teller ikke. 7 dager fra start, 28 dager fra 23 dager i de siste 28, og 90 dager fra 72 dager i de siste 90. Samme lengde brukes ved delvis innlasting av innsikt og filtre, via hurtiglager for den lokale dagen.
+   - Har merkevaren under 7 dager med data i vinduet, brukes 7 dager.
+   - Datamerknaden vises bare når første måledag er etter periodens start. Den står i `bg-shell-surface border-line-soft rounded-xl` med info-ikon: «Data fra *dato*. Perioden er satt til *n* dager, og grafene fylles ut etter hvert som målingene kommer.»
+   - En grafserie uten data før første dag tegner et skravert område med «Ingen målinger før *dato*». For uke og måned skraveres bare bøtter som slutter før første måledag. Kryping og trafikk bruker andre kilder og skraveres ikke ut fra `agg_daily`.
+5. **Share of voice og trend** på `Brands/Show`: høyst 6 konkurrenter, sortert etter andel i perioden, med farge 0–5 i den rekkefølgen. Begge grafene bruker den samme rekkefølgen og de samme fargene. Resten blir «Andre (*n*)» med `--data-neutral` og stiplet linje. Andelen summeres. Synlighetstrenden bruker snittet, så raten holder seg mellom 0 og 1. «Andre» kan ikke velges som filter. Oversikten har ingen slik graf.
    - Forklaringen er en liste ved siden av grafen (flex `1 1 170px`) med fargeprikk, navn og verdi. Den går under grafen ved smal bredde og ligger aldri oppå aksen.
-   - Gjelder `Brands/Show` og `Home`.
 6. **Prompt-heatmap** (`brands.prompts.index`): med valgt marked vises bare prompts i markedet. Ved «Alle markeder» grupperes radene per marked med markedsnavn i gruppeoverskriften. Tekstene får to linjer før de kuttes, med full tekst i `title`. Rader uten celler viser «Ikke målt i perioden».
 
 **Akseptkriterier:** punkt 1–6 har tester. Referansebildene er oppdatert for sidene som er berørt.

@@ -4,7 +4,7 @@
 
 Nettleseren kjører i det offisielle Playwright-imaget, låst til versjon, digest og `linux/amd64`, også på Apple Silicon. Runneren kobler den til PHP-serveren på verten og stopper sin egen container etter kjøringen. Ingen produksjonsdata eller eksterne modellkall brukes. Nettleseroppsettet nullstiller bare den verifiserte `_testing`-databasen; kjør ikke Pest eller andre nettlesertester samtidig mot samme database.
 
-Sideregisteret har 44 scenarioer, inkludert fakta, pitchprosjekter og komponentsiden (U18): 176 referansebilder og 184 kontroller når de åtte testene av sperrer og grafventing tas med.
+Sideregisteret har 44 scenarioer, inkludert fakta, pitchprosjekter og komponentsiden (U18): 176 referansebilder og 192 kontroller når de åtte testene av sperrer og grafventing og de åtte testene av sidemenyen (`shell.spec.mjs`, U17) tas med. Sidemenytestene kjøres bare i mørkt tema, én for desktop og én for mobil; resten hoppes over.
 
 ## Referansebilder
 

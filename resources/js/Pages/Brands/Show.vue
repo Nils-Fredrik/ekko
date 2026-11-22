@@ -1,11 +1,12 @@
 <script setup>
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import { crossFilter } from '@/Components/Brand/filters.js';
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
 import SmallMultiplesChart from '@/Components/Charts/SmallMultiplesChart.vue';
 import StackedAreaChart from '@/Components/Charts/StackedAreaChart.vue';
+import ChartLegend from '@/Components/Charts/ChartLegend.vue';
 import TrendLineChart from '@/Components/Charts/TrendLineChart.vue';
+import { limitCompetitors, rankedCompetitorKeys } from '@/Components/Charts/support/competitors.js';
 import { alignComparison, periodBuckets } from '@/Components/Charts/support/data.js';
 import { formatValue } from '@/Components/Charts/support/format.js';
 import { pickLeadingEngine } from './leadingEngine.js';
@@ -50,6 +51,9 @@ const secondaryCards = [
 ];
 
 function selectFilter(key, event) {
+    if (event?.key === 'others') {
+        return;
+    }
     const value = event?.key === 'brand' ? null : event?.key;
     if (value !== undefined) crossFilter(route('brands.show', props.brand.id), props.analysisFilters.query, key, value);
 }
@@ -124,6 +128,40 @@ const competitorIndex = computed(() => {
     return new Map(ids.map((id, index) => [id, index]));
 });
 
+const shareItems = computed(() => {
+    if (categories.value.length === 0) {
+        return [];
+    }
+    const groups = new Map();
+    const add = (id, label, own, period, metric) => {
+        if (!groups.has(id)) {
+            groups.set(id, { label, own, points: new Map() });
+        }
+        groups.get(id).points.set(period, metric);
+    };
+    for (const row of props.chartData?.series ?? []) {
+        add('brand', props.brand.name, true, row.period, row.metrics?.share_of_voice);
+    }
+    for (const row of props.chartData?.competitors ?? []) {
+        for (const entity of row.entities ?? []) {
+            if (entity.id === 'brand') {
+                continue;
+            }
+            add(entity.id, entity.name ?? entity.id, false, row.period, entity.share_of_voice);
+        }
+    }
+
+    return [...groups.entries()].map(([key, group]) => ({
+        key,
+        label: group.label,
+        own: group.own || undefined,
+        colorIndex: group.own ? undefined : (competitorIndex.value.get(key) ?? 0),
+        points: categories.value.map((period) => point(group.points.get(period))),
+    }));
+});
+
+const competitorOrder = computed(() => rankedCompetitorKeys(shareItems.value));
+
 const trendSeries = computed(() => {
     if (categories.value.length === 0) {
         return [];
@@ -155,7 +193,11 @@ const trendSeries = computed(() => {
             points: categories.value.map((period) => point(entity.points.get(period))),
         }));
 
-    return [own, ...competitors];
+    return limitCompetitors([own, ...competitors], {
+        order: competitorOrder.value,
+        otherLabel: (count) => trans('app.dashboard.others', { count }),
+        reduce: 'mean',
+    });
 });
 
 const previousTrend = computed(() => {
@@ -174,6 +216,17 @@ const previousTrend = computed(() => {
         }),
     };
 });
+
+const trendLegend = computed(() => [
+    ...trendSeries.value,
+    {
+        key: 'previous',
+        label: previousTrend.value.label,
+        own: true,
+        dashed: true,
+        points: previousTrend.value.points,
+    },
+]);
 
 const markers = computed(() => [...props.modelChanges.map(modelMarker), ...(props.chartData?.action_markers ?? [])]);
 
@@ -206,37 +259,12 @@ const panelMarkers = computed(() => {
     return grouped;
 });
 
-const shareSeries = computed(() => {
-    if (categories.value.length === 0) {
-        return [];
-    }
-    const groups = new Map();
-    const add = (id, label, own, period, metric) => {
-        if (!groups.has(id)) {
-            groups.set(id, { label, own, points: new Map() });
-        }
-        groups.get(id).points.set(period, metric);
-    };
-    for (const row of props.chartData?.series ?? []) {
-        add('brand', props.brand.name, true, row.period, row.metrics?.share_of_voice);
-    }
-    for (const row of props.chartData?.competitors ?? []) {
-        for (const entity of row.entities ?? []) {
-            if (entity.id === 'brand') {
-                continue;
-            }
-            add(entity.id, entity.name ?? entity.id, false, row.period, entity.share_of_voice);
-        }
-    }
-
-    return [...groups.entries()].map(([key, group]) => ({
-        key,
-        label: group.label,
-        own: group.own || undefined,
-        colorIndex: group.own ? undefined : (competitorIndex.value.get(key) ?? 0),
-        points: categories.value.map((period) => point(group.points.get(period))),
-    }));
-});
+const shareSeries = computed(() =>
+    limitCompetitors(shareItems.value, {
+        order: competitorOrder.value,
+        otherLabel: (count) => trans('app.dashboard.others', { count }),
+    }),
+);
 
 const sentimentRows = computed(() => {
     const sentiment = props.chartData?.sentiment;
@@ -290,7 +318,6 @@ function openMarker(marker) {
 
         <div class="py-4">
             <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brand.id" />
                 <Link v-if="hasPitchReport" :href="route('pitches.report', brand.id)" class="text-sm text-primary">
                     {{ $t('pitch.report') }}
                 </Link>
@@ -376,20 +403,24 @@ function openMarker(marker) {
                         :href="route('brands.settings', brand.id)"
                         :link="$t('app.empty.settings_link')"
                     />
-                    <TrendLineChart
-                        v-else-if="trendSeries.length"
-                        class="mt-2"
-                        :label="$t('app.dashboard.trend')"
-                        :categories="categories"
-                        :series="trendSeries"
-                        :previous="previousTrend"
-                        :markers="markers"
-                        :until="period.to"
-                        :height="180"
-                        select-series
-                        @select="selectFilter('competitor', $event)"
-                        @marker="openMarker"
-                    />
+                    <div v-else-if="trendSeries.length" class="mt-2 flex flex-wrap items-start gap-4">
+                        <TrendLineChart
+                            class="min-w-0 flex-[2_1_16rem]"
+                            :legend="false"
+                            :label="$t('app.dashboard.trend')"
+                            :categories="categories"
+                            :series="trendSeries"
+                            :previous="previousTrend"
+                            :markers="markers"
+                            :until="period.to"
+                            :height="180"
+                            :empty-before="period.measured_from || ''"
+                            select-series
+                            @select="selectFilter('competitor', $event)"
+                            @marker="openMarker"
+                        />
+                        <ChartLegend :series="trendLegend" />
+                    </div>
                 </section>
 
                 <section class="grid gap-4 lg:grid-cols-2">
@@ -401,16 +432,20 @@ function openMarker(marker) {
                             :title="$t('app.empty.voice_title')"
                             :body="$t('app.empty.voice_body')"
                         />
-                        <StackedAreaChart
-                            v-else-if="shareSeries.length"
-                            class="mt-2"
-                            normalized
-                            :label="$t('app.dashboard.voice')"
-                            :categories="categories"
-                            :series="shareSeries"
-                            :until="period.to"
-                            :height="200"
-                        />
+                        <div v-else-if="shareSeries.length" class="mt-2 flex flex-wrap items-start gap-4">
+                            <StackedAreaChart
+                                class="min-w-0 flex-[2_1_16rem]"
+                                normalized
+                                :legend="false"
+                                :label="$t('app.dashboard.voice')"
+                                :categories="categories"
+                                :series="shareSeries"
+                                :until="period.to"
+                                :height="200"
+                                :empty-before="period.measured_from || ''"
+                            />
+                            <ChartLegend :series="shareSeries" />
+                        </div>
                     </div>
                     <div>
                         <h3 class="text-sm font-medium text-shell-text">{{ $t('app.dashboard.sentiment') }}</h3>

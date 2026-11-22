@@ -53,18 +53,40 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await shared.close();
 
     await bar.locator('summary').click();
-    await bar.getByLabel('View name', { exact: true }).fill('Saved test view');
-    await bar.getByRole('button', { name: 'Save current view', exact: true }).click();
+    const viewName = bar.getByLabel('View name', { exact: true });
+    const marketChip = bar.getByRole('button', { name: 'Remove NO', exact: true });
+    // A late refresh for the saved view must never restore the market after the user removes it.
+    let releaseRefresh;
+    const holdRefresh = new Promise((resolve) => { releaseRefresh = resolve; });
+    await page.route(`**${path}?*`, async (route) => {
+        if (route.request().headers()['x-inertia-partial-data'] !== 'analysisFilters') return route.continue();
+        const response = await route.fetch();
+        await holdRefresh;
+        await route.fulfill({ response });
+    });
+    try {
+        await viewName.fill('Saved test view');
+        await bar.getByRole('button', { name: 'Save current view', exact: true }).click();
+        await expect(viewName).toHaveValue('');
+        await expect(bar.getByRole('option', { name: 'Saved test view', exact: true })).toBeAttached();
+        await marketChip.click();
+        await expect(marketChip).toHaveCount(0);
+    } finally {
+        releaseRefresh();
+        await page.unrouteAll({ behavior: 'wait' });
+    }
     await expect(bar.getByRole('combobox', { name: 'Saved views', exact: true })).toBeVisible();
-    await bar.getByRole('button', { name: 'Remove NO', exact: true }).click();
-    await expect(bar.getByRole('button', { name: 'Remove NO', exact: true })).toHaveCount(0);
+    await expect(page).not.toHaveURL(/market=/);
     await page.goBack();
-    await expect(bar.getByRole('button', { name: 'Remove NO', exact: true })).toBeVisible();
+    await expect(marketChip).toBeVisible();
     await page.goForward();
-    await expect(bar.getByRole('button', { name: 'Remove NO', exact: true })).toHaveCount(0);
+    await expect(marketChip).toHaveCount(0);
     if (!(await bar.getByRole('combobox', { name: 'Saved views', exact: true }).isVisible())) await bar.locator('summary').click();
     await bar.getByRole('combobox', { name: 'Saved views', exact: true }).selectOption({ label: 'Saved test view' });
     await expect(bar.getByRole('button', { name: 'Remove NO', exact: true })).toBeVisible();
+    await bar.getByRole('button', { name: 'Delete view', exact: true }).click();
+    await expect(bar.getByRole('option', { name: 'Saved test view', exact: true })).toHaveCount(0);
+    await expect(marketChip).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
     await bar.getByRole('button', { name: 'Add or change filters', exact: true }).click();
@@ -117,7 +139,7 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await page.mouse.click(topicBar.x, topicBar.y);
     await expect(page).toHaveURL(/topic=\d+/);
     await expect(bar.getByRole('button', { name: /Remove Topic/ })).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Facts', exact: true })).toHaveAttribute('href', new RegExp(`${path}/facts$`));
+    await expect(page.getByRole('link', { name: 'Fact check', exact: true })).toHaveAttribute('href', new RegExp(`${path}/facts$`));
     await page.goto(`${path}/competitors?from=2026-10-01&to=2026-10-03&grain=week`);
     await bar.getByRole('button', { name: 'Add or change filters', exact: true }).click();
     await expect(bar.getByRole('combobox', { name: 'Group by', exact: true })).toHaveCount(0);

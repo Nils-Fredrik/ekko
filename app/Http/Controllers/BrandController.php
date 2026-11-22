@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Actions\ActionMarkers;
+use App\Brands\BrandHealth;
 use App\Dashboard\AnalysisFilters;
 use App\Dashboard\DashboardLabels;
 use App\Dashboard\DashboardPeriod;
@@ -57,7 +58,7 @@ class BrandController extends Controller
 
         $brand->load(['markets', 'topics', 'competitors']);
         $query = AnalysisFilters::query($brand, $request->query(), 'brands.show');
-        $period = DashboardPeriod::fromInput($query);
+        $period = DashboardPeriod::fromInput($query, $brand->id);
         $selection = AnalysisFilters::selection($query);
         $grain = $query['grain'];
         $filter = $period->filter($brand->id, ...$selection);
@@ -72,6 +73,7 @@ class BrandController extends Controller
         };
 
         return Inertia::render('Brands/Show', [
+            'health' => fn () => app(BrandHealth::class)->for($brand),
             'canCreateMarket' => fn () => Gate::allows('createMarketAnalysis', Analysis::class),
             'hasPitchReport' => fn () => Team::query()->whereKey(current_tenant_id())->whereNotNull('pitch_expires_at')->exists(),
             'brand' => [
@@ -80,7 +82,7 @@ class BrandController extends Controller
                 'status' => DashboardLabels::status($brand->status),
             ],
             'period' => [...$period->toArray(), 'grain' => $grain],
-            'analysisFilters' => fn () => AnalysisFilters::payload($brand, 'brands.show', $query),
+            'analysisFilters' => fn () => AnalysisFilters::payload($brand, 'brands.show', $query, $request->query()),
             'filters' => [
                 'market' => $selection['marketIds'][0] ?? null,
                 'engine' => $selection['engineKeys'][0] ?? null,

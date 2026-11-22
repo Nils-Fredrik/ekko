@@ -9,6 +9,7 @@ import { computed } from 'vue';
 const props = defineProps({
     alerts: { type: Array, required: true },
     rules: { type: Array, required: true },
+    tenantWideTypes: { type: Array, required: true },
     brands: { type: Array, required: true },
     canManage: { type: Boolean, required: true },
 });
@@ -21,7 +22,7 @@ const form = useForm({
 });
 const receipt = useForm({});
 
-const tenantWide = computed(() => form.type === 'quota' || form.type === 'model_change');
+const tenantWide = computed(() => props.tenantWideTypes.includes(form.type));
 const field = 'rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm text-shell-text';
 
 function addRule() {
@@ -75,10 +76,10 @@ const editable = props.rules.map((rule) => ({
                     class="flex items-center justify-between gap-3 text-sm"
                 >
                     <div>
-                        <p>{{ $t(`app.alert_types.${alert.type}`) }}</p>
+                        <p>{{ alert.title }}</p>
                         <p class="text-shell-muted">
-                            {{ alert.brand }}
-                            <span v-if="alert.subject">· {{ alert.subject }}</span>
+                            <span v-if="alert.brand && !alert.detail.includes(alert.brand)">{{ alert.brand }} ·</span>
+                            {{ alert.detail }}
                         </p>
                     </div>
                     <p v-if="alert.acknowledged">{{ $t('app.workspace.acknowledged') }}</p>

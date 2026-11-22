@@ -38,7 +38,7 @@ class BrandPromptController extends Controller
         BrandPage::authorizeView($brand);
         $brand->load(['markets', 'topics']);
         $query = AnalysisFilters::query($brand, $request->query(), 'brands.prompts.index');
-        $period = DashboardPeriod::fromInput($query);
+        $period = DashboardPeriod::fromInput($query, $brand->id);
         $selection = AnalysisFilters::selection($query);
         $marketIds = $selection['marketIds'];
         $promptMarketIds = $marketIds === [] ? $brand->markets->pluck('id')->all() : $marketIds;
@@ -96,7 +96,7 @@ class BrandPromptController extends Controller
         return Inertia::render('Brands/Prompts', [
             'brand' => BrandPage::payload($brand),
             'period' => $period->toArray(),
-            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.prompts.index', $query),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.prompts.index', $query, $request->query()),
             'filters' => $query,
             'markets' => BrandPage::markets($brand),
             'prompts' => $prompts,
@@ -163,7 +163,7 @@ class BrandPromptController extends Controller
         BrandPage::authorizeView($brand);
         $prompt = $this->promptOf($brand, $prompt);
         $viewQuery = AnalysisFilters::query($brand, $request->query(), 'brands.prompts.show');
-        $period = DashboardPeriod::fromInput($viewQuery);
+        $period = DashboardPeriod::fromInput($viewQuery, $brand->id);
         $filter = new MetricsFilter($brand->id, $period->from, $period->to, engineKeys: isset($viewQuery['engine']) ? [(string) $viewQuery['engine']] : [], promptIds: [$prompt->id]);
         $from = CarbonImmutable::parse($period->from.' 00:00:00', $period->timezone)->utc();
         $to = CarbonImmutable::parse($period->to.' 23:59:59', $period->timezone)->utc();
@@ -264,7 +264,7 @@ class BrandPromptController extends Controller
                 'is_active' => $prompt->is_active,
             ],
             'period' => $period->toArray(),
-            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.prompts.show', $viewQuery),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.prompts.show', $viewQuery, $request->query()),
             'engines' => array_values($groups),
             'truncated' => $total > 100,
             'shown' => $responses->count(),

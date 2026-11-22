@@ -33,7 +33,7 @@ class BrandCompetitorController extends Controller
         BrandPage::authorizeView($brand);
         $brand->load('markets');
         $query = AnalysisFilters::query($brand, $request->query(), 'brands.competitors.index');
-        $period = DashboardPeriod::fromInput($query);
+        $period = DashboardPeriod::fromInput($query, $brand->id);
         $selection = AnalysisFilters::selection($query);
         $grain = CompetitorPage::grain($period);
         $filter = $period->filter($brand->id, ...$selection);
@@ -58,7 +58,7 @@ class BrandCompetitorController extends Controller
         return Inertia::render('Brands/Competitors', [
             'brand' => BrandPage::payload($brand),
             'period' => $period->toArray(),
-            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.competitors.index', $query),
+            'analysisFilters' => AnalysisFilters::payload($brand, 'brands.competitors.index', $query, $request->query()),
             'filters' => $query,
             'markets' => BrandPage::markets($brand),
             'competitors' => $competitors,

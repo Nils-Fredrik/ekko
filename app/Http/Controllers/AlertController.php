@@ -2,15 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Alerts\AlertPresenter;
+use App\Alerts\AlertRules;
 use App\Alerts\AlertType;
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,7 +21,7 @@ use Inertia\Response;
  */
 class AlertController extends Controller
 {
-    public function index(): Response
+    public function index(AlertPresenter $presenter): Response
     {
         Gate::authorize('viewAny', Alert::class);
 
@@ -27,22 +29,29 @@ class AlertController extends Controller
         $rules = AlertRule::query()->with('brand')->orderBy('id')->get();
 
         return Inertia::render('Alerts/Index', [
-            'alerts' => $alerts->map(fn (Alert $alert): array => [
-                'id' => $alert->id,
-                'type' => $alert->alertRule->type,
-                'brand' => $alert->alertRule->brand?->name,
-                'subject' => $alert->subject,
-                'triggered_at' => $alert->triggered_at->toIso8601String(),
-                'acknowledged' => $alert->acknowledged_at !== null,
-            ])->values(),
+            'alerts' => $alerts->map(function (Alert $alert) use ($presenter): array {
+                $presented = $presenter->present($alert);
+
+                return [
+                    'id' => $alert->id,
+                    'type' => $alert->alertRule->type,
+                    'brand' => $alert->alertRule->brand?->name,
+                    'title' => $presented['title'],
+                    'detail' => $presented['detail'],
+                    'triggered_at' => $alert->triggered_at->toIso8601String(),
+                    'acknowledged' => $alert->acknowledged_at !== null,
+                ];
+            })->values(),
             'rules' => $rules->map(fn (AlertRule $rule): array => [
                 'id' => $rule->id,
                 'brand_id' => $rule->brand_id,
                 'brand' => $rule->brand?->name,
                 'type' => $rule->type,
                 'threshold' => $rule->threshold,
+                'channels' => array_values(array_unique(['inbox', ...array_intersect($rule->channels, ['email', 'slack'])])),
                 'is_active' => $rule->is_active,
             ])->values(),
+            'tenantWideTypes' => collect(AlertType::cases())->filter(fn (AlertType $type) => $type->isTenantWide())->pluck('value')->values(),
             'brands' => Brand::query()->orderBy('name')->get(['id', 'name']),
             'canManage' => Gate::allows('create', AlertRule::class),
         ]);
@@ -54,7 +63,7 @@ class AlertController extends Controller
         $type = AlertType::tryFrom((string) $request->input('type'));
         $tenantWide = $type?->isTenantWide() ?? false;
         $data = $request->validate([
-            'brand_id' => [Rule::requiredIf(! $tenantWide), 'nullable', 'integer'],
+            'brand_id' => [Rule::requiredIf(! $tenantWide), Rule::prohibitedIf($type === AlertType::IntegrationError), 'nullable', 'integer'],
             'type' => ['required', Rule::enum(AlertType::class)],
             'threshold' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'is_active' => ['required', 'boolean'],
@@ -71,32 +80,7 @@ class AlertController extends Controller
         if (isset($data['brand_id'])) {
             $brand = Brand::query()->findOrFail($data['brand_id']);
         }
-        $brandId = $tenantWide ? null : $brand?->id;
-        $exists = AlertRule::query()
-            ->where('type', $data['type'])
-            ->when($brandId === null, fn ($query) => $query->whereNull('brand_id'), fn ($query) => $query->where('brand_id', $brandId))
-            ->exists();
-        if ($exists) {
-            throw ValidationException::withMessages([
-                'type' => __('app.workspace.rule_exists'),
-            ]);
-        }
-
-        $attributes = [
-            'type' => $data['type'],
-            'threshold' => $this->threshold($type, $data['threshold'] ?? null),
-            'channels' => config('ekko.alerts.default_channels'),
-            'is_active' => $data['is_active'],
-        ];
-        if ($tenantWide) {
-            AlertRule::query()->create($attributes);
-        } elseif ($brand instanceof Brand) {
-            $brand->alertRules()->create($attributes);
-        } else {
-            throw ValidationException::withMessages([
-                'brand_id' => __('validation.required', ['attribute' => __('app.workspace.brand')]),
-            ]);
-        }
+        app(AlertRules::class)->save(AlertType::from($data['type']), $brand?->id, $data, createOnly: true);
 
         return back();
     }
@@ -112,26 +96,59 @@ class AlertController extends Controller
             'is_active' => __('app.workspace.active'),
         ]);
 
-        $alertRule->fill([
-            'threshold' => $this->threshold(AlertType::from($alertRule->type), $data['threshold'] ?? null),
-            'is_active' => $data['is_active'],
-        ])->save();
+        app(AlertRules::class)->save(AlertType::from($alertRule->type), $alertRule->brand_id, $data, existing: $alertRule);
 
         return back();
     }
 
-    /**
-     * An empty threshold uses the type default. Stored null is cast to 0 by the detectors, so a
-     * visibility drop would alert on any positive change instead of the documented default.
-     */
-    private function threshold(?AlertType $type, mixed $given): ?string
+    public function upsert(Request $request, Brand $brand, AlertType $type, AlertRules $rules): RedirectResponse
     {
-        if ($given !== null && $given !== '') {
-            return is_numeric($given) ? (string) $given : null;
-        }
-        $default = $type?->defaultThreshold();
+        Gate::authorize('create', AlertRule::class);
+        $data = $request->validate([
+            'is_active' => ['sometimes', 'required', 'boolean'],
+            'threshold' => ['sometimes', 'nullable', 'numeric', 'between:0,100'],
+            'channels' => ['sometimes', 'array', 'max:3'],
+            'channels.*' => ['required', 'distinct', Rule::in(['inbox', 'email', 'slack'])],
+        ]);
+        $rules->save($type, $brand->id, $data);
 
-        return $default === null ? null : (string) $default;
+        return back();
+    }
+
+    public function acknowledgeBulk(Request $request): RedirectResponse
+    {
+        return $this->receipts($request, false);
+    }
+
+    public function undoBulk(Request $request): RedirectResponse
+    {
+        return $this->receipts($request, true);
+    }
+
+    private function receipts(Request $request, bool $undo): RedirectResponse
+    {
+        Gate::authorize('create', AlertRule::class);
+        $ids = $request->validate([
+            'ids' => ['required', 'array', 'list', 'min:1', 'max:200'],
+            'ids.*' => ['required', 'integer', 'distinct', 'min:1'],
+        ])['ids'];
+        $userId = $request->user()?->id;
+        $changed = DB::transaction(function () use ($ids, $userId, $undo) {
+            $alerts = Alert::query()->whereKey($ids)->orderBy('id')->lockForUpdate()->get();
+            abort_unless($alerts->count() === count($ids), 404);
+            $changed = [];
+            foreach ($alerts as $alert) {
+                $eligible = $undo ? $alert->acknowledged_by === $userId && $alert->acknowledged_at !== null : $alert->acknowledged_at === null;
+                if ($eligible) {
+                    $alert->forceFill(['acknowledged_by' => $undo ? null : $userId, 'acknowledged_at' => $undo ? null : now()])->save();
+                    $changed[] = $alert->id;
+                }
+            }
+
+            return $changed;
+        });
+
+        return back()->with('acknowledged_ids', $changed);
     }
 
     public function acknowledge(Alert $alert): RedirectResponse
@@ -139,12 +156,12 @@ class AlertController extends Controller
         Gate::authorize('update', $alert);
 
         // The first receipt stands: acknowledging again does not change who or when.
-        if ($alert->acknowledged_at === null) {
-            $alert->forceFill([
-                'acknowledged_by' => request()->user()?->id,
-                'acknowledged_at' => now(),
-            ])->save();
-        }
+        DB::transaction(function () use ($alert) {
+            $locked = Alert::query()->lockForUpdate()->findOrFail($alert->id);
+            if ($locked->acknowledged_at === null) {
+                $locked->update(['acknowledged_by' => request()->user()?->id, 'acknowledged_at' => now()]);
+            }
+        });
 
         return back();
     }

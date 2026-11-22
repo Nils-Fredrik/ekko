@@ -225,7 +225,7 @@ Testene kjøres i CI på hver PR og kan ikke markeres som hoppet over.
 - **Google** via Socialite. En Google-konto kobles til en eksisterende invitert bruker basert på verifisert e-postadresse. Det finnes ingen åpen registrering. Microsoft er utsatt (eierens beslutning 2026-11-14); hva som kreves når den kommer, står i `docs/decisions/0008-innlogging-og-invitasjoner.md`.
 - **Bekreftelse uten passord:** en bruker med koblet Google-konto kan bekrefte med Google i stedet for passord, der appen ellers krever bekreftet passord (slå på 2FA, «opptre som tenant»). Google bes om kontovelger og ny autentisering (`prompt=select_account`, `max_age=0`), men appen kan ikke kontrollere at Google krever det. I praksis bekrefter brukeren at hen har kontroll over den koblede Google-kontoen i nettleseren (ADR 0008). Bare den kontoen som er koblet til den innloggede brukeren, i en bekreftelse som økten selv startet, gir bekreftelse. Callback-adressen er den samme som ved innlogging (T07-F2).
 - **Invitasjon:** tenant-admin inviterer på e-post (Jetstream team invitations). Invitasjonen utløper etter 7 dager, kontrollert på serveren. Den kan bare godtas av en innlogget bruker med samme, bekreftede e-postadresse. Å endre e-postadressen krever ny bekreftelse. En Google-konto med en gyldig invitasjon får opprettet brukeren og godtar invitasjonene (ellers ingen bruker). Kontoer kobles til eksisterende brukere bare når leverandøren har verifisert e-posten og brukerens egen adresse er bekreftet. Detaljer i `docs/decisions/0008-innlogging-og-invitasjoner.md`.
-- **Tenant-velger:** brukere med flere tenants bytter mellom dem i toppmenyen, som Jetstreams team-switcher. Valgt tenant lagres på brukeren.
+- **Tenant-velger:** brukere med flere tenants bytter mellom dem i tenantvelgeren øverst i sidemenyen (`docs/ux-arbeidsflate.md` 4.1), som Jetstreams team-switcher. Valgt tenant lagres på brukeren.
 - **Sesjon:** samme oppsett som Varde, med `__Host-`-prefiks på sesjonscookien, `secure` og `samesite=lax`.
 
 ---
@@ -923,6 +923,10 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 ### 14.2 Sider (Inertia-komponenter)
 
 Arbeidsflaten (U16–U27, [ux-arbeidsflate.md](ux-arbeidsflate.md)) endrer sidene under. Den innfører sidemeny, oppsettssider under `/brands/{brand}/setup/*` og innboks, og erstatter `Brands/Settings.vue`. U27 oppdaterer tabellen når arbeidet er ferdig.
+
+Integrasjonsvarsler har en felles regel per tenant. Opprettelse av fellesregelen bevarer eldre merkevareregler. Når en administrator lagrer hele skjemaet på varselsiden, får merkevarereglene bare feltene som faktisk fikk en ny verdi. Arbeidsflaten lagrer per felt og bruker administratorens valg for det feltet.
+
+I innboksen kan en bruker med `prompts.manage` opprette et rettetiltak fra første motsagte påstand i 30-dagersvinduet. Dette bruker samme faktum, bevis og fingeravtrykk som den ukentlige genereringen (11.3 og 11.6). En uttrykkelig bestilling blir stående gjennom ukentlige genereringer frem til brukeren behandler tiltaket. Den starter med maltekst. En senere ukentlig kandidat kan få modellformulering etter de vanlige reglene. Innboksen bruker ferdig ekstraherte svar fra de siste 30 lokale datoene til og med bestillingstidspunktet. Den ukentlige jobben bruker avsluttede døgn. Når en rapportplan slettes, stopper planlagte utsendinger og tidligere rapporter beholder tilknytningen til planen. En testutsending går til den som bestilte den og gjelder siste avsluttede periode.
 
 | Komponent | Innhold |
 |---|---|

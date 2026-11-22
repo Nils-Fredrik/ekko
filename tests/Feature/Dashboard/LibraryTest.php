@@ -147,7 +147,7 @@ test('days outside the loaded answers stay marked when the prompt has more than 
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
 
-    $this->actingAs($owner)->get(route('brands.prompts.show', [$world->brand, $world->p1]))
+    $this->actingAs($owner)->get(route('brands.prompts.show', [$world->brand, $world->p1]).'?days=28')
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('truncated', true)

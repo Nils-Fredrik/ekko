@@ -5,6 +5,7 @@ use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\BrandFact;
+use App\Models\Claim;
 use App\Models\Competitor;
 use App\Models\CompetitorAlias;
 use App\Models\CompetitorDomain;
@@ -375,8 +376,55 @@ foreach (['topics.store', 'topics.update', 'topics.merge', 'topics.destroy', 'to
     );
 }
 
+/** @return array<string, mixed> */
+function isolationInboxWrite(string $name, int $tenantId): array
+{
+    return app(TenantContext::class)->run($tenantId, function () use ($name, $tenantId) {
+        if (str_starts_with($name, 'alerts.')) {
+            return ['data' => ['ids' => [Alert::factory()->create()->id]]];
+        }
+        if ($name === 'brands.claims.action') {
+            $answer = isolationResponse($tenantId);
+            Response::findOrFail($answer['response'])->run->update(['status' => 'extracted']);
+            $fact = BrandFact::factory()->create(['brand_id' => $answer['brand'], 'is_active' => true]);
+            $claim = Claim::create(['response_id' => $answer['response'], 'brand_id' => $answer['brand'],
+                'fact_id' => $fact->id, 'text' => 'A synthetic contradiction', 'verdict' => Claim::CONTRADICTED, 'source_citation_ids' => []]);
+
+            return ['params' => ['brand' => $answer['brand'], 'claim' => $claim->id]];
+        }
+        $brand = Brand::factory()->create();
+        $params = ['brand' => $brand->id];
+        if ($name === 'brands.checklist.hide') {
+            return ['params' => $params];
+        }
+        if ($name === 'brands.alert-rules.upsert') {
+            return ['params' => $params + ['type' => 'quota'], 'data' => ['is_active' => true, 'channels' => ['inbox']]];
+        }
+        if ($name !== 'brands.report-schedules.store') {
+            $params['schedule'] = ReportSchedule::factory()->create(['brand_id' => $brand->id])->id;
+        }
+
+        return ['params' => $params, 'data' => ['cadence' => 'weekly', 'recipients' => ['sample@example.test'], 'locale' => 'nb', 'branding' => 'tenant']];
+    });
+}
+
+$inboxEntries = [];
+foreach (['alerts.acknowledge.bulk', 'alerts.unacknowledge.bulk', 'brands.alert-rules.upsert', 'brands.claims.action', 'brands.checklist.hide',
+    'brands.report-schedules.store', 'brands.report-schedules.update', 'brands.report-schedules.destroy', 'brands.report-schedules.test'] as $name) {
+    $inboxEntries[$name] = RouteAccess::tenant(
+        foreign: fn (Scenario $s) => isolationInboxWrite($name, $s->tenantB->id),
+        own: fn (Scenario $s) => isolationInboxWrite($name, $s->tenantA->id),
+        deniedRoles: match ($name) {
+            'brands.checklist.hide' => [],
+            'brands.claims.action' => ['reader'],
+            default => ['editor', 'reader'],
+        },
+    );
+}
+
 return [
     ...$libraryEntries,
+    ...$inboxEntries,
     'admin.tenants.index' => RouteAccess::platformAdmin(),
     'admin.pitches.store' => RouteAccess::platformAdmin(own: function () {
         $partner = Team::factory()->tenant()->create();
@@ -638,6 +686,31 @@ return [
         deniedRoles: ['editor', 'reader'],
     ),
     'alerts.index' => RouteAccess::user(),
+    'brands.setup.prompts' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.setup.competitors' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.setup.markets' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.setup.identity' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.setup.integrations' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'brands.setup.notifications' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)]],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
+    ),
+    'inbox.index' => RouteAccess::user(),
     'alerts.rules.store' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['data' => ['brand_id' => $brandOf($s, true), 'type' => 'quota', 'is_active' => true]],
         own: fn (Scenario $s) => ['data' => ['brand_id' => $brandOf($s, false), 'type' => 'quota', 'is_active' => true]],

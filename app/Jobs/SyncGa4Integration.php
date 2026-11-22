@@ -2,10 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Alerts\AlertRules;
+use App\Alerts\AlertType;
 use App\Integrations\Ga4\Ga4Client;
 use App\Integrations\Ga4\Ga4SyncFailed;
 use App\Models\AiReferralDaily;
-use App\Models\AlertRule;
 use App\Models\Integration;
 use App\Models\Team;
 use App\Tenancy\Rls\TenantRls;
@@ -53,11 +54,7 @@ final class SyncGa4Integration extends TenantJob
         }
 
         $this->storeReport($integration->brand_id, $startDate, $endDate, $report);
-        Integration::query()->whereKey($integration->id)->update([
-            'status' => 'synced',
-            'last_sync_at' => now(),
-            'last_failed_on' => null,
-        ]);
+        $integration->recordSync();
     }
 
     public function failed(?Throwable $exception): void
@@ -105,11 +102,7 @@ final class SyncGa4Integration extends TenantJob
     private function recordFailure(Integration $integration, CarbonImmutable $today, string $reason): void
     {
         $previousFailure = $integration->last_failed_on?->toDateString();
-        // Sync metadata is operational state. Updating it directly avoids reading the failing config.
-        Integration::query()->whereKey($integration->id)->update([
-            'status' => 'error',
-            'last_failed_on' => $today->toDateString(),
-        ]);
+        $integration->recordSync($today);
 
         Log::warning('GA4 integration sync failed.', [
             'tenant_id' => $this->tenantId,
@@ -121,15 +114,7 @@ final class SyncGa4Integration extends TenantJob
             return;
         }
 
-        $rule = AlertRule::query()->where('type', 'integration_error')
-            ->where(fn ($query) => $query->where('brand_id', $integration->brand_id)->orWhereNull('brand_id'))
-            ->orderByRaw('brand_id IS NULL')->oldest('id')->first()
-            ?? AlertRule::query()->create([
-                'brand_id' => $integration->brand_id,
-                'type' => 'integration_error',
-                'channels' => ['in_app'],
-                'is_active' => true,
-            ]);
+        $rule = app(AlertRules::class)->forSource(AlertType::IntegrationError, $integration->brand_id);
 
         if ($rule->is_active) {
             $rule->alerts()->create([
