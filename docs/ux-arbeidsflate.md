@@ -401,7 +401,7 @@ Alle skjermer har dette hodet: brødsmule i 12 px `text-shell-muted` («Fjordbyr
    - Er det ingen aktive motorer, står «Ingen motorer er aktive» med lenke.
 2. **Krever oppmerksomhet:**
    - Høyst tre rader med statuskant (4 px, `rounded`) og lenke til stedet saken løses.
-   - Kildene, sortert etter alvor: integrasjon med feil (`error`), manglende pris i planen (`error`), kvote over 80 % (`warning`), ukjente merkevarer som venter (`warning`) og nye tiltak (`warning`).
+   - Kildene, sortert etter alvor: integrasjon med feil (`error`), manglende pris i planen (`error`), kvote over 80 % (`warning`), ukjente merkevarer som venter (`warning`) og nye tiltak (`warning`). Kvotestatus vises til brukere med tilgang til forbrukssiden.
    - Uten saker står «Alt ser bra ut» i `text-success-text`.
 3. **Kom i gang:** oppstartslisten (5.8) med «*x* av 6», fremdriftslinje i `success-text` og «Skjul».
    - Valget om å skjule lagres per bruker og merkevare (`user_brand_preferences.checklist_hidden_at`, ny tabell i U25).
@@ -988,7 +988,7 @@ Den har ingen egen tabell. Den samler fra kildene under:
 | `POST /alerts/acknowledge` | `alerts.acknowledge.bulk` | `alerts.manage` | `ids[]` (1–200) |
 | `DELETE /alerts/acknowledge` | `alerts.unacknowledge.bulk` | `alerts.manage` | `ids[]` (angre) |
 | `POST /brands/{brand}/claims/{claim}/action` | `brands.claims.action` | `prompts.manage` | Lager et `fact_correction`-tiltak fra påstanden etter reglene i 11.3 og 11.6 og lenker påstandene for samme faktum. |
-| `PUT /brands/{brand}/alert-rules/{type}` | `brands.alert-rules.upsert` | `alerts.manage` | `is_active`, `threshold?`, `channels[]` (`slack`, `email`, `inbox`) |
+| `PUT /brands/{brand}/alert-rules/{type}` | `brands.alert-rules.upsert` | `alerts.manage` | Send feltene som redigeres. Valgbare felt er `is_active`, `threshold` og `channels[]` (`slack`, `email`, `inbox`). |
 | `POST /brands/{brand}/report-schedules` | `brands.report-schedules.store` | `reports.manage` | `cadence`, `recipients[]`, `locale`, `branding` |
 | `PUT /brands/{brand}/report-schedules/{schedule}` | `brands.report-schedules.update` | `reports.manage` | som `store` |
 | `DELETE /brands/{brand}/report-schedules/{schedule}` | `brands.report-schedules.destroy` | `reports.manage` | |

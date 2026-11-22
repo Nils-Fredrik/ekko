@@ -54,4 +54,4 @@
 
 U25 viser den obligatoriske kanalen som `inbox`. Eldre regler og standardregler som kommer fra detektorene bruker `in_app` for samme kanal. Bare `email` og `slack` utløser ekstern levering. Både synk og innstillingsside starter en integrasjonsregel med innboksen som eneste kanal.
 
-En eksisterende integrasjonsregel per merkevare fortsetter å gjelde for synken og kan fortsatt redigeres på den gamle varselsiden. Når en administrator endrer et felles felt, oppdateres dette feltet også i de eldre reglene. Å opprette en standardregel ved en annen merkevares første feil beholder tidligere valg, inkludert deaktiverte varsler.
+En eksisterende integrasjonsregel per merkevare fortsetter å gjelde for synken og kan fortsatt redigeres på den gamle varselsiden. Både synken og varselsiden bevarer tidligere merkevarevalg når de oppretter fellesregelen. Ved senere redigering på varselsiden sammenlignes hele skjemaet med fellesregelen i databasen. Bare felter med ny verdi overføres til merkevarereglene. Arbeidsflaten sender feltene administratoren redigerer.

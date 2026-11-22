@@ -21,6 +21,7 @@ use App\Models\Prompt;
 use App\Models\Report;
 use App\Models\ReportSchedule;
 use App\Models\RunBatch;
+use App\Models\UsageEvent;
 use App\Models\User;
 use App\Scheduling\CloudRunAccessToken;
 use App\Tenancy\TenantContext;
@@ -141,6 +142,22 @@ test('brand health uses the saved plan, counts each active market and keeps hidi
     expect($health->for($brand)['checklist_hidden'])->toBeTrue()->and($health->for($empty)['checklist_hidden'])->toBeFalse();
     $this->actingAs(User::factory()->create());
     expect($health->for($brand)['checklist_hidden'])->toBeFalse();
+});
+
+test('the quota warning on a brand dashboard follows access to the usage page', function () {
+    $w = MetricsWorld::create();
+    $w->tenant->forceFill(['monthly_call_quota_override' => 1])->save();
+    UsageEvent::factory()->create(['calls' => 1]);
+    $owner = $w->tenant->owner;
+    $owner->switchTeam($w->tenant);
+    $reader = User::factory()->create();
+    $w->tenant->users()->attach($reader, ['role' => 'reader']);
+    $reader->switchTeam($w->tenant);
+    $url = route('brands.show', $w->brand);
+    $this->actingAs($owner)->get($url)->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('health.problems', fn ($items) => collect($items)->contains('url', route('usage.index'))));
+    $this->actingAs($reader)->get($url)->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('health.problems', fn ($items) => ! collect($items)->contains('kind', 'quota')));
 });
 
 test('brand notification settings share legacy data, preserve archive and only send previews to the requesting user', function () {
@@ -283,4 +300,31 @@ test('the legacy alert form creates integration failure rules with explicit tena
     $this->put(route('alerts.rules.update', $rule), ['is_active' => true])->assertSessionHasNoErrors();
     expect($rule->fresh()->is_active)->toBeTrue();
     $this->post(route('alerts.rules.store'), $data)->assertSessionHasErrors('type');
+});
+
+test('saving the complete tenant alert form preserves unchanged settings on older brand rules', function () {
+    $w = MetricsWorld::create();
+    $owner = $w->tenant->owner;
+    $owner->switchTeam($w->tenant);
+    $this->actingAs($owner);
+    $type = AlertType::IntegrationError->value;
+    $legacy = AlertRule::factory()->for($w->brand)->create([
+        'type' => $type, 'is_active' => false, 'threshold' => 4, 'channels' => ['in_app', 'slack'],
+    ]);
+
+    $form = ['is_active' => true, 'threshold' => 12];
+    $this->post(route('alerts.rules.store'), ['type' => $type] + $form)->assertSessionHasNoErrors();
+    $global = AlertRule::whereNull('brand_id')->where('type', $type)->sole();
+    $url = route('alerts.rules.update', $global);
+    expect($legacy->refresh()->is_active)->toBeFalse()->and((float) $legacy->threshold)->toBe(4.0);
+    $this->put($url, $form)->assertSessionHasNoErrors();
+    expect($legacy->refresh()->is_active)->toBeFalse()->and((float) $legacy->threshold)->toBe(4.0);
+
+    $this->put($url, ['is_active' => true, 'threshold' => 8])->assertSessionHasNoErrors();
+    expect($legacy->refresh()->is_active)->toBeFalse()->and((float) $legacy->threshold)->toBe(8.0);
+    $this->put($url, ['is_active' => false, 'threshold' => 8])->assertSessionHasNoErrors();
+    $this->put(route('alerts.rules.update', $legacy), ['is_active' => false, 'threshold' => 2])->assertSessionHasNoErrors();
+    $this->put($url, ['is_active' => true, 'threshold' => '8.0000'])->assertSessionHasNoErrors();
+    expect($legacy->refresh()->is_active)->toBeTrue()->and((float) $legacy->threshold)->toBe(2.0)
+        ->and($legacy->channels)->toBe(['in_app', 'slack']);
 });

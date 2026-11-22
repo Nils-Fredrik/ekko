@@ -10,12 +10,14 @@ use App\Models\Action;
 use App\Models\Brand;
 use App\Models\Prompt;
 use App\Models\RunBatch;
+use App\Models\UsageEvent;
 use App\Models\UserBrandPreference;
 use App\Onboarding\CostEstimator;
 use App\Prompts\EntityQueue;
 use App\Scheduling\PromptSchedule;
 use App\Usage\MonthlyUsage;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 
 final readonly class BrandHealth
@@ -64,7 +66,9 @@ final readonly class BrandHealth
         $problems = [];
         $this->problem($problems, $brand->integrations()->where('status', 'error')->exists(), 'integration', 'error', $integrations);
         $this->problem($problems, in_array('no_price', array_column($estimate['issues'], 'code'), true), 'price', 'error', $plan);
-        $this->problem($problems, $this->usage->snapshot($team, CarbonImmutable::now())->status !== 'ok', 'quota', 'warning', route('usage.index'));
+        if (Gate::allows('viewAny', UsageEvent::class)) {
+            $this->problem($problems, $this->usage->snapshot($team, CarbonImmutable::now())->status !== 'ok', 'quota', 'warning', route('usage.index'));
+        }
         if (count($problems) < 3) {
             $this->problem($problems, $this->queue->pending($brand) !== [], 'entity', 'warning', $entities);
         }
