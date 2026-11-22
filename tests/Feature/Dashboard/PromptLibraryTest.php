@@ -201,6 +201,20 @@ test('suggestion limit is shared across topics for one user', function () {
     expect($fake->model->requests)->toBeEmpty();
 });
 
+test('creating a topic on the setup page selects it', function () {
+    $this->followingRedirects()
+        ->from(route('brands.setup.prompts', $this->brand))
+        ->post(route('brands.topics.store', $this->brand), ['name' => 'Selected topic'])
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Brands/Setup/Prompts')->where(
+            'filters.topic',
+            (string) app(TenantContext::class)->run(
+                $this->brand->tenant_id,
+                fn () => Topic::query()->where('name', 'Selected topic')->value('id'),
+            ),
+        ));
+});
+
 test('undoing an archive restores the original activation state of each prompt', function () {
     $first = $this->world->p1;
     $second = $this->world->p2;

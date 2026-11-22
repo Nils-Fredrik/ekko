@@ -340,6 +340,16 @@ onBeforeUnmount(() => {
     clearTimeout(searchTimer.value);
 });
 
+function optionLabel(group, value) {
+    return props.options[group]?.find((item) => item.value === value)?.label ?? '';
+}
+
+function setActive(row, active) {
+    bulk({ ids: [row.id], action: active ? 'activate' : 'deactivate' }, (count) =>
+        trans('workspace.prompts.updated', { count: formatNumber(count) }),
+    );
+}
+
 function heat(value) {
     if (value === null || value === undefined) {
         return 'bg-shell-surface text-shell-muted';
@@ -588,7 +598,9 @@ const emptyCopy = computed(() =>
                     <li v-for="(item, index) in suggestions" :key="index" class="flex gap-2">
                         <input v-model="item.selected" type="checkbox" />
                         <span>{{ item.text }}</span>
-                        <span class="text-shell-muted">{{ item.intent }} · {{ item.funnel_stage }}</span>
+                        <span class="text-shell-muted">
+                            {{ optionLabel('intents', item.intent) }} · {{ optionLabel('funnels', item.funnel_stage) }}
+                        </span>
                     </li>
                 </ul>
                 <button
@@ -811,7 +823,8 @@ const emptyCopy = computed(() =>
                         <template #cell-text="{ row }">
                             <span class="block" :class="row.is_active ? '' : 'text-shell-muted'">{{ row.text }}</span>
                             <span class="block text-xs text-shell-muted">
-                                {{ row.intent }} · {{ row.funnel_stage }}
+                                {{ optionLabel('intents', row.intent) }} ·
+                                {{ optionLabel('funnels', row.funnel_stage) }}
                             </span>
                         </template>
                         <template #cell-core="{ row }">
@@ -843,10 +856,22 @@ const emptyCopy = computed(() =>
                             </span>
                         </template>
                         <template #cell-last_measured="{ value }">{{ formatRelative(value) }}</template>
-                        <template #cell-active="{ value }">
-                            {{
-                                value ? $t('workspace.prompts.status_active') : $t('workspace.prompts.status_inactive')
-                            }}
+                        <template #cell-active="{ row, value }">
+                            <input
+                                v-if="canManage"
+                                type="checkbox"
+                                :checked="value"
+                                :aria-label="$t('workspace.prompts.active')"
+                                @click.stop
+                                @change="setActive(row, $event.target.checked)"
+                            />
+                            <span v-else>
+                                {{
+                                    value
+                                        ? $t('workspace.prompts.status_active')
+                                        : $t('workspace.prompts.status_inactive')
+                                }}
+                            </span>
                         </template>
                     </DataTable>
                     <button

@@ -17,6 +17,7 @@ use App\Prompts\PromptLibrary;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -30,7 +31,8 @@ class SetupPromptController extends Controller
     {
         BrandPage::authorizeView($brand);
         $market = $this->market($brand, $request);
-        $filters = $this->filters($request);
+        $topic = $this->selectedTopic($brand, $request);
+        $filters = $this->filters($request, $topic);
         $payload = $library->payload($brand, $market, $filters);
         $zone = Team::query()->findOrFail(current_tenant_id())->timezone ?? 'UTC';
         $marketIds = $market === null ? $brand->markets()->pluck('id') : collect([$market->id]);
@@ -57,7 +59,7 @@ class SetupPromptController extends Controller
                 'priorities' => $this->options(Prompt::PRIORITIES, DashboardLabels::priority(...)),
             ],
             'filters' => [
-                'topic' => $request->query('topic'),
+                'topic' => $topic,
                 'status' => $request->query('status', 'active'),
                 'search' => (string) $request->query('q', ''),
                 'intent' => array_values(array_filter((array) $request->query('intent', []))),
@@ -85,9 +87,22 @@ class SetupPromptController extends Controller
     }
 
     /**
+     * A topic created or chosen as the merge target is selected on the redirect back.
+     */
+    private function selectedTopic(Brand $brand, Request $request): mixed
+    {
+        $created = session('topic_id');
+        if (is_numeric($created) && $brand->topics()->whereKey((int) $created)->exists()) {
+            return (string) (int) $created;
+        }
+
+        return $request->query('topic');
+    }
+
+    /**
      * @return array<string, mixed>
      */
-    private function filters(Request $request): array
+    private function filters(Request $request, mixed $topic): array
     {
         $filters = [
             'status' => $request->query('status', 'active'),
@@ -96,7 +111,6 @@ class SetupPromptController extends Controller
             'funnel_stage' => array_values(array_filter((array) $request->query('funnel', []))),
             'priority' => array_values(array_filter((array) $request->query('priority', []))),
         ];
-        $topic = $request->query('topic');
         if ($topic === 'none') {
             $filters['topic_id'] = null;
         } elseif (is_numeric($topic)) {
@@ -200,7 +214,7 @@ class SetupPromptController extends Controller
             ->with('causer')->latest()->limit(30)->get()->map(function (Activity $activity): array {
                 $changes = $activity->attribute_changes ?? collect();
                 $raw = $changes->get('attributes');
-                $attributes = $raw instanceof \Illuminate\Support\Collection ? $raw->all() : (is_array($raw) ? $raw : []);
+                $attributes = $raw instanceof Collection ? $raw->all() : (is_array($raw) ? $raw : []);
                 $who = $activity->causer;
 
                 return [
