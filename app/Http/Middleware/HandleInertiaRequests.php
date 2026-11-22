@@ -49,6 +49,7 @@ class HandleInertiaRequests extends Middleware
     {
         return [
             ...parent::share($request),
+            'flash.action_id' => fn () => $request->session()->get('action_id'),
             'flash.acknowledged_ids' => fn () => $request->session()->get('acknowledged_ids', []),
             'locale' => app()->getLocale(),
             'locales' => function (): array {

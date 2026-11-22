@@ -51,6 +51,7 @@ class AlertController extends Controller
                 'channels' => array_values(array_unique(['inbox', ...array_intersect($rule->channels, ['email', 'slack'])])),
                 'is_active' => $rule->is_active,
             ])->values(),
+            'tenantWideTypes' => collect(AlertType::cases())->filter(fn (AlertType $type) => $type->isTenantWide())->pluck('value')->values(),
             'brands' => Brand::query()->orderBy('name')->get(['id', 'name']),
             'canManage' => Gate::allows('create', AlertRule::class),
         ]);
@@ -62,7 +63,7 @@ class AlertController extends Controller
         $type = AlertType::tryFrom((string) $request->input('type'));
         $tenantWide = $type?->isTenantWide() ?? false;
         $data = $request->validate([
-            'brand_id' => [Rule::requiredIf(! $tenantWide), 'nullable', 'integer'],
+            'brand_id' => [Rule::requiredIf(! $tenantWide), Rule::prohibitedIf($type === AlertType::IntegrationError), 'nullable', 'integer'],
             'type' => ['required', Rule::enum(AlertType::class)],
             'threshold' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'is_active' => ['required', 'boolean'],

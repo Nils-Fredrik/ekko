@@ -243,7 +243,7 @@ Hver agent får fire oppgaver.
 - **Markedet** leses fra `?market` i URL-en også i nettleseren, slik at lenkene følger valget umiddelbart. Filterlinjens delvise besøk henter også `workspace`, slik at merketallene gjelder markedet i URL-en.
 - **Lenkene til analysesidene** beholder analysefiltrene (periode, sammenligning, motor osv.) som `BrandNav` gjorde, og får gjeldende `market`. Roboter og trafikk, Arbeid og oppsettssidene unntatt Prompts og temaer får ikke `market`.
 - **Aktiv lenke for dagens sider:** `brands.settings` markerer Identitet, `brands.plan.show` og `brands.markets.create` markerer Markeder og måleplan, og Innboks er aktiv på `alerts.*`. Etter en videresending markeres siden brukeren havner på.
-- **Tallene:** `entities_pending` er antall navn i `EntityQueue::pending` (U21 er merget). Mellomlageret har en versjonsnøkkel per tenant. Den byttes når `Alert`, `Action`, `EntityDecision`, `Integration`, `Competitor`, `CompetitorAlias` eller `BrandAlias` lagres eller slettes (`AppServiceProvider`), slik at kvittering, beslutninger og nye tiltak vises med en gang.
+- `entities_pending` er antall navn i `EntityQueue::pending`. En lagring eller sletting av en kilde i `WorkspaceCounts::SOURCES` nullstiller tellingene for tenanten etter commit. Integrasjonssynken gjør det samme når statusen endres.
 - **Utsatt prop:** `workspace` deles bare med innloggede brukere med en tenant. Mens propen lastes etter et besøk, viser sidemenyen forrige verdi for samme tenant og merkevare, så den ikke blinker.
 - **Avvik og tillegg:**
   - `workspace.role` er lagt til: rollenavnet under brukernavnet nederst i sidemenyen (skisse 1).
@@ -978,7 +978,7 @@ Den har ingen egen tabell. Den samler fra kildene under:
 ```
 
 - **Tekst:** `title` og `detail` lages fra språknøkler i `lang/*/inbox.php`. Varsler bruker `AlertPresenter`, og presenterens `line()` blir offentlig som `present(Alert): array{title, detail}`.
-- `handled=1` inkluderer også behandlede rader. Hver rad har `handled` og `source_ids`. Varselgrupper har også `members` med lesbar tekst per varsel. Ved gruppekvittering sendes opptil 200 ID-er om gangen. `flash.acknowledged_ids` inneholder ID-ene denne brukeren faktisk kvitterte. Angre bruker disse ID-ene. Nye merkenavn har `suggestion` fra navnekøen.
+- `handled=1` inkluderer også behandlede rader. Hver rad har `handled` og `source_ids`. Varselgrupper har også `members` med lesbar tekst per varsel. Ved gruppekvittering sendes opptil 200 ID-er om gangen. `flash.acknowledged_ids` inneholder ID-ene denne brukeren faktisk kvitterte. Angre bruker disse ID-ene. Nye merkenavn har `suggestion` fra navnekøen. Etter et bestilt rettetiltak inneholder `flash.action_id` tiltakets ID.
 - **`edge`:** en av `warning`, `error`, `medium-beige`, `marker-action` og `marker-model`.
 
 **Ruter:**
@@ -1005,7 +1005,7 @@ Den har ingen egen tabell. Den samler fra kildene under:
   problems: [{ kind, severity, text, url }], checklist: [{ key, done, optional, text, hint, url }], checklist_hidden }
 ```
 
-Ny tabell `user_brand_preferences`: `tenant_id`, `user_id`, `brand_id` og `checklist_hidden_at`, unik på `(user_id, brand_id)`.
+Ny tabell `user_brand_preferences`: `tenant_id`, `user_id`, `brand_id` og `checklist_hidden_at`, unik på `(tenant_id, user_id, brand_id)`.
 
 `brands.entities_reviewed_at` settes av U21 når køen blir tom etter en beslutning. U25 leser feltet.
 

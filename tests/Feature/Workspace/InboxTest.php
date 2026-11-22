@@ -79,6 +79,7 @@ test('the five inbox sources group and count visible rows, then clear as their s
     $this->post(route('brands.claims.action', [$w->brand, $claim]))->assertRedirect();
     $this->post(route('brands.claims.action', [$w->brand, $claim]))->assertRedirect();
     $correction = Action::where('type', 'fact_correction')->where('evidence->fact_id', $fact->id)->sole();
+    $this->get(route('brands.actions.index', $w->brand))->assertInertia(fn (AssertableInertia $page) => $page->where('flash.action_id', $correction->id));
     expect($correction->prompts()->count())->toBe(2);
     $action->update(['status' => ActionStatus::Planned]);
     $correction->update(['status' => ActionStatus::Planned]);
@@ -264,4 +265,22 @@ test('creating an integration rule preserves legacy opt-outs and either settings
     expect($effective()->is_active)->toBeTrue();
     $this->put(route('alerts.rules.update', $legacy), ['is_active' => false])->assertRedirect();
     expect($effective()->is_active)->toBeFalse()->and($global->fresh()->is_active)->toBeTrue();
+});
+
+test('the legacy alert form creates integration failure rules with explicit tenant scope', function () {
+    $w = MetricsWorld::create();
+    $owner = $w->tenant->owner;
+    $owner->switchTeam($w->tenant);
+    $this->actingAs($owner);
+    $this->get(route('alerts.index'))->assertInertia(fn (AssertableInertia $page) => $page
+        ->component('Alerts/Index')->where('tenantWideTypes', ['model_change', 'quota', 'integration_error']));
+    $data = ['type' => 'integration_error', 'is_active' => false];
+    $this->post(route('alerts.rules.store'), $data + ['brand_id' => $w->brand->id])->assertSessionHasErrors('brand_id');
+    expect(AlertRule::where('type', 'integration_error')->count())->toBe(0);
+    $this->post(route('alerts.rules.store'), $data + ['brand_id' => null])->assertSessionHasNoErrors();
+    $rule = AlertRule::where('type', 'integration_error')->sole();
+    expect($rule->brand_id)->toBeNull()->and($rule->is_active)->toBeFalse();
+    $this->put(route('alerts.rules.update', $rule), ['is_active' => true])->assertSessionHasNoErrors();
+    expect($rule->fresh()->is_active)->toBeTrue();
+    $this->post(route('alerts.rules.store'), $data)->assertSessionHasErrors('type');
 });
