@@ -1,5 +1,6 @@
 <script setup>
 // One card per integration (docs/ux-arbeidsflate.md 5.8, U24). Secrets stay empty and are not returned.
+import InputError from '@/Components/InputError.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatDate, formatDateTime } from '@/format';
 import { router, usePage } from '@inertiajs/vue3';
@@ -31,6 +32,12 @@ const forms = reactive({
     ga4: { ga4_property_id: '', ga4_client_email: '', ga4_private_key: '' },
 });
 const field = 'mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2';
+
+function fieldError(key) {
+    const value = errors.value[key];
+
+    return Array.isArray(value) ? value[0] : (value ?? '');
+}
 
 function statusText(integration) {
     if (!integration.connected) {
@@ -109,6 +116,7 @@ function save(type) {
                                 </option>
                             </select>
                         </label>
+                        <InputError :message="fieldError('clickhouse_host')" />
                         <label class="block">
                             {{ $t('app.workspace.clickhouse_database') }}
                             <input
@@ -118,6 +126,7 @@ function save(type) {
                                 autocomplete="off"
                             />
                         </label>
+                        <InputError :message="fieldError('clickhouse_database')" />
                         <label class="block">
                             {{ $t('app.workspace.clickhouse_table') }}
                             <input
@@ -127,6 +136,7 @@ function save(type) {
                                 autocomplete="off"
                             />
                         </label>
+                        <InputError :message="fieldError('clickhouse_table')" />
                         <label class="block">
                             {{ $t('app.workspace.clickhouse_user') }}
                             <input
@@ -136,6 +146,7 @@ function save(type) {
                                 autocomplete="off"
                             />
                         </label>
+                        <InputError :message="fieldError('clickhouse_user')" />
                         <label class="block">
                             {{ $t('app.workspace.clickhouse_password') }}
                             <input
@@ -146,6 +157,7 @@ function save(type) {
                                 autocomplete="new-password"
                             />
                         </label>
+                        <InputError :message="fieldError('clickhouse_password')" />
                     </template>
                     <a v-if="logUploadUrl && !integration.connected" :href="logUploadUrl" class="inline-block text-sm">
                         {{ $t('app.workspace.upload_logs') }}
@@ -162,6 +174,7 @@ function save(type) {
                             autocomplete="off"
                         />
                     </label>
+                    <InputError :message="fieldError('ga4_property_id')" />
                     <label class="block">
                         {{ $t('app.workspace.ga4_email') }}
                         <input
@@ -171,6 +184,7 @@ function save(type) {
                             autocomplete="off"
                         />
                     </label>
+                    <InputError :message="fieldError('ga4_client_email')" />
                     <label class="block">
                         {{ $t('app.workspace.ga4_key') }}
                         <textarea
@@ -181,11 +195,8 @@ function save(type) {
                             autocomplete="off"
                         />
                     </label>
+                    <InputError :message="fieldError('ga4_private_key')" />
                 </template>
-
-                <p v-if="integration.type === 'clickhouse_logs' && errors.clickhouse_host" class="text-xs text-warning">
-                    {{ errors.clickhouse_host }}
-                </p>
                 <button
                     v-if="canManage"
                     type="button"

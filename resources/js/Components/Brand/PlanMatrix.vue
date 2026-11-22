@@ -16,6 +16,8 @@ import { router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
+const coreIntervals = INTERVALS.filter((frequency) => frequency !== 'off');
+
 const props = defineProps({
     plan: { type: Object, required: true },
     brandId: { type: Number, required: true },
@@ -173,6 +175,14 @@ function setFrequency(frequency) {
     }
 }
 
+function setCoreFrequency(frequency) {
+    const row = editing.value?.row;
+    if (!row || frequency === 'off' || !allowsFrequency(frequency, row.max_frequency)) {
+        return;
+    }
+    row.core_frequency = frequency;
+}
+
 function discard() {
     standardRows.value = rulesToRows(props.plan.standard, catalog.value, maxRepetitions.value);
     markets.value = draftMarkets(props.plan);
@@ -248,6 +258,23 @@ watch(
             markets.value = draftMarkets(plan);
             remember();
             publishModes();
+        }
+    },
+);
+watch(
+    () => props.plan.markets.map((market) => `${market.id}:${market.is_active ? 1 : 0}`).join('|'),
+    (next, previous) => {
+        if (next === previous) {
+            return;
+        }
+        for (const incoming of props.plan.markets) {
+            const current = markets.value.find((market) => market.id === incoming.id);
+            if (current) {
+                current.is_active = incoming.is_active;
+            }
+        }
+        if (props.canManage) {
+            load();
         }
     },
 );
@@ -502,14 +529,43 @@ watch(dirty, (value) => {
                     type="button"
                     class="text-xs"
                     @click="
-                        editing.row.core_frequency = editing.row.frequency === 'off' ? 'weekly' : editing.row.frequency
+                        editing.row.core_repetitions = editing.row.repetitions || 1;
+                        editing.row.core_frequency = editing.row.frequency === 'off' ? 'weekly' : editing.row.frequency;
                     "
                 >
                     {{ $t('workspace.setup.add_core') }}
                 </button>
                 <div v-else class="text-xs">
-                    <p>{{ $t('workspace.setup.core_rule') }}</p>
-                    <button type="button" class="mt-1" @click="editing.row.core_frequency = ''">
+                    <p>{{ $t('app.plan.core_frequency', { engine: editing.row.name }) }}</p>
+                    <div class="mt-1 flex flex-wrap gap-1">
+                        <button
+                            v-for="frequency in coreIntervals"
+                            :key="frequency"
+                            type="button"
+                            class="rounded-full border px-2 py-0.5 text-xs"
+                            :class="
+                                editing.row.core_frequency === frequency
+                                    ? 'border-primary text-shell-fg'
+                                    : 'border-line text-shell-muted'
+                            "
+                            :disabled="!allowsFrequency(frequency, editing.row.max_frequency)"
+                            :aria-pressed="editing.row.core_frequency === frequency"
+                            @click="setCoreFrequency(frequency)"
+                        >
+                            {{ $t(`onboarding.frequencies.${frequency}`) }}
+                        </button>
+                    </div>
+                    <label class="mt-3 block">
+                        {{ $t('app.plan.core_repetitions', { engine: editing.row.name }) }}
+                        <input
+                            v-model.number="editing.row.core_repetitions"
+                            type="number"
+                            class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-2 py-1 text-sm"
+                            :min="1"
+                            :max="maxRepetitions"
+                        />
+                    </label>
+                    <button type="button" class="mt-2" @click="editing.row.core_frequency = ''">
                         {{ $t('workspace.setup.remove_core') }}
                     </button>
                 </div>

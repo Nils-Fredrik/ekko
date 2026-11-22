@@ -44,14 +44,16 @@ Første U15-kjøring, før fakta- og pitchsidene ble lagt til, hadde 0 kritiske 
 
 `npm run test:budget` leser Vite-manifestet etter bygg. Størrelsene er gzip nivå 9, uten dobbelttelling av delte moduler. Det største språksettet (JSON og genererte PHP-oversettelser) inngår i førstegangsbudsjettet, mens grafer fortsatt må lastes asynkront.
 
-| Måling                                        | Grense i byte | Etter U28 |
+| Måling                                        | Grense i byte | Etter U24 |
 | --------------------------------------------- | ------------: | --------: |
-| App og statiske importer + største språkmodul |       161 000 |   160 218 |
-| Største første sidelasting + app og språk     |       285 000 |   233 442 |
+| App og statiske importer + største språkmodul |       162 000 |   161 518 |
+| Største første sidelasting + app og språk     |       285 000 |   235 001 |
 | ECharts-chunk                                 |       240 000 |   211 419 |
-| Alle JavaScript-chunker                       |       700 000 |   690 193 |
+| Alle JavaScript-chunker                       |       706 000 |   705 432 |
 
 Grensene ligger i `tests/Browser/visual/budgets.json`. Overskridelse eller manglende måling stopper CI. En budsjettendring skal begrunnes i PR-en; den skal ikke være en automatisk reaksjon på røde tester. Eksisterende kontroll mot eager-lasting av ECharts og grensen for ukomprimert grafbibliotek gjelder fortsatt.
+
+U24 hever grensen for app og språk fra 161 000 til 162 000 byte, og for alle chunker fra 700 000 til 706 000. Oppsettsidene for markeder, identitet og integrasjoner er nye chunker, og tekstene deres ligger i språksettet som lastes med entry. Etter U28 var entry 160 218 og totalen 690 193. Målt etter U24: entry 161 518 (+1 300) og totalt 705 432 (+15 239).
 
 U28 hevet grensen for app og språk fra 160 000 til 161 000 byte. Etter U22 lå main på 159 979 byte, og det fantes ingen ubrukte språknøkler igjen. Svarlisten bak sentimentet legger til 201 byte tekst i det største språksettet, selv med forkortede tekster. Hele språksettet lastes i entry, også rene serverfiler som `validation` (3 350 byte gzip) og `http-statuses` (1 030 byte). Å skille dem ut av nettleserbundelen er det varige grepet, men `laravel-vue-i18n` kan ikke utelate filer, så det er en egen oppgave.
 
