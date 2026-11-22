@@ -88,6 +88,7 @@ test('exactly one link is active, and detail pages mark their parent', () => {
 
     assert.deepEqual(active('brands.show'), ['overview']);
     assert.deepEqual(active('brands.prompts.show'), ['prompts']);
+    assert.deepEqual(active('brands.responses.index'), ['competitors']);
     assert.deepEqual(active('brands.actions.show'), ['actions']);
     assert.deepEqual(active('brands.settings'), ['setup_identity']);
     assert.deepEqual(active('brands.plan.show'), ['setup_markets']);

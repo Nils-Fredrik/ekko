@@ -1,7 +1,7 @@
 <script setup>
 // Diverging stacked bar: negative to the left, neutral split around zero, positive to the right
 // (docs/ui-forbedring.md 6, sentiment in U05 and U07). Shares are 0–1 per row. Clicking a row
-// emits `select` with `{ key }`, the row key.
+// emits `select` with `{ key, sentiment }`: the row key and the clicked segment (U28).
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 import EkkoChart from './EkkoChart.vue';
@@ -26,6 +26,8 @@ const parts = [
     { key: 'neutral', side: 1, half: true, color: 'neutral' },
     { key: 'positive', side: 1, color: 'positive' },
 ];
+// Draw order: the neutral halves next to zero, then negative and positive outside them.
+const ORDER = [1, 0, 2, 3];
 
 function option({ palette }) {
     const extent = Math.max(
@@ -34,8 +36,6 @@ function option({ palette }) {
         ...props.rows.map((row) => (row.positive ?? 0) + (row.neutral ?? 0) / 2),
     );
     const limit = Math.min(1, Math.ceil(extent * 10) / 10);
-    // Draw order: the neutral halves next to zero, then negative and positive outside them.
-    const order = [1, 0, 2, 3];
 
     return {
         grid: { left: 8, right: 16, top: 8, bottom: 36, containLabel: true },
@@ -80,7 +80,7 @@ function option({ palette }) {
             axisLine: { show: false },
             axisLabel: { color: palette.text },
         },
-        series: order.map((partIndex) => {
+        series: ORDER.map((partIndex) => {
             const part = parts[partIndex];
 
             return {
@@ -103,8 +103,9 @@ function option({ palette }) {
 function select(params) {
     const row = props.rows[params.dataIndex];
     if (row) {
-        // `row` is the alias from the first version; new pages read `key`.
-        emit('select', selection(row.key, { row: row.key }));
+        // `row` is the alias from the first version; new pages read `key`. `sentiment` is the clicked segment.
+        const part = parts[ORDER[params.seriesIndex] ?? -1];
+        emit('select', selection(row.key, { row: row.key, sentiment: part?.key }));
     }
 }
 

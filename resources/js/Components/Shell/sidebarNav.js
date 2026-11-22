@@ -25,7 +25,8 @@ export const GROUPS = [
             {
                 id: 'competitors',
                 route: 'brands.competitors.index',
-                match: ['brands.competitors.index'],
+                // The answers behind the sentiment (U28) belong to the competitors page.
+                match: ['brands.competitors.index', 'brands.responses.index'],
                 analysis: true,
             },
             { id: 'sources', route: 'brands.sources', match: ['brands.sources'], analysis: true },

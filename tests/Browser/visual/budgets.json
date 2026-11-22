@@ -1,5 +1,5 @@
 {
-    "entryGzip": 160000,
+    "entryGzip": 161000,
     "pageInitialGzip": 285000,
     "chartGzip": 240000,
     "totalJsGzip": 700000

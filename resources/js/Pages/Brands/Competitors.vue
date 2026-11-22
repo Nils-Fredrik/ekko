@@ -5,7 +5,6 @@
 // A competitor's color is its fixed place among the active competitors (`color_index`), the same as on the
 // dashboard and the sources page.
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
-import { crossFilter } from '@/Components/Brand/filters.js';
 import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
 import RankChart from '@/Components/Charts/RankChart.vue';
 import { periodBuckets } from '@/Components/Charts/support/data.js';
@@ -146,10 +145,25 @@ const sentimentRows = computed(() =>
 
 const sentimentComplete = computed(() => props.chartData?.sentiment?.complete !== false);
 
-function selectCompetitor(event) {
-    const key = event?.key ?? '';
-    const value = key.startsWith('competitor:') ? key.slice('competitor:'.length) : null;
-    crossFilter(route('brands.competitors.index', props.brand.id), props.analysisFilters.query, 'competitor', value);
+// The answers behind a sentiment figure (U28): the brand or one competitor, optionally one sentiment group,
+// in the page's period and filters. The competitor filter only narrows this page, so it is not passed on.
+function responsesUrl(key, sentiment = null) {
+    const query = { ...props.analysisFilters.query };
+    delete query.competitor;
+    const entity = key === 'brand' || key === 'own' ? undefined : String(key).replace(/^competitor:/, '');
+
+    return route('brands.responses.index', {
+        brand: props.brand.id,
+        ...query,
+        ...(entity ? { entity } : {}),
+        ...(sentiment ? { sentiment } : {}),
+    });
+}
+
+function openResponses(event) {
+    if (event?.key) {
+        router.visit(responsesUrl(event.key, event.sentiment ?? null));
+    }
 }
 
 function changeClass(change) {
@@ -160,11 +174,10 @@ function changeClass(change) {
     return change > 0 ? 'text-success' : 'text-error';
 }
 
-function sentimentText(sentiment) {
-    return trans('app.competitors.sentiment_split', {
-        positive: formatValue(sentiment.positive, 'rate', 0),
-        negative: formatValue(sentiment.negative, 'rate', 0),
-    });
+const SENTIMENTS = ['positive', 'neutral', 'negative'];
+
+function sentimentShare(sentiment, key) {
+    return trans(`app.competitors.sentiment_${key}`, { share: formatValue(sentiment[key], 'rate', 0) });
 }
 
 function remove(competitor) {
@@ -314,11 +327,30 @@ function remove(competitor) {
                                         <span v-else-if="row.sentiment.n === 0" class="text-shell-muted">
                                             {{ $t('app.competitors.no_sentiment') }}
                                         </span>
-                                        <span v-else :class="row.sentiment.low_sample ? 'text-shell-muted' : ''">
-                                            {{ sentimentText(row.sentiment) }}
-                                            <span class="text-shell-muted">
+                                        <span
+                                            v-else
+                                            class="flex flex-wrap items-center gap-x-2"
+                                            :class="row.sentiment.low_sample ? 'text-shell-muted' : ''"
+                                            data-testid="competitor-sentiment-links"
+                                        >
+                                            <Link
+                                                v-for="key in SENTIMENTS"
+                                                :key="key"
+                                                :href="responsesUrl(row.key, key)"
+                                                class="no-underline hover:text-primary"
+                                                :class="
+                                                    row.sentiment.low_sample ? 'text-shell-muted' : 'text-shell-text'
+                                                "
+                                                :data-sentiment="key"
+                                            >
+                                                {{ sentimentShare(row.sentiment, key) }}
+                                            </Link>
+                                            <Link
+                                                :href="responsesUrl(row.key)"
+                                                class="text-shell-muted no-underline hover:text-primary"
+                                            >
                                                 · {{ $t('app.charts.n', { n: row.sentiment.n }) }}
-                                            </span>
+                                            </Link>
                                         </span>
                                     </td>
                                 </tr>
@@ -342,7 +374,7 @@ function remove(competitor) {
                             class="mt-2"
                             :label="$t('app.competitors.sentiment')"
                             :rows="sentimentRows"
-                            @select="selectCompetitor"
+                            @select="openResponses"
                         />
                     </section>
                 </template>
