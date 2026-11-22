@@ -4,18 +4,65 @@ namespace App\Http\Controllers;
 
 use App\ActionEngine\ActionGenerator;
 use App\ActionEngine\Sources\FactCorrectionSource;
+use App\Inbox\InboxQuery;
+use App\Models\Action;
+use App\Models\Alert;
+use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\Claim;
+use App\Models\EntityDecision;
+use App\Models\Market;
 use App\Models\Prompt;
+use App\Models\Team;
 use App\Models\UserBrandPreference;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class InboxController extends Controller
 {
+    private const TABS = ['alerts', 'entities', 'actions', 'claims', 'integrations'];
+
+    public function index(Request $request, InboxQuery $inbox): Response
+    {
+        Gate::authorize('viewAny', Alert::class);
+        $team = Team::query()->findOrFail(current_tenant_id());
+        $brand = $this->brand($request);
+        $market = $this->market($request, $brand);
+        $type = $request->query('type');
+        $tab = is_string($type) && in_array($type, self::TABS, true) ? $type : 'all';
+
+        return Inertia::render('Inbox/Index', [
+            'items' => $inbox->items($team, $brand, $market, $tab === 'all' ? null : $tab, $request->query('handled') === '1'),
+            'counts' => $inbox->counts($team, $brand, $market),
+            'filters' => [
+                'brand' => $brand?->id,
+                'market' => $market?->id,
+                'type' => $tab,
+                'handled' => $request->query('handled') === '1',
+            ],
+            'brands' => Brand::query()->orderBy('name')->get(['id', 'name']),
+            'can' => [
+                'alerts' => Gate::allows('create', AlertRule::class),
+                'entities' => Gate::allows('create', EntityDecision::class),
+                'actions' => Gate::allows('create', Action::class),
+                'claims' => Gate::allows('create', Prompt::class),
+            ],
+        ]);
+    }
+
+    /** /alerts is the old list. Rules live under the brand; the rows live in the inbox. */
+    public function legacy(): RedirectResponse
+    {
+        Gate::authorize('viewAny', Alert::class);
+
+        return redirect()->route('inbox.index', ['type' => 'alerts']);
+    }
+
     public function hide(Request $request, Brand $brand): RedirectResponse
     {
         Gate::authorize('view', $brand);
@@ -43,5 +90,22 @@ class InboxController extends Controller
         });
 
         return back()->with('action_id', $action->id);
+    }
+
+    private function brand(Request $request): ?Brand
+    {
+        $id = filter_var($request->query('brand'), FILTER_VALIDATE_INT);
+
+        return $id === false ? null : Brand::query()->find($id);
+    }
+
+    private function market(Request $request, ?Brand $brand): ?Market
+    {
+        if ($brand === null) {
+            return null;
+        }
+        $id = filter_var($request->query('market'), FILTER_VALIDATE_INT);
+
+        return $id === false ? null : $brand->markets()->whereKey($id)->first();
     }
 }

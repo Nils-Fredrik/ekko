@@ -32,7 +32,7 @@ test('dark theme has no white surfaces', async ({ page }) => {
         `/brands/${brand()}/competitors`,
         `/brands/${brand()}/sources`,
         `/brands/${brand()}/crawlers`,
-        '/alerts',
+        '/inbox',
         '/reports',
         '/user/profile',
     ];

@@ -1,4 +1,6 @@
 <script setup>
+import DataNote from '@/Components/Brand/DataNote.vue';
+import HealthHeader from '@/Components/Brand/HealthHeader.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import { crossFilter } from '@/Components/Brand/filters.js';
 import DivergingBarChart from '@/Components/Charts/DivergingBarChart.vue';
@@ -20,6 +22,7 @@ import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
 
 const props = defineProps({
+    health: { type: Object, default: null },
     canCreateMarket: { type: Boolean, default: false },
     hasPitchReport: { type: Boolean, default: false },
     brand: { type: Object, required: true },
@@ -328,7 +331,14 @@ function openMarker(marker) {
                 >
                     {{ $t('onboarding.ui.add_market') }}
                 </Link>
-                <PeriodFilters :brand-id="brand.id" route-name="brands.show" />
+                <PeriodFilters :brand-id="brand.id" route-name="brands.show" :show-data-note="false" />
+                <HealthHeader
+                    v-if="health"
+                    :health="health"
+                    :brand-id="brand.id"
+                    :can-create-market="canCreateMarket"
+                />
+                <DataNote />
                 <InsightLine :insight="insight" />
 
                 <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-testid="primary-kpis">
