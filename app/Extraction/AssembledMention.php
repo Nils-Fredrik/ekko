@@ -8,6 +8,7 @@ final class AssembledMention
     /**
      * @param  'brand'|'competitor'|'unknown'  $entityType
      * @param  'deterministic'|'llm'  $detection
+     * @param  ?string  $sentimentQuote  the model's reason for the sentiment, only when it stands word for word in the answer
      */
     public function __construct(
         public readonly string $entityType,
@@ -18,5 +19,6 @@ final class AssembledMention
         public readonly bool $isRecommended,
         public readonly ?float $sentiment,
         public readonly string $detection,
+        public readonly ?string $sentimentQuote = null,
     ) {}
 }

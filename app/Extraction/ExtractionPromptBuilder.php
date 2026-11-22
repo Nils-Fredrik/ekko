@@ -34,6 +34,7 @@ Rules for the output:
 - sentiment: a number from -1.0 (clearly negative) to 1.0 (clearly positive) for how the answer speaks about the entity, 0 when neutral.
 - list_position: the 1-based number of the numbered or bulleted list item where the entity first appears inside a list, otherwise null.
 - evidence: a short quote copied from the answer that supports is_recommended, at most 200 characters.
+- sentiment_quote: the words in the answer that show how it speaks about the entity, copied exactly as written (same spelling, case and punctuation, no added or removed words, no ellipsis), at most 200 characters. It is shown to the user as the reason for the sentiment. An empty string when sentiment is 0.
 - citations: every URL in sources and every URL written in the answer text, each once, with a source_type. Classify the site as a whole, from its domain first and then the path and the surrounding text, not the single page:
   - news: newspapers, broadcasters, magazines and other editorial news sites, also their test and review articles (nrk.no, vg.no, dagbladet.no, aftenposten.no, e24.no, svt.se, aftonbladet.se, dn.se, svd.se).
   - review: sites whose main purpose is customer reviews, ratings or product tests (trustpilot.com, tripadvisor, testfakta.se, yelp.com).

@@ -67,12 +67,15 @@ it('rejects anything that is not valid JSON of the right shape', function (?stri
 
 it('corrects values that are only out of range', function () {
     $result = ExtractionResult::fromJson(modelJson(
-        [modelMention(['sentiment' => 4, 'evidence' => str_repeat('å', 500), 'list_position' => 0]), modelMention(['entity' => ['type' => 'unknown', 'id' => 7]])],
+        [modelMention(['sentiment' => 4, 'evidence' => str_repeat('å', 500), 'sentiment_quote' => str_repeat('ø', 500), 'list_position' => 0]), modelMention(['entity' => ['type' => 'unknown', 'id' => 7]])],
         [['url' => 'https://example.com', 'source_type' => 'blog']],
     ));
 
     expect($result->mentions[0]->sentiment)->toBe(1.0)
         ->and(mb_strlen($result->mentions[0]->evidence))->toBe(200)
+        ->and(mb_strlen($result->mentions[0]->sentimentQuote))->toBe(200)
+        // Answers recorded before U29 have no sentiment_quote and are still valid.
+        ->and($result->mentions[1]->sentimentQuote)->toBe('')
         ->and($result->mentions[0]->listPosition)->toBeNull()
         ->and($result->mentions[1]->entityId)->toBeNull()
         ->and($result->citations[0]->sourceType)->toBe('other');
@@ -169,6 +172,35 @@ it('lets deterministic matches win and only enriches them with the model values'
         ->and($unknown->surfaceName)->toBe('Kaffebønna AS')
         ->and($unknown->firstCharOffset)->toBe(mb_strpos($text, 'Kaffebønna'))
         ->and($unknown->listPosition)->toBe(3);
+});
+
+it('keeps the quote for the sentiment only when it is word for word in the answer and the mention is not neutral', function () {
+    $text = 'Fjordkaffe er best i byen. Nordlys Rosteri er dyrere & tregere. Kaffebønna AS skuffer stort.';
+    $deterministic = [
+        new DetectedMention('brand', 1, 'Fjordkaffe', 0, null),
+        new DetectedMention('competitor', 5, 'Nordlys Rosteri', 27, null),
+    ];
+    $model = ExtractionResult::fromJson(modelJson([
+        modelMention(['sentiment' => 0.0, 'sentiment_quote' => 'Fjordkaffe er best i byen.']),
+        // Copied from the escaped answer the model saw, in quotation marks.
+        modelMention(['surface_name' => 'Nordlys Rosteri', 'entity' => ['type' => 'competitor', 'id' => 5], 'sentiment' => -0.4,
+            'sentiment_quote' => '"Nordlys Rosteri er dyrere &amp; tregere."']),
+        modelMention(['surface_name' => 'Kaffebønna AS', 'entity' => ['type' => 'unknown', 'id' => null], 'sentiment' => -0.8,
+            'sentiment_quote' => 'Kaffebønna AS skuffer stort']),
+    ]));
+
+    $assembled = assembler()->assemble($text, $deterministic, $model, knownAliases());
+
+    expect(array_map(fn ($mention) => $mention->sentimentQuote, $assembled->mentions))
+        ->toBe([null, 'Nordlys Rosteri er dyrere & tregere.', 'Kaffebønna AS skuffer stort']);
+
+    // A reworded quote is not the engine's own words and is dropped.
+    $reworded = ExtractionResult::fromJson(modelJson([modelMention(['sentiment' => 0.6, 'sentiment_quote' => 'Fjordkaffe er byens beste.'])]));
+    expect(assembler()->assemble($text, [$deterministic[0]], $reworded, knownAliases())->mentions[0]->sentimentQuote)->toBeNull();
+
+    // A sentiment that is stored as 0 after rounding to three decimals is neutral and has no reason either.
+    $almostNeutral = ExtractionResult::fromJson(modelJson([modelMention(['sentiment' => 0.0004, 'sentiment_quote' => 'Fjordkaffe er best i byen.'])]));
+    expect(assembler()->assemble($text, [$deterministic[0]], $almostNeutral, knownAliases())->mentions[0]->sentimentQuote)->toBeNull();
 });
 
 it('drops an unknown company whose name is not in the answer', function () {

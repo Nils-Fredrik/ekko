@@ -10,6 +10,7 @@ use App\Models\BrandFact;
 use App\Models\Claim;
 use App\Models\Competitor;
 use App\Models\Market;
+use App\Models\Mention;
 use App\Models\Prompt;
 use App\Models\Report;
 use App\Models\Team;
@@ -65,6 +66,14 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
         'text' => 'Founded in 2005.', 'quote' => 'Fjord Coffee was founded in 2005.', 'verdict' => Claim::CONTRADICTED,
         'source_citation_ids' => $response->citations()->pluck('id')->all()]);
     $values['UI_REPORT_ID'] = (string) Report::query()->orderBy('id')->firstOrFail()->id;
+    // U29: the newest positive brand mention has the model's quote for its sentiment, so the answer list shows it.
+    $quoted = Mention::query()->select('mentions.*')->join('responses', 'responses.id', '=', 'mentions.response_id')
+        ->where('mentions.entity_type', 'brand')->where('mentions.entity_id', $brand->id)->where('mentions.sentiment', '>', 0)
+        ->orderByDesc('responses.collected_at')->orderByDesc('mentions.id')->with('response')->first();
+    if ($quoted !== null) {
+        $answerText = (string) $quoted->response?->answer_text;
+        $quoted->update(['sentiment_quote' => mb_substr($answerText, 0, min(90, mb_strlen($answerText)))]);
+    }
     // U22: a brand with unknown names waiting for a decision, for Setup › Competitors and brands. The sidebar of the
     // other brands is not affected, because the count is per brand.
     $triageBrand = Brand::factory()->create(['name' => 'Fjord Tea', 'primary_domain' => 'tea.example.test']);

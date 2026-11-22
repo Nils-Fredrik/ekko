@@ -5,7 +5,7 @@ namespace App\Extraction;
 /**
  * The JSON schema the model must follow (docs/spec.md 8.2), passed as structured output
  * (output_config.format). Structured outputs accept no numeric or length bounds, so the ranges
- * (sentiment, evidence length, list position) are enforced when the answer is parsed,
+ * (sentiment, evidence and quote length, list position) are enforced when the answer is parsed,
  * see {@see ExtractionResult}.
  */
 final class ExtractionSchema
@@ -29,7 +29,7 @@ final class ExtractionSchema
                     'items' => [
                         'type' => 'object',
                         'additionalProperties' => false,
-                        'required' => ['surface_name', 'entity', 'list_position', 'is_recommended', 'sentiment', 'evidence'],
+                        'required' => ['surface_name', 'entity', 'list_position', 'is_recommended', 'sentiment', 'evidence', 'sentiment_quote'],
                         'properties' => [
                             'surface_name' => ['type' => 'string'],
                             'entity' => [
@@ -45,6 +45,7 @@ final class ExtractionSchema
                             'is_recommended' => ['type' => 'boolean'],
                             'sentiment' => ['type' => 'number'],
                             'evidence' => ['type' => 'string'],
+                            'sentiment_quote' => ['type' => 'string'],
                         ],
                     ],
                 ],

@@ -121,6 +121,7 @@ class BrandResponseController extends Controller
             ],
             'excerpt' => SentimentResponses::excerpt($text, (string) $mention->surface_name,
                 $mention->first_char_offset === null ? null : (int) $mention->first_char_offset),
+            'quote' => SentimentResponses::quote($text, $mention->sentiment_quote, (string) $mention->surface_name),
             'segments' => AnswerSegments::from($text, $response->mentions ?? [], $caseFold),
             'raw' => $response === null ? null : route('brands.responses.raw', [$brand, $response]),
         ];
