@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property string $plan_mode inherit: follows the brand's standard plan; own: explicit market choices (docs/spec.md 7.6)
+ * @property int $tenant_id
  */
 class Market extends Model
 {

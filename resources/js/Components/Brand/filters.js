@@ -3,6 +3,7 @@ import { router } from '@inertiajs/vue3';
 // Fetch graphs with the filters, but let model-backed insight arrive separately (ADR 0038).
 export const analysisProps = [
     'analysisFilters',
+    'workspace',
     'period',
     'filters',
     'summary',

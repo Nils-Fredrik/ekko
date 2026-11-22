@@ -40,6 +40,8 @@ test('a brand page defers the workspace with brands, markets, counts, usage and 
     $sweden = Market::factory()->for($world->brand)->create(['country' => 'SE', 'language' => 'sv']);
     $labelled = Market::factory()->for($world->brand)->create(['country' => 'DK', 'location_label' => 'København', 'is_active' => false]);
     $other = Brand::factory()->create(['name' => 'Annet merke']);
+    Action::factory()->create(['brand_id' => $world->brand->id, 'market_id' => $world->market->id]);
+    Action::factory()->create(['brand_id' => $world->brand->id, 'market_id' => $sweden->id]);
 
     $this->actingAs($world->tenant->owner)
         ->get(route('brands.actions.index', [$world->brand, 'market' => $sweden->id]))
@@ -58,7 +60,7 @@ test('a brand page defers the workspace with brands, markets, counts, usage and 
                     ['id' => $labelled->id, 'label' => 'København', 'is_active' => false],
                 ])
                 ->where('workspace.market_id', $sweden->id)
-                ->where('workspace.counts', ['inbox' => 0, 'actions_new' => 0, 'entities_pending' => 0, 'integrations_failing' => 0])
+                ->where('workspace.counts', ['inbox' => 1, 'actions_new' => 1, 'entities_pending' => 0, 'integrations_failing' => 0])
                 ->where('workspace.usage.month', now('UTC')->format('Y-m'))
                 ->where('workspace.usage.calls', 0)
                 ->where('workspace.role', 'Tenant-admin')
@@ -137,10 +139,11 @@ test('the counts come from WorkspaceCounts and match the sidebar badges', functi
     $world->answer($world->p1, now()->subDay()->toDateTimeString(), ['unknown' => 'Beste Byrå']);
     $world->answer($world->p2, now()->subDay()->toDateTimeString(), ['unknown' => 'Beste Byrå']);
 
-    $expected = ['inbox' => 3, 'actions_new' => 2, 'entities_pending' => 1, 'integrations_failing' => 1];
+    // One alert group, one unknown name, two actions and one failing integration.
+    $expected = ['inbox' => 5, 'actions_new' => 2, 'entities_pending' => 1, 'integrations_failing' => 1];
     expect(WorkspaceCounts::for($world->tenant, $world->brand))->toBe($expected)
         ->and(WorkspaceCounts::for($world->tenant, null))
-        ->toBe(['inbox' => 3, 'actions_new' => 0, 'entities_pending' => 0, 'integrations_failing' => 0]);
+        ->toBe(['inbox' => 5, 'actions_new' => 0, 'entities_pending' => 0, 'integrations_failing' => 0]);
 
     $this->actingAs($world->tenant->owner)->get(route('brands.show', $world->brand))
         ->assertInertia(fn (AssertableInertia $page) => $page
@@ -174,11 +177,12 @@ test('the counts are cached and cleared when a change behind them is saved', fun
 test('the counts of one tenant are not another tenant\'s', function () {
     $a = shellWorld();
     Action::factory()->create(['brand_id' => $a->brand->id]);
+    expect(WorkspaceCounts::for($a->tenant, $a->brand)['actions_new'])->toBe(1);
     $b = MetricsWorld::create();
     app(TenantContext::class)->set($b->tenant->id);
 
     expect(WorkspaceCounts::for($b->tenant, $b->brand)['actions_new'])->toBe(0)
-        ->and(WorkspaceCounts::for($a->tenant, $a->brand)['actions_new'])->toBe(1);
+        ->and(fn () => WorkspaceCounts::for($a->tenant, $a->brand))->toThrow(LogicException::class);
 });
 
 test('the setup routes send the user to today\'s pages until each page is built', function () {

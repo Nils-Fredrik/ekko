@@ -69,57 +69,86 @@ final readonly class FactCorrectionSource implements ActionSource
             if ($responseIds->count() < $minimum) {
                 continue;
             }
-            $fact = $facts[$factId];
-
-            $prompts = [];
-            $engines = [];
-            foreach ($contradicted->unique('response_id') as $claim) {
-                $run = $claim->response?->run;
-                if ($run !== null) {
-                    $prompts[$run->prompt_id] = ($prompts[$run->prompt_id] ?? 0) + 1;
-                    $engines[$run->engine_key] = true;
-                }
-            }
-            ksort($prompts);
-            $engines = array_keys($engines);
-            sort($engines);
-
-            $sources = $this->sources($contradicted);
-            $top = $sources[0] ?? null;
-            $kind = $top === null ? 'unknown' : ($top['ownership'] === 'own' ? 'own' : 'other');
-
-            $candidates[] = new ActionCandidate(
-                type: ActionType::FactCorrection,
-                marketId: null,
-                subject: 'fact:'.$fact->id,
-                evidence: [
-                    'period' => ['from' => $fromDate, 'to' => $toDate, 'days' => $days],
-                    'fact_id' => $fact->id,
-                    'fact' => $fact->text,
-                    'contradicted_responses' => $responseIds->count(),
-                    'supported_responses' => $rows->where('verdict', Claim::SUPPORTED)->pluck('response_id')->unique()->count(),
-                    'responses' => $responses,
-                    'claims' => $contradicted->pluck('text')->unique()->take((int) config('ekko.actions.fact_correction.max_claim_examples'))->values()->all(),
-                    'sources' => $sources,
-                    'source_kind' => $kind,
-                ],
-                affectedPerMonth: GenerationContext::perMonth($responseIds->count(), $days),
-                competitorOnlyShare: 1.0,
-                prompts: $prompts,
-                engineKeys: $engines,
-                textParams: [
-                    // Facts are written as sentences; the evidence sentence puts its own full stop after the fact.
-                    'fact' => Str::limit(rtrim($fact->text, ' .'), 200),
-                    'prompts' => count($prompts),
-                    'source' => $top['url'] ?? '',
-                    'source_kind' => $kind,
-                    'days' => $days,
-                ],
-            );
+            $candidates[] = $this->candidate($facts[$factId], $rows, $responses, $fromDate, $toDate, $days);
         }
 
         // Every fact is judged, also those without a candidate, so an action expires when the answers stop contradicting it.
         return new SourceOutcome([null], $candidates);
+    }
+
+    /** Thirty tenant-local days, including completed extractions from today up to the request. */
+    public static function inboxResponses(CarbonImmutable $localNow): \Closure
+    {
+        return fn (Builder $query) => $query->whereBetween('collected_at', [$localNow->startOfDay()->subDays(29)->utc(), $localNow->utc()])
+            ->whereHas('run', fn (Builder $run) => $run->where('status', 'extracted'));
+    }
+
+    /** A user may request a correction on the first contradiction rather than wait for the weekly threshold. */
+    public function requested(BrandFact $fact, CarbonImmutable $now): ?ActionCandidate
+    {
+        $from = $now->startOfDay()->subDays(29);
+        $window = self::inboxResponses($now);
+        $rows = $fact->claims()->whereIn('verdict', [Claim::CONTRADICTED, Claim::SUPPORTED])
+            ->whereHas('response', $window)->with(['response:id,run_id', 'response.run:id,prompt_id,engine_key'])->orderBy('id')->get();
+        if ($rows->where('verdict', Claim::CONTRADICTED)->isEmpty()) {
+            return null;
+        }
+        $responses = Response::query()->whereHas('run.prompt.market', fn (Builder $q) => $q->where('brand_id', $fact->brand_id))
+            ->where($window)->count();
+
+        return $this->candidate($fact, $rows, $responses, $from->toDateString(), $now->toDateString(), 30);
+    }
+
+    /** @param Collection<int, Claim> $rows */
+    private function candidate(BrandFact $fact, Collection $rows, int $responses, string $fromDate, string $toDate, int $days): ActionCandidate
+    {
+        $contradicted = $rows->where('verdict', Claim::CONTRADICTED);
+        $responseIds = $contradicted->pluck('response_id')->unique();
+        $prompts = [];
+        $engines = [];
+        foreach ($contradicted->unique('response_id') as $claim) {
+            $run = $claim->response?->run;
+            if ($run !== null) {
+                $prompts[$run->prompt_id] = ($prompts[$run->prompt_id] ?? 0) + 1;
+                $engines[$run->engine_key] = true;
+            }
+        }
+        ksort($prompts);
+        $engines = array_keys($engines);
+        sort($engines);
+
+        $sources = $this->sources($contradicted);
+        $top = $sources[0] ?? null;
+        $kind = $top === null ? 'unknown' : ($top['ownership'] === 'own' ? 'own' : 'other');
+
+        return new ActionCandidate(
+            type: ActionType::FactCorrection,
+            marketId: null,
+            subject: 'fact:'.$fact->id,
+            evidence: [
+                'period' => ['from' => $fromDate, 'to' => $toDate, 'days' => $days],
+                'fact_id' => $fact->id,
+                'fact' => $fact->text,
+                'contradicted_responses' => $responseIds->count(),
+                'supported_responses' => $rows->where('verdict', Claim::SUPPORTED)->pluck('response_id')->unique()->count(),
+                'responses' => $responses,
+                'claims' => $contradicted->pluck('text')->unique()->take((int) config('ekko.actions.fact_correction.max_claim_examples'))->values()->all(),
+                'sources' => $sources,
+                'source_kind' => $kind,
+            ],
+            affectedPerMonth: GenerationContext::perMonth($responseIds->count(), $days),
+            competitorOnlyShare: 1.0,
+            prompts: $prompts,
+            engineKeys: $engines,
+            textParams: [
+                // Facts are written as sentences; the evidence sentence puts its own full stop after the fact.
+                'fact' => Str::limit(rtrim($fact->text, ' .'), 200),
+                'prompts' => count($prompts),
+                'source' => $top['url'] ?? '',
+                'source_kind' => $kind,
+                'days' => $days,
+            ],
+        );
     }
 
     /**

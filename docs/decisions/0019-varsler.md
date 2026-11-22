@@ -51,3 +51,7 @@
 - `competitorFirstPlace()` og `unknownBrands()` leser `mentions` direkte i to uker om gangen, per merkevare. Det er greit ved dagens volum. Ved mye data bør de flyttes til aggregatet (nye kolonner i `agg_daily`).
 - T22 og T23 skal ikke endres av denne oppgaven. Opprettes `integration_error`-regelen med bare `in_app`, kan T28 la tenant-admin velge kanaler. Standardkanalene ligger i `ekko.alerts.default_channels`.
 - T28 bygger varselsiden og kvitteringsknappen på `alerts.acknowledge`.
+
+U25 viser den obligatoriske kanalen som `inbox`. Eldre regler og standardregler som kommer fra detektorene bruker `in_app` for samme kanal. Bare `email` og `slack` utløser ekstern levering. Både synk og innstillingsside starter en integrasjonsregel med innboksen som eneste kanal.
+
+En eksisterende integrasjonsregel per merkevare fortsetter å gjelde for synken og kan fortsatt redigeres på den gamle varselsiden. Både synken og varselsiden bevarer tidligere merkevarevalg når de oppretter fellesregelen. Ved senere redigering på varselsiden sammenlignes hele skjemaet med fellesregelen i databasen. Bare felter med ny verdi overføres til merkevarereglene. Arbeidsflaten sender feltene administratoren redigerer.

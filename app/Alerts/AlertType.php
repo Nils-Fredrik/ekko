@@ -20,7 +20,7 @@ enum AlertType: string
      */
     public function isTenantWide(): bool
     {
-        return in_array($this, [self::ModelChange, self::Quota], true);
+        return in_array($this, [self::ModelChange, self::Quota, self::IntegrationError], true);
     }
 
     /**
