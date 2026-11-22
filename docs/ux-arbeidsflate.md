@@ -405,7 +405,7 @@ Alle skjermer har dette hodet: brødsmule i 12 px `text-shell-muted` («Fjordbyr
    - Uten saker står «Alt ser bra ut» i `text-success-text`.
 3. **Kom i gang:** oppstartslisten (5.8) med «*x* av 6», fremdriftslinje i `success-text` og «Skjul».
 
-**Slik U26 er bygget:** «Alt ser bra ut» og haken bruker `text-success`. I mørkt tema peker den klassen på `--color-success-text` (`resources/css/app.css`), fordi `#4a7c59` er under 4,5:1 på det mørke skallet. I lyst tema er `#4a7c59` mørkere enn `#5d8a6a` og lesbar på hvitt. Fremdriftslinjen bruker `bg-success`, som er fyllfargen. Tokenet `--color-success-text` ligger utenfor `@theme`, så `text-success-text` er ikke en egen utility. En merkevare uten markeder viser «Legg til et marked» i helsehodet, og den gamle lenken på merkesiden vises bare når helsehodet mangler.
+**Slik U26 er bygget:** «Alt ser bra ut» og haken bruker `text-success`. I mørkt tema peker den klassen på `--color-success-text` (`resources/css/app.css`), fordi `#4a7c59` er under 4,5:1 på det mørke skallet. I lyst tema er `#4a7c59` mørkere enn `#5d8a6a` og lesbar på hvitt. Fremdriftslinjen bruker `bg-success`, som er fyllfargen. Tokenet `--color-success-text` ligger utenfor `@theme`, så `text-success-text` er ikke en egen utility. En merkevare uten markeder viser «Legg til et marked» i helsehodet, og den gamle lenken skjules da. Når merkevaren har markeder, står «Legg til marked» igjen som vei til et nytt marked.
    - Valget om å skjule lagres per bruker og merkevare (`user_brand_preferences.checklist_hidden_at`, ny tabell i U25).
    - Når listen er fullført eller skjult, får kort 1 og 2 hver sin halvdel.
 
