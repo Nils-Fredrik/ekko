@@ -331,6 +331,7 @@ return [
         'web' => 'Nettversjon',
         'pdf' => 'PDF',
         'share' => 'Del',
+        'share_failed' => 'Lenken kunne ikke endres. Prøv igjen senere.',
         'share_once' => 'Lenken vises bare denne gangen',
         'expires' => 'Utløper :when',
         'revoked' => 'Trukket tilbake',

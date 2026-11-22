@@ -19,7 +19,7 @@ const values = reactive({
     channels: [...props.rule.channels],
 });
 const draft = ref(props.rule.threshold ?? '');
-const autosave = useAutosave(() => route('brands.alert-rules.upsert', [props.brandId, props.rule.type]), {
+const { save, state, error } = useAutosave(() => route('brands.alert-rules.upsert', [props.brandId, props.rule.type]), {
     method: 'put',
     values,
     only: ['rules'],
@@ -46,7 +46,7 @@ function toggle(channel) {
     const next = values.channels.includes(channel)
         ? values.channels.filter((item) => item !== channel)
         : [...values.channels, channel];
-    autosave.save('channels', ['inbox', ...next.filter((item) => item !== 'inbox')]);
+    save('channels', ['inbox', ...next.filter((item) => item !== 'inbox')]);
 }
 </script>
 
@@ -62,7 +62,7 @@ function toggle(channel) {
                     :aria-checked="values.is_active"
                     :aria-label="$t(`app.alert_types.${rule.type}`)"
                     :disabled="!can"
-                    @click="autosave.save('is_active', !values.is_active)"
+                    @click="save('is_active', !values.is_active)"
                 >
                     <span
                         class="absolute top-0.5 h-5 w-5 rounded-full bg-shell-surface"
@@ -70,7 +70,7 @@ function toggle(channel) {
                     />
                 </button>
                 <h3 class="text-sm text-shell-fg">{{ $t(`app.alert_types.${rule.type}`) }}</h3>
-                <SaveStatus :state="autosave.state" :error="autosave.error" />
+                <SaveStatus :state="state" :error="error" />
             </div>
             <p class="mt-2 text-sm text-shell-muted">{{ explanation }}</p>
             <p v-if="rule.tenant_wide" class="mt-1 text-xs text-shell-muted">
@@ -88,7 +88,7 @@ function toggle(channel) {
                         :disabled="!can"
                         :aria-label="$t('workspace.notifications.threshold')"
                         @input="draft = $event.target.value"
-                        @blur="autosave.save('threshold', draft === '' ? null : draft)"
+                        @blur="save('threshold', draft === '' ? null : draft)"
                         @keydown.enter.prevent="$event.target.blur()"
                     />
                     <span>{{ $t(`workspace.notifications.units.${rule.unit}`) }}</span>

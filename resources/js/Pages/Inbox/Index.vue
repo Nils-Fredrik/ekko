@@ -86,6 +86,7 @@ function reveal(id) {
 }
 
 function query(changes) {
+    hidden.value = new Set();
     const next = {
         brand: props.filters.brand || undefined,
         market: props.filters.market || undefined,

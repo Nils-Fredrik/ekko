@@ -12,11 +12,11 @@ import { computed, reactive, ref } from 'vue';
 
 const props = defineProps({
     brand: { type: Object, required: true },
-    tenant: { type: String, required: true },
+    tenantName: { type: String, required: true },
     rules: { type: Array, required: true },
     schedules: { type: Array, required: true },
     reports: { type: Array, required: true },
-    locales: { type: Array, required: true },
+    reportLocales: { type: Array, required: true },
     canAlerts: { type: Boolean, required: true },
     canReports: { type: Boolean, required: true },
 });
@@ -29,7 +29,7 @@ const shareUrl = ref('');
 const shareFor = ref(null);
 const form = reactive({ cadence: 'monthly', recipients: [], locale: 'nb', branding: 'tenant' });
 const crumb = computed(() =>
-    [props.tenant, trans('workspace.shell.setup'), props.brand.name].filter(Boolean).join(' · '),
+    [props.tenantName, trans('workspace.shell.setup'), props.brand.name].filter(Boolean).join(' · '),
 );
 const open = computed(() => editing.value !== null);
 const errors = computed(() => page.props.errors ?? {});
@@ -38,7 +38,7 @@ function reset(schedule = null) {
     editing.value = schedule ? schedule.id : 'new';
     form.cadence = schedule?.cadence ?? 'monthly';
     form.recipients = [...(schedule?.recipients ?? [])];
-    form.locale = schedule?.locale ?? props.locales[0] ?? 'nb';
+    form.locale = schedule?.locale ?? props.reportLocales[0] ?? 'nb';
     form.branding = schedule?.branding ?? 'tenant';
     email.value = '';
 }
@@ -101,17 +101,25 @@ function sendTest(id) {
 async function createLink(reportId) {
     shareUrl.value = '';
     shareFor.value = reportId;
-    const response = await axios.post(route('reports.links.store', reportId), { days: 90 });
-    shareUrl.value = response.data.url;
-    router.reload({ only: ['reports'], preserveScroll: true, preserveState: true });
+    try {
+        const response = await axios.post(route('reports.links.store', reportId), { days: 90 });
+        shareUrl.value = response.data.url;
+        router.reload({ only: ['reports'], preserveScroll: true, preserveState: true });
+    } catch {
+        toast.show(trans('workspace.notifications.share_failed'));
+    }
 }
 
 async function revokeLink(reportId, id) {
-    await axios.delete(route('reports.links.destroy', [reportId, id]));
-    if (shareFor.value === reportId) {
-        shareUrl.value = '';
+    try {
+        await axios.delete(route('reports.links.destroy', [reportId, id]));
+        if (shareFor.value === reportId) {
+            shareUrl.value = '';
+        }
+        router.reload({ only: ['reports'], preserveScroll: true, preserveState: true });
+    } catch {
+        toast.show(trans('workspace.notifications.share_failed'));
     }
-    router.reload({ only: ['reports'], preserveScroll: true, preserveState: true });
 }
 </script>
 
@@ -133,7 +141,7 @@ async function revokeLink(reportId, id) {
                         :key="rule.type"
                         :rule="rule"
                         :brand-id="brand.id"
-                        :tenant="tenant"
+                        :tenant="tenantName"
                         :can="canAlerts"
                     />
                 </section>
@@ -295,7 +303,7 @@ async function revokeLink(reportId, id) {
                     <label class="text-sm text-shell-text">
                         {{ $t('workspace.notifications.language') }}
                         <select v-model="form.locale" class="mt-1 w-full rounded-lg border-line bg-shell-surface">
-                            <option v-for="locale in locales" :key="locale" :value="locale">{{ locale }}</option>
+                            <option v-for="locale in reportLocales" :key="locale" :value="locale">{{ locale }}</option>
                         </select>
                     </label>
                     <label class="text-sm text-shell-text">

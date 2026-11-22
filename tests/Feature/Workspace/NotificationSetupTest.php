@@ -3,6 +3,7 @@
 use App\Models\Alert;
 use App\Models\AlertRule;
 use App\Models\Brand;
+use App\Models\Report;
 use App\Models\ReportSchedule;
 use Inertia\Testing\AssertableInertia;
 use Tests\Support\Metrics\MetricsWorld;
@@ -24,7 +25,8 @@ test('opening notifications does not create rules, and each field saves on its o
             ->has('rules', 7)
             ->where('rules.0.type', 'visibility_drop')
             ->where('rules.0.unit', 'points')
-            ->where('tenant', $world->tenant->name)
+            ->where('tenantName', $world->tenant->name)
+            ->has('reportLocales')
             ->has('schedules', 1)
             ->where('schedules.0.id', $own->id));
     expect(AlertRule::query()->count())->toBe(0);
@@ -41,6 +43,22 @@ test('opening notifications does not create rules, and each field saves on its o
     expect(AlertRule::query()->count())->toBe(1)
         ->and($rule->fresh()->is_active)->toBeFalse()
         ->and((float) $rule->fresh()->threshold)->toBe(12.0);
+});
+
+test('report history keeps reports after the plan is deleted', function () {
+    $world = MetricsWorld::create();
+    $owner = $world->tenant->owner;
+    $owner->switchTeam($world->tenant);
+    $this->actingAs($owner);
+    $schedule = ReportSchedule::factory()->for($world->brand)->create();
+    $report = Report::factory()->create(['report_schedule_id' => $schedule->id]);
+    $schedule->delete();
+
+    $this->get(route('brands.setup.notifications', $world->brand))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('schedules', 0)
+            ->where('reports.0.id', $report->id));
 });
 
 test('the brand page carries the health header and the checklist can be hidden', function () {

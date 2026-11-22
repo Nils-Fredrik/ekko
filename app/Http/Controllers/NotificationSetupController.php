@@ -22,14 +22,16 @@ class NotificationSetupController extends Controller
     public function __invoke(Brand $brand): Response
     {
         Gate::authorize('view', $brand);
-        $reports = Report::query()->whereIn('report_schedule_id', $brand->reportSchedules()->select('id'))
-            ->latest('period_end')->limit(30)->get();
+        $reports = Report::query()->whereIn(
+            'report_schedule_id',
+            $brand->reportSchedules()->withTrashed()->select('id'),
+        )->latest('period_end')->limit(30)->get();
         $links = ReportLink::query()->whereIn('report_id', $reports->modelKeys())->latest()->get()->groupBy('report_id');
         $canReports = Gate::allows('create', ReportSchedule::class);
 
         return Inertia::render('Brands/Setup/Notifications', [
             'brand' => ['id' => $brand->id, 'name' => $brand->name],
-            'tenant' => $brand->tenant->name,
+            'tenantName' => $brand->tenant->name,
             'rules' => array_map(fn (AlertType $type): array => $this->rule($brand, $type), AlertType::cases()),
             'schedules' => $brand->reportSchedules()->orderBy('id')->get()->map(fn (ReportSchedule $schedule): array => [
                 'id' => $schedule->id,
@@ -51,7 +53,7 @@ class NotificationSetupController extends Controller
                     'revoked_at' => $link->revoked_at?->toIso8601String(),
                 ])->values(),
             ])->values(),
-            'locales' => array_values(array_filter(config()->array('ekko.locales'), fn (mixed $locale): bool => is_string($locale))),
+            'reportLocales' => array_values(array_filter(config()->array('ekko.locales'), fn (mixed $locale): bool => is_string($locale))),
             'canAlerts' => Gate::allows('create', AlertRule::class),
             'canReports' => $canReports,
         ]);

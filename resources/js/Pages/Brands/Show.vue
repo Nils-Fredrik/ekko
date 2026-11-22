@@ -325,7 +325,7 @@ function openMarker(marker) {
                     {{ $t('pitch.report') }}
                 </Link>
                 <Link
-                    v-if="canCreateMarket"
+                    v-if="canCreateMarket && !health"
                     :href="route('brands.markets.create', brand.id)"
                     class="text-sm text-shell-text"
                 >

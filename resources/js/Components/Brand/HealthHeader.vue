@@ -13,10 +13,11 @@ const props = defineProps({
 });
 
 const planUrl = computed(() => route('brands.setup.markets', props.brandId));
-const required = computed(() => (props.health.checklist ?? []).filter((step) => !step.optional));
+const checklist = computed(() => props.health.checklist ?? []);
+const required = computed(() => checklist.value.filter((step) => !step.optional));
 const complete = computed(() => required.value.length > 0 && required.value.every((step) => step.done));
 const showChecklist = computed(() => !props.health.checklist_hidden && !complete.value);
-const doneCount = computed(() => (props.health.checklist ?? []).filter((step) => step.done).length);
+const doneCount = computed(() => checklist.value.filter((step) => step.done).length);
 const edges = {
     warning: 'bg-warning',
     error: 'bg-error',
@@ -133,18 +134,18 @@ function hideChecklist() {
                 {{
                     $t('workspace.health.progress', {
                         done: formatNumber(doneCount),
-                        total: formatNumber(health.checklist.length),
+                        total: formatNumber(checklist.length),
                     })
                 }}
             </p>
             <div class="mt-1.5 h-1 overflow-hidden rounded bg-line-soft" aria-hidden="true">
                 <div
                     class="h-full bg-success"
-                    :style="{ width: `${health.checklist.length ? (doneCount / health.checklist.length) * 100 : 0}%` }"
+                    :style="{ width: `${checklist.length ? (doneCount / checklist.length) * 100 : 0}%` }"
                 />
             </div>
             <ul class="mt-2 space-y-1">
-                <li v-for="step in health.checklist" :key="step.key" class="flex items-start gap-2 text-xs leading-4">
+                <li v-for="step in checklist" :key="step.key" class="flex items-start gap-2 text-xs leading-4">
                     <CheckIcon v-if="step.done" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" aria-hidden="true" />
                     <span
                         v-else

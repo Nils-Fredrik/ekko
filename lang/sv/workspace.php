@@ -331,6 +331,7 @@ return [
         'web' => 'Webbversion',
         'pdf' => 'PDF',
         'share' => 'Dela',
+        'share_failed' => 'Länken kunde inte ändras. Försök igen senare.',
         'share_once' => 'Länken visas bara den här gången',
         'expires' => 'Går ut :when',
         'revoked' => 'Återkallad',

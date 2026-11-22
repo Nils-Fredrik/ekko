@@ -331,6 +331,7 @@ return [
         'web' => 'Web version',
         'pdf' => 'PDF',
         'share' => 'Share',
+        'share_failed' => 'The link could not be changed. Try again later.',
         'share_once' => 'The link is shown only this once',
         'expires' => 'Expires :when',
         'revoked' => 'Revoked',
