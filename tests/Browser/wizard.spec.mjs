@@ -328,7 +328,8 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
 
     await page.goto(page.url().replace(/\/settings\/?$/, ''));
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByRole('link', { name: 'Competitors', exact: true }).click();
+    await page.getByTestId('open-sidebar').click();
+    await page.getByTestId('sidebar-drawer').getByRole('link', { name: 'Competitors', exact: true }).click();
     const remove = page.getByRole('button', { name: 'Delete Ny konkurrent', exact: true });
     page.once('dialog', (dialog) => dialog.dismiss());
     await remove.click();

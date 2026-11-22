@@ -180,9 +180,10 @@ function zoneOf(parsed) {
 export function formatDate(value, { now = new Date(), year } = {}) {
     const monthOnly = typeof value === 'string' ? /^(\d{4})-(\d{2})$/.exec(value) : null;
     if (monthOnly) {
+        // `year: false` gives the month alone, as in «Forbruk november» in the sidebar.
         return formatter('DateTimeFormat', intlLocale(), {
             month: 'long',
-            year: 'numeric',
+            ...(year === false ? {} : { year: 'numeric' }),
             timeZone: 'UTC',
         }).format(new Date(Date.UTC(Number(monthOnly[1]), Number(monthOnly[2]) - 1, 1)));
     }

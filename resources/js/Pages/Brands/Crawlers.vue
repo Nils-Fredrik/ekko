@@ -3,7 +3,6 @@
 // comparison period. Then the funnel «fetched by AI → cited → visits» with how each step is measured, fetches per AI
 // robot as a stacked area, AI-referred sessions as a line and the most fetched pages. The funnel steps are measured
 // separately in different units, so no step is shown as a share of the previous one.
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import FunnelChart from '@/Components/Charts/FunnelChart.vue';
 import StackedAreaChart from '@/Components/Charts/StackedAreaChart.vue';
@@ -200,7 +199,6 @@ const hasFunnel = computed(() => steps.value.some((step) => step.value !== null)
 
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brand.id" />
                 <PeriodFilters :brand-id="brand.id" route-name="brands.crawlers" />
 
                 <section class="grid gap-3 sm:grid-cols-3" data-testid="crawler-kpis">

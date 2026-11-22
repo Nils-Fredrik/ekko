@@ -1,6 +1,5 @@
 <script setup>
 import ReportSection from '@/Components/Actions/ReportSection.vue';
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import { formatDate, formatValue } from '@/Components/Charts/support/format.js';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
@@ -26,7 +25,6 @@ defineProps({
         </template>
         <div class="py-8">
             <div class="mx-auto flex max-w-5xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brandId" />
                 <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-shell-muted">
                     <p>{{ $t('app.workspace.period_range', { start: formatDate(from), end: formatDate(to) }) }}</p>
                     <a :href="route('pitches.report.pdf', brandId)" class="text-primary no-underline">

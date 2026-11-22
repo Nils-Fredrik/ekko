@@ -538,7 +538,6 @@ return [
         ],
     ],
     'palette' => [
-        'open' => 'Søk',
         'placeholder' => 'Søk i merkevarer, prompter, konkurrenter og sider',
         'empty' => 'Ingen treff.',
         'switch_team' => 'Bytt til :name',

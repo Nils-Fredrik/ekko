@@ -218,14 +218,6 @@ defineExpose({ show });
 
 <template>
     <div>
-        <button
-            type="button"
-            class="inline-flex items-center rounded-lg border border-shell-fg/10 bg-shell-fg/[.04] px-3 py-2 text-sm text-shell-muted hover:bg-shell-fg/[.07]"
-            @click="show"
-        >
-            {{ $t('app.palette.open') }}
-        </button>
-
         <TransitionRoot :show="open" as="template">
             <Dialog class="relative z-50" @close="open = false">
                 <TransitionChild

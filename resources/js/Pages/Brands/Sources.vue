@@ -3,7 +3,6 @@
 // gap with a link to the action generated for each gap (T43), and the citations by source type. Clicking a domain
 // in a chart or in the list loads the answers that cite it (partial reload of `citing`).
 import { formatDateTime } from '@/format';
-import BrandNav from '@/Components/Brand/BrandNav.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import GapBarChart from '@/Components/Charts/GapBarChart.vue';
 import RankedBarChart from '@/Components/Charts/RankedBarChart.vue';
@@ -192,7 +191,6 @@ function rate(value, item) {
 
         <div class="py-8">
             <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
-                <BrandNav :brand-id="brand.id" />
                 <PeriodFilters :brand-id="brand.id" route-name="brands.sources" />
 
                 <div v-if="!chartData" class="grid gap-6" aria-busy="true" :aria-label="$t('app.sources.loading')">

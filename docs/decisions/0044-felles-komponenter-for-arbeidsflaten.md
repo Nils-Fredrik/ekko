@@ -46,4 +46,4 @@ Arbeidsflaten (U19–U27) vedlikeholder data i tabeller med flervalg, detaljpane
 - Bundleøkning (gzip): app og språk +2,3 kB, største første sidelasting +3,1 kB, all JavaScript +25 kB. TanStack lastes bare av sider som bruker `DataTable`.
 - Datoer på eksisterende sider vises nå i tenantens tidssone og uten år i inneværende år. Engelske grafakser bruker en-GB («22 Oct»). Referansebildene er oppdatert.
 - Nye sider bruker `format.js`, `DataTable`, `Drawer`, `useAutosave`, `BulkBar` og `useUndoToast` i stedet for egne varianter. `Pages/Dev/Components.vue` viser variantene og står i sideregisteret.
-- Kommandopalettens handlinger vises etter `workspace.can` fra skallet (U17). Til U17 deler `workspace`, viser paletten bare «Lag rapport nå», som før.
+- Kommandopalettens handlinger vises etter `workspace.can` fra skallet (U17). Uten `workspace` viser paletten bare «Lag rapport nå», som før.
