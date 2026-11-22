@@ -380,7 +380,7 @@ Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-fo
 
 Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.manage`.
 
-**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg».
+**Slik U18 er bygget:** reglene står i `Components/paletteActions.js` og er testet i `tests/js/workspace-components.test.mjs`. «Nytt faktum» krever `brands.manage` (som `BrandFactPolicy`) og går til `brands.facts.index?create=fact`. Handlinger mot ruter som ikke finnes, vises ikke. Etter U17 deler skallet `workspace`, og rutene `brands.setup.*` og `inbox.index` finnes, så paletten viser handlingene etter `workspace.can`. Gruppen heter «Handlinger»; teambytte står fortsatt under «Hurtigvalg». «Ny prompt», «Nytt tema», «Legg til konkurrent» og «Nytt marked» er skjult så lenge ruten bare sender videre, fordi dagens side ikke åpner `?create=`. Rutene står i `FORWARDING_ROUTES`, og U20, U22 og U24 tar sin rute ut av listen når siden er bygget.
 
 ## 5. Skjermer
 
