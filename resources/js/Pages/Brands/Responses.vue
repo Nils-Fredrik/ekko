@@ -166,7 +166,6 @@ function scoreClass(value) {
                         <span
                             class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium tabular-nums"
                             :class="scoreClass(answer.sentiment)"
-                            :title="$t('app.responses.score_hint')"
                         >
                             {{ $t('app.responses.score', { score: score(answer.sentiment) }) }}
                         </span>
