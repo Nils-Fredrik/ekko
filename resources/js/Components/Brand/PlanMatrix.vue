@@ -71,6 +71,21 @@ const canSave = computed(
 );
 const issues = computed(() => (fresh.value ? (estimate.value?.issues ?? []) : []));
 const within = computed(() => fresh.value && issues.value.length === 0 && !missingPrice.value);
+const priceBlocks = computed(() => missingPrice.value || issues.value.some((issue) => issue.code === 'no_price'));
+const statusMessage = computed(() => {
+    if (within.value) {
+        return trans('workspace.setup.within');
+    }
+    if (priceBlocks.value) {
+        return trans('app.plan.price_blocks');
+    }
+
+    return (
+        issues.value[0]?.message ||
+        error.value ||
+        (estimating.value ? trans('app.plan.updating') : trans('workspace.setup.unsaved'))
+    );
+});
 const delta = computed(() => {
     if (!dirty.value || savedAnswers.value == null || estimate.value?.answers == null || !fresh.value) {
         return null;
@@ -647,15 +662,7 @@ watch(dirty, (value) => {
                 })
             }}
         </span>
-        <span :class="within ? 'text-success' : 'text-warning'">
-            {{
-                within
-                    ? $t('workspace.setup.within')
-                    : issues[0]?.message ||
-                      error ||
-                      (estimating ? $t('app.plan.updating') : $t('workspace.setup.unsaved'))
-            }}
-        </span>
+        <span :class="within ? 'text-success' : 'text-warning'">{{ statusMessage }}</span>
         <span class="ml-auto flex gap-2">
             <button v-if="dirty" type="button" class="rounded-lg border border-line px-3 py-1" @click="discard">
                 {{ $t('workspace.setup.discard') }}

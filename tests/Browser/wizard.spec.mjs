@@ -216,7 +216,9 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
         await route.fulfill({ response, json: body });
     });
     await page.getByRole('button', { name: 'Monthly', exact: true }).click();
-    await expect(page.getByText('Engine has no price.')).toBeVisible();
+    await expect(
+        page.getByText('A selected engine has no price. The plan cannot be saved until the price is set.'),
+    ).toBeVisible();
     await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeDisabled();
     await page.unroute('**/measurement-plan/estimate');
     await page.getByRole('button', { name: 'Every 14 days', exact: true }).click();

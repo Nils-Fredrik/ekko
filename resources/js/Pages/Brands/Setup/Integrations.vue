@@ -44,8 +44,12 @@ function statusText(integration) {
         return trans('workspace.setup.not_connected');
     }
     if (integration.status === 'error') {
+        if (!integration.failing_since) {
+            return trans('app.workspace.integration_status.error');
+        }
+
         return trans('workspace.setup.failing_since', {
-            date: formatDate(integration.failing_since || integration.last_sync_at || new Date().toISOString()),
+            date: formatDate(integration.failing_since),
         });
     }
     if (integration.status === 'synced') {
