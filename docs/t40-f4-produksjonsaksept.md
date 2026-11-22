@@ -60,6 +60,10 @@ Legg tallene i en tabell under «Bevis» nederst. Lagre ingen kundedata, tenantn
 
 Forutsetning: #910 er avklart, og baseline er registrert.
 
+**Status før `shadow` (21.11.2026):** #910 er avklart (terminal fallback, #944), baseline i `legacy` er registrert under «Bevis» (PR #141: starter, instanstid, Cloud Tasks og statuskall; 22.11.2026: DB-transaksjoner og CPU fra Cloud SQL-metrikken og dashboardforsinkelse rekonstruert fra logger). Fakturaavstemmingen mot Cloud Billing gjøres i ettertid for de samme hele dagene. Billing beholder historikken, så den kan tas etter at kjedingen er slått på, og `ready` er anvendt med alle kontroller i avsnitt 2.4 bestått (Board #1395 og #1407). Rekkefølgen og én tilbakerullingsøvelse mellom `shadow` og `event` er bestemt av eieren (#946).
+
+**Lesende plan for `shadow` (21.11.2026, `-lock=false`, produksjonens tfvars):** `0 to add, 7 to change, 0 to destroy`. Web og de fem jobbene får `EKKO_WORK_CHAINING=true` og `EKKO_WORK_PUBLISHER=cloud_tasks`, `ekko-wake` får etiketten `shadow`, og vernet får `shadow`. Navnet på web-revisjonen nullstilles som før. Ingen Scheduler-plan, IAM eller andre ressurser endres. Planen er for gjennomgang; apply krever eierens godkjenning av en ny plan laget rett før apply.
+
 1. PR: `work_rollout_stage = "shadow"`. Planen skal bare endre `EKKO_WORK_CHAINING=true` og `EKKO_WORK_PUBLISHER=cloud_tasks` på web og jobber, i tillegg til etiketten. Planene står fortsatt aktive.
 2. Apply etter godkjenning, røyktest og trafikkflytting som i trinn 2.
 3. Kontroll i første time: `work.wake` med `queued`, deretter `idle` eller `not_due`. Ingen 401 eller 503 fra `/internal/work/*`. Køen tømmes (`gcloud tasks list`). `work_signals` får ingen ventende rader eldre enn 1 time, og ingen stoppede.
@@ -130,12 +134,23 @@ Med 1 vCPU / 1 GiB tilsvarer `legacy`-grensen om lag 259 000 vCPU-s og like mang
 - Cloud Monitoring målte 1 673 instanssekunder for `ekko-task`, 771 for `ekko-wake` og 240 for `ekko-migrate` i den tomme perioden. I arbeidsperioden målte den 2 586 for `ekko-worker`, 360 for `ekko-task` og 180 for `ekko-wake`. Tabellen viser summene fra denne metrikken.
 - De 95 `ekko-wake`-startene i den tomme perioden gir over kjøringenes levetid en nedre grense på 5 700 vCPU-sekunder og 5 700 GiB-sekunder (95 × 60 s × 1 vCPU eller 1 GiB). Monitoring viser 771 s for samme jobb. Fakturerbar bruk for begge periodene står åpen til CPU- og minne-SKU-ene er avstemt etter avsnitt 1. Kostnadssammenligningen mellom `legacy` og `event` venter på denne avstemmingen. [Cloud Run – fakturerbar instanstid for jobber](https://cloud.google.com/run/pricing)
 - Cloud Monitoring målte 85 550 instanssekunder for `ekko-web` i det tomme døgnet (86 400 s). Tjenesten hadde `minScale=0` og `cpu-throttling=false`. Web vises separat fra jobbene i begge måleperiodene.
-- **Ikke målt ennå:** DB-transaksjoner (Cloud SQL-metrikk) og dashboardforsinkelse. Dashboardmålingen gjøres med den første ordinære daglige innsamlingen.
+- **DB-transaksjoner (målt 22.11.2026 i ettertid):** Cloud SQL-metrikken `database/postgresql/transaction_count` for databasen `ekko` (commit og rollback, ALIGN_DELTA per 10 min, summert) ga 17 790 i den representative perioden og 46 370 i den tomme. Det var ingen rollback. `database/cpu/utilization` var i snitt 9,8 % (høyeste 10-minuttersnitt 11,3 %) i den representative perioden og 9,3 % (10,2 %) i den tomme. Metrikken beholdes i 6 uker, så tallene er fra de samme vinduene som resten av baselinen.
+- **Dashboardforsinkelse i `legacy` (rekonstruert fra logger 22.11.2026):** I `legacy` kommer resultatene på dashboardet først med neste `ekko:aggregate --sync` hver hele time. Fra `extraction.status_check` med `ended=true` i `ekko-worker` til neste fullførte `ekko:aggregate`-eksekvering i `ekko-task` gikk det 919, 919, 871 og 3 572 s for de fire batchene (15:45:52, 15:45:52, 17:46:29 og 18:01:40 UTC). Median er 919 s, og 95-persentilen er 3 572 s (største verdi av fire). *Metodeavvik:* avsnitt 5 bruker `extraction_jobs.completed_at` og `agg_daily.updated_at`. De kan ikke brukes i ettertid, fordi den timevise aggregeringen har skrevet radene på nytt siden. Statuskallet ligger noen sekunder før `completed_at`, så tallene er en øvre grense. I `shadow` og `event` måles det etter avsnitt 5.
+- **Trinn `ready`, 21.11 06:20 – 22.11 06:20 UTC (tomt døgn, oppfører seg som `legacy`):** 53 478 DB-transaksjoner og 9,4 % CPU i snitt (12,5 % høyeste 10-minuttersnitt). Tallet er med som sammenligning rett før `shadow`.
+- **Fakturerbar bruk:** Avstemmingen mot Cloud Billing (avsnitt 1) gjøres i ettertid for hele dager. Billing beholder historikken, så den er ikke bundet til trinnet.
+
+**Kontroller i `ready` (anvendt 21.11.2026 av Claude Code etter eierens godkjenning, task:75, PR #145).** Planen var `12 to add, 7 to change, 0 to destroy`.
+
+- Web-revisjonen `ekko-web-00101-2mw` fikk 100 % trafikk etter røyktest, med `EKKO_WORK_CHAINING=false` og `EKKO_WORK_PUBLISHER=queue`. Applikasjonen oppfører seg altså som i `legacy`.
+- Køen `ekko-work` er `RUNNING`. IAM har bare de forventede medlemmene: tre med enqueuer-rolle, tre med actAs og Cloud Tasks-agenten.
+- Syntetisk levering til vekkingsendepunktet ga 204 med `work.wake` `outcome=unknown`, og køen ble tømt. Et kall uten token ga 401.
+- Første `ekko-work-recover` etter apply (07:07 UTC) ga 204 i Scheduler-loggen og `work.recovery` med `published=0`, `failed=0` og `queue=idle`. Den startet verken `ekko-wake` eller `ekko-worker`.
+- Alle kontrollene i avsnitt 2.4 er bestått. Kilde: Board #1395 og #1407.
 
 | Periode (UTC) | Trinn | wake-starter | worker-starter | task-starter (agg/usage) | Jobber, instanssekunder (Monitoring) | Web, instanssekunder (Monitoring) | DB-transaksjoner | Cloud Tasks opprett/forsøk | Statuskall | Dashboard p50/p95 |
 |---|---|---|---|---|---|---|---|---|---|---|
-| 19.11 18:10 – 20.11 18:10 | legacy, tom | 95 | 0 | 24/24 | 2 684 | 85 550 | ikke målt | 0/0 | 9 | – |
-| 19.11 15:00 – 18:10 | legacy, representativ | 13 | 5 | 4/4 | 3 126 | 11 366 | ikke målt | 0/0 | 4 | ikke målt |
+| 19.11 18:10 – 20.11 18:10 | legacy, tom | 95 | 0 | 24/24 | 2 684 | 85 550 | 46 370 | 0/0 | 9 | – |
+| 19.11 15:00 – 18:10 | legacy, representativ | 13 | 5 | 4/4 | 3 126 | 11 366 | 17 790 | 0/0 | 4 | 919 s / 3 572 s (logger) |
 | | shadow, tom | | | | | | | | | – |
 | | shadow, representativ | | | | | | | | | |
 | | event, tom | | | | | | | | | – |

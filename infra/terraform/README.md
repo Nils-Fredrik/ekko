@@ -98,8 +98,9 @@ allows 3900 seconds per worker task so a job can finish after the worker reaches
 its 3300-second process lifetime.
 
 Event-driven work wake-ups (T40-F4, ADR 0033) are in `work.tf`. Their rollout
-stage is a committed local (`legacy` by default, today's production), not a tfvars
-value: from `ready` on it, not `enable_dashboard_schedules`, decides whether
+stage is a committed local, not a tfvars value (`legacy` was production before
+T40-F4; production runs the stage in `main` after an approved apply): from
+`ready` on it, not `enable_dashboard_schedules`, decides whether
 `extraction-poll`, `aggregate` and `usage-rollup` run, so another worktree's
 tfvars cannot change them. The applied stage is a label on `ekko-wake`; a plan that
 would move it backwards fails on `terraform_data.work_rollout_guard` unless
