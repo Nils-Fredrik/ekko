@@ -165,6 +165,18 @@ export function globalLinks({ canViewPartner = false, counts = null, current, to
     return links;
 }
 
+/**
+ * Where «switch brand» goes: the same page for the other brand when its route takes only {brand}, otherwise the
+ * overview. `parameters` are the route's own parameter names (Ziggy), never the query.
+ */
+export function brandTarget(name, parameters = []) {
+    const own = Array.isArray(parameters) ? parameters : [];
+
+    return typeof name === 'string' && name.startsWith('brands.') && own.length === 1 && own[0] === 'brand'
+        ? name
+        : 'brands.show';
+}
+
 /** localStorage key for the last market chosen for a brand (4.1). */
 export function scopeKey(tenantId, brandId) {
     return `ekko.scope.${tenantId}.${brandId}`;

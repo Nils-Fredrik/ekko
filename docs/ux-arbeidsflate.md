@@ -251,6 +251,9 @@ Hver agent får fire oppgaver.
   - Rapporter (`reports.index`), Merkevarer (`brands.index`) og Veiviseren nås fra kommandopaletten, Portefølje og «Ny merkevare». Sidemenyen har ingen egen lenke til dem.
   - Logoen er dagens Maksimer-merke ved siden av «Ekko», ikke den røde «e»-en i skissen.
   - Forbruk kan vise over 100 %. Linjen stopper på full bredde.
+  - `workspace` deles med alle Inertia-sider for innloggede brukere med en tenant, ikke bare sidene i applayouten. Serveren vet ikke hvilken layout en side bruker. De få sidene utenfor (bekreft passord, MCP-godkjenning) får ett ekstra utsatt kall.
+  - Masseoppdateringer uten modellhendelser (for eksempel omklassifisering av nevnelser og nye svar med ukjente navn) nullstiller ikke tallene. De vises senest etter 60 sekunder.
+  - Valgt merkevare, marked, tenant, tema og språk i menyene har en prikk og teksten «Valgt nå» for skjermlesere (`CurrentMark.vue`).
   - Sidetitlene på dagens sider er uendret. Overskrift og «Merkevare · Gruppe» som i skissen kommer med sideoppgavene (U20–U26).
 
 ### 4.2 Formatering (U18)

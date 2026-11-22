@@ -4,6 +4,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import {
+    brandTarget,
     globalLinks,
     linkQuery,
     marketFromUrl,
@@ -156,6 +157,16 @@ test('Portefølje is the client overview for partner advisors, and Innboks cover
             ['inbox', 'inbox.index', true],
         ],
     );
+});
+
+test('switching brand keeps the page when its route takes only {brand}, whatever the query', () => {
+    // Ziggy's route().params also holds the query (?market=5); the route definition does not.
+    assert.equal(brandTarget('brands.sources', ['brand']), 'brands.sources');
+    assert.equal(brandTarget('brands.actions.index', ['brand']), 'brands.actions.index');
+    assert.equal(brandTarget('brands.prompts.show', ['brand', 'prompt']), 'brands.show');
+    assert.equal(brandTarget('pitches.report', ['brand']), 'brands.show');
+    assert.equal(brandTarget('alerts.index', undefined), 'brands.show');
+    assert.equal(brandTarget(undefined, []), 'brands.show');
 });
 
 test('the last market is stored per tenant and brand', () => {

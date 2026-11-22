@@ -7,7 +7,8 @@ import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/vue';
 import { trans } from 'laravel-vue-i18n';
 import { ChevronDownIcon, MagnifyingGlassIcon } from '@heroicons/vue/20/solid';
 import { urlWithMarket } from '@/Components/paletteActions.js';
-import { globalLinks, marketFromUrl, scopeKey, sidebarGroups } from '@/Components/Shell/sidebarNav.js';
+import CurrentMark from '@/Components/Shell/CurrentMark.vue';
+import { brandTarget, globalLinks, marketFromUrl, scopeKey, sidebarGroups } from '@/Components/Shell/sidebarNav.js';
 import { useLocale } from '@/Composables/useLocale';
 import { useWorkspace } from '@/Composables/useWorkspace';
 import { formatCurrency, formatDate, formatNumber, formatPercent } from '@/format';
@@ -95,12 +96,12 @@ function rememberMarket(id) {
 
 /** The same page for another brand when the route only takes {brand}, otherwise its overview. */
 function brandHref(id) {
+    // route().params also holds the query, so the route's own parameters come from the Ziggy definition.
     const name = route().current();
-    const params = Object.keys(route().params ?? {});
-    const same = name && params.length === 1 && params[0] === 'brand' && name.startsWith('brands.');
+    const target = brandTarget(name, globalThis.Ziggy?.routes?.[name]?.parameters);
     const stored = readScope(id);
 
-    return route(same ? name : 'brands.show', { brand: id, ...(stored === null ? {} : { market: stored }) });
+    return route(target, { brand: id, ...(stored === null ? {} : { market: stored }) });
 }
 
 function marketLabel(item) {
@@ -168,10 +169,7 @@ const menuHeading = 'px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.08em] te
                         <MenuItem v-for="team in user.all_teams" :key="team.id" v-slot="{ active }">
                             <button type="button" :class="menuItemClass(active)" @click="switchToTeam(team)">
                                 <span class="truncate">{{ team.name }}</span>
-                                <span
-                                    v-if="team.id == user.current_team_id"
-                                    class="size-1.5 flex-none rounded-full bg-primary"
-                                ></span>
+                                <CurrentMark v-if="team.id == user.current_team_id" />
                             </button>
                         </MenuItem>
                         <div class="my-1 border-t border-line-soft" />
@@ -248,11 +246,7 @@ const menuHeading = 'px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.08em] te
                     <MenuItem v-for="item in brands" :key="item.id" v-slot="{ active }">
                         <Link :href="brandHref(item.id)" :class="menuItemClass(active)">
                             <span class="truncate">{{ item.name }}</span>
-                            <span
-                                v-if="item.id === brandId"
-                                class="size-1.5 flex-none rounded-full bg-primary"
-                                :aria-label="$t('workspace.palette.current')"
-                            ></span>
+                            <CurrentMark v-if="item.id === brandId" />
                         </Link>
                     </MenuItem>
                     <template v-if="page.props.canOnboard">
@@ -289,11 +283,7 @@ const menuHeading = 'px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.08em] te
                                 @click="rememberMarket(null)"
                             >
                                 {{ $t('workspace.shell.all_markets') }}
-                                <span
-                                    v-if="marketId === null"
-                                    class="size-1.5 flex-none rounded-full bg-primary"
-                                    :aria-label="$t('workspace.palette.current')"
-                                ></span>
+                                <CurrentMark v-if="marketId === null" />
                             </Link>
                         </MenuItem>
                         <MenuItem v-for="item in markets" :key="item.id" v-slot="{ active }">
@@ -303,11 +293,7 @@ const menuHeading = 'px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.08em] te
                                 @click="rememberMarket(item.id)"
                             >
                                 <span class="truncate">{{ marketLabel(item) }}</span>
-                                <span
-                                    v-if="item.id === marketId"
-                                    class="size-1.5 flex-none rounded-full bg-primary"
-                                    :aria-label="$t('workspace.palette.current')"
-                                ></span>
+                                <CurrentMark v-if="item.id === marketId" />
                             </Link>
                         </MenuItem>
                     </MenuItems>
@@ -399,7 +385,7 @@ const menuHeading = 'px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.08em] te
                 <MenuItem v-for="option in themes" :key="option.code" v-slot="{ active }">
                     <button type="button" :class="menuItemClass(active)" @click="setTheme(option.code)">
                         {{ option.label() }}
-                        <span v-if="option.code === theme" class="size-1.5 rounded-full bg-primary"></span>
+                        <CurrentMark v-if="option.code === theme" />
                     </button>
                 </MenuItem>
 
@@ -408,7 +394,7 @@ const menuHeading = 'px-3 pt-2 pb-1 text-[11px] font-medium tracking-[0.08em] te
                 <MenuItem v-for="item in locales" :key="item.code" v-slot="{ active }">
                     <button type="button" :class="menuItemClass(active)" @click="setLocale(item.code)">
                         {{ item.label }}
-                        <span v-if="item.code === locale" class="size-1.5 rounded-full bg-primary"></span>
+                        <CurrentMark v-if="item.code === locale" />
                     </button>
                 </MenuItem>
 
