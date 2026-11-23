@@ -51,6 +51,10 @@ for (const [name, component, role, path] of pages) {
             if (appLayoutPages.has(component)) {
                 const mobile = info.project.name.startsWith('mobile-');
                 await expect(page.getByTestId(mobile ? 'open-sidebar' : 'sidebar')).toBeVisible();
+                if (mobile && (component.startsWith('Brands/Setup/') || component === 'Inbox/Index')) {
+                    const fits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+                    expect(fits, 'Only the tables and filter lists may scroll horizontally').toBe(true);
+                }
                 if (!mobile && component.startsWith('Brands/') && component !== 'Brands/Index')
                     await expect(page.getByTestId('sidebar').locator('[aria-current="page"]')).toHaveCount(1);
             }

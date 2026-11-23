@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\Support\Metrics\MetricsWorld;
 
-test('brand settings save aliases domains and markets and reject a retired engine payload', function () {
+test('setup saves identity aliases domains and markets while the retired settings form cannot change engines', function () {
     $world = MetricsWorld::create();
     $engine = MarketEngine::factory()->create([
         'market_id' => $world->market->id,
@@ -32,13 +32,12 @@ test('brand settings save aliases domains and markets and reject a retired engin
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
 
-    $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
-        'name' => 'Fjordkaffe AS',
-        'primary_domain' => 'Fjordkaffe.example',
-        'aliases' => [['alias' => 'Fjord', 'match_mode' => 'exact_word']],
-        'domains' => [['domain' => 'Shop.Fjordkaffe.example', 'include_subdomains' => true]],
-        'markets' => [['id' => $world->market->id, 'location_label' => 'Oslo', 'is_active' => false]],
-    ])->assertRedirect();
+    $this->actingAs($owner)->patch(route('brands.identity.update', $world->brand), [
+        'name' => 'Fjordkaffe AS', 'primary_domain' => 'Fjordkaffe.example',
+    ])->assertSessionHasNoErrors();
+    $this->post(route('brands.aliases.store', $world->brand), ['alias' => 'Fjord', 'match_mode' => 'exact_word'])->assertSessionHasNoErrors();
+    $this->post(route('brands.domains.store', $world->brand), ['domain' => 'Shop.Fjordkaffe.example', 'include_subdomains' => true])->assertSessionHasNoErrors();
+    $this->patch(route('brands.markets.update', [$world->brand, $world->market]), ['location_label' => 'Oslo', 'is_active' => false])->assertSessionHasNoErrors();
 
     $brand = $world->brand->fresh();
     expect($brand->name)->toBe('Fjordkaffe AS')
@@ -53,9 +52,9 @@ test('brand settings save aliases domains and markets and reject a retired engin
         ->and($engine->fresh()->prompt_scope)->toBe('all')
         ->and($engine->fresh()->repetitions)->toBe(1);
 
-    $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
+    $this->actingAs($owner)->put(route('brands.settings', $world->brand), [
         'engines' => [['id' => $engine->id, 'frequency' => 'weekly', 'prompt_scope' => 'core', 'repetitions' => 3]],
-    ])->assertSessionHasErrors('engines');
+    ])->assertMethodNotAllowed();
     expect($engine->fresh()->frequency)->toBe('monthly')
         ->and($engine->fresh()->prompt_scope)->toBe('all')
         ->and($engine->fresh()->repetitions)->toBe(1)
@@ -92,9 +91,7 @@ test('a blank alert threshold uses the default', function () {
     $owner = $world->tenant->owner;
     $owner->switchTeam($world->tenant);
 
-    $this->actingAs($owner)->post(route('alerts.rules.store'), [
-        'brand_id' => $world->brand->id,
-        'type' => 'competitor_takeover',
+    $this->actingAs($owner)->put(route('brands.alert-rules.upsert', [$world->brand, 'competitor_takeover']), [
         'is_active' => true,
     ])->assertRedirect();
     $rule = AlertRule::query()->where('type', 'competitor_takeover')->firstOrFail();
@@ -102,12 +99,10 @@ test('a blank alert threshold uses the default', function () {
         ->and($rule->channels)->toBe(config('ekko.alerts.default_channels'));
 
     $rule->forceFill(['threshold' => null])->save();
-    $this->actingAs($owner)->put(route('alerts.rules.update', $rule), ['is_active' => true])->assertRedirect();
+    $this->actingAs($owner)->put(route('brands.alert-rules.upsert', [$world->brand, $rule->type]), ['is_active' => true])->assertRedirect();
     expect((float) $rule->fresh()->threshold)->toBe(50.0);
 
-    $this->actingAs($owner)->post(route('alerts.rules.store'), [
-        'brand_id' => $world->brand->id,
-        'type' => 'new_competitor',
+    $this->actingAs($owner)->put(route('brands.alert-rules.upsert', [$world->brand, 'new_competitor']), [
         'threshold' => '0',
         'is_active' => true,
     ])->assertRedirect();
@@ -127,12 +122,12 @@ test('brand settings show validation errors and refuse a reader or another tenan
     );
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), ['primary_domain' => 'not a domain'])
+        ->from(route('brands.setup.identity', $world->brand))
+        ->patch(route('brands.identity.update', $world->brand), ['primary_domain' => 'not a domain'])
         ->assertRedirect()
         ->assertSessionHasErrors('primary_domain');
 
-    $this->actingAs($reader)->put(route('brands.settings.update', $world->brand), ['name' => 'Nope'])->assertForbidden();
+    $this->actingAs($reader)->patch(route('brands.identity.update', $world->brand), ['name' => 'Nope'])->assertForbidden();
     $this->actingAs($owner)->get('/brands/'.$foreign.'/settings')->assertNotFound();
 });
 
@@ -153,12 +148,12 @@ test('a clickhouse host must be on the allowlist and the stored config stays off
         ->assertDontSee('https://old.example.test');
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), ['clickhouse_host' => 'https://evil.example.test'])
+        ->from(route('brands.setup.integrations', $world->brand))
+        ->put(route('brands.integrations.update', [$world->brand, 'clickhouse_logs']), ['clickhouse_host' => 'https://evil.example.test'])
         ->assertRedirect()
         ->assertSessionHasErrors('clickhouse_host');
 
-    $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
+    $this->actingAs($owner)->put(route('brands.integrations.update', [$world->brand, 'clickhouse_logs']), [
         'clickhouse_host' => 'https://logs.example.test',
     ])->assertRedirect();
 
@@ -175,17 +170,19 @@ test('a brand admin can connect clickhouse and ga4 without the secrets returning
     $key = "-----BEGIN PRIVATE KEY-----\nnot-a-real-key\n-----END PRIVATE KEY-----";
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), [
+        ->from(route('brands.setup.integrations', $world->brand))
+        ->put(route('brands.integrations.update', [$world->brand, 'clickhouse_logs']), [
             'clickhouse_host' => 'https://logs.example.test',
             'clickhouse_database' => 'logs',
             'clickhouse_table' => 'hits',
             'clickhouse_user' => 'reader',
             'clickhouse_password' => $secret,
-            'ga4_property_id' => '123456789',
-            'ga4_client_email' => 'ga4@example.test',
-            'ga4_private_key' => $key,
-        ])
+        ])->assertRedirect()->assertSessionHasNoErrors();
+    $this->put(route('brands.integrations.update', [$world->brand, 'ga4']), [
+        'ga4_property_id' => '123456789',
+        'ga4_client_email' => 'ga4@example.test',
+        'ga4_private_key' => $key,
+    ])
         ->assertRedirect()
         ->assertSessionHasNoErrors();
 
@@ -207,16 +204,18 @@ test('a brand admin can connect clickhouse and ga4 without the secrets returning
             ->has('integrations', 2));
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), [
+        ->from(route('brands.setup.integrations', $world->brand))
+        ->put(route('brands.integrations.update', [$world->brand, 'clickhouse_logs']), [
             'clickhouse_host' => 'https://evil.example.test',
             'clickhouse_password' => 'rejected-secret',
-            'ga4_private_key' => 'rejected-key',
         ])
         ->assertRedirect()
         ->assertSessionHasErrors('clickhouse_host')
-        ->assertSessionMissing('_old_input.clickhouse_password')
-        ->assertSessionMissing('_old_input.ga4_private_key');
+        ->assertSessionMissing('_old_input.clickhouse_password');
+    $this->put(route('brands.integrations.update', [$world->brand, 'ga4']), [
+        'ga4_property_id' => '0',
+        'ga4_private_key' => 'rejected-key',
+    ])->assertSessionHasErrors('ga4_property_id')->assertSessionMissing('_old_input.ga4_private_key');
 
     expect($clickhouse->fresh()->config['password'])->toBe($secret)
         ->and($ga4->fresh()->config['service_account']['private_key'])->toBe($key);
@@ -234,8 +233,8 @@ test('clickhouse fields stay hidden and unsaved when no endpoint is configured',
         ->assertInertia(fn ($page) => $page->where('clickhouseEndpoints', []));
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), [
+        ->from(route('brands.setup.integrations', $world->brand))
+        ->put(route('brands.integrations.update', [$world->brand, 'clickhouse_logs']), [
             'name' => 'Should not stick',
             'clickhouse_database' => 'logs',
         ])
@@ -253,14 +252,14 @@ test('a partial integration is rejected and a blank secret keeps the stored one'
     $owner->switchTeam($world->tenant);
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), ['clickhouse_database' => 'logs'])
+        ->from(route('brands.setup.integrations', $world->brand))
+        ->put(route('brands.integrations.update', [$world->brand, 'clickhouse_logs']), ['clickhouse_database' => 'logs'])
         ->assertRedirect()
         ->assertSessionHasErrors('clickhouse_host');
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), [
+        ->from(route('brands.setup.integrations', $world->brand))
+        ->put(route('brands.integrations.update', [$world->brand, 'clickhouse_logs']), [
             'clickhouse_database' => 'logs-db',
             'clickhouse_table' => 'hits',
             'clickhouse_user' => 'reader',
@@ -271,8 +270,8 @@ test('a partial integration is rejected and a blank secret keeps the stored one'
         ->assertSessionHasErrors('clickhouse_database');
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), [
+        ->from(route('brands.setup.integrations', $world->brand))
+        ->put(route('brands.integrations.update', [$world->brand, 'ga4']), [
             'ga4_property_id' => '0',
             'ga4_client_email' => 'ga4@example.test',
             'ga4_private_key' => 'key',
@@ -281,8 +280,8 @@ test('a partial integration is rejected and a blank secret keeps the stored one'
         ->assertSessionHasErrors(['ga4_property_id' => __('app.workspace.ga4_property_invalid')]);
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), [
+        ->from(route('brands.setup.integrations', $world->brand))
+        ->put(route('brands.integrations.update', [$world->brand, 'ga4']), [
             'ga4_property_id' => '123',
             'ga4_client_email' => 'not-an-email',
             'ga4_private_key' => 'key',
@@ -291,8 +290,8 @@ test('a partial integration is rejected and a blank secret keeps the stored one'
         ->assertSessionHasErrors(['ga4_client_email' => __('app.workspace.ga4_email_invalid')]);
 
     $this->actingAs($owner)
-        ->from(route('brands.settings', $world->brand))
-        ->put(route('brands.settings.update', $world->brand), [
+        ->from(route('brands.setup.integrations', $world->brand))
+        ->put(route('brands.integrations.update', [$world->brand, 'ga4']), [
             'ga4_property_id' => '123',
             'ga4_client_email' => 'ga4@example.test',
             'ga4_private_key' => "bad\0key",
@@ -301,12 +300,14 @@ test('a partial integration is rejected and a blank secret keeps the stored one'
         ->assertSessionHasErrors(['ga4_private_key' => __('app.workspace.ga4_key_invalid')]);
 
     $password = '  clickhouse secret  ';
-    $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
+    $this->actingAs($owner)->put(route('brands.integrations.update', [$world->brand, 'clickhouse_logs']), [
         'clickhouse_host' => 'https://logs.example.test',
         'clickhouse_database' => 'logs',
         'clickhouse_table' => 'hits',
         'clickhouse_user' => 'reader',
         'clickhouse_password' => $password,
+    ])->assertRedirect()->assertSessionHasNoErrors();
+    $this->put(route('brands.integrations.update', [$world->brand, 'ga4']), [
         'ga4_property_id' => '123',
         'ga4_client_email' => 'ga4@example.test',
         'ga4_private_key' => "-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n",
@@ -315,7 +316,7 @@ test('a partial integration is rejected and a blank secret keeps the stored one'
     $clickhouse = Integration::query()->where('brand_id', $world->brand->id)->where('type', 'clickhouse_logs')->firstOrFail();
     $clickhouse->forceFill(['status' => 'error', 'last_failed_on' => '2026-11-01'])->save();
 
-    $this->actingAs($owner)->put(route('brands.settings.update', $world->brand), [
+    $this->actingAs($owner)->put(route('brands.integrations.update', [$world->brand, 'clickhouse_logs']), [
         'clickhouse_database' => 'daily',
         'clickhouse_password' => '',
     ])->assertRedirect()->assertSessionHasNoErrors();
@@ -347,36 +348,19 @@ test('alerts can be acknowledged and a rule rejects an invalid threshold', funct
 
     $this->actingAs($owner)
         ->from(route('alerts.index'))
-        ->put(route('alerts.rules.update', $rule), ['threshold' => '250', 'is_active' => true])
+        ->put(route('brands.alert-rules.upsert', [$world->brand, $rule->type]), ['threshold' => '250', 'is_active' => true])
         ->assertRedirect()
         ->assertSessionHasErrors('threshold');
 
-    $this->actingAs($owner)->post(route('alerts.rules.store'), [
-        'brand_id' => $world->brand->id,
-        'type' => 'quota',
+    $this->actingAs($owner)->put(route('brands.alert-rules.upsert', [$world->brand, 'quota']), [
         'threshold' => '80',
         'is_active' => true,
     ])->assertRedirect();
     expect(AlertRule::query()->where('type', 'quota')->whereNull('brand_id')->count())->toBe(1);
 
-    $this->actingAs($owner)
-        ->from(route('alerts.index'))
-        ->post(route('alerts.rules.store'), [
-            'type' => 'quota',
-            'is_active' => true,
-        ])
-        ->assertRedirect()
-        ->assertSessionHasErrors('type');
+    $this->put(route('brands.alert-rules.upsert', [$world->brand, 'quota']), ['is_active' => false])->assertSessionHasNoErrors();
+    expect(AlertRule::whereNull('brand_id')->where('type', 'quota')->sole()->is_active)->toBeFalse();
 
-    $this->actingAs($owner)
-        ->from(route('alerts.index'))
-        ->post(route('alerts.rules.store'), [
-            'brand_id' => $world->brand->id,
-            'type' => 'visibility_drop',
-            'is_active' => true,
-        ])
-        ->assertRedirect()
-        ->assertSessionHasErrors('type');
 });
 
 test('report schedules validate recipients and downloads stay inside the tenant prefix', function () {
@@ -391,12 +375,13 @@ test('report schedules validate recipients and downloads stay inside the tenant 
     Storage::disk(config()->string('ekko.reports.disk'))->put($path, "%PDF-1.4\nreport");
 
     $this->actingAs($owner)->get(route('reports.index'))->assertOk()->assertInertia(fn ($page) => $page
-        ->where('reportLocales.0', 'nb')
+        ->where('reports.0.id', $report->id)
+        ->missing('schedules')
         ->where('locales.0.code', 'nb'));
 
     $this->actingAs($owner)
-        ->from(route('reports.index'))
-        ->put(route('reports.schedules.update', $schedule), [
+        ->from(route('brands.setup.notifications', $world->brand))
+        ->put(route('brands.report-schedules.update', [$world->brand, $schedule]), [
             'cadence' => 'monthly',
             'recipients' => ['owner@example.test', 'not-an-email'],
             'locale' => 'nb',
@@ -404,15 +389,15 @@ test('report schedules validate recipients and downloads stay inside the tenant 
         ])->assertRedirect()->assertSessionHasErrors('recipients.1');
 
     $this->actingAs($owner)
-        ->from(route('reports.index'))
-        ->put(route('reports.schedules.update', $schedule), [
+        ->from(route('brands.setup.notifications', $world->brand))
+        ->put(route('brands.report-schedules.update', [$world->brand, $schedule]), [
             'cadence' => 'daily',
             'recipients' => ['owner@example.test'],
             'locale' => 'xx',
             'branding' => 'other',
         ])->assertRedirect()->assertSessionHasErrors(['cadence', 'locale', 'branding']);
 
-    $this->actingAs($owner)->put(route('reports.schedules.update', $schedule), [
+    $this->actingAs($owner)->put(route('brands.report-schedules.update', [$world->brand, $schedule]), [
         'cadence' => 'monthly',
         'recipients' => ['owner@example.test'],
         'locale' => 'sv',

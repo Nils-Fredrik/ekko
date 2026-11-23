@@ -84,8 +84,6 @@ export const pages = [
     ['shared-missing', null, 'guest', () => `/shared-report/${env('SMOKE_TENANT_ID')}/missing-selector`],
 ];
 export const inactivePages = {
-    'Brands/Settings': 'U24 sends /brands/{brand}/settings to identity. U27 removes the old settings page and its update route.',
-    'Alerts/Index': 'U26 sends /alerts to the inbox. The legacy rule form stays until U27 removes alerts.rules.',
     TermsOfService: 'Jetstream termsAndPrivacyPolicy is disabled; there is no registered page route.',
     PrivacyPolicy: 'Jetstream termsAndPrivacyPolicy is disabled; there is no registered page route.',
 };

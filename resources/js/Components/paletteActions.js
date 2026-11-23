@@ -1,8 +1,7 @@
 // The «Handlinger» group in CommandPalette (docs/ux-arbeidsflate.md 4.6). Plain functions, so
 // tests/js can check which actions a role sees and where they lead.
 //
-// `workspace` is the shared prop from the shell (U17). Before it exists, only «Lag rapport nå» is
-// shown, as before. Routes that are not built yet are left out (`has`).
+// The shell supplies the available brands and permissions.
 
 const CREATE = [
     { id: 'prompt', label: 'workspace.palette.new_prompt', route: 'brands.setup.prompts', can: 'manage_prompts' },
@@ -41,9 +40,7 @@ export function urlWithMarket(url, marketId) {
 export function paletteActions({ workspace, url, has, to, t, forwarding = FORWARDING_ROUTES }) {
     const items = [];
     if (!workspace) {
-        return has('reports.index')
-            ? [{ id: 'report', label: t('workspace.palette.create_report'), href: to('reports.index') }]
-            : [];
+        return [];
     }
     const can = workspace.can ?? {};
     const brand = workspace.brand ?? null;
@@ -101,8 +98,16 @@ export function paletteActions({ workspace, url, has, to, t, forwarding = FORWAR
     if (has('inbox.index')) {
         items.push({ id: 'inbox', label: t('workspace.palette.open_inbox'), href: to('inbox.index') });
     }
-    if (can.manage_reports && has('reports.index')) {
-        items.push({ id: 'report', label: t('workspace.palette.create_report'), href: to('reports.index') });
+    if (can.manage_reports && has('brands.setup.notifications')) {
+        const report = { id: 'report', label: t('workspace.palette.create_report') };
+        const destinations = brand ? [brand] : brands;
+        const links = destinations.map((item) => ({
+            id: `report-${item.id}`,
+            label: item.name,
+            href: to('brands.setup.notifications', { brand: item.id }),
+        }));
+        if (links.length === 1) items.push({ ...report, href: links[0].href });
+        if (links.length > 1) items.push({ ...report, children: links });
     }
 
     return items;

@@ -378,7 +378,7 @@ Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-fo
 
 - «Ny prompt», «Nytt tema», «Legg til konkurrent», «Nytt marked» og «Nytt faktum»: navigerer til oppsettssiden med `?create=prompt|topic|competitor|market|fact`, og siden åpner opprettelsen.
 - «Bytt marked …» og «Bytt merkevare …»: viser en underliste.
-- «Åpne innboks» og «Lag rapport nå» (`reports` som i dag).
+- «Åpne innboks» og «Lag rapport nå». Rapporthandlingen åpner merkevarens Varsler og rapporter. Utenfor en merkevare velges den fra listen når flere er tilgjengelige.
 
 Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.manage`.
 
@@ -660,7 +660,7 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
 
 **Slik U24 er bygget:**
 
-- **Sider:** `SetupMarketController`, `SetupIdentityController` og `SetupIntegrationController` tar over de tre rutene. `GET brands.settings` sender til identitet. `PUT brands.settings.update` og `Brands/Settings.vue` blir stående til U27.
+- **Sider:** `SetupMarketController`, `SetupIdentityController` og `SetupIntegrationController` tar over de tre rutene. `GET brands.settings` sender til identitet. U27 fjernet det gamle samlede skjemaet og skriveruten.
 - **Plan:** matrisen bruker `measurementPlan.js` og `usePlanEstimate`. Kolonnene er merkevarestandard pluss hvert aktivt marked. Standardkolonnen viser reglene, ikke svar per måned: tallet `engines` på estimatet er summen for alle markeder. Hver markedskolonne viser sine egne svar. Totalen står i lagringslinjen. Estimatet venter 300 ms etter en endring, og lastes på nytt når et marked slås av eller på. «Neste måling» i tabellen kommer fra den lagrede planen på serveren, også for lesere. Ulagrede endringer endrer ikke den datoen. I redigeringspanelet kommer dato og eksempelspørsmål fra den samme regelen, den med tidligst neste måling. Eksempelteksten slås opp blant alle aktive prompts. Arvede celler kan ikke redigeres. Ulagret navigasjon spør om bekreftelse. Lagring av sted og aktiv-bryter beholder utkastet.
 - **Identitet:** alias-testen kalles mens feltet skrives (500 ms) mot `brands.aliases.test`. Svaret logges ikke.
 - **Avvik:** farlig sone kan sette merkevaren på pause (`active` eller `paused`). U23-ruten godtar ikke arkivering, så siden sier at arkivering ikke er tilgjengelig ennå.
@@ -728,7 +728,7 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
   - `quota` og `integration_error` gjelder hele tenanten og vises med merknaden «Gjelder hele Fjordbyrå AS».
 - **Rapportplaner:** liste med kadens, mottakere (e-post som piller), språk og profil (tenant eller partner) og «Send en nå til meg». Detaljpanel for redigering, og «Ny rapportplan».
 - **Rapporthistorikk:** periode, sendt, lenker til nettversjon og PDF, og delbare lenker (T46) med opprett og trekk tilbake.
-- **Dagens `/reports`** blir arkivet på tvers av merkevarer. Opprettelse og redigering av planer skjer her.
+- **Rapportarkivet** på `/reports` viser historikk på tvers av merkevarer. Opprettelse og redigering av planer skjer under Varsler og rapporter for den valgte merkevaren.
 
 ### 5.8 Integrasjoner
 
@@ -769,7 +769,7 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
 | `GET /brands/{brand}/setup/notifications` | `brands.setup.notifications` | U26 |
 | `GET /inbox` | `inbox.index` | U26. Siden er innboksen. `/alerts` sender til `/inbox?type=alerts`. |
 
-`brands.settings` sender videre til `brands.setup.identity` når U24 er merget. U27 fjerner `Brands/Settings.vue` og `BrandSettingsController::update`.
+`brands.settings` videresender gamle bokmerker til `brands.setup.identity`. Skriveruten for det samlede innstillingsskjemaet ble fjernet i U27.
 
 ### 6.2 Temaer og prompts (U19)
 
@@ -982,7 +982,7 @@ Ved kopiering av prompts prioriteres aktive kjerneprompts, deretter øvrige akti
 **Tjenester:**
 
 - `App\Brands\MarketLibrary`
-- `App\Brands\IdentityLibrary`, som flytter logikken fra `BrandSettingsController::update` ut, slik at den gamle ruten fortsatt virker til U27
+- `App\Brands\IdentityLibrary`, som lagrer identitet, alias, domener og integrasjoner fra de egne rutene
 
 **Tester:** tilgang, grenser, kopiering av prompts, matchtest med kjente svar (eksakt ord mot uten skille på store og små bokstaver mot regex), konflikter og isolasjon.
 
@@ -1029,7 +1029,7 @@ Den har ingen egen tabell. Den samler fra kildene under:
 | `POST /brands/{brand}/checklist/hide` | `brands.checklist.hide` | `tenant.view` | – |
 
 - **`channels`:** står allerede i `alert_rules.channels`. Kanalen `inbox` er alltid på og kan ikke slås av.
-- **Gamle ruter:** `alerts.rules.*` og `reports.schedules.*` beholdes til U27 og bruker de samme tjenestene.
+- **Tidligere skriveruter:** U27 fjernet `alerts.rules.*` og `reports.schedules.*`. Eksisterende regler og rapportplaner redigeres fra oppsettet for merkevaren.
 
 **`App\Brands\BrandHealth::for(Brand): array`:**
 

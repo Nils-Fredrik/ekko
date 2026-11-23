@@ -11,7 +11,6 @@ use App\Models\Integration;
 use App\Models\Market;
 use App\Models\Prompt;
 use App\Models\Team;
-use Illuminate\Support\Facades\Route;
 
 final readonly class InboxAlerts
 {
@@ -78,7 +77,7 @@ final readonly class InboxAlerts
         };
         $url = match (true) {
             $type === 'quota' => route('usage.index'),
-            $type === 'integration_error' && $brand !== null => route(Route::has('brands.setup.integrations') ? 'brands.setup.integrations' : 'brands.settings', $brand),
+            $type === 'integration_error' && $brand !== null => route('brands.setup.integrations', $brand),
             isset($alert->payload['prompt_id']) && $brand !== null => route('brands.prompts.show', [$brand, $alert->payload['prompt_id']]),
             $brand !== null => route('brands.show', $brand),
             default => route('inbox.index'),

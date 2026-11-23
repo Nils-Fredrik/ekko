@@ -924,9 +924,9 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 
 ### 14.2 Sider (Inertia-komponenter)
 
-Arbeidsflaten (U16–U27, [ux-arbeidsflate.md](ux-arbeidsflate.md)) endrer sidene under. Den innfører sidemeny, oppsettssider under `/brands/{brand}/setup/*` og innboks, og erstatter `Brands/Settings.vue`. U27 oppdaterer tabellen når arbeidet er ferdig.
+Arbeidsflaten har sidemeny, innboks og seks oppsettssider per merkevare under `/brands/{brand}/setup/*`. På mobil åpnes sidemenyen som en skuff. Gamle bokmerker til `GET /brands/{brand}/settings` videresendes til Identitet i én versjon. `GET /alerts` åpner innboksen med varselfilter. Se [Arbeidsflaten](ux-arbeidsflate.md).
 
-Integrasjonsvarsler har en felles regel per tenant. Opprettelse av fellesregelen bevarer eldre merkevareregler. Når en administrator lagrer hele skjemaet på varselsiden, får merkevarereglene bare feltene som faktisk fikk en ny verdi. Arbeidsflaten lagrer per felt og bruker administratorens valg for det feltet.
+Integrasjonsvarsler har en felles regel per tenant. Eldre merkevareregler beholder sine verdier til en administrator endrer det aktuelle feltet under Varsler og rapporter.
 
 I innboksen kan en bruker med `prompts.manage` opprette et rettetiltak fra første motsagte påstand i 30-dagersvinduet. Dette bruker samme faktum, bevis og fingeravtrykk som den ukentlige genereringen (11.3 og 11.6). En uttrykkelig bestilling blir stående gjennom ukentlige genereringer frem til brukeren behandler tiltaket. Den starter med maltekst. En senere ukentlig kandidat kan få modellformulering etter de vanlige reglene. Innboksen bruker ferdig ekstraherte svar fra de siste 30 lokale datoene til og med bestillingstidspunktet. Den ukentlige jobben bruker avsluttede døgn. Når en rapportplan slettes, stopper planlagte utsendinger og tidligere rapporter beholder tilknytningen til planen. En testutsending går til den som bestilte den og gjelder siste avsluttede periode.
 
@@ -938,18 +938,23 @@ I innboksen kan en bruker med `prompts.manage` opprette et rettetiltak fra førs
 | `Pages/Pitch/Index.vue`, `Pages/Pitch/Report.vue` | Pitch-prosjektene til partneren: opprette, følge (status, dag av sju, prompts og svar) og konvertere, åpne i veiviseren eller på pitch-rapporten (11.5, T49) |
 | `Pages/Brands/Index.vue` | Merkevarer med status og markeder |
 | `Pages/Brands/Show.vue` | Dashboard: filterlinje (marked, motor, tema, intensjon, periode), innsiktslinje, nøkkeltall, trendgraf, share of voice, motor-sammenligning, modellbytte-markører |
-| `Pages/Brands/Prompts.vue` | Prompt-tabell med resultater per prompt (synlighet, posisjon, stabilitet per motor), inline redigering, aktivering/deaktivering, import og eksport (CSV) |
+| `Pages/Brands/Prompts.vue` | Prompt-tabell med resultater per prompt (synlighet, posisjon, stabilitet per motor), varmekart og lenke til oppsett for redigering |
 | `Pages/Brands/PromptShow.vue` | Ett prompt: alle svar over tid per motor, svartekst med uthevede nevnelser, kildeliste, råsvar-lenke |
-| `Pages/Brands/Competitors.vue` | Rangering over tid, konkurrenttabell med synlighet, endring, plass og sentiment, foreslåtte ukjente merkevarer, samt alias og domener (`docs/ui-forbedring.md` 7.4). Andelene positiv, nøytral og negativ i tabellen og segmentene i sentimentgrafen lenker til svarlisten (U28) |
+| `Pages/Brands/Competitors.vue` | Rangering over tid, konkurrenttabell med synlighet, endring, plass og sentiment, lenke til oppsett for å behandle foreslåtte merkevarer (`docs/ui-forbedring.md` 7.4). Andelene positiv, nøytral og negativ i tabellen og segmentene i sentimentgrafen lenker til svarlisten (U28) |
 | `Pages/Brands/Responses.vue` | Svarene bak sentimentet (U28, rute `brands.responses.index`): nevnelsene av merkevaren eller én konkurrent med sentiment i perioden og filtrene, med faner for alle, negativ, nøytral og positiv. Hvert svar viser prompt (lenke til prompt-siden), motor, tid, score, begrunnelsen for sentimentet (`sentiment_quote`, U29) eller utdrag når den mangler, med nevnelsen uthevet, og hele svaret. Utvalget følger dagsaggregatet: bare kjøringer med status `extracted`, tenantens lokale dag og merkevarens egne prompts, slik at antallene er de samme som n i konkurrenttabellen. Listen leser svarene direkte, mens n i tabellen kommer fra `agg_daily`, så etter et sent uttrekk kan tallene avvike til aggregatet er kjørt på nytt. Bare aktive konkurrenter kan velges, som i tabellen. Under 0 er negativ, 0 er nøytral og over 0 er positiv. Scoren vises med opptil tre desimaler, så bare 0 vises som 0 |
 | `Pages/Brands/Sources.vue` | Siterte domener, kildeandel, kildegap mot konkurrenter |
 | `Pages/Brands/Crawlers.vue` | AI-robottreff og AI-trafikk |
 | `Pages/Brands/Actions.vue`, `Pages/Brands/ActionShow.vue` | Tiltaksliste med filtre, detalj, egne tiltak og status (11.3, T44) |
 | `Pages/Brands/Facts.vue` | Fakta (legge til, godkjenne, slå av, endre, slette) og påstander med kilder (11.6, T49) |
-| `Pages/Brands/Settings.vue` | Navn, alias, domener, markeder og integrasjoner. Måleplanen i 7.6 viser merkevarens standard, egne markedsvalg og kostnadsestimat før lagring. U23 deler skrivetjenestene med denne siden og gir matchtest og egne ruter i `docs/ux-arbeidsflate.md` 6.4. |
+| `Pages/Brands/Setup/Prompts.vue` | Prompts og temaer med detaljpanel, masseendring, forslag, import og eksport |
+| `Pages/Brands/Setup/Competitors.vue` | Behandle nye merkenavn, rediger konkurrenter, alias og domener, og se andre og ignorerte aktører |
+| `Pages/Brands/Setup/Markets.vue` | Markeder og måleplan med arvede eller egne motorregler og estimat før lagring (7.6) |
+| `Pages/Brands/Setup/Identity.vue` | Merkevarens navn, status, domener og alias med forhåndsvisning av treff |
+| `Pages/Brands/Setup/Integrations.vue` | Konfigurasjon og status for GA4 og ClickHouse, med lenke til opplasting av logger |
+| `Pages/Brands/Setup/Notifications.vue` | Varselregler, kanaler, rapportplaner, mottakere, testutsending og rapportdeling for én merkevare |
 | `Pages/Onboarding/Wizard.vue` | Veiviseren fra kapittel 13 |
-| `Pages/Alerts/Index.vue` | Varsler med kvittering, og regler per merkevare |
-| `Pages/Reports/Index.vue`, `Pages/Reports/Show.vue` | Rapportplaner, mottakere, historikk, nedlasting og nettversjon av rapportseksjonen for tiltak (T44) |
+| `Pages/Inbox/Index.vue` | Prioritert innboks med filtre og behandling av varsler, ukjente merkenavn, tiltak, faktapåstander og integrasjonsfeil |
+| `Pages/Reports/Index.vue`, `Pages/Reports/Show.vue` | Rapportarkiv på tvers av merkevarer, nedlasting og nettversjon av rapportseksjonen for tiltak (T44) |
 | `Pages/Usage/Index.vue` | Tenantens forbruk per måned og motor, mot kvote og budsjett |
 | `Pages/Teams/Show.vue` | Jetstream team-administrasjon: medlemmer, roller, invitasjoner, Slack-webhook, profil for rapporter, egne API-nøkler. Jetstream bruker flertall i mappen. |
 | `Pages/Admin/Tenants.vue` | Plattformadmin: opprette, endre, stenge tenants, sette partner og pakke |

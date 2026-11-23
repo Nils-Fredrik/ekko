@@ -255,6 +255,12 @@ function focusRow(position, { focus = true } = {}) {
     });
 }
 
+function focusCurrentRow() {
+    if (ids.value.length) focusRow(focusPosition.value);
+}
+
+defineExpose({ focusCurrentRow });
+
 function isTyping(target) {
     return (
         target instanceof HTMLElement &&

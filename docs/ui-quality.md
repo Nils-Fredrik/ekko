@@ -4,7 +4,7 @@
 
 Nettleseren kjører i det offisielle Playwright-imaget, låst til versjon, digest og `linux/amd64`, også på Apple Silicon. Runneren kobler den til PHP-serveren på verten og stopper sin egen container etter kjøringen. Ingen produksjonsdata eller eksterne modellkall brukes. Nettleseroppsettet nullstiller bare den verifiserte `_testing`-databasen; kjør ikke Pest eller andre nettlesertester samtidig mot samme database.
 
-Sideregisteret har 46 scenarioer, inkludert fakta, pitchprosjekter og komponentsiden (U18): 184 referansebilder og 200 kontroller når de åtte testene av sperrer og grafventing og de åtte testene av sidemenyen (`shell.spec.mjs`, U17) tas med. Sidemenytestene kjøres bare i mørkt tema, én for desktop og én for mobil; resten hoppes over.
+Sideregisteret har 50 scenarioer og 200 referansebilder. I tillegg kontrolleres grafventing, axe-sperren, tenantvarsler, sidemenyen og tastaturfokus i det mobile promptpanelet.
 
 ## Referansebilder
 
@@ -39,6 +39,20 @@ Før opptak venter testen på at Vue er montert og alle utsatte Inertia-props er
 axe kjører WCAG 2 A/AA, 2.1 AA og 2.2 AA-regler på alle scenarioer i begge temaer og skjermstørrelser. Alle kritiske funn blokkerer, uten regelunntak. Øvrige funn bevares i rapporten for oppfølging. En grønn automatisk kontroll er ikke en full WCAG 2.2 AA-sertifisering: tastaturflyt, skjermleseropplevelse og tilstander som åpne dialoger må fortsatt vurderes. Eksisterende funksjonstester for temabytte og grafenes tabellalternativer beholdes.
 
 Første U15-kjøring, før fakta- og pitchsidene ble lagt til, hadde 0 kritiske funn etter retting av skjemanavn, og 458 `serious` node-funn. Senere måling etter T49, T45, U11 og datafargene hadde 544 serious (kontrast 530, lenke i tekst 4, treffflate 8, rullefelt 2). U01-F1 bruker mørkere primærflate for hvit tekst, mørkere primærtekst i lyst tema, teksttokenene `--color-success-text` og `--color-error-text` i mørkt tema, understreket partnerlenke, 24 px sammendrag og et fokuserbart rulleområde på robotsiden. CI 44783234593 skannet alle 168 variantene uten axe-funn. Suksessfargen som tekst på lyst skall er 4,20:1, og tonede statusmerker (`bg-primary/15 text-primary`, `bg-success/15 text-success`) er 4,31:1 og 4,01:1 mot hvit flate. De var ikke blant disse funnene og står som avvik i spesifikasjonen. Hover på primær er begrenset til lenker og knapper. De 14 bildeavvikene i den kjøringen er innlogging, profil, team i mørkt tema og delt rapport.
+
+### Tastatur og skjermleser i Arbeidsflaten (U27)
+
+Kontrollert 23. november 2026 med Orca 46.1 og Chromium fra prosjektets Playwright-image, i en isolert Linux-sesjon med de syntetiske engelske testdataene. Tastetrykk ble sendt til det aktive nettleservinduet. Opplesningen ble kontrollert i Orcas talelogg og sammenholdt med fokus og innhold i nettleseren.
+
+| Område | Handling | Observert resultat |
+|---|---|---|
+| Skall | Tab til «Skip to content», Enter. På mobil åpnet jeg menyen med Enter og lukket den med Escape. | Orca leste hovedinnholdet og overskriften på promptsiden. I mobilmenyen leste Orca dialogen og lukkeknappen. |
+| Tabell | I tabellen «Prompts and topics» flyttet jeg fokus med pil ned og åpnet neste rad med Enter. | Orca leste tabellnavn, rad- og kolonnetall og teksten til den nye raden. Riktig prompt åpnet seg. |
+| Panel | I mobilpanelet brukte jeg Tab gjennom redigeringsfeltene og Escape for å lukke. | Panelet var 390 px bredt. Orca leste «Topic», «Intent» og «Funnel stage» med feltets verdi. Fokus gikk tilbake til raden for samme prompt. |
+| Måleplan | Jeg åpnet en standardcelle med Enter, gikk til intervallet med Tab og lukket redigeringen med Escape. | Cellen hadde motor, kolonne og verdi i navnet. Fokus gikk til «Editing ChatGPT · Brand standard», videre til «Weekly» og tilbake til samme celle. |
+| Innboks | Jeg valgte «New brands» med tastaturet. | Filteret hadde antall og valgt tilstand. Fokus ble på filteret, URL-en fikk `type=entities` og listen viste bare merkenavn med tilhørende handlinger. |
+
+Alle seks oppsettssider og innboksen ble åpnet ved 390 × 844. Temaene ligger over prompttabellen, konkurrentfanene får flere linjer og innbokshandlingene bruker plassen under teksten. Brede datatabeller ruller i sitt eget område. Sideregisteret kontrollerer dokumentbredden på disse sju sidene i begge temaer.
 
 ## JavaScript-budsjetter
 

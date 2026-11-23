@@ -117,7 +117,6 @@ Route::middleware([
     Route::get('/brands/{brand}/pitch-report/pdf', [PitchReportController::class, 'download'])->name('pitches.report.pdf');
     Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
     Route::get('/brands/{brand}/settings', [BrandSettingsController::class, 'show'])->name('brands.settings');
-    Route::put('/brands/{brand}/settings', [BrandSettingsController::class, 'update'])->name('brands.settings.update');
     Route::post('/brands/{brand}/markets', [MarketSetupController::class, 'store'])->name('brands.markets.store');
     Route::patch('/brands/{brand}/markets/{market}', [MarketSetupController::class, 'update'])->name('brands.markets.update');
     Route::patch('/brands/{brand}/identity', [BrandIdentityController::class, 'update'])->name('brands.identity.update');
@@ -150,12 +149,10 @@ Route::middleware([
     Route::post('/brands/{brand}/checklist/hide', [InboxController::class, 'hide'])->name('brands.checklist.hide');
     Route::put('/brands/{brand}/alert-rules/{type}', [AlertController::class, 'upsert'])->name('brands.alert-rules.upsert');
     Route::post('/brands/{brand}/report-schedules', [ReportController::class, 'store'])->name('brands.report-schedules.store');
-    Route::put('/brands/{brand}/report-schedules/{schedule}', [ReportController::class, 'updateForBrand'])->name('brands.report-schedules.update');
+    Route::put('/brands/{brand}/report-schedules/{schedule}', [ReportController::class, 'update'])->name('brands.report-schedules.update');
     Route::delete('/brands/{brand}/report-schedules/{schedule}', [ReportController::class, 'destroy'])->name('brands.report-schedules.destroy');
     Route::post('/brands/{brand}/report-schedules/{schedule}/send-test', [ReportController::class, 'sendTest'])->middleware('throttle:report-preview')->name('brands.report-schedules.test');
     Route::get('/alerts', [InboxController::class, 'legacy'])->name('alerts.index');
-    Route::post('/alerts/rules', [AlertController::class, 'storeRule'])->name('alerts.rules.store');
-    Route::put('/alerts/rules/{alertRule}', [AlertController::class, 'updateRule'])->name('alerts.rules.update');
     Route::post('/brands/{brand}/topics', [BrandTopicController::class, 'store'])->name('brands.topics.store');
     Route::patch('/brands/{brand}/topics/{topic}', [BrandTopicController::class, 'update'])->name('brands.topics.update');
     Route::delete('/brands/{brand}/topics/{topic}', [BrandTopicController::class, 'destroy'])->name('brands.topics.destroy');
@@ -200,8 +197,6 @@ Route::middleware([
     Route::post('/alerts/{alert}/acknowledge', [AlertController::class, 'acknowledge'])->name('alerts.acknowledge');
 
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
-    Route::post('/reports/schedules', [ReportController::class, 'store'])->name('reports.schedules.store');
-    Route::put('/reports/schedules/{schedule}', [ReportController::class, 'update'])->name('reports.schedules.update');
     Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');
     Route::post('/reports/{report}/links', [ReportLinkController::class, 'store'])->name('reports.links.store');
     Route::delete('/reports/{report}/links/{link}', [ReportLinkController::class, 'destroy'])->name('reports.links.destroy');
