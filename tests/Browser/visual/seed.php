@@ -13,7 +13,7 @@ use App\Models\EnginePrice;
 use App\Models\Market;
 use App\Models\Mention;
 use App\Models\Prompt;
-use App\Models\Report;
+use App\Models\ReportLink;
 use App\Models\Team;
 use App\Models\Topic;
 use App\Models\User;
@@ -68,7 +68,7 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
         'text' => 'Founded in 2005.', 'quote' => 'Fjord Coffee was founded in 2005.', 'verdict' => Claim::CONTRADICTED,
         'source_citation_ids' => $response->citations()->pluck('id')->all()]);
     // The guest scenario opens the English report and increments its link's view count.
-    $values['UI_REPORT_ID'] = (string) Report::query()->whereHas('reportSchedule', fn ($query) => $query->where('locale', 'nb'))->firstOrFail()->id;
+    $values['UI_REPORT_ID'] = (string) ReportLink::query()->where('public_id', $values['SMOKE_REPORT_NB_SELECTOR'])->sole()->report_id;
     // U29: the newest positive brand mention has the model's quote for its sentiment, so the answer list shows it.
     $quoted = Mention::query()->select('mentions.*')->join('responses', 'responses.id', '=', 'mentions.response_id')
         ->where('mentions.entity_type', 'brand')->where('mentions.entity_id', $brand->id)->where('mentions.sentiment', '>', 0)
