@@ -12,7 +12,9 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await page.goto(`${path}?from=2026-10-01&to=2026-10-03`);
     await initialInsight;
     const bar = page.getByTestId('analysis-filters');
-    await expect(bar).toContainText('2026-10-01');
+    await expect(bar).toContainText(/1 Oct.*3 Oct/);
+    await expect(bar).toContainText(/Compared with 28 Sep.*30 Sep/);
+    await expect(bar).not.toContainText(/\d{4}-\d{2}-\d{2}/);
     const quickMarket = bar.getByRole('combobox', { name: /Switch market/ });
     await quickMarket.selectOption({ label: 'Market: Norway' });
     await expect(page).toHaveURL(/[?&]market=\d+/);
@@ -39,7 +41,7 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     try {
         await bar.getByRole('button', { name: 'Apply', exact: true }).click();
         // The new figures must appear while the insight request is still held back.
-        await expect(bar).toContainText('2025-10-01');
+        await expect(bar).toContainText(/Compared with 1 Oct 2025.*3 Oct 2025/);
         await expect(bar.getByRole('button', { name: 'Remove Norway', exact: true })).toBeVisible();
         await expect.poll(() => insightRequested).toBe(true);
         expect(visits.filter((request) => request.headers()['x-inertia-partial-data']?.includes('chartData'))
@@ -54,7 +56,7 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     const shared = await context.newPage();
     await shared.goto(page.url());
     await expect(shared.getByTestId('analysis-filters').getByRole('button', { name: 'Remove Norway', exact: true })).toBeVisible();
-    await expect(shared.getByTestId('analysis-filters')).toContainText('2025-10-01');
+    await expect(shared.getByTestId('analysis-filters')).toContainText(/Compared with 1 Oct 2025.*3 Oct 2025/);
     await shared.close();
 
     await bar.locator('summary').click();
@@ -146,6 +148,9 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await expect(bar.getByRole('button', { name: /Remove Topic/ })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Fact check', exact: true })).toHaveAttribute('href', new RegExp(`${path}/facts$`));
     await page.goto(`${path}/competitors?from=2026-10-01&to=2026-10-03&grain=week`);
+    const custom = bar.getByRole('combobox', { name: 'Change period', exact: true });
+    await expect(custom).toHaveAttribute('title', /1 Oct.*3 Oct/);
+    await expect(custom.locator('option:checked')).toHaveText(/1 Oct.*3 Oct/);
     await bar.getByRole('button', { name: '+ Filter', exact: true }).click();
     await expect(bar.getByRole('combobox', { name: 'Group by', exact: true })).toHaveCount(0);
     await bar.getByRole('button', { name: 'Apply', exact: true }).click();

@@ -1,4 +1,5 @@
 <script setup>
+import { formatCurrency, formatDateTime } from '@/format';
 import { useForm } from '@inertiajs/vue3';
 import AdminNav from '@/Components/AdminNav.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -19,10 +20,10 @@ const prices = Object.fromEntries(
         engine.key,
         useForm({
             valid_from: '',
-            price_per_call_usd: engine.price?.price_per_call_usd ?? '0',
-            price_per_1k_input_tokens_usd: engine.price?.price_per_1k_input_tokens_usd ?? '0',
-            price_per_1k_output_tokens_usd: engine.price?.price_per_1k_output_tokens_usd ?? '0',
-            price_per_search_usd: engine.price?.price_per_search_usd ?? '0',
+            price_per_call_usd: engine.editable_price?.price_per_call_usd ?? '0',
+            price_per_1k_input_tokens_usd: engine.editable_price?.price_per_1k_input_tokens_usd ?? '0',
+            price_per_1k_output_tokens_usd: engine.editable_price?.price_per_1k_output_tokens_usd ?? '0',
+            price_per_search_usd: engine.editable_price?.price_per_search_usd ?? '0',
         }),
     ]),
 );
@@ -75,12 +76,16 @@ const prices = Object.fromEntries(
                 </form>
                 <p class="text-sm text-shell-muted">
                     {{ $t('admin.engines.price') }}:
-                    {{ engine.price ? engine.price.price_per_call_usd : $t('admin.engines.no_price') }}
+                    {{
+                        engine.price
+                            ? formatCurrency(engine.price.price_per_call_usd, 'USD', { unit: true })
+                            : $t('admin.engines.no_price')
+                    }}
                 </p>
                 <p v-if="engine.scheduled_price" class="text-sm text-shell-muted">
                     {{ $t('admin.engines.scheduled_price') }}:
-                    {{ engine.scheduled_price.price_per_call_usd }}
-                    ({{ engine.scheduled_price.valid_from }})
+                    {{ formatCurrency(engine.scheduled_price.price_per_call_usd, 'USD', { unit: true }) }}
+                    ({{ formatDateTime(engine.scheduled_price.valid_from) }})
                 </p>
                 <form
                     class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
