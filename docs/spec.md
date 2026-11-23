@@ -924,6 +924,8 @@ Flater, datafarger, bevegelse, tomme tilstander og kommandopaletten står i `doc
 
 ### 14.2 Sider (Inertia-komponenter)
 
+Filterlinjen, rapportarkivet, rapportsiden og administrasjonssidene for fakturagrunnlag og motorer bruker den felles formateringen i `resources/js/format.js` (U33). Kalenderdatoer beholder datoen, og tidspunkt vises i tenantens tidssone. Summene i fakturavisningen har to desimaler, og enhetsprisene for motorer har fire. Prisfeltet beholder alle signifikante desimaler ved redigering. Måleplanen viser månedsnavnet for tenantens lokale dato.
+
 Arbeidsflaten har sidemeny, innboks og seks oppsettssider per merkevare under `/brands/{brand}/setup/*`. På mobil åpnes sidemenyen som en skuff. Gamle bokmerker til `GET /brands/{brand}/settings` videresendes til Identitet i én versjon. `GET /alerts` åpner innboksen med varselfilter. Se [Arbeidsflaten](ux-arbeidsflate.md).
 
 Integrasjonsvarsler har en felles regel per tenant. Eldre merkevareregler beholder sine verdier til en administrator endrer det aktuelle feltet under Varsler og rapporter.

@@ -272,6 +272,7 @@ Beslutningene i U18 står i ADR 0044 (`docs/decisions/0044-felles-komponenter-fo
 | `formatPercent(0.3812)` | 38 % | Andel 0–1, ingen desimaler |
 | `formatPoints(-0.031)` | −3,1 pp | Prosentpoeng med fortegn og ekte minus |
 | `formatDate('2026-11-01')` | 1. nov. 2026 | Året utelates i inneværende år |
+| `formatMonth(instant)` | november | Månedsnavn i tenantens tidssone, også ved månedsskifte |
 | `formatDateTime(iso)` | 21. nov. 02:14 | Tenantens tidssone |
 | `formatRelative(iso)` | i natt, i går, om 3 dager | «i natt» gjelder 00:00–06:00 i dag |
 | `formatCount(n, 'answers')` | 1 svar, 412 svar | Flertall fra språkfilen |
