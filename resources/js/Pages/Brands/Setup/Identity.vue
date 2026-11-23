@@ -1,14 +1,14 @@
 <script setup>
 // Brand identity (docs/ux-arbeidsflate.md 5.5, U24). The match test runs while the alias is typed.
+import AliasMatchPreview from '@/Components/Setup/AliasMatchPreview.vue';
 import SaveStatus from '@/Components/UI/SaveStatus.vue';
 import { useAutosave } from '@/Composables/useAutosave';
 import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatNumber } from '@/format';
 import { router, usePage } from '@inertiajs/vue3';
-import axios from 'axios';
 import { trans } from 'laravel-vue-i18n';
-import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref } from 'vue';
 
 const props = defineProps({
     brand: { type: Object, required: true },
@@ -26,48 +26,13 @@ const { save, state, error } = useAutosave(() => route('brands.identity.update',
 });
 const draft = ref('');
 const mode = ref('exact_word');
-const preview = ref(null);
-const previewError = ref('');
+const matchPreview = ref(null);
 const domain = ref('');
 const includeSubdomains = ref(false);
 const confirmation = ref('');
 const confirmError = ref('');
 const modes = ['exact_word', 'case_insensitive', 'regex'];
 const errors = computed(() => page.props.errors ?? {});
-let timer = 0;
-
-watch([draft, mode], () => {
-    window.clearTimeout(timer);
-    preview.value = null;
-    previewError.value = '';
-    if (!props.canManage || draft.value.trim() === '') {
-        return;
-    }
-    timer = window.setTimeout(() => testAlias(), 500);
-});
-
-onBeforeUnmount(() => window.clearTimeout(timer));
-
-async function testAlias() {
-    const alias = draft.value.trim();
-    if (alias === '') {
-        return;
-    }
-    try {
-        const { data } = await axios.post(route('brands.aliases.test', props.brand.id), {
-            alias,
-            match_mode: mode.value,
-            entity: 'brand',
-        });
-        preview.value = data;
-        previewError.value = '';
-    } catch (error) {
-        preview.value = null;
-        const messages = error.response?.data?.errors?.alias;
-        previewError.value = (Array.isArray(messages) ? messages[0] : null) || error.response?.data?.message || '';
-    }
-}
-
 function addAlias() {
     router.post(
         route('brands.aliases.store', props.brand.id),
@@ -77,7 +42,6 @@ function addAlias() {
             only: ['aliases'],
             onSuccess: () => {
                 draft.value = '';
-                preview.value = null;
             },
         },
     );
@@ -188,31 +152,18 @@ function resume() {
                             {{ $t(`workspace.setup.match_${item}`) }}
                         </option>
                     </select>
-                    <button type="button" class="rounded-lg border border-line px-3" @click="testAlias">
+                    <button type="button" class="rounded-lg border border-line px-3" @click="matchPreview?.refresh()">
                         {{ $t('workspace.setup.match_test') }}
                     </button>
                 </div>
-                <p v-if="preview" data-testid="alias-preview" class="text-xs">
-                    {{
-                        $t('workspace.setup.match_result', {
-                            hits: formatNumber(preview.matches),
-                            answers: formatNumber(preview.scanned),
-                        })
-                    }}
-                </p>
-                <p v-for="(sample, index) in preview?.samples ?? []" :key="index" class="text-xs text-shell-muted">
-                    {{ sample.excerpt.before }}
-                    <mark>{{ sample.excerpt.match }}</mark>
-                    {{ sample.excerpt.after }}
-                </p>
-                <p
-                    v-for="conflict in preview?.conflicts ?? []"
-                    :key="`${conflict.type}-${conflict.name}`"
-                    class="text-xs text-warning"
-                >
-                    {{ $t('workspace.setup.conflict', { count: formatNumber(conflict.count), name: conflict.name }) }}
-                </p>
-                <p v-if="previewError" class="text-xs text-warning">{{ previewError }}</p>
+                <AliasMatchPreview
+                    v-if="canManage"
+                    ref="matchPreview"
+                    :brand-id="brand.id"
+                    entity="brand"
+                    :alias="draft"
+                    :mode="mode"
+                />
                 <button
                     v-if="canManage"
                     type="button"

@@ -48,6 +48,7 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
                 'brand' => ['pos' => 1, 'rec' => true, 'sent' => 0.7],
                 'competitors' => [$world->c1->id => 2], 'citations' => [['coffee.example.test', 'own'], ['guide.example.test', 'third_party']],
             ]);
+            $response->mentions()->where('entity_type', 'brand')->update(['surface_name' => 'Fjord Coffee', 'first_char_offset' => 0]);
             $response->update(['answer_text' => 'Fjord Coffee offers sustainably roasted coffee. Northern Roast is another option.']);
         }
         app(DailyAggregator::class)->aggregate($day);
