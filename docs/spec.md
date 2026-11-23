@@ -247,7 +247,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `brands` | `tenant_id`, `name`, `slug`, `primary_domain`, `status` (active, paused, archived, se ADR 0046) |
+| `brands` | `tenant_id`, `name`, `slug`, `primary_domain`, `status` (active, paused, archived), `archived_at` (se ADR 0046) |
 | `brand_aliases` | `brand_id`, `alias`, `match_mode` (exact_word, case_insensitive, regex) |
 | `brand_domains` | `brand_id`, `domain`, `include_subdomains` |
 | `competitors` | `tenant_id`, `brand_id`, `name`, `is_active`, `deleted_at` (logisk sletting) |

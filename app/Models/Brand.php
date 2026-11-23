@@ -3,13 +3,17 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Carbon\CarbonImmutable;
 use Database\Factories\BrandFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-/** @property int $tenant_id */
+/**
+ * @property int $tenant_id
+ * @property CarbonImmutable|null $archived_at
+ */
 class Brand extends Model
 {
     use BelongsToTenant;
@@ -29,7 +33,7 @@ class Brand extends Model
     protected function casts(): array
     {
         // Set when the queue of unknown brands is emptied by a decision (docs/ux-arbeidsflate.md 6.3 and 6.5).
-        return ['entities_reviewed_at' => 'datetime'];
+        return ['entities_reviewed_at' => 'datetime', 'archived_at' => 'immutable_datetime'];
     }
 
     /** @param Builder<Brand> $query */

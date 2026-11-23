@@ -29,7 +29,7 @@ final class IdentityLibrary
             if ($confirmation !== $locked->name) {
                 throw ValidationException::withMessages(['brand_name_confirmation' => __('workspace.setup.confirm_mismatch')]);
             }
-            $locked->update(['status' => 'archived']);
+            $locked->forceFill(['status' => 'archived', 'archived_at' => now()])->save();
         });
     }
 

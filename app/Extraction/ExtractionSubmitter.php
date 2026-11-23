@@ -89,17 +89,17 @@ final class ExtractionSubmitter
             return false;
         }
 
-        $catalog = DetectionCatalog::load();
+        $catalogs = DetectionCatalog::forResponses($chunk);
         foreach ($chunk as $response) {
             // The deterministic stage first: it recreates its rows, and the model stage builds on them.
-            $this->detector->detect($response, $catalog);
+            $this->detector->detect($response, $catalogs[$response->id]);
         }
 
         $requests = $chunk->map(fn (Response $response): ExtractionRequest => $this->prompts->build(
             'r'.$response->id,
             (string) $response->answer_text,
             $response->run->prompt->market->language ?? $response->answer_language ?? 'und',
-            $catalog->aliases,
+            $catalogs[$response->id]->aliases,
             $this->writer->deterministicMentions($response),
             $response->annotationUrls(),
         ))->all();

@@ -32,7 +32,7 @@ final class DeterministicDetector
             throw TenantMismatchException::forModel(Response::class, $responseTenantId, $contextTenantId);
         }
 
-        $catalog ??= DetectionCatalog::load();
+        $catalog ??= DetectionCatalog::forResponses([$response])[$response->id];
         $detected = $this->matcher->detect((string) $response->answer_text, $catalog->aliases);
 
         return DB::transaction(function () use ($response, $catalog, $detected): array {
