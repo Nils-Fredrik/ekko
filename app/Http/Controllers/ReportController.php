@@ -28,19 +28,9 @@ class ReportController extends Controller
     {
         Gate::authorize('viewAny', Report::class);
 
-        $schedules = ReportSchedule::query()->with('brand')->orderBy('id')->get();
         $reports = Report::query()->with('reportSchedule.brand')->latest('period_end')->limit(30)->get();
 
         return Inertia::render('Reports/Index', [
-            'schedules' => $schedules->map(fn (ReportSchedule $schedule): array => [
-                'id' => $schedule->id,
-                'brand_id' => $schedule->brand_id,
-                'brand' => $schedule->brand->name,
-                'cadence' => $schedule->cadence,
-                'recipients' => $schedule->recipients,
-                'locale' => $schedule->locale,
-                'branding' => $schedule->branding,
-            ])->values(),
             'reports' => $reports->map(fn (Report $report): array => [
                 'id' => $report->id,
                 'brand' => $report->reportSchedule->brand->name,
@@ -50,39 +40,24 @@ class ReportController extends Controller
                 'downloadable' => ($path = $this->storedPath($report)) !== null
                     && Storage::disk(config()->string('ekko.reports.disk'))->exists($path),
             ])->values(),
-            'brands' => Brand::query()->orderBy('name')->get(['id', 'name']),
-            'reportLocales' => array_values(array_filter(
-                config()->array('ekko.locales'),
-                fn (mixed $locale): bool => is_string($locale),
-            )),
-            'canManage' => Gate::allows('create', ReportSchedule::class),
         ]);
     }
 
-    public function store(Request $request, ?Brand $brand = null): RedirectResponse
+    public function store(Request $request, Brand $brand): RedirectResponse
     {
         Gate::authorize('create', ReportSchedule::class);
-        $data = $this->validated($request, requireBrand: $brand === null);
-        $brand ??= Brand::query()->findOrFail($data['brand_id']);
-        unset($data['brand_id']);
-        $brand->reportSchedules()->create($data);
+        $brand->reportSchedules()->create($this->validated($request));
 
         return back();
     }
 
-    public function update(Request $request, ReportSchedule $schedule): RedirectResponse
-    {
-        Gate::authorize('update', $schedule);
-        $schedule->update($this->validated($request, requireBrand: false));
-
-        return back();
-    }
-
-    public function updateForBrand(Request $request, Brand $brand, ReportSchedule $schedule): RedirectResponse
+    public function update(Request $request, Brand $brand, ReportSchedule $schedule): RedirectResponse
     {
         abort_unless($schedule->brand_id === $brand->id, 404);
+        Gate::authorize('update', $schedule);
+        $schedule->update($this->validated($request));
 
-        return $this->update($request, $schedule);
+        return back();
     }
 
     public function destroy(Brand $brand, ReportSchedule $schedule): RedirectResponse
@@ -153,9 +128,9 @@ class ReportController extends Controller
     }
 
     /**
-     * @return array{brand_id?: int, cadence: string, recipients: list<string>, locale: string, branding: string}
+     * @return array{cadence: string, recipients: list<string>, locale: string, branding: string}
      */
-    private function validated(Request $request, bool $requireBrand = true): array
+    private function validated(Request $request): array
     {
         $rules = [
             'cadence' => ['required', Rule::in(['weekly', 'monthly'])],
@@ -164,13 +139,9 @@ class ReportController extends Controller
             'locale' => ['required', Rule::in(config()->array('ekko.locales'))],
             'branding' => ['required', Rule::in(['tenant', 'partner'])],
         ];
-        if ($requireBrand) {
-            $rules['brand_id'] = ['required', 'integer'];
-        }
 
-        /** @var array{brand_id?: int, cadence: string, recipients: list<string>, locale: string, branding: string} $data */
+        /** @var array{cadence: string, recipients: list<string>, locale: string, branding: string} $data */
         $data = $request->validate($rules, [], [
-            'brand_id' => __('app.workspace.brand'),
             'cadence' => __('app.workspace.cadence'),
             'recipients' => __('app.workspace.recipients'),
             'recipients.*' => __('app.workspace.recipients'),

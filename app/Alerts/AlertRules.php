@@ -5,7 +5,6 @@ namespace App\Alerts;
 use App\Models\AlertRule;
 use App\Models\Team;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 
 final class AlertRules
 {
@@ -46,16 +45,11 @@ final class AlertRules
     }
 
     /** @param array<string, mixed> $changes */
-    public function save(AlertType $type, ?int $brandId, array $changes, bool $createOnly = false, ?AlertRule $existing = null): AlertRule
+    public function save(AlertType $type, ?int $brandId, array $changes): AlertRule
     {
-        return DB::transaction(function () use ($type, $brandId, $changes, $createOnly, $existing) {
+        return DB::transaction(function () use ($type, $brandId, $changes) {
             Team::query()->lockForUpdate()->findOrFail(current_tenant_id());
-            $rule = $existing === null
-                ? AlertRule::query()->firstOrNew(['type' => $type->value, 'brand_id' => $type->isTenantWide() ? null : $brandId])
-                : AlertRule::query()->lockForUpdate()->findOrFail($existing->id);
-            if ($createOnly && $rule->exists) {
-                throw ValidationException::withMessages(['type' => __('app.workspace.rule_exists')]);
-            }
+            $rule = AlertRule::query()->firstOrNew(['type' => $type->value, 'brand_id' => $type->isTenantWide() ? null : $brandId]);
             if (! $rule->exists) {
                 $rule->fill(['is_active' => true, 'channels' => $this->defaultChannels($type)]);
             }
@@ -68,13 +62,9 @@ final class AlertRules
                 $rule->channels = array_values(array_unique(['inbox', ...$changes['channels']]));
             }
             $rule->save();
-            if ($type === AlertType::IntegrationError && $rule->brand_id === null && ! ($createOnly && $rule->wasRecentlyCreated)) {
-                // The legacy form submits every control. The workspace sends the fields being edited.
-                // Creating the tenant rule from that form must not overwrite older brand rules.
-                // A workspace edit still copies the edited fields, including the first one, because
-                // the older brand rule stays the one the inbox and this page read.
-                $attributes = $existing === null ? $rule->getAttributes() : $rule->getChanges();
-                $fields = array_intersect_key($attributes, $changes, array_flip(['channels', 'is_active', 'threshold']));
+            if ($type === AlertType::IntegrationError) {
+                // Older brand-specific rules still take precedence. Apply only the edited fields to them.
+                $fields = array_intersect_key($rule->getAttributes(), $changes, array_flip(['channels', 'is_active', 'threshold']));
                 if ($fields !== []) {
                     AlertRule::where('type', $type->value)->whereNotNull('brand_id')->update($fields);
                 }

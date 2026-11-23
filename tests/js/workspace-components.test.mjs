@@ -430,7 +430,7 @@ test('a failed undo replaces the message with the error', async () => {
 });
 
 const routes = new Set([
-    'reports.index',
+    'brands.setup.notifications',
     'brands.show',
     'brands.facts.index',
     'brands.setup.prompts',
@@ -471,11 +471,13 @@ const workspace = (overrides = {}) => ({
     ...overrides,
 });
 
-test('without the workspace prop the palette keeps today’s report action', () => {
-    assert.deepEqual(
-        paletteActions(context(null)).map((item) => item.id),
-        ['report'],
-    );
+test('report actions require report permissions and lead to the settings for the chosen brand', () => {
+    assert.deepEqual(paletteActions(context(null)), []);
+    const canReport = can({ manage_reports: true });
+    const active = paletteActions(context(workspace({ can: canReport }))).find((item) => item.id === 'report');
+    assert.equal(active.href, 'brands.setup.notifications?brand=4');
+    const global = paletteActions(context(workspace({ can: canReport, brand: null }))).find((item) => item.id === 'report');
+    assert.deepEqual(global.children.map((link) => link.href), ['brands.setup.notifications?brand=4', 'brands.setup.notifications?brand=5']);
 });
 
 test('a reader sees switching and the inbox, but nothing that changes data', () => {

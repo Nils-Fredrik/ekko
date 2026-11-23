@@ -11,6 +11,7 @@ import { Link, router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 
+const promptTable = ref(null);
 const props = defineProps({
     brand: { type: Object, required: true },
     market: { type: Object, default: null },
@@ -817,8 +818,8 @@ const emptyCopy = computed(() =>
                 </button>
             </section>
 
-            <div class="flex items-start gap-4">
-                <aside class="min-w-0 flex-[1_1_200px] rounded-xl border border-line bg-shell-surface p-3 text-sm">
+            <div class="flex flex-col gap-4 md:flex-row md:items-start">
+                <aside class="min-w-0 md:flex-[1_1_200px] rounded-xl border border-line bg-shell-surface p-3 text-sm">
                     <button
                         type="button"
                         class="block w-full rounded-lg px-2 py-1.5 text-left hover:bg-row-hover"
@@ -944,7 +945,7 @@ const emptyCopy = computed(() =>
                     <p class="mt-3 px-2 text-xs text-shell-muted">{{ $t('workspace.prompts.drag_hint') }}</p>
                 </aside>
 
-                <div class="min-w-0 flex-[1_1_0]">
+                <div class="min-w-0 md:flex-[1_1_0]">
                     <form v-if="drafting" class="mb-3" @submit.prevent="saveDraft">
                         <label class="block text-sm">
                             {{ newRowLabel }}
@@ -960,6 +961,7 @@ const emptyCopy = computed(() =>
                         </label>
                     </form>
                     <DataTable
+                        ref="promptTable"
                         v-model:selection="selection"
                         :rows="library.prompts"
                         :columns="columns"
@@ -980,7 +982,7 @@ const emptyCopy = computed(() =>
                             <input
                                 :value="filters.search"
                                 type="search"
-                                class="rounded-full border border-line bg-shell-surface px-3 py-1.5 text-sm"
+                                class="max-w-full rounded-full border border-line bg-shell-surface px-3 py-1.5 text-sm"
                                 :placeholder="$t('workspace.prompts.search')"
                                 :aria-label="$t('workspace.prompts.search')"
                                 @input="onSearch"
@@ -1189,6 +1191,7 @@ const emptyCopy = computed(() =>
                     :label="trans('workspace.prompts.panel', { market: marketName.get(panelPrompt?.market_id) ?? '' })"
                     :save-state="autosave.state.value"
                     :save-error="autosave.error.value"
+                    @closed="promptTable?.focusCurrentRow()"
                     @close="visit({ open: null })"
                 >
                     <template v-if="panelPrompt">
@@ -1217,6 +1220,7 @@ const emptyCopy = computed(() =>
                         </div>
                         <div v-if="canManage" class="mt-3 grid gap-2 text-sm">
                             <select
+                                :aria-label="$t('workspace.prompts.topic')"
                                 :value="values.topic_id ?? ''"
                                 @change="
                                     autosave.save('topic_id', $event.target.value ? Number($event.target.value) : null)
@@ -1227,12 +1231,17 @@ const emptyCopy = computed(() =>
                                     {{ topic.name }}
                                 </option>
                             </select>
-                            <select :value="values.intent" @change="autosave.save('intent', $event.target.value)">
+                            <select
+                                :aria-label="$t('workspace.prompts.intent')"
+                                :value="values.intent"
+                                @change="autosave.save('intent', $event.target.value)"
+                            >
                                 <option v-for="item in options.intents" :key="item.value" :value="item.value">
                                     {{ item.label }}
                                 </option>
                             </select>
                             <select
+                                :aria-label="$t('workspace.prompts.funnel')"
                                 :value="values.funnel_stage"
                                 @change="autosave.save('funnel_stage', $event.target.value)"
                             >

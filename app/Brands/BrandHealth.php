@@ -18,7 +18,6 @@ use App\Scheduling\NextMeasurement;
 use App\Usage\MonthlyUsage;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Route;
 
 final readonly class BrandHealth
 {
@@ -60,9 +59,9 @@ final readonly class BrandHealth
             ];
         }
 
-        $plan = $this->setupUrl($brand, 'markets');
-        $integrations = $this->setupUrl($brand, 'integrations');
-        $entities = route(Route::has('brands.setup.competitors') ? 'brands.setup.competitors' : 'brands.competitors.index', $brand);
+        $plan = route('brands.setup.markets', $brand);
+        $integrations = route('brands.setup.integrations', $brand);
+        $entities = route('brands.setup.competitors', $brand);
         $problems = [];
         $this->problem($problems, $brand->integrations()->where('status', 'error')->exists(), 'integration', 'error', $integrations);
         $this->problem($problems, in_array('no_price', array_column($estimate['issues'], 'code'), true), 'price', 'error', $plan);
@@ -85,21 +84,13 @@ final readonly class BrandHealth
             $this->step('prompts', $enough, route('brands.prompts.index', $brand)),
             $this->step('entities', $brand->entities_reviewed_at !== null, $entities),
             $this->step('facts', $brand->facts()->where('is_active', true)->count() >= 3, route('brands.facts.index', $brand)),
-            $this->step('recipients', $brand->reportSchedules()->whereJsonLength('recipients', '>', 0)->exists(), $this->setupUrl($brand, 'notifications')),
+            $this->step('recipients', $brand->reportSchedules()->whereJsonLength('recipients', '>', 0)->exists(), route('brands.setup.notifications', $brand)),
             $this->step('integration', $brand->integrations()->whereIn('type', ['clickhouse_logs', 'ga4'])->exists(), $integrations, true),
         ];
 
         return ['markets' => $measurements, 'engines_active' => count($engines), 'answers_per_month' => $estimate['answers'],
             'problems' => $problems, 'checklist' => $checklist,
             'checklist_hidden' => UserBrandPreference::where('brand_id', $brand->id)->where('user_id', auth()->id())->whereNotNull('checklist_hidden_at')->exists()];
-    }
-
-    private function setupUrl(Brand $brand, string $section): string
-    {
-        $name = 'brands.setup.'.$section;
-
-        return Route::has($name) ? route($name, $brand)
-            : ($section === 'notifications' ? route('reports.index') : route('brands.settings', $brand));
     }
 
     /** @param list<array<string, string>> $problems */

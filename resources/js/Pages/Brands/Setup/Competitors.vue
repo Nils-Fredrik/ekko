@@ -774,7 +774,7 @@ const eyebrow = computed(() => trans('workspace.competitors.eyebrow', { brand: p
             <div
                 role="tablist"
                 :aria-label="$t('workspace.competitors.tabs_label')"
-                class="flex gap-1 border-b border-line"
+                class="flex flex-wrap gap-1 border-b border-line"
             >
                 <button
                     v-for="(id, index) in TABS"

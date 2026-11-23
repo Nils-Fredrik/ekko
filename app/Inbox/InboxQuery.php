@@ -15,7 +15,6 @@ use App\Models\Mention;
 use App\Models\Team;
 use App\Prompts\EntityQueue;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Route;
 
 final readonly class InboxQuery
 {
@@ -72,7 +71,7 @@ final readonly class InboxQuery
         $rule = $brand->alertRules()->where('type', $type->value)->first();
         $threshold = (float) ($rule->threshold ?? $type->defaultThreshold());
         $markets = $brand->markets()->where('is_active', true)->when($market, fn ($q) => $q->whereKey($market->id))->get();
-        $url = route(Route::has('brands.setup.competitors') ? 'brands.setup.competitors' : 'brands.competitors.index', $brand);
+        $url = route('brands.setup.competitors', $brand);
         foreach ($markets as $scope) {
             if ($rule && ! $rule->is_active) {
                 break;
@@ -155,7 +154,7 @@ final readonly class InboxQuery
             $done = $integration->status !== 'error';
             $rows[] = new InboxItem('integration', (string) $integration->id, $brand, null, $integration->updated_at ?? now(), 'error',
                 __('inbox.integration', ['name' => __('alerts.integrations.'.$integration->type)]), __($done ? 'inbox.resolved' : 'inbox.sync_failed'),
-                ['open_integration'], route(Route::has('brands.setup.integrations') ? 'brands.setup.integrations' : 'brands.settings', $brand), $done, [$integration->id]);
+                ['open_integration'], route('brands.setup.integrations', $brand), $done, [$integration->id]);
         }
 
         return $rows;

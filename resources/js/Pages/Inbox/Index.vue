@@ -262,17 +262,20 @@ async function act(item, action) {
                 </div>
             </div>
 
-            <div class="flex gap-4 overflow-x-auto border-b border-line-soft" role="tablist">
+            <div
+                class="flex gap-4 overflow-x-auto border-b border-line-soft"
+                role="group"
+                :aria-label="$t('workspace.shell.inbox')"
+            >
                 <button
                     v-for="[id, countKey] in tabs"
                     :key="id"
                     type="button"
-                    role="tab"
                     class="border-b-2 px-1 pb-2 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     :class="
                         filters.type === id ? 'border-primary text-shell-fg' : 'border-transparent text-shell-muted'
                     "
-                    :aria-selected="filters.type === id"
+                    :aria-pressed="filters.type === id"
                     :data-testid="`inbox-tab-${id}`"
                     @click="query({ type: id === 'all' ? undefined : id })"
                 >
@@ -292,7 +295,7 @@ async function act(item, action) {
                 <article
                     v-for="item in group.items"
                     :key="item.id"
-                    class="flex items-start gap-3 rounded-[14px] border border-line-soft bg-shell-surface p-3"
+                    class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-[14px] border border-line-soft bg-shell-surface p-3 sm:flex"
                     :data-testid="`inbox-row-${item.type}`"
                 >
                     <span
@@ -311,7 +314,7 @@ async function act(item, action) {
                             </li>
                         </ul>
                     </div>
-                    <div class="flex shrink-0 flex-wrap justify-end gap-2">
+                    <div class="col-span-2 flex flex-wrap gap-2 sm:shrink-0 sm:justify-end">
                         <button
                             v-for="action in item.actions.filter(allowed)"
                             :key="action.key"

@@ -193,53 +193,61 @@ function createMarket() {
 
             <p v-if="markets.length === 0" class="text-sm text-shell-muted">{{ $t('workspace.setup.no_markets') }}</p>
             <div v-else class="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
-                <table class="w-full text-left text-xs">
-                    <thead class="text-shell-muted">
-                        <tr>
-                            <th class="py-1 font-medium">{{ $t('workspace.setup.market') }}</th>
-                            <th class="py-1 font-medium">{{ $t('workspace.setup.status') }}</th>
-                            <th class="py-1 font-medium">{{ $t('workspace.setup.prompts') }}</th>
-                            <th class="py-1 font-medium">{{ $t('workspace.setup.plan') }}</th>
-                            <th class="py-1 font-medium">{{ $t('workspace.setup.next_measurement') }}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="market in markets"
-                            :key="market.id"
-                            data-testid="market-row"
-                            class="cursor-pointer border-t border-line"
-                            @click="selectedId = market.id"
-                        >
-                            <td class="py-1">
-                                <button type="button" class="block w-full text-left" @click="selectedId = market.id">
-                                    <span class="block text-shell-fg">{{ market.name }}</span>
-                                    <span class="text-shell-muted">
-                                        {{
-                                            $t('workspace.setup.language_place', {
-                                                language: market.language,
-                                                place: market.place,
-                                            })
-                                        }}
-                                    </span>
-                                </button>
-                            </td>
-                            <td :class="market.is_active ? 'text-success' : 'text-shell-muted'">
-                                {{ market.is_active ? $t('workspace.setup.active') : $t('workspace.setup.inactive') }}
-                            </td>
-                            <td>
-                                {{
-                                    $t('workspace.setup.prompt_counts', {
-                                        prompts: market.prompts,
-                                        core: market.core,
-                                    })
-                                }}
-                            </td>
-                            <td>{{ planText(market) }}</td>
-                            <td>{{ nextMeasurement(market) }}</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="min-w-0 overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="text-shell-muted">
+                            <tr>
+                                <th class="py-1 font-medium">{{ $t('workspace.setup.market') }}</th>
+                                <th class="py-1 font-medium">{{ $t('workspace.setup.status') }}</th>
+                                <th class="py-1 font-medium">{{ $t('workspace.setup.prompts') }}</th>
+                                <th class="py-1 font-medium">{{ $t('workspace.setup.plan') }}</th>
+                                <th class="py-1 font-medium">{{ $t('workspace.setup.next_measurement') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="market in markets"
+                                :key="market.id"
+                                data-testid="market-row"
+                                class="cursor-pointer border-t border-line"
+                                @click="selectedId = market.id"
+                            >
+                                <td class="py-1">
+                                    <button
+                                        type="button"
+                                        class="block w-full text-left"
+                                        @click="selectedId = market.id"
+                                    >
+                                        <span class="block text-shell-fg">{{ market.name }}</span>
+                                        <span class="text-shell-muted">
+                                            {{
+                                                $t('workspace.setup.language_place', {
+                                                    language: market.language,
+                                                    place: market.place,
+                                                })
+                                            }}
+                                        </span>
+                                    </button>
+                                </td>
+                                <td :class="market.is_active ? 'text-success' : 'text-shell-muted'">
+                                    {{
+                                        market.is_active ? $t('workspace.setup.active') : $t('workspace.setup.inactive')
+                                    }}
+                                </td>
+                                <td>
+                                    {{
+                                        $t('workspace.setup.prompt_counts', {
+                                            prompts: market.prompts,
+                                            core: market.core,
+                                        })
+                                    }}
+                                </td>
+                                <td>{{ planText(market) }}</td>
+                                <td>{{ nextMeasurement(market) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
                 <section
                     v-if="selected"
                     class="rounded-xl border border-line bg-shell-panel p-3 text-sm text-shell-text"

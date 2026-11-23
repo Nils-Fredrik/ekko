@@ -14,7 +14,7 @@ import {
 import { INTERVALS, answersFor, cellError, nextDue, rowChanged, samplePromptId } from '@/planMatrix';
 import { router, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 
 const coreIntervals = INTERVALS.filter((frequency) => frequency !== 'off');
 
@@ -34,6 +34,9 @@ const standardRows = ref(rulesToRows(props.plan.standard, catalog.value, maxRepe
 const markets = ref(draftMarkets(props.plan));
 const saving = ref(false);
 const selected = ref(null);
+const matrixId = useId();
+const editorHeading = ref(null);
+let trigger;
 const savedPayload = ref('');
 const savedAnswers = ref(null);
 
@@ -192,7 +195,7 @@ function rowsFor(marketId) {
     return market.plan_mode === 'own' ? market.rules : standardRows.value;
 }
 
-function openCell(engineKey, marketId) {
+async function openCell(engineKey, marketId, button) {
     const market = marketId == null ? null : markets.value.find((item) => item.id === marketId);
     if (market && market.plan_mode !== 'own') {
         return;
@@ -201,7 +204,15 @@ function openCell(engineKey, marketId) {
     if (!row?.selectable) {
         return;
     }
+    trigger = button;
     selected.value = { engineKey, marketId };
+    await nextTick();
+    editorHeading.value?.focus();
+}
+
+function closeEditor() {
+    selected.value = null;
+    trigger?.focus();
 }
 
 function setMode(market, mode) {
@@ -385,14 +396,18 @@ watch(dirty, (value) => {
                 <thead>
                     <tr class="border-b border-line text-left text-shell-muted">
                         <th class="px-2 py-1 font-medium">{{ $t('workspace.setup.engine') }}</th>
-                        <th class="px-2 py-1 font-medium">{{ $t('workspace.setup.standard') }}</th>
+                        <th :id="`${matrixId}-standard`" scope="col" class="px-2 py-1 font-medium">
+                            {{ $t('workspace.setup.standard') }}
+                        </th>
                         <th
                             v-for="market in activeMarkets"
                             :key="market.id"
                             class="px-2 py-1 font-medium"
                             data-testid="plan-column"
                         >
-                            <span class="block text-shell-fg">{{ market.location_label || market.country }}</span>
+                            <span :id="`${matrixId}-${market.id}`" class="block text-shell-fg">
+                                {{ market.location_label || market.country }}
+                            </span>
                             <span class="mt-1 inline-flex rounded-full border border-line p-0.5">
                                 <button
                                     type="button"
@@ -434,7 +449,11 @@ watch(dirty, (value) => {
                         data-testid="engine-row"
                         class="border-t border-line"
                     >
-                        <th class="px-2 py-1 text-left font-medium text-shell-fg">
+                        <th
+                            :id="`${matrixId}-${engine.engine_key}`"
+                            scope="row"
+                            class="px-2 py-1 text-left font-medium text-shell-fg"
+                        >
                             {{ engine.name }}
                             <span v-if="!engine.selectable" class="block font-normal text-shell-muted">
                                 {{ $t('workspace.setup.requires_package') }}
@@ -460,82 +479,85 @@ watch(dirty, (value) => {
                                         ?.selectable ||
                                     (marketId != null && marketById(marketId)?.plan_mode !== 'own')
                                 "
-                                :aria-haspopup="
-                                    marketId == null || marketById(marketId)?.plan_mode === 'own' ? 'true' : undefined
+                                :aria-labelledby="`${matrixId}-${engine.engine_key} ${matrixId}-${marketId ?? 'standard'} ${matrixId}-${engine.engine_key}-${marketId ?? 'standard'}`"
+                                :aria-expanded="
+                                    selected?.engineKey === engine.engine_key && selected?.marketId === marketId
                                 "
                                 :data-testid="`cell-${engine.engine_key}-${marketId ?? 'standard'}`"
-                                @click="openCell(engine.engine_key, marketId)"
+                                @click="openCell(engine.engine_key, marketId, $event.currentTarget)"
                             >
-                                <template
-                                    v-if="
-                                        !rowsFor(marketId).find((row) => row.engine_key === engine.engine_key)
-                                            ?.selectable
-                                    "
-                                >
-                                    {{ $t('workspace.setup.not_in_package') }}
-                                </template>
-                                <template
-                                    v-else-if="
-                                        rowsFor(marketId).find((row) => row.engine_key === engine.engine_key)
-                                            ?.frequency === 'off'
-                                    "
-                                >
-                                    {{ $t('workspace.setup.off') }}
-                                </template>
-                                <template v-else>
-                                    <span class="block">
-                                        {{
-                                            $t('workspace.setup.cell_main', {
-                                                interval: $t(
-                                                    `onboarding.frequencies.${rowsFor(marketId).find((row) => row.engine_key === engine.engine_key).frequency}`,
-                                                ),
-                                                scope: $t(
-                                                    rowsFor(marketId).find(
-                                                        (row) => row.engine_key === engine.engine_key,
-                                                    ).prompt_scope === 'core'
-                                                        ? 'workspace.setup.scope_core'
-                                                        : 'workspace.setup.scope_all',
-                                                ),
-                                            })
-                                        }}
-                                    </span>
-                                    <span class="block text-shell-muted">
-                                        {{
+                                <span :id="`${matrixId}-${engine.engine_key}-${marketId ?? 'standard'}`">
+                                    <template
+                                        v-if="
+                                            !rowsFor(marketId).find((row) => row.engine_key === engine.engine_key)
+                                                ?.selectable
+                                        "
+                                    >
+                                        {{ $t('workspace.setup.not_in_package') }}
+                                    </template>
+                                    <template
+                                        v-else-if="
                                             rowsFor(marketId).find((row) => row.engine_key === engine.engine_key)
-                                                .core_frequency
-                                                ? $t('workspace.setup.cell_core', {
-                                                      interval: $t(
-                                                          `onboarding.frequencies.${rowsFor(marketId).find((row) => row.engine_key === engine.engine_key).core_frequency}`,
-                                                      ),
-                                                      count: rowsFor(marketId).find(
-                                                          (row) => row.engine_key === engine.engine_key,
-                                                      ).core_repetitions,
-                                                  })
-                                                : $t('workspace.setup.cell_repetitions', {
-                                                      count: rowsFor(marketId).find(
-                                                          (row) => row.engine_key === engine.engine_key,
-                                                      ).repetitions,
-                                                  })
-                                        }}
-                                    </span>
-                                    <span v-if="cellAnswers(engine.engine_key, marketId) != null" class="block">
-                                        {{
-                                            $t('workspace.setup.cell_answers', {
-                                                count: formatNumber(cellAnswers(engine.engine_key, marketId)),
-                                            })
-                                        }}
-                                        <template v-if="marketId != null">
+                                                ?.frequency === 'off'
+                                        "
+                                    >
+                                        {{ $t('workspace.setup.off') }}
+                                    </template>
+                                    <template v-else>
+                                        <span class="block">
                                             {{
-                                                $t(
-                                                    marketById(marketId)?.plan_mode !== 'own' ||
-                                                        !changed(engine.engine_key, marketById(marketId))
-                                                        ? 'workspace.setup.inherited_suffix'
-                                                        : 'workspace.setup.changed_suffix',
-                                                )
+                                                $t('workspace.setup.cell_main', {
+                                                    interval: $t(
+                                                        `onboarding.frequencies.${rowsFor(marketId).find((row) => row.engine_key === engine.engine_key).frequency}`,
+                                                    ),
+                                                    scope: $t(
+                                                        rowsFor(marketId).find(
+                                                            (row) => row.engine_key === engine.engine_key,
+                                                        ).prompt_scope === 'core'
+                                                            ? 'workspace.setup.scope_core'
+                                                            : 'workspace.setup.scope_all',
+                                                    ),
+                                                })
                                             }}
-                                        </template>
-                                    </span>
-                                </template>
+                                        </span>
+                                        <span class="block text-shell-muted">
+                                            {{
+                                                rowsFor(marketId).find((row) => row.engine_key === engine.engine_key)
+                                                    .core_frequency
+                                                    ? $t('workspace.setup.cell_core', {
+                                                          interval: $t(
+                                                              `onboarding.frequencies.${rowsFor(marketId).find((row) => row.engine_key === engine.engine_key).core_frequency}`,
+                                                          ),
+                                                          count: rowsFor(marketId).find(
+                                                              (row) => row.engine_key === engine.engine_key,
+                                                          ).core_repetitions,
+                                                      })
+                                                    : $t('workspace.setup.cell_repetitions', {
+                                                          count: rowsFor(marketId).find(
+                                                              (row) => row.engine_key === engine.engine_key,
+                                                          ).repetitions,
+                                                      })
+                                            }}
+                                        </span>
+                                        <span v-if="cellAnswers(engine.engine_key, marketId) != null" class="block">
+                                            {{
+                                                $t('workspace.setup.cell_answers', {
+                                                    count: formatNumber(cellAnswers(engine.engine_key, marketId)),
+                                                })
+                                            }}
+                                            <template v-if="marketId != null">
+                                                {{
+                                                    $t(
+                                                        marketById(marketId)?.plan_mode !== 'own' ||
+                                                            !changed(engine.engine_key, marketById(marketId))
+                                                            ? 'workspace.setup.inherited_suffix'
+                                                            : 'workspace.setup.changed_suffix',
+                                                    )
+                                                }}
+                                            </template>
+                                        </span>
+                                    </template>
+                                </span>
                             </button>
                             <InputError
                                 v-if="selected?.engineKey !== engine.engine_key || selected?.marketId !== marketId"
@@ -551,17 +573,10 @@ watch(dirty, (value) => {
         <section
             v-if="editing"
             class="rounded-xl border border-line bg-shell-panel p-3 text-sm text-shell-text"
-            :aria-label="
-                $t('workspace.setup.editing', {
-                    engine: editing.row.name,
-                    market:
-                        editing.marketId == null
-                            ? $t('workspace.setup.standard')
-                            : editing.market?.location_label || editing.market?.country,
-                })
-            "
+            :aria-labelledby="`${matrixId}-editor`"
+            @keydown.esc.stop.prevent="closeEditor"
         >
-            <h3 class="font-medium">
+            <h3 :id="`${matrixId}-editor`" ref="editorHeading" tabindex="-1" class="font-medium">
                 {{
                     $t('workspace.setup.editing', {
                         engine: editing.row.name,

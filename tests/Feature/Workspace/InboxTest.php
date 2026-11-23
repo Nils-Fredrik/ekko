@@ -173,7 +173,7 @@ test('brand notification settings share legacy data, preserve archive and only s
     $this->put($url, ['is_active' => false])->assertRedirect();
     $rule = $w->brand->alertRules()->sole();
     expect((float) $rule->threshold)->toBe(14.0)->and($rule->channels)->toBe(['inbox', 'email'])->and($rule->is_active)->toBeFalse();
-    $this->put(route('alerts.rules.update', $rule), ['threshold' => 25, 'is_active' => true])->assertRedirect();
+    $this->put($url, ['threshold' => 25, 'is_active' => true])->assertRedirect();
     expect((float) $rule->fresh()->threshold)->toBe(25.0);
     foreach ([$w->brand, $other] as $brand) {
         $this->put(route('brands.alert-rules.upsert', [$brand, 'integration_error']), ['channels' => []])->assertRedirect();
@@ -184,7 +184,7 @@ test('brand notification settings share legacy data, preserve archive and only s
     $schedule = $w->brand->reportSchedules()->sole();
     $this->put(route('brands.report-schedules.update', [$other, $schedule]), $data)->assertNotFound();
     $this->delete(route('brands.report-schedules.destroy', [$other, $schedule]))->assertNotFound();
-    $this->put(route('reports.schedules.update', $schedule), $data)->assertRedirect();
+    $this->put(route('brands.report-schedules.update', [$w->brand, $schedule]), $data)->assertRedirect();
     $previewUrl = route('brands.report-schedules.test', [$w->brand, $schedule]);
     foreach (range(1, 3) as $attempt) {
         $this->post($previewUrl)->assertRedirect();
@@ -261,7 +261,7 @@ test('the test report wakes the dispatcher after its job is visible on the datab
     Http::assertSent(fn ($request) => str_ends_with($request->url(), '/jobs/ekko-wake:run') && $request->body() === '{}');
 });
 
-test('creating an integration rule preserves legacy opt-outs and either settings screen can still change them', function () {
+test('creating an integration rule preserves legacy opt-outs until a workspace edit changes that field', function () {
     $w = MetricsWorld::create();
     $owner = $w->tenant->owner;
     $owner->switchTeam($w->tenant);
@@ -281,11 +281,11 @@ test('creating an integration rule preserves legacy opt-outs and either settings
         ->and($global->fresh()->channels)->toBe(['inbox', 'email']);
     $this->put($url, ['is_active' => true])->assertRedirect();
     expect($effective()->is_active)->toBeTrue();
-    $this->put(route('alerts.rules.update', $legacy), ['is_active' => false])->assertRedirect();
-    expect($effective()->is_active)->toBeFalse()->and($global->fresh()->is_active)->toBeTrue();
+    $this->put($url, ['is_active' => false])->assertRedirect();
+    expect($effective()->is_active)->toBeFalse()->and($global->fresh()->is_active)->toBeFalse();
 });
 
-test('the legacy alert form creates integration failure rules with explicit tenant scope', function () {
+test('the workspace creates and updates one tenant-wide integration failure rule', function () {
     $w = MetricsWorld::create();
     $owner = $w->tenant->owner;
     $owner->switchTeam($w->tenant);
@@ -296,40 +296,15 @@ test('the legacy alert form creates integration failure rules with explicit tena
         ->where('rules.4.type', 'model_change')->where('rules.4.tenant_wide', true)
         ->where('rules.5.type', 'quota')->where('rules.5.tenant_wide', true)
         ->where('rules.6.type', 'integration_error')->where('rules.6.tenant_wide', true));
-    $data = ['type' => 'integration_error', 'is_active' => false];
-    $this->post(route('alerts.rules.store'), $data + ['brand_id' => $w->brand->id])->assertSessionHasErrors('brand_id');
-    expect(AlertRule::where('type', 'integration_error')->count())->toBe(0);
-    $this->post(route('alerts.rules.store'), $data + ['brand_id' => null])->assertSessionHasNoErrors();
+    $url = route('brands.alert-rules.upsert', [$w->brand, 'integration_error']);
+    $this->put($url, ['is_active' => false])->assertSessionHasNoErrors();
     $rule = AlertRule::where('type', 'integration_error')->sole();
     expect($rule->brand_id)->toBeNull()->and($rule->is_active)->toBeFalse();
-    $this->put(route('alerts.rules.update', $rule), ['is_active' => true])->assertSessionHasNoErrors();
+    $this->put($url, ['is_active' => true])->assertSessionHasNoErrors();
     expect($rule->fresh()->is_active)->toBeTrue();
-    $this->post(route('alerts.rules.store'), $data)->assertSessionHasErrors('type');
-});
 
-test('saving the complete tenant alert form preserves unchanged settings on older brand rules', function () {
-    $w = MetricsWorld::create();
-    $owner = $w->tenant->owner;
-    $owner->switchTeam($w->tenant);
-    $this->actingAs($owner);
-    $type = AlertType::IntegrationError->value;
-    $legacy = AlertRule::factory()->for($w->brand)->create([
-        'type' => $type, 'is_active' => false, 'threshold' => 4, 'channels' => ['in_app', 'slack'],
-    ]);
-
-    $form = ['is_active' => true, 'threshold' => 12];
-    $this->post(route('alerts.rules.store'), ['type' => $type] + $form)->assertSessionHasNoErrors();
-    $global = AlertRule::whereNull('brand_id')->where('type', $type)->sole();
-    $url = route('alerts.rules.update', $global);
-    expect($legacy->refresh()->is_active)->toBeFalse()->and((float) $legacy->threshold)->toBe(4.0);
-    $this->put($url, $form)->assertSessionHasNoErrors();
-    expect($legacy->refresh()->is_active)->toBeFalse()->and((float) $legacy->threshold)->toBe(4.0);
-
-    $this->put($url, ['is_active' => true, 'threshold' => 8])->assertSessionHasNoErrors();
-    expect($legacy->refresh()->is_active)->toBeFalse()->and((float) $legacy->threshold)->toBe(8.0);
-    $this->put($url, ['is_active' => false, 'threshold' => 8])->assertSessionHasNoErrors();
-    $this->put(route('alerts.rules.update', $legacy), ['is_active' => false, 'threshold' => 2])->assertSessionHasNoErrors();
-    $this->put($url, ['is_active' => true, 'threshold' => '8.0000'])->assertSessionHasNoErrors();
-    expect($legacy->refresh()->is_active)->toBeTrue()->and((float) $legacy->threshold)->toBe(2.0)
-        ->and($legacy->channels)->toBe(['in_app', 'slack']);
+    $this->post('/alerts/rules', [])->assertNotFound();
+    $this->put('/alerts/rules/'.$rule->id, [])->assertNotFound();
+    $this->post('/reports/schedules', [])->assertStatus(405);
+    $this->put('/reports/schedules/1', [])->assertNotFound();
 });

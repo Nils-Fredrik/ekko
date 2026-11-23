@@ -97,3 +97,18 @@ test('on mobile the sidebar is a drawer that closes on navigation', async ({ pag
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('sidebar-drawer')).toBeHidden();
 });
+
+test('a mobile prompt panel returns keyboard focus to the row that opened it', async ({ page, baseURL }, info) => {
+    test.skip(info.project.name !== 'mobile-dark', 'Keyboard focus is independent of the theme.');
+    await open(page, baseURL, brandPath('/setup/prompts'));
+    const row = page.getByRole('row', { name: /Where can I find sustainably roasted coffee/ });
+    await row.focus();
+    await page.keyboard.press('Enter');
+    const dialog = page.getByRole('dialog', { name: /Prompt/ });
+    await expect(dialog.getByRole('button', { name: 'Close the panel' })).toBeFocused();
+    for (const name of ['Topic', 'Intent', 'Funnel stage']) {
+        await expect(dialog.getByRole('combobox', { name, exact: true })).toBeVisible();
+    }
+    await page.keyboard.press('Escape');
+    await expect(row).toBeFocused();
+});

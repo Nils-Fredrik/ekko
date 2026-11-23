@@ -2,7 +2,6 @@
 
 use App\Models\Action;
 use App\Models\Alert;
-use App\Models\AlertRule;
 use App\Models\Brand;
 use App\Models\BrandFact;
 use App\Models\Claim;
@@ -610,11 +609,6 @@ return [
         foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)]],
         own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)]],
     ),
-    'brands.settings.update' => RouteAccess::tenant(
-        foreign: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, true)], 'data' => ['name' => 'Other']],
-        own: fn (Scenario $s) => ['params' => ['brand' => $brandOf($s, false)], 'data' => ['name' => 'Renamed']],
-        deniedRoles: ['editor', 'reader'],
-    ),
     'brands.markets.store' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id)], 'data' => ['country' => 'NO', 'language' => 'nb']],
         own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)], 'data' => ['country' => 'NO', 'language' => 'nb']],
@@ -711,24 +705,6 @@ return [
         own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id)]],
     ),
     'inbox.index' => RouteAccess::user(),
-    'alerts.rules.store' => RouteAccess::tenant(
-        foreign: fn (Scenario $s) => ['data' => ['brand_id' => $brandOf($s, true), 'type' => 'quota', 'is_active' => true]],
-        own: fn (Scenario $s) => ['data' => ['brand_id' => $brandOf($s, false), 'type' => 'quota', 'is_active' => true]],
-        deniedRoles: ['editor', 'reader'],
-    ),
-    'alerts.rules.update' => RouteAccess::tenant(
-        foreign: function (Scenario $s) {
-            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => AlertRule::factory()->create()->id);
-
-            return ['params' => ['alertRule' => $id], 'data' => ['is_active' => false]];
-        },
-        own: function (Scenario $s) {
-            $id = app(TenantContext::class)->run($s->tenantA->id, fn () => AlertRule::factory()->create()->id);
-
-            return ['params' => ['alertRule' => $id], 'data' => ['threshold' => '5', 'is_active' => true]];
-        },
-        deniedRoles: ['editor', 'reader'],
-    ),
     'reports.index' => RouteAccess::user(),
     'reports.shared' => RouteAccess::public()->withoutForeignCheck('Public bearer credential is tested separately with two tenants.'),
     'brands.views.store' => RouteAccess::tenant(
@@ -761,28 +737,6 @@ return [
     'reports.links.destroy' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => isolationReportLink($s->tenantB->id)],
         own: fn (Scenario $s) => ['params' => isolationReportLink($s->tenantA->id)],
-        deniedRoles: ['editor', 'reader'],
-    ),
-    'reports.schedules.store' => RouteAccess::tenant(
-        foreign: fn (Scenario $s) => ['data' => [
-            'brand_id' => $brandOf($s, true), 'cadence' => 'weekly', 'recipients' => ['reports@example.test'], 'locale' => 'nb', 'branding' => 'tenant',
-        ]],
-        own: fn (Scenario $s) => ['data' => [
-            'brand_id' => $brandOf($s, false), 'cadence' => 'weekly', 'recipients' => ['reports@example.test'], 'locale' => 'nb', 'branding' => 'tenant',
-        ]],
-        deniedRoles: ['editor', 'reader'],
-    ),
-    'reports.schedules.update' => RouteAccess::tenant(
-        foreign: function (Scenario $s) {
-            $id = app(TenantContext::class)->run($s->tenantB->id, fn () => ReportSchedule::factory()->create()->id);
-
-            return ['params' => ['schedule' => $id], 'data' => ['cadence' => 'monthly', 'recipients' => ['reports@example.test'], 'locale' => 'nb', 'branding' => 'tenant']];
-        },
-        own: function (Scenario $s) {
-            $id = app(TenantContext::class)->run($s->tenantA->id, fn () => ReportSchedule::factory()->create()->id);
-
-            return ['params' => ['schedule' => $id], 'data' => ['cadence' => 'monthly', 'recipients' => ['reports@example.test'], 'locale' => 'sv', 'branding' => 'partner']];
-        },
         deniedRoles: ['editor', 'reader'],
     ),
     'reports.show' => RouteAccess::tenant(

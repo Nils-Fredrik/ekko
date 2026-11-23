@@ -9,7 +9,6 @@ use App\Models\Prompt;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Support\Facades\Route;
 
 final class MarketSetupController extends Controller
 {
@@ -24,7 +23,7 @@ final class MarketSetupController extends Controller
         ]);
         $market = $markets->create($brand, $data);
 
-        return to_route(Route::has('brands.setup.markets') ? 'brands.setup.markets' : 'brands.settings', $brand)->with('market_id', $market->id);
+        return to_route('brands.setup.markets', $brand)->with('market_id', $market->id);
     }
 
     public function update(Request $request, Brand $brand, Market $market, MarketLibrary $markets): RedirectResponse

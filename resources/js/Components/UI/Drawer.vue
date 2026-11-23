@@ -9,7 +9,7 @@
 // </div>
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue';
 import { XMarkIcon } from '@heroicons/vue/20/solid';
-import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import SaveStatus from '@/Components/UI/SaveStatus.vue';
 
 const props = defineProps({
@@ -22,7 +22,7 @@ const props = defineProps({
     tab: { type: String, default: '' },
 });
 
-const emit = defineEmits(['close', 'update:tab']);
+const emit = defineEmits(['close', 'closed', 'update:tab']);
 
 const id = useId();
 const query = typeof window !== 'undefined' ? window.matchMedia('(min-width: 1280px)') : null;
@@ -32,6 +32,14 @@ const onChange = (event) => {
 };
 onMounted(() => query?.addEventListener('change', onChange));
 onBeforeUnmount(() => query?.removeEventListener('change', onChange));
+
+watch(
+    () => props.open,
+    (open) => {
+        if (!open && wide.value) emit('closed');
+    },
+    { flush: 'post' },
+);
 
 const activeTab = computed(() => props.tab || props.tabs[0]?.id || '');
 const tabButtons = ref([]);
@@ -115,7 +123,7 @@ function onAsideKey(event) {
         </div>
     </aside>
 
-    <TransitionRoot v-if="!wide" :show="open" as="template">
+    <TransitionRoot v-if="!wide" :show="open" as="template" @after-leave="emit('closed')">
         <Dialog class="relative z-40" @close="emit('close')">
             <TransitionChild
                 as="template"
