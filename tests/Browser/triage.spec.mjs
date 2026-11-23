@@ -174,3 +174,35 @@ test('«Add competitor» creates one and «Archive» removes it again', async ()
     await slow(page.getByTestId('competitor-table')).not.toContainText('Rival Delta');
     expect(errors).toEqual([]);
 });
+
+test('a late sidebar response keeps the selected competitor open', async () => {
+    const path = `/brands/${process.env.TRIAGE_BRAND_ID}/setup/competitors?tab=competitors`;
+    const sidebar = Promise.withResolvers();
+    await page.route((url) => url.pathname + url.search === path, (route) => {
+        if (route.request().headers()['x-inertia-partial-data'] === 'workspace') {
+            sidebar.resolve(route);
+        } else {
+            return route.continue();
+        }
+    });
+    await page.goto(path);
+    const delayed = await sidebar.promise;
+    await page.getByTestId('competitor-table').getByRole('button', { name: 'Rival Alpha', exact: true }).click();
+    await slow(page.getByTestId('competitor-archive')).toBeVisible();
+    const selectedUrl = page.url();
+
+    await page.evaluate((sidebarUrl) => {
+        window.urlAfterSidebar = new Promise((resolve) => {
+            function onFinish({ detail: { visit } }) {
+                if (visit.deferredProps && visit.url.href === sidebarUrl) {
+                    document.removeEventListener('inertia:finish', onFinish);
+                    resolve(window.location.href);
+                }
+            }
+            document.addEventListener('inertia:finish', onFinish);
+        });
+    }, delayed.request().url());
+    await delayed.continue();
+    expect(await page.evaluate(() => window.urlAfterSidebar)).toBe(selectedUrl);
+    await slow(page.getByTestId('competitor-archive')).toBeVisible();
+});

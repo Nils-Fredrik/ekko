@@ -37,6 +37,11 @@ router.on('success', (event) => {
 const appName = import.meta.env.VITE_APP_NAME || 'Ekko';
 
 createInertiaApp({
+    defaults: {
+        // Sidebar data can arrive after a client-side drawer or tab change. Keep that navigation.
+        visitOptions: (_href, options) =>
+            options.deferredProps && options.only?.includes('workspace') ? { preserveUrl: true } : {},
+    },
     title: (title) => (title ? `${title} · ${appName}` : appName),
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
