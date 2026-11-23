@@ -67,7 +67,8 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
     Claim::query()->create(['brand_id' => $brand->id, 'response_id' => $response->id, 'fact_id' => $fact->id,
         'text' => 'Founded in 2005.', 'quote' => 'Fjord Coffee was founded in 2005.', 'verdict' => Claim::CONTRADICTED,
         'source_citation_ids' => $response->citations()->pluck('id')->all()]);
-    $values['UI_REPORT_ID'] = (string) Report::query()->orderBy('id')->firstOrFail()->id;
+    // The guest scenario opens the English report and increments its link's view count.
+    $values['UI_REPORT_ID'] = (string) Report::query()->whereHas('reportSchedule', fn ($query) => $query->where('locale', 'nb'))->firstOrFail()->id;
     // U29: the newest positive brand mention has the model's quote for its sentiment, so the answer list shows it.
     $quoted = Mention::query()->select('mentions.*')->join('responses', 'responses.id', '=', 'mentions.response_id')
         ->where('mentions.entity_type', 'brand')->where('mentions.entity_id', $brand->id)->where('mentions.sentiment', '>', 0)
