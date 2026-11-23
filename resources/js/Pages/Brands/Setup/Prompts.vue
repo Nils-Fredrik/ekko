@@ -325,6 +325,13 @@ function editTopic(topic, action) {
     renameText.value = topic.name;
 }
 
+function cancelTopicEdit(event) {
+    const actions = event.currentTarget.closest('[data-topic-row]')?.querySelector('[aria-haspopup="menu"]');
+    renaming.value = null;
+    merging.value = null;
+    actions?.focus();
+}
+
 function renameTopic(topic) {
     const name = renameText.value.trim();
     renaming.value = null;
@@ -876,6 +883,7 @@ const emptyCopy = computed(() =>
                     <div
                         v-for="topic in library.topics"
                         :key="topic.id"
+                        data-topic-row
                         class="group rounded-lg hover:bg-row-hover"
                         :draggable="canManage"
                         @dragstart="dragId = topic.id"
@@ -957,7 +965,7 @@ const emptyCopy = computed(() =>
                                 v-focus-editor
                                 class="w-full rounded-lg border border-line px-2 py-1"
                                 :aria-label="$t('workspace.prompts.topic_name')"
-                                @keydown.esc="renaming = null"
+                                @keydown.esc.prevent="cancelTopicEdit"
                             />
                             <button type="submit" class="text-xs">{{ $t('workspace.prompts.rename') }}</button>
                         </form>
@@ -966,7 +974,7 @@ const emptyCopy = computed(() =>
                             <select
                                 v-focus-editor
                                 class="mt-1 w-full rounded-lg border border-line"
-                                @keydown.esc="merging = null"
+                                @keydown.esc.prevent="cancelTopicEdit"
                                 @change="
                                     mergeTopic(
                                         topic,

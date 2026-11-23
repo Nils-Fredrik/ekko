@@ -15,6 +15,12 @@ test('prompt import shows changes when every row already exists', async ({ page 
     await menu.getByRole('menuitem', { name: 'Rename' }).click();
     await expect(page.getByRole('textbox', { name: 'Topic name' })).toBeFocused();
     await page.keyboard.press('Escape');
+    await expect(topicActions).toBeFocused();
+    await topicActions.press('Enter');
+    await menu.getByRole('menuitem', { name: 'Merge into …' }).click();
+    await expect(page.getByRole('combobox', { name: 'Merge into …' })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(topicActions).toBeFocused();
 
     const upload = async (priority) => {
         if (!(await page.getByTestId('import-file').isVisible())) {
