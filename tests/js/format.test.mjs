@@ -8,6 +8,7 @@ import {
     formatDate,
     formatDateTime,
     formatDecimal,
+    formatMonth,
     formatNumber,
     formatPercent,
     formatPoints,
@@ -164,6 +165,13 @@ test('the tenant time zone decides the calendar day and the hour', () => {
     assert.equal(plain(formatDateTime('2026-11-21T03:30:00Z', { now })), '20. nov. 22:30');
     configureFormat({ timeZone: null });
     assert.equal(plain(formatDateTime('2026-11-21T03:30:00Z', { now })), '21. nov. 04:30');
+});
+
+test('the plan month follows the tenant across month and year boundaries', () => {
+    inLocale('en', 'America/New_York');
+    assert.equal(formatMonth(new Date('2027-01-01T00:15:00Z')), 'December');
+    inLocale('nb', 'Europe/Oslo');
+    assert.equal(formatMonth(new Date('2026-12-31T23:15:00Z')), 'januar');
 });
 
 test('a year and month is the month name', () => {

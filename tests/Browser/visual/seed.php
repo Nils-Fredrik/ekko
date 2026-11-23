@@ -9,10 +9,11 @@ use App\Models\Brand;
 use App\Models\BrandFact;
 use App\Models\Claim;
 use App\Models\Competitor;
+use App\Models\EnginePrice;
 use App\Models\Market;
 use App\Models\Mention;
 use App\Models\Prompt;
-use App\Models\Report;
+use App\Models\ReportLink;
 use App\Models\Team;
 use App\Models\Topic;
 use App\Models\User;
@@ -23,6 +24,7 @@ use Tests\Support\Metrics\MetricsWorld;
 $team->forceFill(['name' => 'Fjord Coffee', 'timezone' => 'UTC'])->save();
 $team->teamInvitations()->create(['email' => 'pending-editor@example.test', 'role' => 'editor']);
 $user->forceFill(['name' => 'Alex Reader'])->save();
+EnginePrice::factory()->for($engine)->create(['valid_from' => now()->addDay(), 'price_per_call_usd' => '0.02460001']);
 $owner->forceFill(['name' => 'Robin Owner'])->save();
 $billingAdmin->forceFill(['name' => 'Taylor Admin'])->save();
 $values['UI_OWNER_EMAIL'] = $owner->email;
@@ -66,7 +68,8 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
     Claim::query()->create(['brand_id' => $brand->id, 'response_id' => $response->id, 'fact_id' => $fact->id,
         'text' => 'Founded in 2005.', 'quote' => 'Fjord Coffee was founded in 2005.', 'verdict' => Claim::CONTRADICTED,
         'source_citation_ids' => $response->citations()->pluck('id')->all()]);
-    $values['UI_REPORT_ID'] = (string) Report::query()->orderBy('id')->firstOrFail()->id;
+    // The guest scenario opens the English report and increments its link's view count.
+    $values['UI_REPORT_ID'] = (string) ReportLink::query()->where('public_id', $values['SMOKE_REPORT_NB_SELECTOR'])->sole()->report_id;
     // U29: the newest positive brand mention has the model's quote for its sentiment, so the answer list shows it.
     $quoted = Mention::query()->select('mentions.*')->join('responses', 'responses.id', '=', 'mentions.response_id')
         ->where('mentions.entity_type', 'brand')->where('mentions.entity_id', $brand->id)->where('mentions.sentiment', '>', 0)

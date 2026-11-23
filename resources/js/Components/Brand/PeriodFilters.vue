@@ -1,5 +1,6 @@
 <script setup>
 import { XMarkIcon } from '@heroicons/vue/24/outline';
+import { formatDate, formatNumber } from '@/format';
 import DataNote from '@/Components/Brand/DataNote.vue';
 import BottomSheet from '@/Components/UI/BottomSheet.vue';
 import FilterFields from './FilterFields.vue';
@@ -19,6 +20,16 @@ const props = defineProps({
 const page = usePage();
 const config = computed(() => page.props.analysisFilters ?? { query: {}, options: {}, views: [] });
 const period = computed(() => page.props.period ?? {});
+const comparisonDates = computed(() => ({
+    start: formatDate(period.value.previous_from),
+    end: formatDate(period.value.previous_to),
+}));
+const periodLabel = computed(() =>
+    trans('app.workspace.period_range', {
+        start: formatDate(period.value.from),
+        end: formatDate(period.value.to),
+    }),
+);
 const open = ref(false);
 const mobileFormId = useId();
 const busy = ref(false);
@@ -169,28 +180,25 @@ async function removeView() {
             </div>
             <select
                 :aria-label="$t('filters.quick_period')"
-                :title="$t('app.workspace.period_range', { start: period.from, end: period.to })"
+                :title="periodLabel"
                 :value="config.query.from ? 'custom' : String(config.query.days ?? period.days)"
                 class="max-w-full rounded-full border-line bg-shell-panel py-1.5 ps-3 pe-8 text-sm text-shell-fg"
                 @change="changePeriod($event.target.value)"
             >
                 <option v-if="config.query.from" value="custom">
-                    {{ $t('app.workspace.period_range', { start: period.from, end: period.to }) }}
+                    {{ periodLabel }}
                 </option>
                 <option v-for="days in periodLengths" :key="days" :value="String(days)">
-                    {{ $t('app.dashboard.period_days', { days }) }}
+                    {{ $t('app.dashboard.period_days', { days: formatNumber(days) }) }}
                 </option>
             </select>
-            <span
-                class="text-xs text-shell-muted"
-                :title="$t('app.workspace.period_range', { start: period.previous_from, end: period.previous_to })"
-            >
+            <span class="text-xs text-shell-muted" :title="$t('app.workspace.period_range', comparisonDates)">
                 {{
                     config.query.from
-                        ? $t('filters.compare_range', { start: period.previous_from, end: period.previous_to })
+                        ? $t('filters.compare_range', comparisonDates)
                         : config.query.comparison === 'year'
                           ? $t('filters.compare_year')
-                          : $t('filters.compare_days', { days: config.query.days ?? period.days })
+                          : $t('filters.compare_days', { days: formatNumber(config.query.days ?? period.days) })
                 }}
             </span>
             <button
