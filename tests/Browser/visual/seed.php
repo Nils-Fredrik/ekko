@@ -50,7 +50,6 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
                 'brand' => ['pos' => 1, 'rec' => true, 'sent' => 0.7],
                 'competitors' => [$world->c1->id => 2], 'citations' => [['coffee.example.test', 'own'], ['guide.example.test', 'third_party']],
             ]);
-            $response->mentions()->where('entity_type', 'brand')->update(['surface_name' => 'Fjord Coffee', 'first_char_offset' => 0]);
             $response->update(['answer_text' => 'Fjord Coffee offers sustainably roasted coffee. Northern Roast is another option.']);
         }
         app(DailyAggregator::class)->aggregate($day);
@@ -95,6 +94,12 @@ app(TenantContext::class)->run($team->id, function () use ($team, $brand, $engin
             $reply = $triage->answer($triagePrompt, '2026-10-14T12:00:00Z', ['unknown' => $name]);
             $reply->update(['answer_text' => "For tea, many people recommend {$name} as an alternative to the big chains in town."]);
             $reply->mentions()->where('entity_type', 'unknown')->update(['first_char_offset' => strlen('For tea, many people recommend ')]);
+            if ($name === 'Harbour Tea House') {
+                $text = $reply->answer_text.' Compare it with ';
+                $reply->update(['answer_text' => $text.'Fjord Tea.']);
+                $reply->mentions()->create(['entity_type' => 'brand', 'entity_id' => $triageBrand->id,
+                    'surface_name' => 'Fjord Tea', 'detection' => 'deterministic', 'first_char_offset' => mb_strlen($text)]);
+            }
         }
     }
     $values['UI_TRIAGE_BRAND_ID'] = (string) $triageBrand->id;

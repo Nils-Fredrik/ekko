@@ -54,12 +54,12 @@ for (const [name, component, role, path] of pages) {
                 await expect(header.locator('p').first()).toHaveText(/.+ · .+/);
             }
             if (name === 'competitor-alias') {
-                await page.getByTestId('competitor-table').getByRole('button', { name: 'Northern Roast', exact: true }).click();
+                await page.getByTestId('competitor-table').getByRole('button', { name: 'Harbour Tea', exact: true }).click();
                 const panel = page.getByTestId('competitor-panel');
-                await panel.getByTestId('alias-input').fill('Fjord Coffee');
-                await expect(panel.getByTestId('alias-preview')).toContainText('30 hits');
+                await panel.getByTestId('alias-input').fill('Fjord Tea');
+                await expect(panel.getByTestId('alias-preview')).toContainText('4 hits');
                 await expect(panel.locator('mark')).toHaveCount(3);
-                await expect(panel.getByText('30 of the hits are currently Fjord Coffee')).toBeVisible();
+                await expect(panel.getByText('4 of the hits are currently Fjord Tea')).toBeVisible();
                 await panel.getByTestId('alias-input').blur();
             }
             if (name === 'brand') {
