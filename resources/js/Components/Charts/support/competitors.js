@@ -27,7 +27,7 @@ function byScore(left, right) {
 
 /**
  * The six competitors with the largest share, in that order.
- * Both charts use this order so one competitor keeps one colour.
+ * Both charts show the same six. Their colours come from the brand’s competitor positions.
  */
 export function rankedCompetitorKeys(series, { limit = 6 } = {}) {
     return series
@@ -72,12 +72,7 @@ export function limitCompetitors(series, { limit = 6, otherLabel, reduce = 'sum'
               .map((key) => competitors.find((item) => String(item.key) === String(key)))
               .filter((item) => item !== undefined)
         : [];
-    const usingSharedOrder = shared.length > 0;
-    const keptSource = usingSharedOrder ? shared : [...competitors].sort(byScore).slice(0, limit);
-    const kept = keptSource.map((item, index) => ({
-        ...item,
-        colorIndex: usingSharedOrder ? order.findIndex((key) => String(key) === String(item.key)) : index,
-    }));
+    const kept = shared.length > 0 ? shared : [...competitors].sort(byScore).slice(0, limit);
     const keptKeys = new Set(kept.map((item) => String(item.key)));
     const rest = competitors.filter((item) => !keptKeys.has(String(item.key)));
     if (rest.length === 0) {

@@ -951,7 +951,7 @@ I innboksen kan en bruker med `prompts.manage` opprette et rettetiltak fra førs
 | `Pages/Brands/Actions.vue`, `Pages/Brands/ActionShow.vue` | Tiltaksliste med filtre, detalj, egne tiltak og status (11.3, T44) |
 | `Pages/Brands/Facts.vue` | Fakta (legge til, godkjenne, slå av, endre, slette) og påstander med kilder (11.6, T49) |
 | `Pages/Brands/Setup/Prompts.vue` | Prompts og temaer med filterbrikker, detaljpanel med faner, masseendring, forslag og CSV. Importforhåndsvisningen viser prompttekst, feltnavn og verdier før og etter endringen. |
-| `Pages/Brands/Setup/Competitors.vue` | Behandle nye merkenavn, rediger konkurrenter, alias og domener, og se andre og ignorerte aktører |
+| `Pages/Brands/Setup/Competitors.vue` | Behandle nye merkenavn, rediger konkurrenter, test alias mot nylige svar, rediger domener og se andre og ignorerte aktører |
 | `Pages/Brands/Setup/Markets.vue` | Markedstabell med lokaliserte navn og detaljpanel via `?open=`. Måleplan med arvede eller egne motorregler og estimat før lagring (7.6) |
 | `Pages/Brands/Setup/Identity.vue` | Merkevarens navn, status, domener og alias med forhåndsvisning av treff |
 | `Pages/Brands/Setup/Integrations.vue` | Konfigurasjon og status for GA4 og ClickHouse, med lenke til opplasting av logger |

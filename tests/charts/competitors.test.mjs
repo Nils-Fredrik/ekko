@@ -8,20 +8,20 @@ function point(value, n = 10) {
     return { value, n, low_sample: false };
 }
 
-function series(key, value) {
-    return { key, label: key, points: [point(value), point(value)] };
+function series(key, value, colorIndex) {
+    return { key, label: key, colorIndex, points: [point(value), point(value)] };
 }
 
 test('sixteen competitors become six colours plus others', () => {
     const own = { key: 'brand', label: 'Own', own: true, points: [point(0.2), point(0.2)] };
-    const competitors = Array.from({ length: 16 }, (_, index) => series(`c${index}`, (16 - index) / 100));
+    const competitors = Array.from({ length: 16 }, (_, index) => series(`c${index}`, (16 - index) / 100, 15 - index));
     const folded = limitCompetitors([own, ...competitors], { otherLabel: (count) => `Others (${count})` });
     const rest = folded.filter((item) => !item.own && !item.neutral);
 
     assert.equal(rest.length, 6);
     assert.deepEqual(
         rest.map((item) => item.colorIndex),
-        [0, 1, 2, 3, 4, 5],
+        [15, 14, 13, 12, 11, 10],
     );
     assert.equal(folded.at(-1).label, 'Others (10)');
     assert.equal(folded.at(-1).neutral, true);
@@ -33,11 +33,11 @@ test('sixteen competitors become six colours plus others', () => {
 test('the visibility trend keeps the share ranking and colours', () => {
     const share = [
         { key: 'brand', label: 'Own', own: true, points: [point(0.4)] },
-        ...Array.from({ length: 8 }, (_, index) => series(`c${index}`, (16 - index) / 100)),
+        ...Array.from({ length: 8 }, (_, index) => series(`c${index}`, (16 - index) / 100, 15 - index)),
     ];
     const trend = [
         { key: 'brand', label: 'Own', own: true, points: [point(0.2)] },
-        ...Array.from({ length: 8 }, (_, index) => series(`c${index}`, index / 100)),
+        ...Array.from({ length: 8 }, (_, index) => series(`c${index}`, index / 100, 15 - index)),
     ];
     const order = rankedCompetitorKeys(share);
     const options = { order, otherLabel: (count) => `Others (${count})` };
@@ -49,7 +49,7 @@ test('the visibility trend keeps the share ranking and colours', () => {
     assert.deepEqual(order, ['c0', 'c1', 'c2', 'c3', 'c4', 'c5']);
     assert.deepEqual(keys(foldedTrend), keys(foldedShare));
     assert.deepEqual(colours(foldedTrend), colours(foldedShare));
-    assert.deepEqual(colours(foldedTrend), [0, 1, 2, 3, 4, 5]);
+    assert.deepEqual(colours(foldedTrend), [15, 14, 13, 12, 11, 10]);
     assert.equal(foldedTrend.at(-1).key, 'others');
 });
 

@@ -27,6 +27,7 @@ export const pages = [
         'owner',
         () => `/brands/${env('UI_TRIAGE_BRAND_ID')}/setup/competitors`,
     ],
+    ['competitor-alias', 'Brands/Setup/Competitors', 'owner', () => `/brands/${env('UI_TRIAGE_BRAND_ID')}/setup/competitors?tab=competitors`],
     ['prompt', 'Brands/PromptShow', 'owner', () => brand(`/prompts/${env('UI_PROMPT_ID')}`)],
     ['competitors', 'Brands/Competitors', 'owner', () => brand('/competitors')],
     ['responses', 'Brands/Responses', 'owner', () => brand('/responses?sentiment=positive')],
