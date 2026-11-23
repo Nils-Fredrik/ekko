@@ -161,6 +161,7 @@ return [
         'all_topics' => 'Alla teman',
         'no_topic' => 'Utan tema',
         'new_topic' => '+ Nytt tema',
+        'topic_actions' => 'Åtgärder för :topic',
         'topic_name' => 'Temats namn',
         'rename' => 'Byt namn',
         'merge_into' => 'Slå ihop med …',

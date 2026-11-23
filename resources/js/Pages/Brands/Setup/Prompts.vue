@@ -3,6 +3,9 @@ import AnswerText from '@/Components/Brand/AnswerText.vue';
 import BulkBar from '@/Components/UI/BulkBar.vue';
 import DataTable from '@/Components/UI/DataTable.vue';
 import Drawer from '@/Components/UI/Drawer.vue';
+import MoreMenu from '@/Components/UI/MoreMenu.vue';
+import { MenuItem, Popover, PopoverButton, PopoverPanel } from '@headlessui/vue';
+import { ChevronDownIcon } from '@heroicons/vue/20/solid';
 import { useAutosave } from '@/Composables/useAutosave';
 import { useUndoToast } from '@/Composables/useUndoToast';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -39,6 +42,10 @@ const draftText = ref('');
 const naming = ref(false);
 const topicName = ref('');
 const renaming = ref(null);
+const merging = ref(null);
+const vFocusEditor = { mounted: (element) => requestAnimationFrame(() => element.focus()) };
+const menuItemClass =
+    'block w-full rounded-lg px-3 py-2 text-start text-sm text-shell-text no-underline disabled:opacity-50';
 const renameText = ref('');
 const showImport = ref(false);
 const showSuggest = ref(false);
@@ -147,7 +154,7 @@ const columns = computed(() => {
             header: trans('workspace.prompts.prompt_text'),
             accessor: 'text',
             primary: true,
-            width: 'minmax(16rem, 1.6fr)',
+            width: 'minmax(10rem, 2fr)',
         },
     ];
     if (!props.filters.topic) {
@@ -155,7 +162,7 @@ const columns = computed(() => {
             id: 'topic',
             header: trans('workspace.prompts.topic'),
             accessor: (row) => topicNameOf.value.get(row.topic_id) ?? '',
-            width: '10rem',
+            width: 'minmax(5rem, 0.65fr)',
         });
     }
     if (!props.market) {
@@ -163,21 +170,21 @@ const columns = computed(() => {
             id: 'market',
             header: trans('workspace.prompts.market'),
             accessor: (row) => marketName.value.get(row.market_id) ?? '',
-            width: '8rem',
+            width: 'minmax(4.5rem, 0.5fr)',
         });
     }
     list.push({
         id: 'core',
         header: trans('workspace.prompts.core'),
         accessor: (row) => row.priority === 'core',
-        width: '6rem',
+        width: '4.5rem',
     });
     for (const engine of props.engines) {
         list.push({
             id: `engine-${engine.key}`,
             header: engine.name,
             accessor: (row) => row.engines?.[engine.key]?.value ?? null,
-            width: '4.5rem',
+            width: 'minmax(3.25rem, 0.48fr)',
             align: 'end',
         });
     }
@@ -310,6 +317,12 @@ function createTopic() {
             },
         },
     );
+}
+
+function editTopic(topic, action) {
+    renaming.value = action === 'rename' ? topic.id : null;
+    merging.value = action === 'merge' ? topic.id : null;
+    renameText.value = topic.name;
 }
 
 function renameTopic(topic) {
@@ -470,6 +483,44 @@ function optionLabel(group, value) {
     return props.options[group]?.find((item) => item.value === value)?.label ?? '';
 }
 
+const promptTabs = computed(() =>
+    ['results', 'latest', 'history'].map((id) => ({
+        id,
+        label: trans(`workspace.prompts.${id}`),
+    })),
+);
+const filterChips = computed(() => [
+    { key: 'intent', label: trans('workspace.prompts.intent'), choices: props.options.intents },
+    { key: 'funnel', label: trans('workspace.prompts.funnel'), choices: props.options.funnels },
+    { key: 'priority', label: trans('workspace.prompts.core'), choices: props.options.priorities },
+]);
+
+function previewChanges(fields) {
+    const names = {
+        text: trans('workspace.prompts.prompt_text'),
+        topic_id: trans('workspace.prompts.topic'),
+        intent: trans('workspace.prompts.intent'),
+        funnel_stage: trans('workspace.prompts.funnel'),
+        priority: trans('app.library.priority'),
+        is_active: trans('workspace.prompts.status'),
+    };
+    const display = {
+        text: (value) => value,
+        topic_id: (id) => topicNameOf.value.get(id) ?? trans('workspace.prompts.no_topic'),
+        intent: (value) => optionLabel('intents', value),
+        funnel_stage: (value) => optionLabel('funnels', value),
+        priority: (value) => optionLabel('priorities', value),
+        is_active: (value) => trans(value ? 'workspace.prompts.status_active' : 'workspace.prompts.status_inactive'),
+    };
+    return Object.entries(fields).map(([field, [before, after]]) =>
+        trans('workspace.prompts.field_change', {
+            field: names[field],
+            before: display[field](before),
+            after: display[field](after),
+        }),
+    );
+}
+
 function heat(value) {
     if (value === null || value === undefined) {
         return 'bg-shell-surface text-shell-muted';
@@ -611,17 +662,16 @@ const emptyCopy = computed(() =>
                     </p>
                 </div>
                 <div v-if="canManage" class="flex flex-wrap items-center gap-2">
-                    <details class="relative">
-                        <summary class="cursor-pointer rounded-full border border-line px-3 py-1.5 text-sm">
-                            {{ $t('workspace.prompts.more') }}
-                        </summary>
-                        <a
-                            :href="route('brands.prompts.export', brand.id)"
-                            class="absolute end-0 z-10 mt-1 block whitespace-nowrap rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm no-underline"
-                        >
-                            {{ $t('workspace.prompts.export') }}
-                        </a>
-                    </details>
+                    <MoreMenu :label="$t('workspace.prompts.more')" align="start">
+                        <MenuItem v-slot="{ active }" as="template">
+                            <a
+                                :href="route('brands.prompts.export', brand.id)"
+                                :class="[menuItemClass, active && 'bg-row-hover']"
+                            >
+                                {{ $t('workspace.prompts.export') }}
+                            </a>
+                        </MenuItem>
+                    </MoreMenu>
                     <button
                         type="button"
                         class="rounded-full border border-line px-3 py-1.5 text-sm"
@@ -715,14 +765,9 @@ const emptyCopy = computed(() =>
                     </p>
                     <ul>
                         <li v-for="row in preview.changed" :key="row.id">
-                            <span v-for="(pair, field) in row.fields" :key="field" class="block">
-                                {{
-                                    $t('workspace.prompts.field_change', {
-                                        field,
-                                        before: pair[0] ?? '',
-                                        after: pair[1] ?? '',
-                                    })
-                                }}
+                            <strong>{{ row.text }}</strong>
+                            <span v-for="change in previewChanges(row.fields)" :key="change" class="block">
+                                {{ change }}
                             </span>
                         </li>
                     </ul>
@@ -850,10 +895,7 @@ const emptyCopy = computed(() =>
                                 class="min-w-0 flex-1 text-left"
                                 :class="String(filters.topic) === String(topic.id) ? 'font-medium' : ''"
                                 @click="visit({ topic: topic.id })"
-                                @dblclick="
-                                    renaming = topic.id;
-                                    renameText = topic.name;
-                                "
+                                @dblclick="canManage && editTopic(topic, 'rename')"
                             >
                                 <span class="block truncate">{{ topic.name }}</span>
                                 <span class="block truncate text-xs text-shell-muted">
@@ -861,61 +903,88 @@ const emptyCopy = computed(() =>
                                     {{ formatPercent(topic.visibility?.value) }} · {{ formatNumber(topic.count) }}
                                 </span>
                             </button>
-                            <button
+                            <MoreMenu
                                 v-if="canManage"
-                                type="button"
-                                class="text-shell-muted"
-                                :aria-label="$t('workspace.prompts.more')"
-                                @click="
-                                    renaming = renaming === topic.id ? null : topic.id;
-                                    renameText = topic.name;
-                                "
+                                :label="$t('workspace.prompts.topic_actions', { topic: topic.name })"
                             >
-                                {{ $t('workspace.prompts.more') }}
-                            </button>
+                                <MenuItem v-slot="{ active }" as="template">
+                                    <button
+                                        type="button"
+                                        :class="[menuItemClass, active && 'bg-row-hover']"
+                                        @click="editTopic(topic, 'rename')"
+                                    >
+                                        {{ $t('workspace.prompts.rename') }}
+                                    </button>
+                                </MenuItem>
+                                <MenuItem v-slot="{ active }" as="template" :disabled="library.topics.length < 2">
+                                    <button
+                                        type="button"
+                                        :disabled="library.topics.length < 2"
+                                        :class="[menuItemClass, active && 'bg-row-hover']"
+                                        @click="editTopic(topic, 'merge')"
+                                    >
+                                        {{ $t('workspace.prompts.merge_into') }}
+                                    </button>
+                                </MenuItem>
+                                <MenuItem
+                                    v-slot="{ active }"
+                                    as="template"
+                                    :disabled="(topic.total ?? topic.count) > 0"
+                                >
+                                    <button
+                                        type="button"
+                                        :class="[menuItemClass, active && 'bg-row-hover']"
+                                        :disabled="(topic.total ?? topic.count) > 0"
+                                        :title="
+                                            (topic.total ?? topic.count) > 0
+                                                ? $t('workspace.prompts.topic_not_empty')
+                                                : ''
+                                        "
+                                        @click="deleteTopic(topic)"
+                                    >
+                                        {{ $t('workspace.prompts.delete_topic') }}
+                                    </button>
+                                </MenuItem>
+                            </MoreMenu>
                         </div>
-                        <div v-if="renaming === topic.id && canManage" class="space-y-1 px-2 pb-2">
+                        <form
+                            v-if="renaming === topic.id && canManage"
+                            class="space-y-1 px-2 pb-2"
+                            @submit.prevent="renameTopic(topic)"
+                        >
                             <input
                                 v-model="renameText"
+                                v-focus-editor
                                 class="w-full rounded-lg border border-line px-2 py-1"
                                 :aria-label="$t('workspace.prompts.topic_name')"
-                                @keydown.enter.prevent="renameTopic(topic)"
+                                @keydown.esc="renaming = null"
                             />
-                            <button type="button" class="text-xs" @click="renameTopic(topic)">
-                                {{ $t('workspace.prompts.rename') }}
-                            </button>
-                            <label class="block text-xs">
-                                {{ $t('workspace.prompts.merge_into') }}
-                                <select
-                                    class="mt-1 w-full rounded-lg border border-line"
-                                    @change="
-                                        mergeTopic(
-                                            topic,
-                                            library.topics.find((item) => item.id === Number($event.target.value)),
-                                        );
-                                        $event.target.value = '';
-                                    "
-                                >
-                                    <option value="" />
-                                    <option
-                                        v-for="other in library.topics.filter((item) => item.id !== topic.id)"
-                                        :key="other.id"
-                                        :value="other.id"
-                                    >
-                                        {{ other.name }}
-                                    </option>
-                                </select>
-                            </label>
-                            <button
-                                type="button"
-                                class="text-xs disabled:opacity-50"
-                                :disabled="(topic.total ?? topic.count) > 0"
-                                :title="(topic.total ?? topic.count) > 0 ? $t('workspace.prompts.topic_not_empty') : ''"
-                                @click="deleteTopic(topic)"
+                            <button type="submit" class="text-xs">{{ $t('workspace.prompts.rename') }}</button>
+                        </form>
+                        <label v-if="merging === topic.id && canManage" class="block px-2 pb-2 text-xs">
+                            {{ $t('workspace.prompts.merge_into') }}
+                            <select
+                                v-focus-editor
+                                class="mt-1 w-full rounded-lg border border-line"
+                                @keydown.esc="merging = null"
+                                @change="
+                                    mergeTopic(
+                                        topic,
+                                        library.topics.find((item) => item.id === Number($event.target.value)),
+                                    );
+                                    merging = null;
+                                "
                             >
-                                {{ $t('workspace.prompts.delete_topic') }}
-                            </button>
-                        </div>
+                                <option value="" />
+                                <option
+                                    v-for="other in library.topics.filter((item) => item.id !== topic.id)"
+                                    :key="other.id"
+                                    :value="other.id"
+                                >
+                                    {{ other.name }}
+                                </option>
+                            </select>
+                        </label>
                     </div>
                     <button
                         type="button"
@@ -945,7 +1014,7 @@ const emptyCopy = computed(() =>
                     <p class="mt-3 px-2 text-xs text-shell-muted">{{ $t('workspace.prompts.drag_hint') }}</p>
                 </aside>
 
-                <div class="min-w-0 md:flex-[1_1_0]">
+                <div class="min-w-0 md:flex-[999_1_520px]">
                     <form v-if="drafting" class="mb-3" @submit.prevent="saveDraft">
                         <label class="block text-sm">
                             {{ newRowLabel }}
@@ -979,59 +1048,58 @@ const emptyCopy = computed(() =>
                         @close="visit({ open: null })"
                     >
                         <template #toolbar>
-                            <input
-                                :value="filters.search"
-                                type="search"
-                                class="max-w-full rounded-full border border-line bg-shell-surface px-3 py-1.5 text-sm"
-                                :placeholder="$t('workspace.prompts.search')"
-                                :aria-label="$t('workspace.prompts.search')"
-                                @input="onSearch"
-                            />
-                            <details class="text-sm">
-                                <summary class="cursor-pointer rounded-full border border-line px-3 py-1.5">
-                                    {{ $t('workspace.prompts.intent') }}
-                                </summary>
-                                <label v-for="item in options.intents" :key="item.value" class="mt-1 flex gap-2">
-                                    <input
-                                        type="checkbox"
-                                        :checked="filters.intent.includes(item.value)"
-                                        @change="toggleFilter('intent', item.value)"
-                                    />
-                                    {{ item.label }}
-                                </label>
-                            </details>
-                            <details class="text-sm">
-                                <summary class="cursor-pointer rounded-full border border-line px-3 py-1.5">
-                                    {{ $t('workspace.prompts.funnel') }}
-                                </summary>
-                                <label v-for="item in options.funnels" :key="item.value" class="mt-1 flex gap-2">
-                                    <input
-                                        type="checkbox"
-                                        :checked="filters.funnel.includes(item.value)"
-                                        @change="toggleFilter('funnel', item.value)"
-                                    />
-                                    {{ item.label }}
-                                </label>
-                            </details>
-                            <label class="text-sm">
+                            <div class="relative flex flex-wrap items-center gap-2">
                                 <input
-                                    type="checkbox"
-                                    :checked="filters.priority.includes('core')"
-                                    @change="toggleFilter('priority', 'core')"
+                                    :value="filters.search"
+                                    type="search"
+                                    class="min-w-0 max-w-full flex-[1_1_10rem] rounded-full border border-line bg-shell-surface px-3 py-1.5 text-sm"
+                                    :placeholder="$t('workspace.prompts.search')"
+                                    :aria-label="$t('workspace.prompts.search')"
+                                    @input="onSearch"
                                 />
-                                {{ $t('workspace.prompts.core') }}
-                            </label>
-                            <select
-                                class="rounded-full border border-line bg-shell-surface px-3 py-1.5 text-sm"
-                                :value="filters.status"
-                                :aria-label="$t('workspace.prompts.status')"
-                                @change="visit({ status: $event.target.value })"
-                            >
-                                <option value="active">{{ $t('workspace.prompts.status_active') }}</option>
-                                <option value="inactive">{{ $t('workspace.prompts.status_inactive') }}</option>
-                                <option value="archived">{{ $t('workspace.prompts.status_archived') }}</option>
-                                <option value="all">{{ $t('workspace.prompts.status_all') }}</option>
-                            </select>
+                                <Popover v-for="chip in filterChips" :key="chip.key" class="sm:relative">
+                                    <PopoverButton
+                                        class="inline-flex items-center gap-1 rounded-full border border-line px-3 py-1.5 text-sm hover:bg-row-hover"
+                                        :class="filters[chip.key].length ? 'bg-row-hover font-medium' : ''"
+                                    >
+                                        {{ chip.label }}
+                                        <span v-if="filters[chip.key].length">
+                                            ({{ formatNumber(filters[chip.key].length) }})
+                                        </span>
+                                        <ChevronDownIcon class="h-4 w-4" aria-hidden="true" />
+                                    </PopoverButton>
+                                    <PopoverPanel
+                                        class="absolute start-0 z-30 mt-1 w-max max-w-full rounded-xl border border-line bg-shell-surface p-2 shadow-pop sm:max-w-56"
+                                    >
+                                        <fieldset>
+                                            <legend class="sr-only">{{ chip.label }}</legend>
+                                            <label
+                                                v-for="item in chip.choices"
+                                                :key="item.value"
+                                                class="flex items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-row-hover"
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    :checked="filters[chip.key].includes(item.value)"
+                                                    @change="toggleFilter(chip.key, item.value)"
+                                                />
+                                                {{ item.label }}
+                                            </label>
+                                        </fieldset>
+                                    </PopoverPanel>
+                                </Popover>
+                                <select
+                                    class="rounded-full border border-line bg-shell-surface px-3 py-1.5 text-sm"
+                                    :value="filters.status"
+                                    :aria-label="$t('workspace.prompts.status')"
+                                    @change="visit({ status: $event.target.value })"
+                                >
+                                    <option value="active">{{ $t('workspace.prompts.status_active') }}</option>
+                                    <option value="inactive">{{ $t('workspace.prompts.status_inactive') }}</option>
+                                    <option value="archived">{{ $t('workspace.prompts.status_archived') }}</option>
+                                    <option value="all">{{ $t('workspace.prompts.status_all') }}</option>
+                                </select>
+                            </div>
                         </template>
                         <template #cell-text="{ row }">
                             <span class="block" :class="row.is_active ? '' : 'text-shell-muted'">{{ row.text }}</span>
@@ -1042,7 +1110,7 @@ const emptyCopy = computed(() =>
                         </template>
                         <template #cell-core="{ row }">
                             <span
-                                v-if="row.priority === 'core'"
+                                v-show="row.priority === 'core'"
                                 class="rounded-full bg-data-seq-1 px-2 py-0.5 text-xs text-shell-accent"
                             >
                                 {{ $t('workspace.prompts.core') }}
@@ -1187,6 +1255,8 @@ const emptyCopy = computed(() =>
                 </div>
 
                 <Drawer
+                    v-model:tab="tab"
+                    :tabs="promptTabs"
                     :open="open !== null"
                     :label="trans('workspace.prompts.panel', { market: marketName.get(panelPrompt?.market_id) ?? '' })"
                     :save-state="autosave.state.value"
@@ -1194,110 +1264,91 @@ const emptyCopy = computed(() =>
                     @closed="promptTable?.focusCurrentRow()"
                     @close="visit({ open: null })"
                 >
-                    <template v-if="panelPrompt">
-                        <label v-if="canManage" class="block text-sm">
-                            {{ $t('workspace.prompts.prompt_text') }}
-                            <textarea
-                                :value="values.text"
-                                rows="3"
-                                class="mt-1 w-full rounded-lg border border-line px-3 py-2"
-                                @blur="autosave.save('text', $event.target.value)"
-                                @keydown.enter.prevent="$event.target.blur()"
-                            />
-                        </label>
-                        <p v-if="autosave.errors.text" class="mt-1 text-xs text-error-text">
-                            {{ autosave.errors.text }}
-                        </p>
-                        <p v-if="canManage && looksPersonal(values.text)" class="mt-1 text-xs text-warning">
-                            {{ $t('workspace.prompts.personal') }}
-                        </p>
-                        <div v-if="!canManage" class="text-sm">
-                            <p>{{ values.text }}</p>
-                            <p class="mt-1 text-shell-muted">
-                                {{ optionLabel('intents', values.intent) }} ·
-                                {{ optionLabel('funnels', values.funnel_stage) }}
+                    <template #before-tabs>
+                        <div v-if="panelPrompt" class="mt-4">
+                            <label v-if="canManage" class="block text-sm">
+                                {{ $t('workspace.prompts.prompt_text') }}
+                                <textarea
+                                    :value="values.text"
+                                    rows="3"
+                                    class="mt-1 w-full rounded-lg border border-line px-3 py-2"
+                                    @blur="autosave.save('text', $event.target.value)"
+                                    @keydown.enter.prevent="$event.target.blur()"
+                                />
+                            </label>
+                            <p v-if="autosave.errors.text" class="mt-1 text-xs text-error-text">
+                                {{ autosave.errors.text }}
                             </p>
+                            <p v-if="canManage && looksPersonal(values.text)" class="mt-1 text-xs text-warning">
+                                {{ $t('workspace.prompts.personal') }}
+                            </p>
+                            <div v-if="!canManage" class="text-sm">
+                                <p>{{ values.text }}</p>
+                                <p class="mt-1 text-shell-muted">
+                                    {{ optionLabel('intents', values.intent) }} ·
+                                    {{ optionLabel('funnels', values.funnel_stage) }}
+                                </p>
+                            </div>
+                            <div v-if="canManage" class="mt-3 grid gap-2 text-sm">
+                                <label class="grid gap-1">
+                                    {{ $t('workspace.prompts.topic') }}
+                                    <select
+                                        :value="values.topic_id ?? ''"
+                                        @change="
+                                            autosave.save(
+                                                'topic_id',
+                                                $event.target.value ? Number($event.target.value) : null,
+                                            )
+                                        "
+                                    >
+                                        <option value="">{{ $t('workspace.prompts.no_topic') }}</option>
+                                        <option v-for="topic in library.topics" :key="topic.id" :value="topic.id">
+                                            {{ topic.name }}
+                                        </option>
+                                    </select>
+                                </label>
+                                <label class="grid gap-1">
+                                    {{ $t('workspace.prompts.intent') }}
+                                    <select
+                                        :value="values.intent"
+                                        @change="autosave.save('intent', $event.target.value)"
+                                    >
+                                        <option v-for="item in options.intents" :key="item.value" :value="item.value">
+                                            {{ item.label }}
+                                        </option>
+                                    </select>
+                                </label>
+                                <label class="grid gap-1">
+                                    {{ $t('workspace.prompts.funnel') }}
+                                    <select
+                                        :value="values.funnel_stage"
+                                        @change="autosave.save('funnel_stage', $event.target.value)"
+                                    >
+                                        <option v-for="item in options.funnels" :key="item.value" :value="item.value">
+                                            {{ item.label }}
+                                        </option>
+                                    </select>
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        :checked="values.priority === 'core'"
+                                        @change="autosave.save('priority', $event.target.checked ? 'core' : 'standard')"
+                                    />
+                                    {{ $t('workspace.prompts.core') }}
+                                </label>
+                                <label class="flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        :checked="values.is_active"
+                                        @change="autosave.save('is_active', $event.target.checked)"
+                                    />
+                                    {{ $t('workspace.prompts.active') }}
+                                </label>
+                            </div>
                         </div>
-                        <div v-if="canManage" class="mt-3 grid gap-2 text-sm">
-                            <select
-                                :aria-label="$t('workspace.prompts.topic')"
-                                :value="values.topic_id ?? ''"
-                                @change="
-                                    autosave.save('topic_id', $event.target.value ? Number($event.target.value) : null)
-                                "
-                            >
-                                <option value="">{{ $t('workspace.prompts.no_topic') }}</option>
-                                <option v-for="topic in library.topics" :key="topic.id" :value="topic.id">
-                                    {{ topic.name }}
-                                </option>
-                            </select>
-                            <select
-                                :aria-label="$t('workspace.prompts.intent')"
-                                :value="values.intent"
-                                @change="autosave.save('intent', $event.target.value)"
-                            >
-                                <option v-for="item in options.intents" :key="item.value" :value="item.value">
-                                    {{ item.label }}
-                                </option>
-                            </select>
-                            <select
-                                :aria-label="$t('workspace.prompts.funnel')"
-                                :value="values.funnel_stage"
-                                @change="autosave.save('funnel_stage', $event.target.value)"
-                            >
-                                <option v-for="item in options.funnels" :key="item.value" :value="item.value">
-                                    {{ item.label }}
-                                </option>
-                            </select>
-                            <label class="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    :checked="values.priority === 'core'"
-                                    @change="autosave.save('priority', $event.target.checked ? 'core' : 'standard')"
-                                />
-                                {{ $t('workspace.prompts.core') }}
-                            </label>
-                            <label class="flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    :checked="values.is_active"
-                                    @change="autosave.save('is_active', $event.target.checked)"
-                                />
-                                {{ $t('workspace.prompts.active') }}
-                            </label>
-                        </div>
-                        <div class="mt-4 flex gap-2 text-sm" role="tablist">
-                            <button
-                                type="button"
-                                role="tab"
-                                class="rounded-full px-3 py-1"
-                                :class="tab === 'results' ? 'bg-shell-panel font-medium' : ''"
-                                :aria-selected="tab === 'results'"
-                                @click="tab = 'results'"
-                            >
-                                {{ $t('workspace.prompts.results') }}
-                            </button>
-                            <button
-                                type="button"
-                                role="tab"
-                                class="rounded-full px-3 py-1"
-                                :class="tab === 'latest' ? 'bg-shell-panel font-medium' : ''"
-                                :aria-selected="tab === 'latest'"
-                                @click="tab = 'latest'"
-                            >
-                                {{ $t('workspace.prompts.latest') }}
-                            </button>
-                            <button
-                                type="button"
-                                role="tab"
-                                class="rounded-full px-3 py-1"
-                                :class="tab === 'history' ? 'bg-shell-panel font-medium' : ''"
-                                :aria-selected="tab === 'history'"
-                                @click="tab = 'history'"
-                            >
-                                {{ $t('workspace.prompts.history') }}
-                            </button>
-                        </div>
+                    </template>
+                    <template #default>
                         <div v-show="tab === 'results'" class="mt-3 space-y-3 text-sm">
                             <div
                                 v-for="engine in detail?.results ?? []"
@@ -1355,10 +1406,12 @@ const emptyCopy = computed(() =>
                                 </li>
                             </ul>
                         </div>
+                    </template>
+                    <template #footer>
                         <button
-                            v-if="canManage"
+                            v-if="canManage && panelPrompt"
                             type="button"
-                            class="mt-4 text-sm text-error-text"
+                            class="mt-4 self-start text-sm text-error-text"
                             @click="detail?.runs ? applyOne('archive') : applyOne('delete')"
                         >
                             {{ detail?.runs ? $t('workspace.prompts.archive') : $t('workspace.prompts.delete') }}

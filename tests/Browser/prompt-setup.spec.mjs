@@ -58,7 +58,12 @@ test('x selects, Enter opens and j and k move the open prompt', async () => {
     const first = openId();
     const panel = page.locator('aside[data-detail-panel]');
     await expect(panel).toBeVisible();
-    await panel.getByRole('tab').first().focus();
+    await panel.getByRole('tab', { name: 'Results' }).focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(panel.getByRole('tab', { name: 'Latest answer' })).toBeFocused();
+    await expect(panel.getByRole('tabpanel', { name: 'Latest answer' })).toBeVisible();
+    await page.keyboard.press('End');
+    await expect(panel.getByRole('tab', { name: 'History' })).toBeFocused();
     await page.keyboard.press('j');
     await expect.poll(openId).not.toBe(first);
     await page.keyboard.press('k');
@@ -98,4 +103,23 @@ test('a preview of file A cannot import file B chosen while it loads', async () 
     await expect(page.getByTestId('confirm-import')).toBeVisible();
     await expect(page.getByText('File B prompt?', { exact: true })).toBeVisible();
     expect(errors).toEqual([]);
+});
+
+test('the export menu and multi-select filter chips work with the keyboard', async () => {
+    await setup(process.env.QUOTA_FULL_MARKET_ID);
+    const more = page.getByRole('button', { name: 'More actions', exact: true });
+    await more.press('Enter');
+    await expect(page.getByRole('menuitem', { name: 'Export CSV' })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(more).toBeFocused();
+    const core = page.getByRole('button', { name: 'Core', exact: true });
+    await core.click();
+    const group = page.getByRole('group', { name: 'Core', exact: true });
+    await group.getByLabel('Standard').check();
+    await expect(page).toHaveURL(/priority.*standard/);
+    await group.getByLabel('Core', { exact: true }).check();
+    await expect(page).toHaveURL(/priority.*core/);
+    await expect(group.getByLabel('Standard')).toBeChecked();
+    await page.keyboard.press('Escape');
+    await expect(group).toBeHidden();
 });

@@ -161,6 +161,7 @@ return [
         'all_topics' => 'All topics',
         'no_topic' => 'No topic',
         'new_topic' => '+ New topic',
+        'topic_actions' => 'Actions for :topic',
         'topic_name' => 'Topic name',
         'rename' => 'Rename',
         'merge_into' => 'Merge into …',

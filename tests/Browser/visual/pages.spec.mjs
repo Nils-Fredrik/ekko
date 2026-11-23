@@ -55,6 +55,21 @@ for (const [name, component, role, path] of pages) {
                     const fits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
                     expect(fits, 'Only the tables and filter lists may scroll horizontally').toBe(true);
                 }
+                if (!mobile && name === 'setup-prompts') {
+                    const grid = page.getByRole('grid', { name: 'Prompts and topics' });
+                    const topics = page.getByRole('button', { name: 'All topics' }).locator('xpath=ancestor::aside');
+                    const size = await grid.evaluate((el) => ({
+                        visible: el.parentElement.clientWidth,
+                        content: el.parentElement.scrollWidth,
+                    }));
+                    expect(size.visible).toBe(size.content);
+                    expect((await topics.boundingBox()).width).toBeLessThan(size.visible);
+                    for (const heading of ['Prompt text', 'Topic', 'Market', 'Core']) {
+                        await expect(grid.getByRole('columnheader', { name: heading, exact: true })).toBeVisible();
+                    }
+                    await expect(grid.getByRole('gridcell', { name: 'false', exact: true })).toHaveCount(0);
+                    await expect(grid.locator('[aria-label*="mentioned in"], [aria-label*="not measured"]').first()).toBeVisible();
+                }
                 if (!mobile && component.startsWith('Brands/') && component !== 'Brands/Index')
                     await expect(page.getByTestId('sidebar').locator('[aria-current="page"]')).toHaveCount(1);
             }

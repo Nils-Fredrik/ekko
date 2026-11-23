@@ -42,15 +42,6 @@ watch(
 );
 
 const activeTab = computed(() => props.tab || props.tabs[0]?.id || '');
-const tabButtons = ref([]);
-
-function selectTab(tabId, focus = false) {
-    emit('update:tab', tabId);
-    if (focus) {
-        const index = props.tabs.findIndex((item) => item.id === tabId);
-        tabButtons.value[index]?.focus();
-    }
-}
 
 function onTabKey(event, index) {
     const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
@@ -58,7 +49,8 @@ function onTabKey(event, index) {
         event.preventDefault();
         const count = props.tabs.length;
         const next = event.key === 'Home' ? 0 : event.key === 'End' ? count - 1 : (index + step + count) % count;
-        selectTab(props.tabs[next].id, true);
+        emit('update:tab', props.tabs[next].id);
+        event.currentTarget.parentElement.querySelectorAll('[role="tab"]')[next]?.focus();
     }
 }
 
@@ -90,12 +82,12 @@ function onAsideKey(event) {
                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
             </button>
         </div>
-        <div v-if="tabs.length" role="tablist" class="mt-3 flex gap-1 border-b border-line">
+        <slot name="before-tabs" />
+        <div v-if="tabs.length" role="tablist" :aria-label="label" class="mt-3 flex gap-1 border-b border-line">
             <button
                 v-for="(item, index) in tabs"
                 :id="`${id}-tab-${item.id}`"
                 :key="item.id"
-                ref="tabButtons"
                 type="button"
                 role="tab"
                 :aria-selected="item.id === activeTab"
@@ -107,7 +99,7 @@ function onAsideKey(event) {
                         ? 'border-primary text-shell-fg'
                         : 'border-transparent text-shell-muted hover:text-shell-text'
                 "
-                @click="selectTab(item.id)"
+                @click="emit('update:tab', item.id)"
                 @keydown="onTabKey($event, index)"
             >
                 {{ item.label }}
@@ -116,11 +108,13 @@ function onAsideKey(event) {
         <div
             :id="`${id}-panel`"
             :role="tabs.length ? 'tabpanel' : undefined"
+            :tabindex="tabs.length ? 0 : undefined"
             :aria-labelledby="tabs.length ? `${id}-tab-${activeTab}` : undefined"
             class="mt-4 min-w-0"
         >
             <slot :tab="activeTab" />
         </div>
+        <slot name="footer" />
     </aside>
 
     <TransitionRoot v-if="!wide" :show="open" as="template" @after-leave="emit('closed')">
@@ -164,12 +158,17 @@ function onAsideKey(event) {
                                 <XMarkIcon class="h-4 w-4" aria-hidden="true" />
                             </button>
                         </div>
-                        <div v-if="tabs.length" role="tablist" class="mt-3 flex gap-1 border-b border-line">
+                        <slot name="before-tabs" />
+                        <div
+                            v-if="tabs.length"
+                            role="tablist"
+                            :aria-label="label"
+                            class="mt-3 flex gap-1 border-b border-line"
+                        >
                             <button
                                 v-for="(item, index) in tabs"
                                 :id="`${id}-mtab-${item.id}`"
                                 :key="item.id"
-                                ref="tabButtons"
                                 type="button"
                                 role="tab"
                                 :aria-selected="item.id === activeTab"
@@ -181,7 +180,7 @@ function onAsideKey(event) {
                                         ? 'border-primary text-shell-fg'
                                         : 'border-transparent text-shell-muted hover:text-shell-text'
                                 "
-                                @click="selectTab(item.id)"
+                                @click="emit('update:tab', item.id)"
                                 @keydown="onTabKey($event, index)"
                             >
                                 {{ item.label }}
@@ -190,11 +189,13 @@ function onAsideKey(event) {
                         <div
                             :id="`${id}-mpanel`"
                             :role="tabs.length ? 'tabpanel' : undefined"
+                            :tabindex="tabs.length ? 0 : undefined"
                             :aria-labelledby="tabs.length ? `${id}-mtab-${activeTab}` : undefined"
                             class="mt-4 min-w-0"
                         >
                             <slot :tab="activeTab" />
                         </div>
+                        <slot name="footer" />
                     </DialogPanel>
                 </TransitionChild>
             </div>
