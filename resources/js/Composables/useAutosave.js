@@ -27,14 +27,15 @@ export class SaveCancelled extends Error {
  * The visit is async: two fields saved at once (blur on a text field, then a click on a switch) must
  * not cancel each other, as two ordinary Inertia visits would.
  */
-export function inertiaRequest(method, url, data, { only = [] } = {}, client = router) {
+export function inertiaRequest(method, url, data, options = {}, client = router) {
     return new Promise((resolve, reject) => {
         let settled = false;
         client[method](url, data, {
             async: true,
             preserveState: true,
             preserveScroll: true,
-            only,
+            only: [],
+            ...options,
             onSuccess: () => {
                 settled = true;
                 resolve();

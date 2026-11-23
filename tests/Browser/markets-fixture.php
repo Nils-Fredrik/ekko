@@ -39,11 +39,11 @@ return app(TenantContext::class)->run($marketsTeam->id, function () use ($market
         'prompt_scope' => 'all',
         'repetitions' => 1,
     ]]);
-    foreach ([['NO', 'nb', 'Norway'], ['SE', 'sv', 'Sweden']] as [$country, $language, $label]) {
+    foreach ([['NO', 'nb'], ['SE', 'sv']] as [$country, $language]) {
         $market = Market::factory()->for($brand)->create([
             'country' => $country,
             'language' => $language,
-            'location_label' => $label,
+            'location_label' => null,
             'is_active' => true,
         ]);
         $plans->inherit($market);

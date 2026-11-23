@@ -59,6 +59,13 @@ final class CountryList
         return $options;
     }
 
+    public static function languageLabel(string $tag): string
+    {
+        $name = class_exists(\Locale::class) ? \Locale::getDisplayName($tag, app()->getLocale()) : '';
+
+        return is_string($name) && $name !== '' ? $name : $tag;
+    }
+
     public static function language(string $country): string
     {
         return self::LANGUAGES[strtoupper($country)] ?? 'en';

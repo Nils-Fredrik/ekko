@@ -618,7 +618,7 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
   - **Prompts:** «46 · 12 kjerne».
   - **Plan:** «Arver merkevarens plan» eller «Egne valg».
   - **Neste måling:** neste måledato.
-- **Detaljpanel:** sted (automatisk lagring), aktiv-bryter med forklaring («Inaktive markeder måles ikke») og lenke til prompts i markedet.
+- **Detaljpanel:** Tabellen bruker DataTable. En rad åpner markedets Drawer med `?open=<id>`. Uten et valgt marked står tabellen rett over matrisen. Panelet viser lagringsstatus og ruller feltet tilbake hvis lagring feiler. Innholdet er sted (automatisk lagring), aktiv-bryter med forklaring («Inaktive markeder måles ikke») og lenke til prompts i markedet.
 - **«Nytt marked»** åpner et panel med land (valgliste ISO 3166-1), språk (BCP 47, standard for landet), sted (valgfritt) og to valg:
   - **«Kopier prompts fra …»:** markeder med samme språk. Kallet `markets.store` med `copy_from` oppretter markedet og kopierer aktive prompts innenfor pakkens grense.
   - **«Foreslå prompts»:** sender til dagens veiviser for nytt marked (`brands.markets.create`).
