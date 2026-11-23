@@ -101,12 +101,16 @@ test('on mobile the sidebar is a drawer that closes on navigation', async ({ pag
 test('a mobile prompt panel returns keyboard focus to the row that opened it', async ({ page, baseURL }, info) => {
     test.skip(info.project.name !== 'mobile-dark', 'Keyboard focus is independent of the theme.');
     await open(page, baseURL, brandPath('/setup/prompts'));
-    await page.getByRole('button', { name: 'More actions', exact: true }).click();
-    await expect(page.getByRole('menuitem', { name: 'Export CSV' })).toBeInViewport({ ratio: 1 });
-    await page.keyboard.press('Escape');
+    const more = page.getByRole('button', { name: 'More actions', exact: true });
+    await more.click();
+    const menu = page.getByRole('menu', { name: 'More actions' });
+    await expect(menu).toBeFocused();
+    await expect(menu.getByRole('menuitem', { name: 'Export CSV' })).toBeInViewport({ ratio: 1 });
+    await menu.press('Escape');
+    await expect(more).toBeFocused();
     const row = page.getByRole('row', { name: /Where can I find sustainably roasted coffee/ });
-    await row.focus();
-    await page.keyboard.press('Enter');
+    await row.press('Enter');
+    await expect(page).toHaveURL(/[?&]open=\d+/);
     const dialog = page.getByRole('dialog', { name: /Prompt/ });
     await expect(dialog.getByRole('button', { name: 'Close the panel' })).toBeFocused();
     for (const name of ['Topic', 'Intent', 'Funnel stage']) {
