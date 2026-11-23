@@ -109,25 +109,30 @@ class BrandController extends Controller
             // The insight line (U12, ADR 0038): null, or {text, label, generated_on}. Deferred in its own group: a
             // missing text must not delay the graphs, and the first view of a day may make the model call.
             'insight' => Inertia::defer(fn (): ?array => app(InsightService::class)->forBrand($brand, $period, $filter, $previous), 'insight'),
-            'chartData' => Inertia::defer(fn (): array => app(GraphCache::class)->remember(
-                'brand.dashboard.u11.'.$grain.'.'.$period->comparison, $filter, $period->timezone, fn (): array => [
-                    'series' => array_map(fn (array $row): array => [
-                        'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
-                    ], $metrics->series($filter, $grain)),
-                    'previous' => array_map(fn (array $row): array => [
-                        'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
-                    ], $metrics->series($previous, $grain)),
-                    'sparkline' => array_map(fn (array $row): array => [
-                        'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
-                    ], $metrics->series($sparkFilter)),
-                    'competitors' => $metrics->competitorVisibilitySeries($filter, $grain),
-                    'previous_competitors' => $metrics->competitorVisibilitySeries($previous, $grain),
-                    'engines' => $metrics->visibilityByEngineSeries($filter, $grain),
-                    'sentiment' => $metrics->sentimentDistribution($filter),
-                    'action_markers' => $this->actionMarkers($brand, $period),
-                ],
-                competitorIds: array_keys(Competitor::colorIndexes($brand)),
-            )),
+            'chartData' => Inertia::defer(function () use ($brand, $grain, $period, $filter, $previous, $sparkFilter, $metrics): array {
+                $colors = Competitor::colorIndexes($brand);
+
+                return app(GraphCache::class)->remember(
+                    'brand.dashboard.u35.'.$grain.'.'.$period->comparison, $filter, $period->timezone, fn (): array => [
+                        'series' => array_map(fn (array $row): array => [
+                            'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
+                        ], $metrics->series($filter, $grain)),
+                        'previous' => array_map(fn (array $row): array => [
+                            'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
+                        ], $metrics->series($previous, $grain)),
+                        'sparkline' => array_map(fn (array $row): array => [
+                            'period' => $row['period'], 'metrics' => $row['summary']->toArray(),
+                        ], $metrics->series($sparkFilter)),
+                        'competitor_colors' => $colors,
+                        'competitors' => $metrics->competitorVisibilitySeries($filter, $grain),
+                        'previous_competitors' => $metrics->competitorVisibilitySeries($previous, $grain),
+                        'engines' => $metrics->visibilityByEngineSeries($filter, $grain),
+                        'sentiment' => $metrics->sentimentDistribution($filter),
+                        'action_markers' => $this->actionMarkers($brand, $period),
+                    ],
+                    competitorIds: array_keys($colors),
+                );
+            }),
         ]);
     }
 

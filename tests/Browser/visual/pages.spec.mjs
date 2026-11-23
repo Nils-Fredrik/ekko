@@ -53,6 +53,15 @@ for (const [name, component, role, path] of pages) {
                 await expect(header.getByRole('heading', { level: 1 })).toHaveCSS('font-size', '26px');
                 await expect(header.locator('p').first()).toHaveText(/.+ · .+/);
             }
+            if (name === 'competitor-alias') {
+                await page.getByTestId('competitor-table').getByRole('button', { name: 'Harbour Tea', exact: true }).click();
+                const panel = page.getByTestId('competitor-panel');
+                await panel.getByTestId('alias-input').fill('Fjord Tea');
+                await expect(panel.getByTestId('alias-preview')).toContainText('4 hits');
+                await expect(panel.locator('mark')).toHaveCount(3);
+                await expect(panel.getByText('4 of the hits are currently Fjord Tea')).toBeVisible();
+                await panel.getByTestId('alias-input').blur();
+            }
             if (name === 'setup-identity') {
                 await page.getByRole('textbox', { name: 'Add alias' }).fill('Northern Roast');
                 const mark = page.locator('main mark').first();

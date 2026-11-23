@@ -2,6 +2,7 @@
 // The detail panel of a competitor (docs/ux-arbeidsflate.md 5.3): name and active with automatic saving, aliases
 // with match type, domains and «Archive». With no competitor it is the form for a new one. Changes go to the JSON
 // routes of CompetitorSetupController, which answer with the competitor as it is now.
+import AliasMatchPreview from '@/Components/Setup/AliasMatchPreview.vue';
 import SaveStatus from '@/Components/UI/SaveStatus.vue';
 import { trans } from 'laravel-vue-i18n';
 import { ref, watch } from 'vue';
@@ -255,6 +256,13 @@ defineExpose({ state, error });
                 {{ $t('workspace.competitors.panel.create') }}
             </button>
         </form>
+        <AliasMatchPreview
+            v-if="canManage"
+            :brand-id="brandId"
+            :entity="`competitor:${competitor.id}`"
+            :alias="aliasText"
+            :mode="aliasMode"
+        />
         <p v-if="fieldErrors.alias" class="mt-1 text-xs text-error-text" role="alert">{{ fieldErrors.alias }}</p>
 
         <h4 class="mt-5 text-xs text-shell-muted">{{ $t('workspace.competitors.panel.domains') }}</h4>

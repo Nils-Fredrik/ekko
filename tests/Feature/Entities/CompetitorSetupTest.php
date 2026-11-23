@@ -8,6 +8,8 @@ use App\Models\Brand;
 use App\Models\Competitor;
 use App\Models\CompetitorAlias;
 use App\Models\CompetitorDomain;
+use App\Models\ReportSchedule;
+use App\Reports\ReportPublisher;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 use Tests\Support\Metrics\MetricsWorld;
@@ -54,10 +56,19 @@ test('a changed order gives the same color place on every page that shows compet
     expect(collect(app(SourcePage::class)->chartData($w->brand, $filter)['competitors'])->mapWithKeys(fn ($c) => [$c['id'] => $c['color_index']])->all())
         ->toBe($expected);
 
-    // Dashboard and reports read the competitors in the order of the series.
+    $this->actingAs($w->tenant->owner)->get(route('brands.show', $w->brand))
+        ->assertInertia(fn ($page) => $page->loadDeferredProps(fn ($deferred) => $deferred
+            ->where('chartData.competitor_colors', fn ($colors) => collect($colors)->all() == $expected)));
+
+    // The report series reads competitors in position order.
     $series = app(MetricsService::class)->competitorVisibilitySeries($filter);
     expect(array_values(array_filter(array_column($series[0]['entities'], 'id'), fn ($id) => $id !== 'brand')))
         ->toBe(array_map('strval', $order));
+
+    $schedule = ReportSchedule::factory()->for($w->brand)->create();
+    $report = app(ReportPublisher::class)->viewData($w->tenant, $schedule, '2026-11-12', '2026-11-18', null);
+    expect(collect($report['competitor_series']['lines'])->reject(fn ($line) => $line['own'])->pluck('color_index', 'name')->sort()->all())
+        ->toBe([$this->c3->name => 0, $w->c1->name => 1, $w->c2->name => 2]);
 
     // API.
     expect($this->c3->fresh()->position)->toBeLessThan($w->c1->fresh()->position);

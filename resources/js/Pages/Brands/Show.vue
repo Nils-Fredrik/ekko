@@ -120,19 +120,6 @@ const engineName = computed(() => {
 
 const leadingEngine = computed(() => pickLeadingEngine(props.engines));
 
-const competitorIndex = computed(() => {
-    const ids = [];
-    for (const row of props.chartData?.competitors ?? []) {
-        for (const entity of row.entities ?? []) {
-            if (entity.id !== 'brand' && !ids.includes(entity.id)) {
-                ids.push(entity.id);
-            }
-        }
-    }
-
-    return new Map(ids.map((id, index) => [id, index]));
-});
-
 const shareItems = computed(() => {
     if (categories.value.length === 0) {
         return [];
@@ -160,7 +147,7 @@ const shareItems = computed(() => {
         key,
         label: group.label,
         own: group.own || undefined,
-        colorIndex: group.own ? undefined : (competitorIndex.value.get(key) ?? 0),
+        colorIndex: group.own ? undefined : props.chartData.competitor_colors[key],
         points: categories.value.map((period) => point(group.points.get(period))),
     }));
 });
@@ -194,7 +181,7 @@ const trendSeries = computed(() => {
         .map(([id, entity]) => ({
             key: id,
             label: entity.label,
-            colorIndex: competitorIndex.value.get(id) ?? 0,
+            colorIndex: props.chartData.competitor_colors[id],
             points: categories.value.map((period) => point(entity.points.get(period))),
         }));
 

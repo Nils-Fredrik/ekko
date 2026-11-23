@@ -98,11 +98,9 @@ test('competitors have the same fixed color position as on the dashboard and the
             ->where('chartData.competitors', fn ($competitors) => collect($competitors)
                 ->mapWithKeys(fn ($item) => [(string) $item['id'] => $item['color_index']])->all() == $positions)));
 
-    // The dashboard colors competitors by their order in the competitor series (Show.vue competitorIndex).
     $this->actingAs($owner)->get(route('brands.show', [$world->brand, 'days' => 7]))
         ->assertInertia(fn ($page) => $page->loadDeferredProps(fn ($deferred) => $deferred
-            ->where('chartData.competitors.0.entities', fn ($entities) => collect($entities)->pluck('id')
-                ->reject(fn ($id) => $id === 'brand')->values()->flip()->all() == $positions)));
+            ->where('chartData.competitor_colors', fn ($colors) => collect($colors)->all() == $positions)));
 });
 
 test('the rank chart is daily up to a month and weekly for longer periods', function (int $days, string $grain, string $first) {

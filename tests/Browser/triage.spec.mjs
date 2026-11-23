@@ -117,6 +117,11 @@ test('a competitor panel saves the name, aliases and domains', async () => {
     await page.goto(`/brands/${process.env.TRIAGE_BRAND_ID}/setup/competitors?tab=competitors`);
     await page.getByTestId('competitor-table').getByRole('button', { name: 'Rival Beta', exact: true }).click();
     const panel = page.getByTestId('competitor-panel');
+    const previewRequest = page.waitForRequest((request) => request.url().endsWith('/aliases/test') && request.method() === 'POST');
+    await panel.getByTestId('alias-input').fill('Synthetic Name 50');
+    expect((await previewRequest).postDataJSON().entity).toMatch(/^competitor:\d+$/);
+    await slow(panel.getByTestId('alias-preview')).toContainText('3 hits');
+    await expect(panel.locator('mark')).toHaveText(Array(3).fill('Synthetic Name 50'));
     await panel.getByTestId('alias-input').fill('Beta Rivals');
     await panel.getByTestId('alias-add').click();
     await slow(panel.getByTestId('competitor-aliases')).toContainText('Beta Rivals');
