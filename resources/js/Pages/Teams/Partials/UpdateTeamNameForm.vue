@@ -28,30 +28,7 @@ const updateTeamName = () => {
     <FormSection @submitted="updateTeamName">
         <template #title>{{ $t('Team Name') }}</template>
 
-        <template #description>{{ $t("The team's name and owner information.") }}</template>
-
         <template #form>
-            <!-- Team Owner Information -->
-            <div class="col-span-6">
-                <InputLabel :value="$t('Team Owner')" />
-
-                <div class="flex items-center mt-2">
-                    <img
-                        class="size-12 rounded-full object-cover"
-                        :src="team.owner.profile_photo_url"
-                        :alt="team.owner.name"
-                    />
-
-                    <div class="ms-4 leading-tight">
-                        <div class="text-gray-900">{{ team.owner.name }}</div>
-                        <div class="text-gray-700 text-sm">
-                            {{ team.owner.email }}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Team Name -->
             <div class="col-span-6 sm:col-span-4">
                 <InputLabel for="name" :value="$t('Team Name')" />
 
