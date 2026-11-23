@@ -71,6 +71,18 @@ for (const [name, component, role, path] of pages) {
                     const fits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
                     expect(fits, 'Only the tables and filter lists may scroll horizontally').toBe(true);
                 }
+                if (name === 'reports' || name === 'report') {
+                    await expect(page.getByText(/1 Oct.*3 Oct/).first()).toBeVisible();
+                    await expect(page.locator('main')).not.toContainText(/\d{4}-\d{2}-\d{2}/);
+                }
+                if (name === 'admin-billing') {
+                    await expect(page.getByRole('cell', { name: /USD\s*10\.00/ }).first()).toBeVisible();
+                    await expect(page.getByRole('table')).not.toContainText(/\d+\.\d{8}/);
+                }
+                if (name === 'admin-engines') {
+                    await expect(page.getByText(/Current price:.*USD\s*0\.0100/).first()).toBeAttached();
+                    await expect(page.getByText(/Scheduled price:.*USD\s*0\.0246.*Oct/).first()).toBeAttached();
+                }
                 if (name === 'setup-markets') {
                     await expect(page.locator('[data-detail-panel]')).toHaveCount(0);
                     const grid = await page.getByRole('grid', { name: 'Markets and measurement plan' }).boundingBox();

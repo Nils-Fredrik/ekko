@@ -146,6 +146,9 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await expect(bar.getByRole('button', { name: /Remove Topic/ })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Fact check', exact: true })).toHaveAttribute('href', new RegExp(`${path}/facts$`));
     await page.goto(`${path}/competitors?from=2026-10-01&to=2026-10-03&grain=week`);
+    const custom = bar.getByRole('combobox', { name: 'Change period', exact: true });
+    await expect(custom).toHaveAttribute('title', /1 Oct.*3 Oct/);
+    await expect(custom.locator('option:checked')).toHaveText(/1 Oct.*3 Oct/);
     await bar.getByRole('button', { name: '+ Filter', exact: true }).click();
     await expect(bar.getByRole('combobox', { name: 'Group by', exact: true })).toHaveCount(0);
     await bar.getByRole('button', { name: 'Apply', exact: true }).click();

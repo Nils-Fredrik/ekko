@@ -184,6 +184,13 @@ function zoneOf(parsed) {
     return parsed.calendar ? 'UTC' : settings.timeZone;
 }
 
+/** Month name of an instant in the tenant's time zone, e.g. the plan matrix's current month. */
+export function formatMonth(value = new Date()) {
+    const parsed = toDate(value);
+
+    return parsed ? formatter('DateTimeFormat', intlLocale(), { month: 'long', timeZone: zoneOf(parsed) }).format(parsed.date) : empty();
+}
+
 /** 1. nov. 2026; the year is left out in the current year (in the tenant's time zone). A year-month is the month name. */
 export function formatDate(value, { now = new Date(), year } = {}) {
     const monthOnly = typeof value === 'string' ? /^(\d{4})-(\d{2})$/.exec(value) : null;

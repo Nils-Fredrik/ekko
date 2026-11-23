@@ -1,5 +1,6 @@
 <script setup>
 import { XMarkIcon } from '@heroicons/vue/24/outline';
+import { formatDate } from '@/format';
 import DataNote from '@/Components/Brand/DataNote.vue';
 import BottomSheet from '@/Components/UI/BottomSheet.vue';
 import FilterFields from './FilterFields.vue';
@@ -19,6 +20,10 @@ const props = defineProps({
 const page = usePage();
 const config = computed(() => page.props.analysisFilters ?? { query: {}, options: {}, views: [] });
 const period = computed(() => page.props.period ?? {});
+const periodLabel = computed(() => trans('app.workspace.period_range', {
+    start: formatDate(period.value.from),
+    end: formatDate(period.value.to),
+}));
 const open = ref(false);
 const mobileFormId = useId();
 const busy = ref(false);
@@ -169,13 +174,13 @@ async function removeView() {
             </div>
             <select
                 :aria-label="$t('filters.quick_period')"
-                :title="$t('app.workspace.period_range', { start: period.from, end: period.to })"
+                :title="periodLabel"
                 :value="config.query.from ? 'custom' : String(config.query.days ?? period.days)"
                 class="max-w-full rounded-full border-line bg-shell-panel py-1.5 ps-3 pe-8 text-sm text-shell-fg"
                 @change="changePeriod($event.target.value)"
             >
                 <option v-if="config.query.from" value="custom">
-                    {{ $t('app.workspace.period_range', { start: period.from, end: period.to }) }}
+                    {{ periodLabel }}
                 </option>
                 <option v-for="days in periodLengths" :key="days" :value="String(days)">
                     {{ $t('app.dashboard.period_days', { days }) }}

@@ -1,4 +1,5 @@
 <script setup>
+import { formatDate, formatNumber } from '@/format';
 import ReportSection from '@/Components/Actions/ReportSection.vue';
 import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -62,7 +63,7 @@ async function revokeLink(id) {
         </template>
         <div class="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-8">
             <div class="flex items-center justify-between gap-3">
-                <p class="text-sm text-shell-muted">{{ $t('app.workspace.period_range', { start: from, end: to }) }}</p>
+                <p class="text-sm text-shell-muted">{{ $t('app.workspace.period_range', { start: formatDate(from), end: formatDate(to) }) }}</p>
                 <a v-if="downloadable" :href="route('reports.download', reportId)" class="text-sm text-primary">
                     {{ $t('app.workspace.download') }}
                 </a>
@@ -100,7 +101,7 @@ async function revokeLink(id) {
                 <ul class="mt-3 space-y-2">
                     <li v-for="link in links" :key="link.id" class="flex flex-wrap items-center gap-3 text-sm">
                         <span>
-                            {{ $t('reports.share.expiry', { date: link.expires_at.slice(0, 10), views: link.views }) }}
+                            {{ $t('reports.share.expiry', { date: formatDate(link.expires_at), views: formatNumber(link.views) }) }}
                         </span>
                         <span v-if="link.revoked_at">{{ $t('reports.share.revoked') }}</span>
                         <button

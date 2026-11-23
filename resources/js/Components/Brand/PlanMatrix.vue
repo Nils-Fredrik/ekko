@@ -2,7 +2,7 @@
 // Compact plan matrix (docs/ux-arbeidsflate.md 5.4). The estimate waits 300 ms after a change.
 import InputError from '@/Components/InputError.vue';
 import { usePlanEstimate } from '@/Composables/usePlanEstimate';
-import { empty, formatCurrency, formatDate, formatNumber } from '@/format';
+import { empty, formatCurrency, formatDate, formatMonth, formatNumber } from '@/format';
 import {
     allowsFrequency,
     estimateCanConfirm,
@@ -98,7 +98,7 @@ const delta = computed(() => {
 
     return estimate.value.answers - savedAnswers.value;
 });
-const month = computed(() => formatDate(new Date().toISOString().slice(0, 7), { year: false }));
+const month = computed(() => formatMonth());
 const fieldErrors = computed(() => page.props.errors ?? {});
 const planErrors = computed(() =>
     Object.fromEntries(

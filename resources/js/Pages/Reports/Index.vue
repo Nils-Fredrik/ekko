@@ -1,5 +1,5 @@
 <script setup>
-import { formatDateTime } from '@/format';
+import { formatDate, formatDateTime } from '@/format';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -31,7 +31,7 @@ defineProps({
                 >
                     <p>
                         {{ report.brand }} ·
-                        {{ $t('app.workspace.period_range', { start: report.period_start, end: report.period_end }) }}
+                        {{ $t('app.workspace.period_range', { start: formatDate(report.period_start), end: formatDate(report.period_end) }) }}
                     </p>
                     <span class="flex items-center gap-3">
                         <Link :href="route('reports.show', report.id)" class="text-sm text-primary no-underline">

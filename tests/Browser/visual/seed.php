@@ -22,6 +22,7 @@ use Tests\Support\Metrics\MetricsWorld;
 
 $team->forceFill(['name' => 'Fjord Coffee', 'timezone' => 'UTC'])->save();
 $user->forceFill(['name' => 'Alex Reader'])->save();
+App\Models\EnginePrice::factory()->for($engine)->create(['valid_from' => now()->addDay(), 'price_per_call_usd' => '0.02460001']);
 $owner->forceFill(['name' => 'Robin Owner'])->save();
 $billingAdmin->forceFill(['name' => 'Taylor Admin'])->save();
 $values['UI_OWNER_EMAIL'] = $owner->email;

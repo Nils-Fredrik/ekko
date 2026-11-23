@@ -21,7 +21,30 @@ final class BillingController
         $month = $request->string('month', now('UTC')->subMonthNoOverflow()->format('Y-m'))->toString();
         $rows = $statement->rows($request->user(), $month);
 
-        return Inertia::render('Admin/Billing', ['month' => $month, 'rows' => $rows, 'accounts' => $statement->accounts($rows)]);
+        return Inertia::render('Admin/Billing', [
+            'month' => $month,
+            'rows' => array_map($this->displayAmounts(...), $rows),
+            'accounts' => array_map($this->displayAmounts(...), $statement->accounts($rows)),
+        ]);
+    }
+
+    /** Decimal arithmetic and CSV use the exact statement. Only the Inertia display payload is numeric.
+     *
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private function displayAmounts(array $row): array
+    {
+        foreach (['invoice_total_usd', 'platform_cost_usd', 'byok_cost_usd', 'unassigned_cost_usd', 'markup_usd', 'markup_percent'] as $key) {
+            if (isset($row[$key])) {
+                $row[$key] = (float) $row[$key];
+            }
+        }
+        if (isset($row['engine_costs_usd'])) {
+            $row['engine_costs_usd'] = array_map('floatval', $row['engine_costs_usd']);
+        }
+
+        return $row;
     }
 
     public function export(Request $request, BillingStatement $statement, BillingCsv $csv): Response

@@ -236,8 +236,9 @@ it('shows the price in effect and keeps quota skips out of the engine error rate
     $this->actingAs($admin)->get(route('admin.engines.index'))->assertOk()->assertInertia(fn ($page) => $page
         ->component('Admin/Engines')
         ->where('engines.0.key', $engine->key)
-        ->where('engines.0.price.price_per_call_usd', '0.01000000')
-        ->where('engines.0.scheduled_price.price_per_call_usd', '0.99000000')
+        ->where('engines.0.price.price_per_call_usd', 0.01)
+        ->where('engines.0.editable_price.price_per_call_usd', '0.01')
+        ->where('engines.0.scheduled_price.price_per_call_usd', 0.99)
         ->where('engines.0.runs', 4)
         ->where('engines.0.failed', 1)
         ->where('engines.0.unhealthy', true));

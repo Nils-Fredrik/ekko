@@ -24,6 +24,8 @@ use Inertia\Response;
  */
 final class EngineController extends Controller
 {
+    private const PRICE_FIELDS = ['price_per_call_usd', 'price_per_1k_input_tokens_usd', 'price_per_1k_output_tokens_usd', 'price_per_search_usd'];
+
     public function index(TenantRls $rls): Response
     {
         Gate::authorize('viewAny', Plan::class);
@@ -46,6 +48,11 @@ final class EngineController extends Controller
                 'is_enabled' => $engine->is_enabled,
                 'available' => $engine->isAvailable(),
                 'price' => $this->pricePayload($current),
+                // A number input accepts invariant decimals. Keep all significant digits when an admin edits a price.
+                'editable_price' => $current === null ? null : array_map(
+                    fn (string $amount): string => rtrim(rtrim($amount, '0'), '.'),
+                    $current->only(self::PRICE_FIELDS),
+                ),
                 'scheduled_price' => $this->pricePayload($scheduled),
                 'runs' => $row['total'],
                 'failed' => $row['failed'],
@@ -104,20 +111,13 @@ final class EngineController extends Controller
     }
 
     /**
-     * @return array{valid_from: string, price_per_call_usd: string, price_per_1k_input_tokens_usd: string, price_per_1k_output_tokens_usd: string, price_per_search_usd: string}|null
+     * @return array<string, float|string>|null
      */
     private function pricePayload(?EnginePrice $price): ?array
     {
-        if ($price === null) {
-            return null;
-        }
-
-        return [
+        return $price === null ? null : [
             'valid_from' => $price->valid_from->toIso8601String(),
-            'price_per_call_usd' => $price->price_per_call_usd,
-            'price_per_1k_input_tokens_usd' => $price->price_per_1k_input_tokens_usd,
-            'price_per_1k_output_tokens_usd' => $price->price_per_1k_output_tokens_usd,
-            'price_per_search_usd' => $price->price_per_search_usd,
+            ...array_map('floatval', $price->only(self::PRICE_FIELDS)),
         ];
     }
 
