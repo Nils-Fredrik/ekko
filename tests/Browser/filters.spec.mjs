@@ -41,7 +41,7 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     try {
         await bar.getByRole('button', { name: 'Apply', exact: true }).click();
         // The new figures must appear while the insight request is still held back.
-        await expect(bar).toContainText('2025-10-01');
+        await expect(bar).toContainText(/Compared with 1 Oct 2025.*3 Oct 2025/);
         await expect(bar.getByRole('button', { name: 'Remove Norway', exact: true })).toBeVisible();
         await expect.poll(() => insightRequested).toBe(true);
         expect(visits.filter((request) => request.headers()['x-inertia-partial-data']?.includes('chartData'))
@@ -56,7 +56,7 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     const shared = await context.newPage();
     await shared.goto(page.url());
     await expect(shared.getByTestId('analysis-filters').getByRole('button', { name: 'Remove Norway', exact: true })).toBeVisible();
-    await expect(shared.getByTestId('analysis-filters')).toContainText('2025-10-01');
+    await expect(shared.getByTestId('analysis-filters')).toContainText(/Compared with 1 Oct 2025.*3 Oct 2025/);
     await shared.close();
 
     await bar.locator('summary').click();
