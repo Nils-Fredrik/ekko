@@ -146,6 +146,7 @@ Route::middleware([
     Route::post('/alerts/acknowledge', [AlertController::class, 'acknowledgeBulk'])->name('alerts.acknowledge.bulk');
     Route::delete('/alerts/acknowledge', [AlertController::class, 'undoBulk'])->name('alerts.unacknowledge.bulk');
     Route::post('/brands/{brand}/claims/{claim}/action', [InboxController::class, 'correct'])->name('brands.claims.action');
+    Route::delete('/brands/{brand}/actions/{action}/inbox-change', [InboxController::class, 'undoAction'])->name('brands.inbox.undo-action');
     Route::post('/brands/{brand}/checklist/hide', [InboxController::class, 'hide'])->name('brands.checklist.hide');
     Route::put('/brands/{brand}/alert-rules/{type}', [AlertController::class, 'upsert'])->name('brands.alert-rules.upsert');
     Route::post('/brands/{brand}/report-schedules', [ReportController::class, 'store'])->name('brands.report-schedules.store');

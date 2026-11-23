@@ -4,6 +4,7 @@ namespace App\Inbox;
 
 use App\Models\Brand;
 use App\Models\Market;
+use App\Workspace\Workspace;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use JsonSerializable;
@@ -28,7 +29,7 @@ final readonly class InboxItem implements JsonSerializable
         return [
             'id' => $this->type.':'.$this->key, 'type' => $this->type,
             'brand' => $this->brand ? ['id' => $this->brand->id, 'name' => $this->brand->name] : null,
-            'market' => $this->market ? ['id' => $this->market->id, 'label' => $this->market->location_label ?: strtoupper($this->market->country)] : null,
+            'market' => $this->market ? ['id' => $this->market->id, 'label' => Workspace::marketLabel($this->market)] : null,
             'at' => CarbonImmutable::parse($this->at)->utc()->toIso8601String(), 'edge' => $this->edge,
             'title' => $this->title, 'detail' => $this->detail, 'handled' => $this->handled,
             'actions' => array_map(fn (string $key) => ['key' => $key, 'label' => __('inbox.buttons.'.$key), 'primary' => $key === $this->buttons[0]], $this->buttons),

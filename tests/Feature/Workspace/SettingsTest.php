@@ -337,7 +337,7 @@ test('alerts can be acknowledged and a rule rejects an invalid threshold', funct
 
     $this->actingAs($owner)->get(route('inbox.index'))->assertOk()->assertInertia(fn ($page) => $page
         ->component('Inbox/Index')
-        ->where('items.0.title', __('app.alert_types.visibility_drop'))
+        ->where('items.0.title', __('inbox.events.visibility_drop_unquantified'))
         ->missing('items.0.subject')
         ->where('can.alerts', true)
         ->where('counts.all', 1)

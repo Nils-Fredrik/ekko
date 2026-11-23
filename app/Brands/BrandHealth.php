@@ -64,16 +64,22 @@ final readonly class BrandHealth
         $integrations = route('brands.setup.integrations', $brand);
         $entities = route('brands.setup.competitors', $brand);
         $problems = [];
-        $this->problem($problems, $brand->integrations()->where('status', 'error')->exists(), 'integration', 'error', $integrations);
-        $this->problem($problems, in_array('no_price', array_column($estimate['issues'], 'code'), true), 'price', 'error', $plan);
+        $this->problem($problems, $brand->integrations()->where('status', 'error')->count(), 'integration', 'error', $integrations);
+        $missingPrices = [];
+        foreach ($estimate['issues'] as $issue) {
+            if ($issue['code'] === 'no_price') {
+                $missingPrices[$issue['engine_key']] = true;
+            }
+        }
+        $this->problem($problems, count($missingPrices), 'price', 'error', $plan);
         if (Gate::allows('viewAny', UsageEvent::class)) {
-            $this->problem($problems, $this->usage->snapshot($team, CarbonImmutable::now())->status !== 'ok', 'quota', 'warning', route('usage.index'));
+            $this->problem($problems, $this->usage->threshold($this->usage->snapshot($team, CarbonImmutable::now())), 'quota', 'warning', route('usage.index'));
         }
         if (count($problems) < 3) {
-            $this->problem($problems, $this->queue->pending($brand) !== [], 'entity', 'warning', $entities);
+            $this->problem($problems, count($this->queue->pending($brand)), 'entity', 'warning', $entities);
         }
         if (count($problems) < 3) {
-            $this->problem($problems, Action::where('brand_id', $brand->id)->where('status', ActionStatus::New)->exists(), 'action', 'warning', route('brands.actions.index', $brand));
+            $this->problem($problems, Action::where('brand_id', $brand->id)->where('status', ActionStatus::New)->count(), 'action', 'warning', route('brands.actions.index', $brand));
         }
         $enough = $markets->isNotEmpty();
         foreach ($markets as $market) {
@@ -94,11 +100,12 @@ final readonly class BrandHealth
             'checklist_hidden' => UserBrandPreference::where('brand_id', $brand->id)->where('user_id', auth()->id())->whereNotNull('checklist_hidden_at')->exists()];
     }
 
-    /** @param list<array<string, string>> $problems */
-    private function problem(array &$problems, bool $active, string $kind, string $severity, string $url): void
+    /** @param list<array<string, int|string>> $problems */
+    private function problem(array &$problems, int $count, string $kind, string $severity, string $url): void
     {
-        if ($active) {
-            $problems[] = ['kind' => $kind, 'severity' => $severity, 'text' => (string) __('inbox.problems.'.$kind), 'url' => $url];
+        if ($count > 0) {
+            $problems[] = ['kind' => $kind, 'count' => $count, 'severity' => $severity,
+                'text' => trans_choice('inbox.problems.'.$kind, $count), 'cta' => trans_choice('inbox.problem_actions.'.$kind, $count), 'url' => $url];
         }
     }
 

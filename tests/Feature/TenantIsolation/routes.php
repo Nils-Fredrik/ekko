@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\ActionStatus;
+use App\Inbox\InboxActionUndo;
 use App\Models\Action;
 use App\Models\Alert;
 use App\Models\Brand;
@@ -948,6 +950,19 @@ return [
             'params' => array_diff_key(isolationAction($s->tenantA->id), ['step' => 0]),
             'data' => ['status' => 'planned'],
         ],
+        deniedRoles: ['reader'],
+    ),
+    'brands.inbox.undo-action' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => array_diff_key(isolationAction($s->tenantB->id), ['step' => 0])],
+        own: fn (Scenario $s) => app(TenantContext::class)->run($s->tenantA->id, function (): array {
+            $action = Action::query()->findOrFail(isolationAction(current_tenant_id())['action']);
+            $undo = app(InboxActionUndo::class);
+            $before = $undo->before($action);
+            $action->update(['status' => ActionStatus::Planned]);
+
+            return ['params' => ['brand' => $action->brand_id, 'action' => $action->id],
+                'data' => ['undo_token' => $undo->receipt($action, $before, (int) auth()->id())]];
+        }),
         deniedRoles: ['reader'],
     ),
     'brands.actions.steps' => RouteAccess::tenant(

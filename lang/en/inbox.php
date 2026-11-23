@@ -1,13 +1,10 @@
 <?php
 
 return [
-    'group' => ':count alerts about :type',
     'entity' => 'New brand: :name',
-    'share' => 'Mentioned in :percent% of responses over the last seven days.',
+    'mentioned' => ':name was mentioned in :percent% of answers in the last seven days',
     'claim' => ':engine states “:text”',
     'fact' => 'Recorded fact: :text',
-    'integration' => 'Sync with :name',
-    'sync_failed' => 'The most recent sync failed.',
     'resolved' => 'Handled',
     'buttons' => [
         'open' => 'Open',
@@ -24,12 +21,32 @@ return [
         'alias' => 'Alias',
     ],
     'problems' => [
-        'integration' => 'An integration failed.',
-        'price' => 'An engine in the measurement plan has no price.',
-        'quota' => 'Usage has reached at least 80% of the quota or budget.',
-        'entity' => 'New brands are waiting for review.',
-        'action' => 'New actions are waiting for review.',
+        'integration' => ':count integration failed.|:count integrations failed.',
+        'price' => ':count engine has no price in the measurement plan.|:count engines have no price in the measurement plan.',
+        'quota' => 'Usage has reached :count% of the quota or budget.',
+        'entity' => ':count unknown brand awaits review.|:count unknown brands await review.',
+        'action' => ':count new action awaits review.|:count new actions await review.',
     ],
+    'problem_actions' => [
+        'integration' => 'Check integration',
+        'price' => 'Open plan',
+        'quota' => 'View usage',
+        'entity' => 'Review',
+        'action' => 'Review actions',
+    ],
+    'events' => [
+        'competitor_takeover_prompt' => ':competitor took first place for “:prompt”',
+        'citation_lost_prompt' => 'A citation was lost for “:prompt” in :engine',
+        'visibility_drop_unquantified' => 'Visibility fell',
+        'visibility_drop' => 'Visibility fell by :points percentage points',
+        'competitor_takeover' => ':competitor took first place',
+        'citation_lost' => 'A citation was lost in :engine',
+        'new_competitor' => ':name appeared as a new brand',
+        'model_change' => ':engine changed model to :model',
+        'quota' => 'Usage reached :percent% of the quota or budget',
+        'integration_error' => 'Sync failed for :integration',
+    ],
+    'group_event' => ':count alerts · Latest: :event',
     'steps' => [
         'plan' => 'Activate a measurement plan',
         'prompts' => 'Build the prompt library',

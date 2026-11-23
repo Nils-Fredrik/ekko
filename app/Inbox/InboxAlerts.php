@@ -4,13 +4,13 @@ namespace App\Inbox;
 
 use App\Alerts\AlertPresenter;
 use App\Alerts\AlertType;
-use App\Dashboard\DashboardLabels;
 use App\Models\Alert;
 use App\Models\Brand;
 use App\Models\Integration;
 use App\Models\Market;
 use App\Models\Prompt;
 use App\Models\Team;
+use App\Workspace\Workspace;
 
 final readonly class InboxAlerts
 {
@@ -49,23 +49,26 @@ final readonly class InboxAlerts
                 [$alert, $owner, $scope] = $chunk[0];
                 $rowsInGroup = collect($chunk);
                 $scope = $rowsInGroup->pluck('2.id')->unique()->count() === 1 ? $scope : null;
-                $items[] = $this->row($alert, $owner, $scope, $rowsInGroup->pluck('0')->all());
+                $labels = $rowsInGroup->pluck(2)->filter()->unique('id')->map(fn (Market $item) => Workspace::marketLabel($item))->values()->all();
+                $items[] = $this->row($alert, $owner, $scope, $rowsInGroup->pluck(0)->all(), $labels);
             }
         }
 
         return $items;
     }
 
-    /** @param list<Alert> $alerts */
-    private function row(Alert $alert, ?Brand $brand, ?Market $market, array $alerts): InboxItem
+    /**
+     * @param  list<Alert>  $alerts
+     * @param  list<string>  $labels
+     */
+    private function row(Alert $alert, ?Brand $brand, ?Market $market, array $alerts, array $labels): InboxItem
     {
         $type = $alert->alertRule->type;
-        ['title' => $title, 'detail' => $detail] = $this->presenter->present($alert);
+        $title = $this->presenter->title($alert);
         $ids = array_map(fn (Alert $member) => $member->id, $alerts);
         $group = count($ids) > 1;
         if ($group) {
-            $title = __('inbox.group', ['count' => count($ids), 'type' => DashboardLabels::alertType($type)]);
-            $detail = $market?->location_label ?: ($brand->name ?? '');
+            $title = __('inbox.group_event', ['count' => count($ids), 'event' => $title]);
         }
         $handled = $alert->acknowledged_at !== null;
         $buttons = $handled ? ['open'] : ($group ? ['acknowledge_all', 'show_all'] : ['acknowledge', 'open']);
@@ -83,7 +86,27 @@ final readonly class InboxAlerts
             default => route('inbox.index'),
         };
 
-        return new InboxItem('alert', (string) $alert->id, $brand, $market, $alert->triggered_at, $edge, $title, $detail, $buttons, $url, $handled, $ids,
-            $group ? ['members' => array_map(fn (Alert $member) => ['id' => $member->id] + $this->presenter->present($member), $alerts)] : []);
+        $engineCount = collect($alerts)->pluck('payload.engine_key')->filter()->unique()->count();
+        $context = ['market_labels' => $labels, 'engine_count' => $engineCount ?: null,
+            'answers' => $group ? null : ($alert->payload['current']['n'] ?? $alert->payload['share']['n'] ?? null)];
+        if ($group) {
+            $context['members'] = array_map(fn (Alert $member) => ['id' => $member->id] + $this->presenter->present($member), $alerts);
+        }
+
+        return new InboxItem('alert', (string) $alert->id, $brand, $market, $alert->triggered_at, $edge, $title, $group ? '' : $this->basis($alert), $buttons, $url, $handled, $ids, $context);
+    }
+
+    private function basis(Alert $alert): string
+    {
+        $payload = $alert->payload;
+
+        return match (AlertType::from($alert->alertRule->type)) {
+            AlertType::Quota => substr((string) ($payload['month'] ?? ''), 0, 7),
+            AlertType::ModelChange => implode(' → ', array_filter([$payload['from_model'] ?? null, $payload['to_model'] ?? null])),
+            AlertType::VisibilityDrop, AlertType::CompetitorTakeover => isset($payload['previous']['value'], $payload['current']['value'])
+                ? round(100 * $payload['previous']['value']).'% → '.round(100 * $payload['current']['value']).'%' : '',
+            AlertType::CitationLost => (string) ($payload['previous_round']['date'] ?? ''),
+            default => '',
+        };
     }
 }
