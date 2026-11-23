@@ -124,7 +124,7 @@ test('the inbox all-count matches the sidebar count for the same brand', functio
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->where('counts.all', 1)
             ->where('counts.alert', 1)
-            ->where('items.0.title', __('app.alert_types.quota'))
+            ->where('items.0.title', __('inbox.events.quota', ['percent' => 80]))
             ->missing('items.0.subject')
             ->loadDeferredProps('workspace', fn (AssertableInertia $deferred) => $deferred
                 ->where('workspace.counts.inbox', 1)

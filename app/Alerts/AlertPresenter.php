@@ -78,12 +78,37 @@ final class AlertPresenter
             $type = AlertType::from($alert->alertRule->type);
 
             return [
-                'title' => DashboardLabels::alertType($type->value),
+                'title' => $this->title($alert),
                 'detail' => $this->line($alert, $type),
             ];
         } finally {
             App::setLocale($previous);
         }
+    }
+
+    /** Event heading for the inbox, in the active application locale. */
+    public function title(Alert $alert): string
+    {
+        $payload = $alert->payload;
+        $type = AlertType::from($alert->alertRule->type);
+        $event = $type->value;
+        $prompt = $this->prompt($payload['prompt_id'] ?? null);
+        if ($type === AlertType::VisibilityDrop && ! isset($payload['drop_points'])) {
+            $event = 'visibility_drop_unquantified';
+        } elseif ($prompt !== '' && in_array($type, [AlertType::CompetitorTakeover, AlertType::CitationLost], true)) {
+            $event .= '_prompt';
+        }
+
+        return __('inbox.events.'.$event, [
+            'points' => (string) round((float) ($payload['drop_points'] ?? 0)),
+            'competitor' => $this->competitor($payload['competitor_id'] ?? null),
+            'engine' => DashboardLabels::engine((string) ($payload['engine_key'] ?? '')),
+            'name' => (string) ($payload['name'] ?? ''),
+            'model' => (string) ($payload['to_model'] ?? ''),
+            'percent' => (string) ($payload['threshold_percent'] ?? ''),
+            'integration' => __('alerts.integrations.'.($payload['integration_type'] ?? 'unknown')),
+            'prompt' => $prompt,
+        ]);
     }
 
     /**

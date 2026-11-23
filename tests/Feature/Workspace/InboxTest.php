@@ -130,7 +130,7 @@ test('brand health uses the saved plan, counts each active market and keeps hidi
     BrandFact::factory()->for($brand)->count(3)->create(['is_active' => true]);
     ReportSchedule::factory()->for($brand)->create(['recipients' => ['report@example.test']]);
     Integration::factory()->for($brand)->create(['type' => 'ga4', 'status' => 'error']);
-    Action::factory()->for($brand)->create();
+    Action::factory()->for($brand)->count(2)->create();
     $brand->forceFill(['entities_reviewed_at' => now()])->save();
     $result = $health->for($brand);
     expect(array_column($result['markets'], 'id'))->toBe([$w['a']->id, $w['b']->id])
@@ -138,6 +138,10 @@ test('brand health uses the saved plan, counts each active market and keeps hidi
         ->and($result['engines_active'])->toBe(1)->and($result['answers_per_month'])->toBeGreaterThan(0)
         ->and($result['markets'][0]['last_completed_at'])->not->toBeNull()->and($result['markets'][0]['next_due_on'])->not->toBeNull()
         ->and(array_column($result['problems'], 'kind'))->toBe(['integration', 'action'])
+        ->and(array_column($result['problems'], 'count'))->toBe([1, 2])
+        ->and($result['problems'][1]['text'])->toBe(trans_choice('inbox.problems.action', 2))
+        ->and($result['problems'][1]['cta'])->toBe(__('inbox.problem_actions.action'))
+        ->and($result['problems'][1]['url'])->toBe(route('brands.actions.index', $brand))
         ->and(collect($result['checklist'])->every(fn ($step) => $step['done']))->toBeTrue();
     $this->post(route('brands.checklist.hide', $brand))->assertRedirect();
     expect($health->for($brand)['checklist_hidden'])->toBeTrue()->and($health->for($empty)['checklist_hidden'])->toBeFalse();
@@ -307,4 +311,81 @@ test('the workspace creates and updates one tenant-wide integration failure rule
     $this->put('/alerts/rules/'.$rule->id, [])->assertNotFound();
     $this->post('/reports/schedules', [])->assertStatus(405);
     $this->put('/reports/schedules/1', [])->assertNotFound();
+});
+
+test('an unknown name counts once across qualifying markets and keeps its measured basis', function () {
+    $w = MetricsWorld::create();
+    app()->setLocale('nb');
+    $second = Market::factory()->for($w->brand)->create(['country' => 'SE', 'language' => 'sv']);
+    $third = Market::factory()->for($w->brand)->create(['country' => 'DK', 'language' => 'da']);
+    $swedish = Prompt::factory()->for($second)->create();
+    $danish = Prompt::factory()->for($third)->create();
+    $now = now()->subHour()->toDateTimeString();
+    AlertRule::factory()->for($w->brand)->create(['type' => 'new_competitor', 'threshold' => 50, 'is_active' => true]);
+    foreach ([$w->p1, $swedish, $danish, $w->p1, $swedish, $danish] as $prompt) {
+        $w->answer($prompt, $now, ['unknown' => 'Havnelys Studio']);
+    }
+    $w->answer($danish, $now);
+    $w->answer($danish, $now);
+    $query = app(InboxQuery::class);
+    $rows = $query->items($w->tenant, $w->brand, type: 'entities');
+    expect($rows)->toHaveCount(1);
+    $row = $rows[0]->jsonSerialize();
+    expect($row['market_labels'])->toEqualCanonicalizing(['Norge', 'Sverige'])
+        ->and($row['answers'])->toBe(4)->and($row['engine_count'])->toBe(1)
+        ->and($row['brand']['name'])->toBe($w->brand->name)->and($row['title'])->toContain('Havnelys Studio')
+        ->and($row['at'])->toBe(CarbonImmutable::parse($now)->utc()->toIso8601String())
+        ->and($query->counts($w->tenant, $w->brand)['entity'])->toBe(1)
+        ->and(WorkspaceCounts::for($w->tenant, $w->brand)['inbox'])->toBe(1)
+        ->and($query->items($w->tenant, $w->brand, $third, 'entities'))->toBeEmpty();
+    $scoped = $query->items($w->tenant, $w->brand, $second, 'entities')[0]->jsonSerialize();
+    expect($scoped['id'])->toBe($row['id'])->and($scoped['market_labels'])->toBe(['Sverige']);
+});
+
+test('only the originating user can undo an unchanged inbox status transition once', function () {
+    $w = MetricsWorld::create();
+    $owner = $w->tenant->owner;
+    $owner->switchTeam($w->tenant);
+    $editor = User::factory()->create();
+    $w->tenant->users()->attach($editor, ['role' => 'editor']);
+    $editor->switchTeam($w->tenant);
+    $action = Action::factory()->for($w->brand)->create(['unsupported_generations' => 1]);
+    $status = route('brands.actions.update', [$w->brand, $action]);
+    $undo = route('brands.inbox.undo-action', [$w->brand, $action]);
+    $apply = fn () => ['undo_token' => $this->actingAs($owner)->patchJson($status, ['status' => 'planned', 'inbox_undo' => true])->assertOk()->json('undo_token')];
+    $receipt = $apply();
+    $this->actingAs($editor)->deleteJson($undo, $receipt)->assertConflict();
+    expect($action->fresh()->status)->toBe(ActionStatus::Planned);
+    $this->actingAs($owner)->deleteJson($undo, $receipt)->assertNoContent();
+    expect($action->fresh()->status)->toBe(ActionStatus::New)->and($action->fresh()->unsupported_generations)->toBe(1);
+    $this->deleteJson($undo, $receipt)->assertConflict();
+
+    $receipt = $apply();
+    $action->refresh()->update(['description' => 'Updated after planning']);
+    $this->deleteJson($undo, $receipt)->assertConflict();
+    expect($action->fresh()->status)->toBe(ActionStatus::Planned);
+});
+
+test('undoing a correction restores a revived action and its previous prompt associations', function () {
+    $w = MetricsWorld::create();
+    $owner = $w->tenant->owner;
+    $owner->switchTeam($w->tenant);
+    $this->actingAs($owner);
+    $fact = BrandFact::factory()->for($w->brand)->create(['is_active' => true]);
+    $response = $w->answer($w->p1, now()->subHour()->toDateTimeString());
+    $claim = Claim::create(['response_id' => $response->id, 'brand_id' => $w->brand->id, 'fact_id' => $fact->id,
+        'text' => 'Synthetic contradiction', 'verdict' => Claim::CONTRADICTED, 'source_citation_ids' => []]);
+    $url = route('brands.claims.action', [$w->brand, $claim]);
+    $this->post($url)->assertRedirect();
+    $action = Action::where('type', 'fact_correction')->sole();
+    $action->forceFill(['status' => ActionStatus::Expired, 'requested_at' => null, 'title' => 'Earlier title', 'unsupported_generations' => 2])->save();
+    $action->prompts()->syncWithPivotValues([$w->p2->id], ['tenant_id' => $w->tenant->id]);
+    $receipt = $this->postJson($url, ['inbox_undo' => true])->assertOk()->json('undo_token');
+    expect($action->fresh()->status)->toBe(ActionStatus::New)->and($action->prompts()->pluck('prompts.id')->all())->toBe([$w->p1->id]);
+    $this->postJson($url, ['inbox_undo' => true])->assertOk()->assertJsonPath('undo_token', null);
+    $this->deleteJson(route('brands.inbox.undo-action', [$w->brand, $action]), ['undo_token' => $receipt])->assertNoContent();
+    $action->refresh();
+    expect($action->title)->toBe('Earlier title')->and($action->status)->toBe(ActionStatus::Expired)
+        ->and($action->requested_at)->toBeNull()->and($action->unsupported_generations)->toBe(2)
+        ->and($action->prompts()->pluck('prompts.id')->all())->toBe([$w->p2->id]);
 });

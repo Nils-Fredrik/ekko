@@ -7,6 +7,7 @@ use App\Models\AlertRule;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Tests\Support\Metrics\MetricsWorld;
 
 test('pages, email and slack hide internal alert keys', function () {
@@ -52,6 +53,17 @@ test('pages, email and slack hide internal alert keys', function () {
     Http::fake(['https://hooks.slack.com/*' => Http::response('ok', 200)]);
     $this->actingAs($owner)->get(route('inbox.index'))->assertOk()->assertInertia(fn ($page) => $page
         ->component('Inbox/Index')
+        ->where('items', function ($items) use ($world) {
+            $rows = collect($items);
+            $new = $rows->firstWhere('answers', 40);
+            $takeover = $rows->firstWhere('answers', 12);
+            expect($new['title'])->toBe(__('inbox.events.new_competitor', ['name' => 'Harbour Coffee']))
+                ->and($new['brand']['name'])->toBe($world->brand->name)
+                ->and($takeover['title'])->toContain($world->c1->name, Str::limit($world->p1->text, 80))
+                ->and($takeover['market']['id'])->toBe($world->market->id);
+
+            return true;
+        })
         ->missing('items.0.subject')
         ->missing('items.1.subject'));
 

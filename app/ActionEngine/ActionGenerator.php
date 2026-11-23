@@ -125,10 +125,14 @@ final class ActionGenerator
     }
 
     /** Called with the fact row locked. A worker may concurrently create or refresh the same fingerprint. */
-    public function requestCorrection(Brand $brand, ActionCandidate $candidate, CarbonImmutable $now): Action
+    public function findOrCreateCorrection(Brand $brand, ActionCandidate $candidate, CarbonImmutable $now): Action
     {
-        $action = Action::where('fingerprint', $candidate->fingerprint($brand->id))->lockForUpdate()->first()
+        return Action::where('fingerprint', $candidate->fingerprint($brand->id))->lockForUpdate()->first()
             ?? $this->create($brand, $candidate, null, $brand->tenant, $now);
+    }
+
+    public function requestCorrection(Action $action, ActionCandidate $candidate, CarbonImmutable $now): void
+    {
         if ($action->status === ActionStatus::Expired) {
             $action->status = ActionStatus::New;
             $this->refresh($action, $candidate, $now);
@@ -137,7 +141,6 @@ final class ActionGenerator
             $action->forceFill(['requested_at' => $now, 'unsupported_generations' => 0])->save();
         }
 
-        return $action;
     }
 
     private function create(Brand $brand, ActionCandidate $candidate, ?Market $market, ?Team $tenant, CarbonImmutable $now): Action

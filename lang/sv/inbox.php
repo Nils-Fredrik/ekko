@@ -1,13 +1,10 @@
 <?php
 
 return [
-    'group' => ':count aviseringar om :type',
     'entity' => 'Nytt varumärke: :name',
-    'share' => 'Nämns i :percent % av svaren de senaste sju dagarna.',
+    'mentioned' => ':name nämndes i :percent % av svaren de senaste sju dagarna',
     'claim' => ':engine uppger ”:text”',
     'fact' => 'Registrerat faktum: :text',
-    'integration' => 'Synkronisering med :name',
-    'sync_failed' => 'Den senaste synkroniseringen misslyckades.',
     'resolved' => 'Hanterad',
     'buttons' => [
         'open' => 'Öppna',
@@ -24,12 +21,32 @@ return [
         'alias' => 'Alias',
     ],
     'problems' => [
-        'integration' => 'En integration har misslyckats.',
-        'price' => 'En motor i mätplanen saknar pris.',
-        'quota' => 'Förbrukningen har nått minst 80 % av kvoten eller budgeten.',
-        'entity' => 'Nya varumärken väntar på bedömning.',
-        'action' => 'Nya åtgärder väntar på att hanteras.',
+        'integration' => ':count integration har misslyckats.|:count integrationer har misslyckats.',
+        'price' => ':count motor i mätplanen saknar pris.|:count motorer i mätplanen saknar pris.',
+        'quota' => 'Förbrukningen har nått :count % av kvoten eller budgeten.',
+        'entity' => ':count okänt varumärke väntar på granskning.|:count okända varumärken väntar på granskning.',
+        'action' => ':count ny åtgärd väntar på granskning.|:count nya åtgärder väntar på granskning.',
     ],
+    'problem_actions' => [
+        'integration' => 'Kontrollera integration',
+        'price' => 'Öppna mätplan',
+        'quota' => 'Visa förbrukning',
+        'entity' => 'Granska',
+        'action' => 'Visa åtgärder',
+    ],
+    'events' => [
+        'competitor_takeover_prompt' => ':competitor tog förstaplatsen för ”:prompt”',
+        'citation_lost_prompt' => 'En hänvisning försvann från ”:prompt” i :engine',
+        'visibility_drop_unquantified' => 'Synligheten sjönk',
+        'visibility_drop' => 'Synligheten föll med :points procentenheter',
+        'competitor_takeover' => ':competitor tog förstaplatsen',
+        'citation_lost' => 'En källhänvisning försvann från :engine',
+        'new_competitor' => ':name dök upp som nytt varumärke',
+        'model_change' => ':engine bytte modell till :model',
+        'quota' => 'Förbrukningen nådde :percent % av kvoten eller budgeten',
+        'integration_error' => 'Synkroniseringen med :integration misslyckades',
+    ],
+    'group_event' => ':count aviseringar · Senaste: :event',
     'steps' => [
         'plan' => 'Aktivera en mätplan',
         'prompts' => 'Fyll promptbiblioteket',

@@ -14,6 +14,7 @@ use App\Models\Market;
 use App\Models\Mention;
 use App\Models\Team;
 use App\Prompts\EntityQueue;
+use App\Workspace\Workspace;
 use Carbon\CarbonImmutable;
 
 final readonly class InboxQuery
@@ -70,22 +71,33 @@ final readonly class InboxQuery
         $type = AlertType::NewCompetitor;
         $rule = $brand->alertRules()->where('type', $type->value)->first();
         $threshold = (float) ($rule->threshold ?? $type->defaultThreshold());
-        $markets = $brand->markets()->where('is_active', true)->when($market, fn ($q) => $q->whereKey($market->id))->get();
+        $markets = $brand->markets()->where('is_active', true)->orderBy('id')->when($market, fn ($q) => $q->whereKey($market->id))->get();
         $url = route('brands.setup.competitors', $brand);
+        $pending = [];
         foreach ($markets as $scope) {
             if ($rule && ! $rule->is_active) {
                 break;
             }
             foreach ($this->entities->pending($brand, [$scope->id], 7) as $entity) {
-                if ($entity->share === null || $entity->share * 100 <= $threshold) {
-                    continue;
+                if ($entity->share !== null && $entity->share * 100 > $threshold) {
+                    $pending[$entity->key][] = [$scope, $entity];
                 }
-                $suggested = $entity->suggestion['decision'] ?? 'competitor';
-                $buttons = array_values(array_unique([$suggested, 'competitor', 'other', 'ignored']));
-                $rows[] = new InboxItem('entity', $brand->id.':'.$scope->id.':'.$entity->key, $brand, $scope, $entity->lastSeen,
-                    'medium-beige', __('inbox.entity', ['name' => $entity->name]), __('inbox.share', ['percent' => round($entity->share * 100)]),
-                    $buttons, $url, false, [$entity->key], ['suggestion' => $entity->suggestion]);
             }
+        }
+        foreach ($pending as $matches) {
+            $entities = collect($matches)->pluck('1')->sortByDesc('lastSeen');
+            $entity = $entities->firstOrFail();
+            $suggested = $entity->suggestion['decision'] ?? 'competitor';
+            $buttons = array_values(array_unique([$suggested, 'competitor', 'other', 'ignored']));
+            $answers = (int) $entities->sum('answers');
+            $total = (int) $entities->sum('n');
+            $rows[] = new InboxItem('entity', $brand->id.':'.$entity->key, $brand, count($matches) === 1 ? $matches[0][0] : null,
+                $entity->lastSeen, 'medium-beige', __('inbox.mentioned', ['name' => $entity->name,
+                    'percent' => $total > 0 ? round(100 * $answers / $total) : 0]), '',
+                $buttons, $url, false, [$entity->key], [
+                    'suggestion' => $entity->suggestion, 'market_labels' => array_map(fn ($match) => Workspace::marketLabel($match[0]), $matches),
+                    'answers' => $total, 'engine_count' => $entities->pluck('engines')->flatten()->unique()->count(),
+                ]);
         }
         if ($handled) {
             foreach ($brand->entityDecisions()->get() as $decision) {
@@ -112,7 +124,10 @@ final readonly class InboxQuery
             $done = $action->status !== ActionStatus::New;
             $rows[] = new InboxItem('action', (string) $action->id, $brand, $action->market, $action->created_at ?? now(), 'marker-action',
                 $action->title, $action->description, $done ? ['open'] : ['plan', 'decline'],
-                route('brands.actions.show', [$brand, $action]), $done, [$action->id]);
+                route('brands.actions.show', [$brand, $action]), $done, [$action->id], [
+                    'engine_count' => count($action->engine_keys) ?: null,
+                    'answers' => $action->evidence['responses'] ?? null,
+                ]);
         }
 
         return $rows;
@@ -138,7 +153,11 @@ final readonly class InboxQuery
             $rows[] = new InboxItem('claim', (string) $claim->id, $brand, $group->pluck('response.run.prompt.market_id')->unique()->count() === 1 ? $run->prompt->market : null,
                 $claim->response->collected_at, 'error', __('inbox.claim', ['engine' => DashboardLabels::engine($run->engine_key), 'text' => $claim->text]),
                 __('inbox.fact', ['text' => $claim->fact->text]), $done ? ['open'] : ['create_action', 'open'],
-                route('brands.facts.index', $brand), $done, $group->pluck('id')->all());
+                route('brands.facts.index', $brand), $done, $group->pluck('id')->all(), [
+                    'answers' => $group->pluck('response_id')->unique()->count(),
+                    'engine_count' => $group->pluck('response.run.engine_key')->unique()->count(),
+                    'market_labels' => $group->pluck('response.run.prompt.market')->unique('id')->map(fn (Market $scope) => Workspace::marketLabel($scope))->values()->all(),
+                ]);
         }
 
         return $rows;
@@ -153,7 +172,7 @@ final readonly class InboxQuery
         foreach ($integrations as $integration) {
             $done = $integration->status !== 'error';
             $rows[] = new InboxItem('integration', (string) $integration->id, $brand, null, $integration->updated_at ?? now(), 'error',
-                __('inbox.integration', ['name' => __('alerts.integrations.'.$integration->type)]), __($done ? 'inbox.resolved' : 'inbox.sync_failed'),
+                __('inbox.events.integration_error', ['integration' => __('alerts.integrations.'.$integration->type)]), $done ? __('inbox.resolved') : '',
                 ['open_integration'], route('brands.setup.integrations', $brand), $done, [$integration->id]);
         }
 

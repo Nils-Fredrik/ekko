@@ -7,13 +7,16 @@ use App\ActionEngine\ActionWorkflow;
 use App\ActionEngine\InvalidActionTransition;
 use App\Enums\ActionStatus;
 use App\Enums\ActionType;
+use App\Inbox\InboxActionUndo;
 use App\Models\Action;
 use App\Models\Brand;
 use App\Models\Market;
 use App\Models\Prompt;
 use App\Models\Topic;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -128,7 +131,7 @@ class BrandActionController extends Controller
         return redirect()->route('brands.actions.show', [$brand, $action]);
     }
 
-    public function update(Request $request, Brand $brand, Action $action): RedirectResponse
+    public function update(Request $request, Brand $brand, Action $action, InboxActionUndo $undo): RedirectResponse|JsonResponse
     {
         Gate::authorize('update', $action);
         $this->belongsToBrand($brand, $action);
@@ -137,12 +140,20 @@ class BrandActionController extends Controller
         ])['status']);
 
         try {
-            $this->workflow->transition($action, $status);
+            $receipt = $request->boolean('inbox_undo');
+            $token = DB::transaction(function () use ($action, $status, $receipt, $undo, $request) {
+                $locked = Action::query()->lockForUpdate()->findOrFail($action->id);
+                abort_if($receipt && ($locked->status !== ActionStatus::New || ! in_array($status, [ActionStatus::Planned, ActionStatus::Declined], true)), 409);
+                $before = $receipt ? $undo->before($locked) : null;
+                $this->workflow->transition($locked, $status);
+
+                return $receipt ? $undo->receipt($locked, $before, (int) $request->user()?->id) : null;
+            });
         } catch (InvalidActionTransition) {
             throw ValidationException::withMessages(['status' => __('action_items.invalid_status')]);
         }
 
-        return back();
+        return $receipt ? response()->json(['action_id' => $action->id, 'undo_token' => $token]) : back();
     }
 
     public function step(Request $request, Brand $brand, Action $action, int $step): RedirectResponse
