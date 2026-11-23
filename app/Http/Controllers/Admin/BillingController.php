@@ -30,7 +30,7 @@ final class BillingController
 
     /** Decimal arithmetic and CSV use the exact statement. Only the Inertia display payload is numeric.
      *
-     * @param array<string, mixed> $row
+     * @param  array<string, mixed>  $row
      * @return array<string, mixed>
      */
     private function displayAmounts(array $row): array

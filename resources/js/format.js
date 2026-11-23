@@ -188,7 +188,9 @@ function zoneOf(parsed) {
 export function formatMonth(value = new Date()) {
     const parsed = toDate(value);
 
-    return parsed ? formatter('DateTimeFormat', intlLocale(), { month: 'long', timeZone: zoneOf(parsed) }).format(parsed.date) : empty();
+    return parsed
+        ? formatter('DateTimeFormat', intlLocale(), { month: 'long', timeZone: zoneOf(parsed) }).format(parsed.date)
+        : empty();
 }
 
 /** 1. nov. 2026; the year is left out in the current year (in the tenant's time zone). A year-month is the month name. */

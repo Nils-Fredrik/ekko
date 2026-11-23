@@ -76,7 +76,11 @@ const prices = Object.fromEntries(
                 </form>
                 <p class="text-sm text-shell-muted">
                     {{ $t('admin.engines.price') }}:
-                    {{ engine.price ? formatCurrency(engine.price.price_per_call_usd, 'USD', { unit: true }) : $t('admin.engines.no_price') }}
+                    {{
+                        engine.price
+                            ? formatCurrency(engine.price.price_per_call_usd, 'USD', { unit: true })
+                            : $t('admin.engines.no_price')
+                    }}
                 </p>
                 <p v-if="engine.scheduled_price" class="text-sm text-shell-muted">
                     {{ $t('admin.engines.scheduled_price') }}:

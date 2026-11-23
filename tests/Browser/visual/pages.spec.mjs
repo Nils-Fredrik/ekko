@@ -80,8 +80,8 @@ for (const [name, component, role, path] of pages) {
                     await expect(page.getByRole('table')).not.toContainText(/\d+\.\d{8}/);
                 }
                 if (name === 'admin-engines') {
-                    await expect(page.getByText(/Current price:.*USD\s*0\.0100/).first()).toBeAttached();
-                    await expect(page.getByText(/Scheduled price:.*USD\s*0\.0246.*Oct/).first()).toBeAttached();
+                    await expect(page.getByText(/Current price:.*USD\s*0\.0100/).first()).toBeVisible();
+                    await expect(page.getByText(/Scheduled price:.*USD\s*0\.0246.*Oct/).first()).toBeVisible();
                 }
                 if (name === 'setup-markets') {
                     await expect(page.locator('[data-detail-panel]')).toHaveCount(0);

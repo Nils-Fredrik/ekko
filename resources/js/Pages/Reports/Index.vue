@@ -31,7 +31,12 @@ defineProps({
                 >
                     <p>
                         {{ report.brand }} ·
-                        {{ $t('app.workspace.period_range', { start: formatDate(report.period_start), end: formatDate(report.period_end) }) }}
+                        {{
+                            $t('app.workspace.period_range', {
+                                start: formatDate(report.period_start),
+                                end: formatDate(report.period_end),
+                            })
+                        }}
                     </p>
                     <span class="flex items-center gap-3">
                         <Link :href="route('reports.show', report.id)" class="text-sm text-primary no-underline">

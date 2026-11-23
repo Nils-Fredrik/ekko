@@ -5,7 +5,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({ tenantId: Number, value: Number, name: String });
-const form = useForm({ markup_percent: props.value === null ? '' : String(props.value) });
+const form = useForm({ markup_percent: String(props.value ?? '') });
 const save = () => form.put(route('admin.billing.markup', props.tenantId), { preserveScroll: true });
 </script>
 

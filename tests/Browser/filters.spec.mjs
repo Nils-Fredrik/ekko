@@ -12,7 +12,9 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await page.goto(`${path}?from=2026-10-01&to=2026-10-03`);
     await initialInsight;
     const bar = page.getByTestId('analysis-filters');
-    await expect(bar).toContainText('2026-10-01');
+    await expect(bar).toContainText(/1 Oct.*3 Oct/);
+    await expect(bar).toContainText(/Compared with 28 Sep.*30 Sep/);
+    await expect(bar).not.toContainText(/\d{4}-\d{2}-\d{2}/);
     const quickMarket = bar.getByRole('combobox', { name: /Switch market/ });
     await quickMarket.selectOption({ label: 'Market: Norway' });
     await expect(page).toHaveURL(/[?&]market=\d+/);

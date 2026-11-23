@@ -63,7 +63,13 @@ const ready = computed(() => props.rows.length > 0 && props.rows.every((row) => 
                 >
                     <h3 class="font-medium">{{ account.name }}</h3>
                     <p class="mt-1 text-xs text-shell-muted">{{ $t('billing.account_total') }}</p>
-                    <p class="mt-3 text-xl tabular-nums">{{ account.invoice_total_usd === null ? $t('billing.unpriced') : formatCurrency(account.invoice_total_usd) }}</p>
+                    <p class="mt-3 text-xl tabular-nums">
+                        {{
+                            account.invoice_total_usd === null
+                                ? $t('billing.unpriced')
+                                : formatCurrency(account.invoice_total_usd)
+                        }}
+                    </p>
                 </div>
             </section>
             <section class="overflow-x-auto rounded-2xl border border-line bg-shell-panel p-6 text-shell-text">
@@ -110,7 +116,11 @@ const ready = computed(() => props.rows.length > 0 && props.rows.every((row) => 
                                 />
                             </td>
                             <td class="p-3 font-medium tabular-nums">
-                                {{ row.invoice_total_usd === null ? $t('billing.unpriced') : formatCurrency(row.invoice_total_usd) }}
+                                {{
+                                    row.invoice_total_usd === null
+                                        ? $t('billing.unpriced')
+                                        : formatCurrency(row.invoice_total_usd)
+                                }}
                             </td>
                         </tr>
                     </tbody>
