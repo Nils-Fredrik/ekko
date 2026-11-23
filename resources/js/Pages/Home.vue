@@ -5,6 +5,7 @@ import { formatCurrency, formatDate, formatDateTime, formatNumber } from '@/form
 import InsightLine from '@/Components/Dashboard/InsightLine.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
@@ -70,9 +71,7 @@ const budgetShare = computed(() => (props.usage ? share(props.usage.cost_usd, pr
 <template>
     <AppLayout :title="$t('app.dashboard.overview')">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">
-                {{ $t('app.dashboard.overview') }}
-            </h2>
+            <WorkspaceHeader :group="$t('workspace.shell.analysis')" :title="$t('app.dashboard.overview')" />
         </template>
 
         <div class="py-8">

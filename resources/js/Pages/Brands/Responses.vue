@@ -6,6 +6,7 @@ import { formatDateTime, formatNumber, formatSentiment } from '@/format';
 import AnswerText from '@/Components/Brand/AnswerText.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
@@ -78,7 +79,11 @@ function scoreClass(value) {
 <template>
     <AppLayout :title="$t('app.responses.title', { name: entity.name })">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.analysis')"
+                :title="$t('app.responses.title', { name: entity.name })"
+            />
         </template>
 
         <div class="py-8">
@@ -88,7 +93,6 @@ function scoreClass(value) {
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <h3 class="font-medium">{{ $t('app.responses.title', { name: entity.name }) }}</h3>
                             <p class="mt-1 max-w-3xl text-sm text-shell-muted">{{ $t('app.responses.explain') }}</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-3 text-sm">

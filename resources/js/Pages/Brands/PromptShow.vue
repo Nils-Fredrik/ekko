@@ -4,6 +4,7 @@ import AnswerText from '@/Components/Brand/AnswerText.vue';
 import PeriodFilters from '@/Components/Brand/PeriodFilters.vue';
 import { periodBuckets } from '@/Components/Charts/support/data.js';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { computed, ref, watch } from 'vue';
 
@@ -102,7 +103,7 @@ function dayLabel(day) {
 <template>
     <AppLayout :title="prompt.text">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+            <WorkspaceHeader :brand="brand.name" :group="$t('workspace.shell.analysis')" :title="prompt.text" />
         </template>
 
         <div class="py-8">
@@ -110,7 +111,6 @@ function dayLabel(day) {
                 <PeriodFilters :brand-id="brand.id" route-name="brands.prompts.show" :params="{ prompt: prompt.id }" />
 
                 <section class="rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
-                    <h3 class="font-medium">{{ prompt.text }}</h3>
                     <p class="mt-1 text-xs text-shell-muted">
                         {{ prompt.market }} · {{ prompt.intent }} · {{ prompt.funnel }} · {{ prompt.priority }}
                     </p>

@@ -3,6 +3,7 @@
 import AlertRuleRow from '@/Components/Alerts/AlertRuleRow.vue';
 import Drawer from '@/Components/UI/Drawer.vue';
 import { useUndoToast } from '@/Composables/useUndoToast';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatDate, formatDateTime } from '@/format';
 import { router, usePage } from '@inertiajs/vue3';
@@ -28,9 +29,6 @@ const email = ref('');
 const shareUrl = ref('');
 const shareFor = ref(null);
 const form = reactive({ cadence: 'monthly', recipients: [], locale: 'nb', branding: 'tenant' });
-const crumb = computed(() =>
-    [props.tenantName, trans('workspace.shell.setup'), props.brand.name].filter(Boolean).join(' · '),
-);
 const open = computed(() => editing.value !== null);
 const errors = computed(() => page.props.errors ?? {});
 
@@ -127,12 +125,11 @@ async function revokeLink(reportId, id) {
     <AppLayout :title="$t('workspace.shell.setup_notifications')">
         <div class="mx-auto flex max-w-7xl items-start gap-4 px-4 py-6 sm:px-6">
             <div class="flex min-w-0 flex-1 flex-col gap-8">
-                <div>
-                    <p class="text-xs text-shell-muted">{{ crumb }}</p>
-                    <h1 class="mt-1 text-[26px] font-medium tracking-tight text-shell-fg">
-                        {{ $t('workspace.shell.setup_notifications') }}
-                    </h1>
-                </div>
+                <WorkspaceHeader
+                    :brand="brand.name"
+                    :group="$t('workspace.shell.setup')"
+                    :title="$t('workspace.shell.setup_notifications')"
+                />
 
                 <section>
                     <h2 class="text-sm font-medium text-shell-fg">{{ $t('workspace.notifications.rules') }}</h2>

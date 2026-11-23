@@ -13,12 +13,17 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await initialInsight;
     const bar = page.getByTestId('analysis-filters');
     await expect(bar).toContainText('2026-10-01');
+    const quickMarket = bar.getByRole('combobox', { name: /Switch market/ });
+    await quickMarket.selectOption({ label: 'Market: Norway' });
+    await expect(page).toHaveURL(/[?&]market=\d+/);
+    await bar.getByRole('button', { name: 'Remove Norway' }).click();
+    await expect(page).not.toHaveURL(/[?&]market=/);
     await page.evaluate(() => { window.filterPageIdentity = 'unchanged'; });
     const visits = [];
     page.on('request', (request) => { if (new URL(request.url()).pathname === path) visits.push(request); });
-    await bar.getByRole('button', { name: 'Add or change filters', exact: true }).click();
+    await bar.getByRole('button', { name: '+ Filter', exact: true }).click();
     await bar.getByRole('combobox', { name: 'Comparison period', exact: true }).selectOption('year');
-    await bar.getByRole('combobox', { name: 'Market', exact: true }).selectOption({ label: 'NO' });
+    await bar.getByRole('combobox', { name: 'Market', exact: true }).selectOption({ label: 'Norway' });
     let releaseInsight;
     const insightReady = new Promise((resolve) => { releaseInsight = resolve; });
     let insightRequested = false;
@@ -35,7 +40,7 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
         await bar.getByRole('button', { name: 'Apply', exact: true }).click();
         // The new figures must appear while the insight request is still held back.
         await expect(bar).toContainText('2025-10-01');
-        await expect(bar.getByRole('button', { name: 'Remove NO', exact: true })).toBeVisible();
+        await expect(bar.getByRole('button', { name: 'Remove Norway', exact: true })).toBeVisible();
         await expect.poll(() => insightRequested).toBe(true);
         expect(visits.filter((request) => request.headers()['x-inertia-partial-data']?.includes('chartData'))
             .every((request) => !request.headers()['x-inertia-partial-data'].split(',').includes('insight'))).toBe(true);
@@ -48,13 +53,13 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     expect(visits.every((request) => !request.isNavigationRequest())).toBe(true);
     const shared = await context.newPage();
     await shared.goto(page.url());
-    await expect(shared.getByTestId('analysis-filters').getByRole('button', { name: 'Remove NO', exact: true })).toBeVisible();
+    await expect(shared.getByTestId('analysis-filters').getByRole('button', { name: 'Remove Norway', exact: true })).toBeVisible();
     await expect(shared.getByTestId('analysis-filters')).toContainText('2025-10-01');
     await shared.close();
 
     await bar.locator('summary').click();
     const viewName = bar.getByLabel('View name', { exact: true });
-    const marketChip = bar.getByRole('button', { name: 'Remove NO', exact: true });
+    const marketChip = bar.getByRole('button', { name: 'Remove Norway', exact: true });
     // A late refresh for the saved view must never restore the market after the user removes it.
     let releaseRefresh;
     const holdRefresh = new Promise((resolve) => { releaseRefresh = resolve; });
@@ -83,20 +88,20 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await expect(marketChip).toHaveCount(0);
     if (!(await bar.getByRole('combobox', { name: 'Saved views', exact: true }).isVisible())) await bar.locator('summary').click();
     await bar.getByRole('combobox', { name: 'Saved views', exact: true }).selectOption({ label: 'Saved test view' });
-    await expect(bar.getByRole('button', { name: 'Remove NO', exact: true })).toBeVisible();
+    await expect(bar.getByRole('button', { name: 'Remove Norway', exact: true })).toBeVisible();
     await bar.getByRole('button', { name: 'Delete view', exact: true }).click();
     await expect(bar.getByRole('option', { name: 'Saved test view', exact: true })).toHaveCount(0);
     await expect(marketChip).toBeVisible();
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await bar.getByRole('button', { name: 'Add or change filters', exact: true }).click();
+    await bar.getByRole('button', { name: '+ Filter', exact: true }).click();
     const sheet = page.getByRole('dialog', { name: 'Filters', exact: true });
     await expect(sheet).toBeVisible();
     await expect.poll(async () => { const box = await sheet.boundingBox(); return box.y + box.height; }).toBeLessThanOrEqual(845);
     await sheet.getByRole('combobox', { name: 'Market', exact: true }).selectOption('');
     await sheet.getByRole('button', { name: 'Apply', exact: true }).click();
     await expect(sheet).toHaveCount(0);
-    await expect(bar.getByRole('button', { name: 'Remove NO', exact: true })).toHaveCount(0);
+    await expect(bar.getByRole('button', { name: 'Remove Norway', exact: true })).toHaveCount(0);
     expect(await page.evaluate(() => window.filterPageIdentity)).toBe('unchanged');
     await page.setViewportSize({ width: 1440, height: 1000 });
 
@@ -141,8 +146,13 @@ test('analysis filters use partial visits, survive shared URLs, saved views and 
     await expect(bar.getByRole('button', { name: /Remove Topic/ })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Fact check', exact: true })).toHaveAttribute('href', new RegExp(`${path}/facts$`));
     await page.goto(`${path}/competitors?from=2026-10-01&to=2026-10-03&grain=week`);
-    await bar.getByRole('button', { name: 'Add or change filters', exact: true }).click();
+    await bar.getByRole('button', { name: '+ Filter', exact: true }).click();
     await expect(bar.getByRole('combobox', { name: 'Group by', exact: true })).toHaveCount(0);
     await bar.getByRole('button', { name: 'Apply', exact: true }).click();
     await expect(page).not.toHaveURL(/grain=/);
+    const period = bar.getByRole('combobox', { name: 'Change period', exact: true });
+    await period.selectOption('7');
+    await expect(page).toHaveURL(/[?&]days=7(?!\d)/);
+    await expect(page).not.toHaveURL(/[?&](from|to)=/);
+    await expect(period).toHaveValue('7');
 });

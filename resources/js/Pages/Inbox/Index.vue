@@ -1,10 +1,11 @@
 <script setup>
 // The inbox (docs/ux-arbeidsflate.md 5.6, U26). A treatment drops the row without loading a new page.
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useUndoToast } from '@/Composables/useUndoToast';
 import { formatDate, formatNumber, formatWeekday } from '@/format';
 import { groupInbox } from '@/inbox/groups';
-import { router, usePage } from '@inertiajs/vue3';
+import { router } from '@inertiajs/vue3';
 import axios from 'axios';
 import { trans } from 'laravel-vue-i18n';
 import { computed, ref } from 'vue';
@@ -17,7 +18,6 @@ const props = defineProps({
     can: { type: Object, required: true },
 });
 
-const page = usePage();
 const toast = useUndoToast();
 const hidden = ref(new Set());
 const expanded = ref(new Set());
@@ -64,9 +64,6 @@ const groups = computed(() =>
             return `${formatWeekday(at)} ${formatDate(at)}`;
         },
     }),
-);
-const crumb = computed(() =>
-    [page.props.auth?.user?.current_team?.name, trans('workspace.shell.inbox')].filter(Boolean).join(' · '),
 );
 
 function allowed(action) {
@@ -231,11 +228,11 @@ async function act(item, action) {
 <template>
     <AppLayout :title="$t('workspace.shell.inbox')">
         <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6">
-            <p class="text-xs text-shell-muted">{{ crumb }}</p>
-            <div class="flex flex-wrap items-end justify-between gap-3">
-                <h1 class="text-[26px] font-medium tracking-tight text-shell-fg">
-                    {{ $t('workspace.inbox.title', { count: formatNumber(counts.all) }) }}
-                </h1>
+            <WorkspaceHeader
+                :brand="brands.find((item) => item.id === Number(filters.brand))?.name"
+                :group="$t('workspace.shell.work')"
+                :title="$t('workspace.inbox.title', { count: formatNumber(counts.all) })"
+            >
                 <div class="flex flex-wrap items-center gap-3">
                     <label class="text-sm text-shell-text">
                         <span class="sr-only">{{ $t('workspace.inbox.brand') }}</span>
@@ -260,7 +257,7 @@ async function act(item, action) {
                         {{ $t('workspace.inbox.handled') }}
                     </label>
                 </div>
-            </div>
+            </WorkspaceHeader>
 
             <div
                 class="flex gap-4 overflow-x-auto border-b border-line-soft"

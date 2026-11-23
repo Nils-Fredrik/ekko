@@ -11,6 +11,7 @@ import { alignComparison, periodBuckets } from '@/Components/Charts/support/data
 import { formatValue } from '@/Components/Charts/support/format.js';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { trans } from 'laravel-vue-i18n';
 import { robotSpan } from './robotBuckets.js';
@@ -192,9 +193,13 @@ const hasFunnel = computed(() => steps.value.some((step) => step.value !== null)
 </script>
 
 <template>
-    <AppLayout :title="brand.name">
+    <AppLayout :title="$t('workspace.shell.crawlers')">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.analysis')"
+                :title="$t('workspace.shell.crawlers')"
+            />
         </template>
 
         <div class="py-8">

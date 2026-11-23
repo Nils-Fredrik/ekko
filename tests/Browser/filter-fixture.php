@@ -24,7 +24,7 @@ return app(TenantContext::class)->run($filterTeam->id, function () use ($filterU
     $engine = Engine::factory()->create(['key' => 'filter_engine', 'provider' => 'openai']);
     $ids = [];
     foreach (['NO', 'SE'] as $index => $country) {
-        $market = Market::factory()->create(['brand_id' => $brand->id, 'country' => $country, 'location_label' => $country]);
+        $market = Market::factory()->create(['brand_id' => $brand->id, 'country' => $country, 'location_label' => null]);
         $topic = Topic::factory()->create(['brand_id' => $brand->id, 'name' => 'Topic '.($index + 1)]);
         $prompt = Prompt::factory()->create(['market_id' => $market->id, 'topic_id' => $topic->id, 'text' => 'Filter prompt '.($index + 1)]);
         MarketEngine::factory()->create(['market_id' => $market->id, 'engine_key' => $engine->key]);

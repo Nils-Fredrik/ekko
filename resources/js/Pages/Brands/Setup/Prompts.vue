@@ -8,6 +8,7 @@ import { MenuItem, Popover, PopoverButton, PopoverPanel } from '@headlessui/vue'
 import { ChevronDownIcon } from '@heroicons/vue/20/solid';
 import { useAutosave } from '@/Composables/useAutosave';
 import { useUndoToast } from '@/Composables/useUndoToast';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatNumber, formatPercent, formatRelative } from '@/format';
 import { Link, router, usePage } from '@inertiajs/vue3';
@@ -654,11 +655,14 @@ const emptyCopy = computed(() =>
 </script>
 
 <template>
-    <AppLayout :title="brand.name">
+    <AppLayout :title="$t('workspace.shell.setup_prompts')">
         <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h2 class="text-xl font-medium text-shell-fg">{{ $t('workspace.shell.setup_prompts') }}</h2>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.setup')"
+                :title="$t('workspace.shell.setup_prompts')"
+            >
+                <template #description>
                     <p v-if="market && quota.limit !== null" class="mt-1 text-sm text-shell-muted">
                         {{
                             $t('workspace.prompts.quota', {
@@ -667,7 +671,7 @@ const emptyCopy = computed(() =>
                             })
                         }}
                     </p>
-                </div>
+                </template>
                 <div v-if="canManage" class="flex flex-wrap items-center gap-2">
                     <MoreMenu :label="$t('workspace.prompts.more')" align="start">
                         <MenuItem v-slot="{ active }" as="template">
@@ -711,7 +715,7 @@ const emptyCopy = computed(() =>
                         {{ $t('workspace.prompts.new_prompt') }}
                     </button>
                 </div>
-            </div>
+            </WorkspaceHeader>
 
             <p v-if="awaitingMarket" class="rounded-lg border border-line bg-shell-surface px-3 py-2 text-sm">
                 {{ $t('workspace.prompts.create_needs_market') }}

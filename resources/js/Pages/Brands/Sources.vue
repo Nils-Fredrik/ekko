@@ -9,6 +9,7 @@ import RankedBarChart from '@/Components/Charts/RankedBarChart.vue';
 import TreemapChart from '@/Components/Charts/TreemapChart.vue';
 import { formatValue, isLowSample } from '@/Components/Charts/support/format.js';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
@@ -184,9 +185,13 @@ function rate(value, item) {
 </script>
 
 <template>
-    <AppLayout :title="brand.name">
+    <AppLayout :title="$t('workspace.shell.sources')">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.analysis')"
+                :title="$t('workspace.shell.sources')"
+            />
         </template>
 
         <div class="py-8">
