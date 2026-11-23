@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\Hash;
 use Tests\Support\Metrics\MetricsWorld;
 
 $team->forceFill(['name' => 'Fjord Coffee', 'timezone' => 'UTC'])->save();
+$team->teamInvitations()->create(['email' => 'pending-editor@example.test', 'role' => 'editor']);
 $user->forceFill(['name' => 'Alex Reader'])->save();
 $owner->forceFill(['name' => 'Robin Owner'])->save();
 $billingAdmin->forceFill(['name' => 'Taylor Admin'])->save();
