@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { router, useForm, usePage } from '@inertiajs/vue3';
 import ActionMessage from '@/Components/ActionMessage.vue';
 import ActionSection from '@/Components/ActionSection.vue';
@@ -87,13 +87,69 @@ const removeTeamMember = () => {
     });
 };
 
-const displayableRole = (role) => {
-    return props.availableRoles.find((r) => r.key === role).name;
-};
+const members = computed(() => [
+    props.team.owner,
+    ...props.team.users.filter((user) => user.id !== props.team.owner.id),
+]);
+
+const displayableRole = (role) =>
+    props.availableRoles.find((option) => option.key === role)?.name ?? 'Role not specified';
 </script>
 
 <template>
     <div>
+        <SectionBorder />
+        <ActionSection class="mt-10 sm:mt-0">
+            <template #title>{{ $t('Team Members') }}</template>
+            <template #description>{{ $t('All of the people that are part of this team.') }}</template>
+            <template #content>
+                <ul :aria-label="$t('Team Members')" class="divide-y divide-line-soft">
+                    <li
+                        v-for="user in members"
+                        :key="user.id"
+                        class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3 first:pt-0 last:pb-0"
+                    >
+                        <div class="min-w-0">
+                            <p class="font-medium break-words text-shell-fg">{{ user.name }}</p>
+                            <p class="text-sm break-all text-shell-muted">{{ user.email }}</p>
+                        </div>
+                        <span v-if="user.id === team.owner.id" class="text-sm text-shell-text">{{ $t('Owner') }}</span>
+                        <div v-else class="flex flex-wrap items-center gap-3 text-sm">
+                            <button
+                                v-if="userPermissions.canUpdateTeamMembers && availableRoles.length"
+                                type="button"
+                                class="text-shell-accent underline"
+                                @click="manageRole(user)"
+                            >
+                                {{ $t(displayableRole(user.membership.role)) }}
+                            </button>
+                            <span v-else class="text-shell-text">{{ $t(displayableRole(user.membership.role)) }}</span>
+
+                            <button
+                                v-if="page.props.auth.user.id === user.id"
+                                type="button"
+                                class="text-error"
+                                @click="confirmLeavingTeam"
+                            >
+                                {{ $t('Leave') }}
+                            </button>
+                            <button
+                                v-else-if="userPermissions.canRemoveTeamMembers"
+                                type="button"
+                                class="text-error"
+                                @click="confirmTeamMemberRemoval(user)"
+                            >
+                                {{ $t('Remove') }}
+                            </button>
+                        </div>
+                    </li>
+                </ul>
+                <p v-if="members.length === 1" class="mt-3 text-sm text-shell-muted">
+                    {{ $t('No other team members yet.') }}
+                </p>
+            </template>
+        </ActionSection>
+
         <div v-if="userPermissions.canAddTeamMembers">
             <SectionBorder />
 
@@ -216,90 +272,26 @@ const displayableRole = (role) => {
 
                 <!-- Pending Team Member Invitation List -->
                 <template #content>
-                    <div class="space-y-6">
-                        <div
+                    <ul :aria-label="$t('Pending Team Invitations')" class="space-y-4">
+                        <li
                             v-for="invitation in team.team_invitations"
                             :key="invitation.id"
-                            class="flex items-center justify-between"
+                            class="flex flex-wrap items-center justify-between gap-2"
                         >
-                            <div class="text-gray-600">
-                                {{ invitation.email }}
+                            <div class="min-w-0">
+                                <p class="break-all text-shell-text">{{ invitation.email }}</p>
+                                <p class="text-sm text-shell-muted">{{ $t(displayableRole(invitation.role)) }}</p>
                             </div>
-
-                            <div class="flex items-center">
-                                <!-- Cancel Team Invitation -->
-                                <button
-                                    v-if="userPermissions.canRemoveTeamMembers"
-                                    class="cursor-pointer ms-6 text-sm text-error focus:outline-none"
-                                    @click="cancelTeamInvitation(invitation)"
-                                >
-                                    {{ $t('Cancel') }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-            </ActionSection>
-        </div>
-
-        <div v-if="team.users.length > 0">
-            <SectionBorder />
-
-            <!-- Manage Team Members -->
-            <ActionSection class="mt-10 sm:mt-0">
-                <template #title>{{ $t('Team Members') }}</template>
-
-                <template #description>{{ $t('All of the people that are part of this team.') }}</template>
-
-                <!-- Team Member List -->
-                <template #content>
-                    <div class="space-y-6">
-                        <div v-for="user in team.users" :key="user.id" class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <img
-                                    class="size-8 rounded-full object-cover"
-                                    :src="user.profile_photo_url"
-                                    :alt="user.name"
-                                />
-                                <div class="ms-4">
-                                    {{ user.name }}
-                                </div>
-                            </div>
-
-                            <div class="flex items-center">
-                                <!-- Manage Team Member Role -->
-                                <button
-                                    v-if="userPermissions.canUpdateTeamMembers && availableRoles.length"
-                                    class="ms-2 text-sm text-gray-400 underline"
-                                    @click="manageRole(user)"
-                                >
-                                    {{ $t(displayableRole(user.membership.role)) }}
-                                </button>
-
-                                <div v-else-if="availableRoles.length" class="ms-2 text-sm text-gray-400">
-                                    {{ $t(displayableRole(user.membership.role)) }}
-                                </div>
-
-                                <!-- Leave Team -->
-                                <button
-                                    v-if="$page.props.auth.user.id === user.id"
-                                    class="cursor-pointer ms-6 text-sm text-error"
-                                    @click="confirmLeavingTeam"
-                                >
-                                    {{ $t('Leave') }}
-                                </button>
-
-                                <!-- Remove Team Member -->
-                                <button
-                                    v-else-if="userPermissions.canRemoveTeamMembers"
-                                    class="cursor-pointer ms-6 text-sm text-error"
-                                    @click="confirmTeamMemberRemoval(user)"
-                                >
-                                    {{ $t('Remove') }}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+                            <button
+                                v-if="userPermissions.canRemoveTeamMembers"
+                                type="button"
+                                class="text-sm text-error"
+                                @click="cancelTeamInvitation(invitation)"
+                            >
+                                {{ $t('Cancel') }}
+                            </button>
+                        </li>
+                    </ul>
                 </template>
             </ActionSection>
         </div>

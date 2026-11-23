@@ -960,7 +960,7 @@ I innboksen kan en bruker med `prompts.manage` opprette et rettetiltak fra førs
 | `Pages/Inbox/Index.vue` | Prioritert innboks med filtre og behandling av varsler, ukjente merkenavn, tiltak, faktapåstander og integrasjonsfeil |
 | `Pages/Reports/Index.vue`, `Pages/Reports/Show.vue` | Rapportarkiv på tvers av merkevarer, nedlasting og nettversjon av rapportseksjonen for tiltak (T44) |
 | `Pages/Usage/Index.vue` | Tenantens forbruk per måned og motor, mot kvote og budsjett |
-| `Pages/Teams/Show.vue` | Jetstream team-administrasjon: medlemmer, roller, invitasjoner, Slack-webhook, profil for rapporter, egne API-nøkler. Jetstream bruker flertall i mappen. |
+| `Pages/Teams/Show.vue` | Teaminnstillinger viser eieren først og deretter alle medlemmer med navn, e-post og rolle. Listen er synlig også når eieren er alene. Ventende invitasjoner viser den inviterte rollen. Siden omfatter også Slack-webhook, profil for rapporter, egne API-nøkler. Jetstream bruker flertall i mappen. |
 | `Pages/Admin/Tenants.vue` | Plattformadmin: opprette, endre, stenge tenants, sette partner og pakke |
 | `Pages/Admin/Plans.vue` | Pakker og grenser |
 | `Pages/Admin/Engines.vue` | Motorer, modell-ID, priser, aktivering, helsestatus |

@@ -127,6 +127,19 @@ if (getenv('EKKO_UI_QUALITY') !== '1') {
     $values = [...$values, ...require __DIR__.'/prompt-quota-fixture.php'];
     $values = [...$values, ...require __DIR__.'/triage-fixture.php'];
     $values = [...$values, ...require __DIR__.'/markets-fixture.php'];
+
+    $soloTeam = Team::factory()->tenant()->create();
+    $soloOwner = $soloTeam->owner;
+    $soloOwner->forceFill(['name' => 'Morgan Owner', 'email' => 'solo-owner@example.test', 'password' => Hash::make($password), 'locale' => 'en'])->save();
+    $soloOwner->switchTeam($soloTeam);
+    $soloTeam->teamInvitations()->create(['email' => 'pending-editor@example.test', 'role' => 'editor']);
+    $values['TEAM_SOLO_ID'] = (string) $soloTeam->id;
+    $values['TEAM_SOLO_EMAIL'] = $soloOwner->email;
+
+    $rosterReader = User::factory()->create(['name' => 'Casey Reader', 'email' => 'roster-reader@example.test', 'password' => Hash::make($password), 'locale' => 'en']);
+    $team->users()->attach($rosterReader, ['role' => 'reader']);
+    $rosterReader->switchTeam($team);
+    $values['TEAM_ROSTER_READER_EMAIL'] = $rosterReader->email;
 }
 // The integrated T33/T34 contracts are exercised by the deployment smoke test.
 if (class_exists(TokenTenant::class)) {
