@@ -13,6 +13,7 @@ return [
         'days_ago' => ':n day ago|:n days ago',
         'count' => [
             'answers' => ':n answer|:n answers',
+            'engines' => ':n engine|:n engines',
             'prompts' => ':n prompt|:n prompts',
             'rows' => ':n row|:n rows',
         ],

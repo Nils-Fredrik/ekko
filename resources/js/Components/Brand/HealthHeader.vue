@@ -1,6 +1,6 @@
 <script setup>
 // The three cards above the figures (docs/ux-arbeidsflate.md 5.1 and 5.9, U26).
-import { CheckIcon } from '@heroicons/vue/20/solid';
+import { ArrowRightIcon, CheckIcon } from '@heroicons/vue/20/solid';
 import { Link, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
 import { computed } from 'vue';
@@ -112,7 +112,11 @@ function hideChecklist() {
                             :class="edges[problem.severity] || 'bg-warning'"
                             aria-hidden="true"
                         />
-                        <span>{{ problem.text }}</span>
+                        <span class="min-w-0 flex-1">{{ problem.text }}</span>
+                        <span class="inline-flex shrink-0 items-center gap-1 text-shell-accent">
+                            {{ problem.cta }}
+                            <ArrowRightIcon class="size-3" aria-hidden="true" />
+                        </span>
                     </Link>
                 </li>
             </ul>

@@ -53,6 +53,16 @@ for (const [name, component, role, path] of pages) {
                 await expect(header.getByRole('heading', { level: 1 })).toHaveCSS('font-size', '26px');
                 await expect(header.locator('p').first()).toHaveText(/.+ · .+/);
             }
+            if (name === 'brand') {
+                const link = page.getByTestId('health-header').getByRole('link', { name: /1 new action awaits review.*Review actions/ });
+                await expect(link).toBeVisible();
+                await expect(link).toHaveAttribute('href', /\/brands\/\d+\/actions$/);
+            }
+            if (name === 'inbox') {
+                const row = page.getByTestId('inbox-row-entity').filter({ hasText: 'Havnelys Studio' });
+                await expect(row.getByRole('heading')).toHaveText(/Havnelys Studio was mentioned in \d+%/);
+                await expect(row).toContainText(/17 answers · 1 engine · Fjord Tea · Norway · 12:00/);
+            }
             if (name === 'brand' && info.project.name.startsWith('desktop-')) {
                 const bar = page.getByTestId('analysis-filters');
                 const market = await bar.getByRole('combobox', { name: /Switch market/ }).boundingBox();

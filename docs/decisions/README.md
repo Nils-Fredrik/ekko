@@ -53,3 +53,4 @@ Beslutninger som ikke står i `docs/spec.md`, dokumenteres her (`AGENTS.md`, `do
 - [0042: Måleplan: arv og egne markedsvalg](0042-maleplan-arv-og-egne-markedsvalg.md)
 - [0043: Beslutninger om ukjente merkevarer](0043-beslutninger-om-ukjente-merkevarer.md)
 - [0044: Felles komponenter og formatering for arbeidsflaten](0044-felles-komponenter-for-arbeidsflaten.md)
+- [0045: Angre behandling av tiltak i innboksen](0045-angre-tiltaksbehandling-i-innboksen.md)

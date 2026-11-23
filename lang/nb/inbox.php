@@ -1,13 +1,10 @@
 <?php
 
 return [
-    'group' => ':count varsler om :type',
     'entity' => 'Ny merkevare: :name',
-    'share' => 'Nevnt i :percent % av svarene de siste sju dagene.',
+    'mentioned' => ':name ble nevnt i :percent % av svarene de siste sju dagene',
     'claim' => ':engine oppgir «:text»',
     'fact' => 'Registrert faktum: :text',
-    'integration' => 'Synkronisering med :name',
-    'sync_failed' => 'Siste synkronisering feilet.',
     'resolved' => 'Behandlet',
     'buttons' => [
         'open' => 'Åpne',
@@ -24,12 +21,32 @@ return [
         'alias' => 'Alias',
     ],
     'problems' => [
-        'integration' => 'En integrasjon har feilet.',
-        'price' => 'En motor i måleplanen mangler pris.',
-        'quota' => 'Forbruket har nådd minst 80 % av kvoten eller budsjettet.',
-        'entity' => 'Nye merkevarer venter på vurdering.',
-        'action' => 'Nye tiltak venter på behandling.',
+        'integration' => ':count integrasjon har feilet.|:count integrasjoner har feilet.',
+        'price' => ':count motor i måleplanen mangler pris.|:count motorer i måleplanen mangler pris.',
+        'quota' => 'Forbruket har nådd :count % av kvoten eller budsjettet.',
+        'entity' => ':count ukjent merkevare venter på behandling.|:count ukjente merkevarer venter på behandling.',
+        'action' => ':count nytt tiltak venter på behandling.|:count nye tiltak venter på behandling.',
     ],
+    'problem_actions' => [
+        'integration' => 'Sjekk integrasjon',
+        'price' => 'Åpne måleplan',
+        'quota' => 'Se forbruk',
+        'entity' => 'Behandle',
+        'action' => 'Se tiltak',
+    ],
+    'events' => [
+        'competitor_takeover_prompt' => ':competitor tok førsteplassen på «:prompt»',
+        'citation_lost_prompt' => 'En sitering forsvant fra «:prompt» i :engine',
+        'visibility_drop_unquantified' => 'Synligheten falt',
+        'visibility_drop' => 'Synligheten falt med :points prosentpoeng',
+        'competitor_takeover' => ':competitor tok førsteplassen',
+        'citation_lost' => 'En sitering forsvant fra :engine',
+        'new_competitor' => ':name dukket opp som ny merkevare',
+        'model_change' => ':engine byttet modell til :model',
+        'quota' => 'Forbruket nådde :percent % av kvoten eller budsjettet',
+        'integration_error' => 'Synkronisering med :integration feilet',
+    ],
+    'group_event' => ':count varsler · Siste: :event',
     'steps' => [
         'plan' => 'Aktiver en måleplan',
         'prompts' => 'Fyll promptbiblioteket',

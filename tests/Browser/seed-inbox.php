@@ -1,7 +1,15 @@
 <?php
 
+use App\Models\Action;
 use App\Models\Alert;
 use App\Models\AlertRule;
+use App\Models\Brand;
+use App\Models\BrandFact;
+use App\Models\Claim;
+use App\Models\Market;
+use App\Models\Response;
+use App\Models\Run;
+use App\Models\RunBatch;
 use App\Models\Team;
 use App\Models\User;
 use App\Tenancy\TenantContext;
@@ -19,7 +27,8 @@ if (getenv('EKKO_BROWSER_TEST') !== '1' || ! $app->environment('local', 'testing
     exit(1);
 }
 
-$email = 'browser-inbox@example.test';
+$actions = ($argv[1] ?? '') === 'actions';
+$email = $actions ? 'browser-inbox-actions@example.test' : 'browser-inbox@example.test';
 $user = User::query()->where('email', $email)->first();
 if ($user === null) {
     $team = Team::factory()->tenant()->create();
@@ -32,7 +41,22 @@ if ($user === null) {
     $user->switchTeam($team);
 }
 
-app(TenantContext::class)->run((int) $user->current_team_id, function (): void {
+app(TenantContext::class)->run((int) $user->current_team_id, function () use ($actions): void {
+    if ($actions) {
+        $brand = Brand::firstWhere('name', 'Inbox fixture') ?? Brand::factory()->create(['name' => 'Inbox fixture']);
+        if ($brand->markets()->exists()) {
+            return;
+        }
+        $market = Market::factory()->for($brand)->create();
+        Action::factory()->for($brand)->create(['market_id' => $market->id, 'title' => 'Review the new source']);
+        $run = Run::factory()->create(['run_batch_id' => RunBatch::factory()->for($market)->create()->id, 'status' => 'extracted']);
+        $answer = Response::factory()->for($run)->create(['collected_at' => now()->subHour()]);
+        $fact = BrandFact::factory()->for($brand)->create(['is_active' => true]);
+        Claim::create(['response_id' => $answer->id, 'brand_id' => $brand->id, 'fact_id' => $fact->id,
+            'text' => 'Founded in 2015.', 'verdict' => Claim::CONTRADICTED, 'source_citation_ids' => []]);
+
+        return;
+    }
     Alert::query()->where('payload->marker', 'browser-inbox')->delete();
     $rule = AlertRule::query()->firstOrCreate(
         ['type' => 'quota', 'brand_id' => null],

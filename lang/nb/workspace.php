@@ -13,6 +13,7 @@ return [
         'days_ago' => 'for :n dag siden|for :n dager siden',
         'count' => [
             'answers' => ':n svar|:n svar',
+            'engines' => ':n motor|:n motorer',
             'prompts' => ':n prompt|:n prompter',
             'rows' => ':n rad|:n rader',
         ],

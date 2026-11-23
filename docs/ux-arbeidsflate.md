@@ -403,7 +403,7 @@ Arbeidsflaten bruker `WorkspaceHeader` med «Merkevare · Gruppe» i 12 px og si
    - Lenke: «Åpne måleplanen →».
    - Er det ingen aktive motorer, står «Ingen motorer er aktive» med lenke.
 2. **Krever oppmerksomhet:**
-   - Høyst tre rader med statuskant (4 px, `rounded`) og lenke til stedet saken løses.
+   - Høyst tre rader med statuskant (4 px, `rounded`) med antall berørte elementer (eller nådd kvotegrense) og en synlig handlingslenke, for eksempel «23 ukjente merkevarer venter på behandling» og «Behandle →».
    - Kildene, sortert etter alvor: integrasjon med feil (`error`), manglende pris i planen (`error`), kvote over 80 % (`warning`), ukjente merkevarer som venter (`warning`) og nye tiltak (`warning`). Kvotestatus vises til brukere med tilgang til forbrukssiden.
    - Uten saker står «Alt ser bra ut» i `text-success-text`.
 3. **Kom i gang:** oppstartslisten (5.8) med «*x* av 6», fremdriftslinje i `success-text` og «Skjul».
@@ -707,17 +707,17 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
 | Motsagt påstand uten tiltak | `error` | ChatGPT oppgir at Fjordbyrå ble grunnlagt i 2015. Faktum: 2009. | **Lag tiltak**, Åpne i faktasjekk |
 | Integrasjonsfeil | `error` | GA4-synken har feilet to dager på rad | **Åpne integrasjonen** |
 
-- **Lesbar tekst:** tittel og detalj lages på serveren fra språknøkler (6.5). Interne nøkler vises aldri. Varsler bruker `AlertPresenter`.
+- **Lesbar tekst:** tittel og detalj lages på serveren fra språknøkler (6.5). Interne nøkler vises aldri. Varsler bruker `AlertPresenter`. Tittelen beskriver hendelsen. Detaljlinjen viser antall svar og motorer når grunnlaget finnes, samt merkevare, marked og lokalt klokkeslett.
 - **Gruppering:** varsler av samme type, merkevare og dag med mer enn to rader slås sammen («3 varsler om synlighetsfall i Sverige»). En sammenslått rad har «Vis alle» og «Kvitter alle».
 - **Behandling:** en handling fjerner raden. Tallet i sidemenyen og på fanen oppdateres (Inertia `only: ['items', 'counts', 'workspace']`).
-- **Slik U26 er bygget:** Kvittering og enhetsvedtak kan angres, fordi de har egne ruter. Plan, avvis og «Lag tiltak» kan ikke angres. En bruker kan ikke sette et tiltak tilbake til `new` (spec 11.3, `ActionStatus::userTargets`), og et tiltak som lages fra en motsagt påstand blir stående til brukeren behandler det. Optimistisk skjuling nullstilles når filteret endres, så «Vis behandlet» viser raden uten ny sidelasting.
+- **Angre (U34):** Etter Planlegg, Avvis eller «Lag tiltak» kan samme bruker angre i meldingen. Et nyopprettet rettetiltak fjernes. Et eksisterende tiltak får tilbake sin tidligere tilstand og sine promptkoblinger. Hvis noen har endret tiltaket i mellomtiden, vises en feilmelding. Filterbytte viser gjeldende serverdata.
 - **Tom innboks:** «Ingenting venter her. Nye varsler, merkevarer og tiltak dukker opp etter neste måling.»
 - **Dagens varselside:** `/alerts` sender til `/inbox?type=alerts`. Varselregler ligger i 5.7.
 
 **Akseptkriterier (U26):**
 
 - Antallet i sidemenyen er det samme som summen på fanen «Alle».
-- Kvittering og enhetsvedtak fjerner raden uten ny sidelasting og kan angres. Plan, avvis og «Lag tiltak» fjerner raden uten angre (spec 11.3).
+- Kvittering, enhetsvedtak, Planlegg, Avvis og «Lag tiltak» kan angres fra meldingen. Raden og tellerne oppdateres uten full sidelasting.
 - Ingen rad viser interne nøkler (automatisk test som leter etter `market:`, `prompt:` og heksadesimale hasher).
 
 ### 5.7 Varsler og rapporter per merkevare
@@ -999,7 +999,7 @@ Den har ingen egen tabell. Den samler fra kildene under:
 | Type | Kilde | Behandlet når |
 |---|---|---|
 | `alert` | `alerts` (siste 30 dager), samlet etter 5.6 | `acknowledged_at` er satt |
-| `entity` | `EntityQueue` for navn over terskelen i regelen `new_competitor` | beslutning finnes |
+| `entity` | `EntityQueue` for navn over terskelen i regelen `new_competitor` per marked de siste sju dagene. Samme normaliserte navn innen en merkevare teller én gang. Raden viser alle kvalifiserte markeder | beslutning finnes |
 | `action` | `actions` med `status = new` | statusen er en annen |
 | `claim` | `claims` med `verdict = contradicted` uten tilknyttet tiltak, siste 30 dager, gruppert per faktum | tiltak er laget, eller faktum er slått av |
 | `integration` | `integrations` med `status = error` | statusen er en annen enn `error` |

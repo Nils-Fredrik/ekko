@@ -3,7 +3,7 @@
 import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { useUndoToast } from '@/Composables/useUndoToast';
-import { formatDate, formatNumber, formatWeekday } from '@/format';
+import { formatCount, formatDate, formatNumber, formatTime, formatWeekday } from '@/format';
 import { groupInbox } from '@/inbox/groups';
 import { router } from '@inertiajs/vue3';
 import axios from 'axios';
@@ -65,6 +65,20 @@ const groups = computed(() =>
         },
     }),
 );
+
+function rowDetail(item) {
+    const markets = item.market_labels?.length ? item.market_labels.join(', ') : item.market?.label;
+    return [
+        item.detail,
+        item.answers != null ? formatCount(item.answers, 'answers') : null,
+        item.engine_count != null ? formatCount(item.engine_count, 'engines') : null,
+        item.brand?.name ?? trans('workspace.inbox.all_brands'),
+        markets ?? trans('workspace.shell.all_markets'),
+        formatTime(item.at),
+    ]
+        .filter(Boolean)
+        .join(' · ');
+}
 
 function allowed(action) {
     const gate = needs[action.key];
@@ -191,14 +205,28 @@ async function act(item, action) {
                 await request('delete', route('alerts.unacknowledge.bulk'), { ids: changed });
                 reveal(item.id);
             });
-        } else if (action.key === 'plan' || action.key === 'decline') {
-            await request('patch', route('brands.actions.update', [item.brand.id, item.source_ids[0]]), {
-                status: action.key === 'plan' ? 'planned' : 'declined',
-            });
-            toast.show(trans('workspace.inbox.handled_row'));
-        } else if (action.key === 'create_action') {
-            await request('post', route('brands.claims.action', [item.brand.id, item.source_ids[0]]), {});
-            toast.show(trans('workspace.inbox.action_created'));
+        } else if (['plan', 'decline', 'create_action'].includes(action.key)) {
+            const params = [item.brand.id, item.source_ids[0]];
+            const correction = action.key === 'create_action';
+            const response = correction
+                ? await axios.post(route('brands.claims.action', params), { inbox_undo: true })
+                : await axios.patch(route('brands.actions.update', params), {
+                      inbox_undo: true,
+                      status: action.key === 'plan' ? 'planned' : 'declined',
+                  });
+            await reload();
+            const { action_id, undo_token } = response.data;
+            const undo = async () => {
+                await axios.delete(route('brands.inbox.undo-action', [item.brand.id, action_id]), {
+                    data: { undo_token },
+                });
+                reveal(item.id);
+                await reload();
+            };
+            toast.show(
+                trans(correction ? 'workspace.inbox.action_created' : 'workspace.inbox.handled_row'),
+                undo_token ? undo : null,
+            );
         } else {
             const body = { keys: item.source_ids, decision: action.key };
             if (action.key === 'alias') {
@@ -303,7 +331,7 @@ async function act(item, action) {
                     <div class="min-w-0 flex-1">
                         <p class="text-[11.5px] text-shell-muted">{{ $t(`workspace.inbox.types.${item.type}`) }}</p>
                         <h3 class="text-sm text-shell-fg">{{ item.title }}</h3>
-                        <p class="text-[12.5px] text-shell-muted">{{ item.detail }}</p>
+                        <p class="text-[12.5px] text-shell-muted">{{ rowDetail(item) }}</p>
                         <ul v-if="expanded.has(item.id) && item.members?.length" class="mt-2 space-y-1">
                             <li v-for="member in item.members" :key="member.id" class="text-xs text-shell-text">
                                 {{ member.title }}
