@@ -55,6 +55,12 @@ for (const [name, component, role, path] of pages) {
                     const fits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
                     expect(fits, 'Only the tables and filter lists may scroll horizontally').toBe(true);
                 }
+                if (name === 'setup-markets') {
+                    await expect(page.locator('[data-detail-panel]')).toHaveCount(0);
+                    const grid = await page.getByRole('grid', { name: 'Markets and measurement plan' }).boundingBox();
+                    const matrix = await page.getByTestId('plan-matrix').boundingBox();
+                    expect(matrix.y - (grid.y + grid.height)).toBeLessThanOrEqual(24);
+                }
                 if (!mobile && name === 'setup-prompts') {
                     const grid = page.getByRole('grid', { name: 'Prompts and topics' });
                     const topics = page.getByRole('button', { name: 'All topics' }).locator('xpath=ancestor::aside');

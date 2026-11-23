@@ -169,8 +169,8 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await page.goto(`${brandPath}/setup/markets`);
     await expect(page.getByRole('heading', { name: 'Markets and measurement plan' })).toBeVisible();
     await expect(page.getByTestId('plan-column')).toHaveCount(2);
-    const norway = page.getByRole('columnheader', { name: /^NO\b/ });
-    const sweden = page.getByRole('columnheader', { name: /^SE\b/ });
+    const norway = page.getByRole('columnheader', { name: /^Norway\b/ });
+    const sweden = page.getByRole('columnheader', { name: /^Sweden\b/ });
     await expect(norway.getByRole('button', { name: 'Inherits', exact: true })).toHaveAttribute('aria-pressed', 'true');
     await expect(sweden.getByRole('button', { name: 'Inherits', exact: true })).toHaveAttribute('aria-pressed', 'true');
     const chatgpt = page
@@ -277,11 +277,11 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await chatgpt.getByRole('button').first().click();
     await page.getByRole('button', { name: 'Weekly', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeEnabled();
-    const swedenMarket = page.getByRole('button', { name: /^SE\b/ });
+    const swedenMarket = page.getByRole('button', { name: /^Sweden\b/ });
     await swedenMarket.focus();
     await expect(swedenMarket).toBeFocused();
     await page.keyboard.press('Enter');
-    await expect(page.getByRole('heading', { level: 2, name: 'SE', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { level: 2, name: 'Sweden', exact: true })).toBeVisible();
     const refreshedEstimate = page.waitForResponse(
         (response) =>
             response.url().includes('/measurement-plan/estimate') &&
@@ -290,8 +290,8 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     );
     await page.getByTestId('market-active').uncheck();
     await refreshedEstimate;
-    await expect(page.getByTestId('market-row').filter({ hasText: 'sv' })).toContainText('Inactive');
-    await expect(page.getByTestId('market-row').filter({ hasText: 'nb' })).toContainText('Active');
+    await expect(page.getByRole('grid').getByRole('row').filter({ hasText: 'Swedish' })).toContainText('Inactive');
+    await expect(page.getByRole('grid').getByRole('row').filter({ hasText: 'Norwegian Bokmål' })).toContainText('Active');
     await expect(page.getByTestId('plan-column')).toHaveCount(1);
     await expect(chatgpt.getByRole('button').first()).toContainText('Weekly');
     await expect(page.getByRole('button', { name: 'Save plan', exact: true })).toBeEnabled();

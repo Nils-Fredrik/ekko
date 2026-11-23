@@ -23,6 +23,7 @@ const props = defineProps({
     brandId: { type: Number, required: true },
     canManage: { type: Boolean, required: true },
     prompts: { type: Object, default: () => ({}) },
+    marketNames: { type: Map, required: true },
     activity: { type: Object, default: null },
 });
 
@@ -161,9 +162,6 @@ let stopBefore = () => {};
 function draftMarkets(plan) {
     return plan.markets.map((market) => ({
         id: market.id,
-        country: market.country,
-        language: market.language,
-        location_label: market.location_label,
         is_active: market.is_active,
         plan_mode: market.plan_mode,
         rules: rulesToRows(market.engines, plan.options.engines, plan.options.max_repetitions),
@@ -302,7 +300,7 @@ onMounted(() => {
         load();
     }
     stopBefore = router.on('before', (event) => {
-        if (!dirty.value || event.detail.visit.method !== 'get') {
+        if (!dirty.value || event.detail.visit.method !== 'get' || event.detail.visit.deferredProps) {
             return;
         }
         if (!window.confirm(trans('workspace.setup.leave'))) {
@@ -343,9 +341,6 @@ function syncActivity(nextActive) {
         }
         markets.value.push({
             id: incoming.id,
-            country: incoming.country,
-            language: incoming.language,
-            location_label: incoming.location_label,
             is_active: active,
             plan_mode: incoming.plan_mode,
             rules: rulesToRows(incoming.engines, props.plan.options.engines, props.plan.options.max_repetitions),
@@ -405,7 +400,7 @@ watch(dirty, (value) => {
                             data-testid="plan-column"
                         >
                             <span :id="`${matrixId}-${market.id}`" class="block text-shell-fg">
-                                {{ market.location_label || market.country }}
+                                {{ marketNames.get(market.id) }}
                             </span>
                             <span class="mt-1 inline-flex rounded-full border border-line p-0.5">
                                 <button
@@ -577,7 +572,7 @@ watch(dirty, (value) => {
                         market:
                             editing.marketId == null
                                 ? $t('workspace.setup.standard')
-                                : editing.market?.location_label || editing.market?.country,
+                                : marketNames.get(editing.marketId),
                     })
                 }}
             </h3>
@@ -682,7 +677,7 @@ watch(dirty, (value) => {
             >
                 {{
                     $t('workspace.setup.engine_month', {
-                        market: editing.market?.location_label || editing.market?.country,
+                        market: marketNames.get(editing.marketId),
                         count: formatNumber(cellAnswers(editing.engineKey, editing.marketId)),
                     })
                 }}

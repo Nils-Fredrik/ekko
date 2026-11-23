@@ -94,7 +94,14 @@ test('the brand page carries the health header and the checklist can be hidden',
             ->where('health.checklist.0.key', 'plan')
             ->where('health.checklist.5.optional', true)
             ->where('health.checklist_hidden', false)
-            ->has('health.markets', 1));
+            ->has('health.markets', 1)
+            ->where('health.markets.0.label', 'Norge')
+            ->loadDeferredProps('workspace', fn (AssertableInertia $deferred) => $deferred
+                ->where('workspace.markets.0.label', 'Norge')));
+
+    $this->get(route('brands.setup.markets', $world->brand))->assertInertia(fn (AssertableInertia $page) => $page
+        ->where('markets.0.name', 'Norge')
+        ->where('markets.0.language_label', 'norsk bokmål'));
 
     $this->post(route('brands.checklist.hide', $world->brand))->assertRedirect();
     $this->get(route('brands.show', $world->brand))

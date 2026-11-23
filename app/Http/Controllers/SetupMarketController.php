@@ -15,6 +15,7 @@ use App\Models\Team;
 use App\Onboarding\CostEstimator;
 use App\Scheduling\NextMeasurement;
 use App\Tenancy\TenantContext;
+use App\Workspace\Workspace;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
@@ -48,13 +49,15 @@ class SetupMarketController extends Controller
             'tenantName' => $tenant->name,
             'markets' => $brand->markets->map(function (Market $market) use ($counts, $due): array {
                 $row = $counts->get($market->id);
+                $label = Workspace::marketLabel($market);
 
                 return [
                     'id' => $market->id,
                     'country' => $market->country,
                     'language' => $market->language,
-                    'name' => $market->location_label ?: strtoupper($market->country),
-                    'place' => $market->location_label ?: strtoupper($market->country),
+                    'language_label' => CountryList::languageLabel($market->language),
+                    'name' => $label,
+                    'place' => $label,
                     'location_label' => $market->location_label ?? '',
                     'is_active' => (bool) $market->is_active,
                     'plan_mode' => $market->plan_mode,

@@ -16,6 +16,7 @@ use App\Onboarding\CostEstimator;
 use App\Prompts\EntityQueue;
 use App\Scheduling\NextMeasurement;
 use App\Usage\MonthlyUsage;
+use App\Workspace\Workspace;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Gate;
 
@@ -53,7 +54,7 @@ final readonly class BrandHealth
             }
             $start = $planned->has($id) ? $today->addDay() : $today;
             $measurements[] = [
-                'id' => $id, 'label' => $market->location_label ?: strtoupper($market->country),
+                'id' => $id, 'label' => Workspace::marketLabel($market),
                 'last_completed_at' => $latest->has($id) ? CarbonImmutable::parse($latest[$id])->utc()->toIso8601String() : null,
                 'next_due_on' => $this->next->on($estimateMarket['rules'], $prompts->get($id, collect()), $start),
             ];
