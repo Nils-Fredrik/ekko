@@ -32,6 +32,15 @@ final class BrandIdentityController extends Controller
         return back();
     }
 
+    public function archive(Request $request, Brand $brand, IdentityLibrary $identity): RedirectResponse
+    {
+        Gate::authorize('update', $brand);
+        $data = $request->validate(['brand_name_confirmation' => ['required', 'string', 'max:255']]);
+        $identity->archive($brand, $data['brand_name_confirmation']);
+
+        return redirect()->route('brands.index');
+    }
+
     public function storeAlias(Request $request, Brand $brand, IdentityLibrary $identity): RedirectResponse
     {
         Gate::authorize('update', $brand);

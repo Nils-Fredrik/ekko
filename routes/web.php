@@ -120,6 +120,7 @@ Route::middleware([
     Route::post('/brands/{brand}/markets', [MarketSetupController::class, 'store'])->name('brands.markets.store');
     Route::patch('/brands/{brand}/markets/{market}', [MarketSetupController::class, 'update'])->name('brands.markets.update');
     Route::patch('/brands/{brand}/identity', [BrandIdentityController::class, 'update'])->name('brands.identity.update');
+    Route::post('/brands/{brand}/archive', [BrandIdentityController::class, 'archive'])->name('brands.archive');
     Route::post('/brands/{brand}/aliases/test', [BrandIdentityController::class, 'testAlias'])->middleware('throttle:alias-match-test')->name('brands.aliases.test');
     Route::post('/brands/{brand}/aliases', [BrandIdentityController::class, 'storeAlias'])->name('brands.aliases.store');
     Route::patch('/brands/{brand}/aliases/{alias}', [BrandIdentityController::class, 'updateAlias'])->whereNumber('alias')->name('brands.aliases.update');

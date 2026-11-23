@@ -51,7 +51,7 @@ final class Workspace
         $role = $access->roleIn($user, $team);
 
         return [
-            'brands' => Brand::query()->orderBy('name')->get(['id', 'name'])
+            'brands' => Brand::query()->unarchived()->orderBy('name')->get(['id', 'name'])
                 ->map(fn (Brand $item): array => ['id' => $item->id, 'name' => $item->name])->all(),
             'brand' => $brand === null ? null : ['id' => $brand->id, 'name' => $brand->name],
             'markets' => $markets->map(fn (Market $item): array => [
@@ -92,13 +92,13 @@ final class Workspace
             return $brand;
         }
         if (is_numeric($brand)) {
-            return Brand::query()->find((int) $brand);
+            return Brand::query()->unarchived()->find((int) $brand);
         }
         // The inbox has no {brand} parameter. ?brand= is the scope, so the sidebar count matches the All tab.
         if ($request->routeIs('inbox.index')) {
             $query = filter_var($request->query('brand'), FILTER_VALIDATE_INT);
             if ($query !== false) {
-                return Brand::query()->find($query);
+                return Brand::query()->unarchived()->find($query);
             }
         }
 

@@ -46,6 +46,15 @@ function collectQueued(Team $tenant, Run $run): void
     app(TenantContext::class)->run($tenant->id, fn () => app(QueuedEngineCollector::class)->collect($run->id));
 }
 
+test('an archived brand cannot start a queued provider submission', function () {
+    [$tenant, $run] = queuedFixture();
+    inQueuedTenant($tenant, fn () => $run->prompt->market->brand->update(['status' => 'archived']));
+    Http::preventStrayRequests();
+    expect(fn () => collectQueued($tenant, $run))->toThrow(EngineCallFailed::class, 'brand_archived');
+    Http::assertNothingSent();
+    inQueuedTenant($tenant, fn () => expect(UsageEvent::query()->count())->toBe(0));
+});
+
 test('queued provider submission is billed once, survives polling and persists annotations under tenant RLS', function () {
     [$tenant, $run] = queuedFixture();
     $id = '11150800-0000-0000-0000-123456789abc';

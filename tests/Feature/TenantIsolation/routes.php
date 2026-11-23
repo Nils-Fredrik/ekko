@@ -48,9 +48,9 @@ use Tests\Support\Onboarding\OnboardingFakes;
 |
 */
 
-function isolationBrandId(int $tenantId): int
+function isolationBrandId(int $tenantId, ?string $name = null): int
 {
-    return app(TenantContext::class)->run($tenantId, fn () => Brand::factory()->create()->id);
+    return app(TenantContext::class)->run($tenantId, fn () => Brand::factory()->create($name === null ? [] : ['name' => $name])->id);
 }
 
 /** @return array{brand: int, alias: int} */
@@ -619,6 +619,11 @@ return [
     'brands.markets.update' => RouteAccess::tenant(
         foreign: fn (Scenario $s) => ['params' => isolationMarket($s->tenantB->id, true), 'data' => ['is_active' => false]],
         own: fn (Scenario $s) => ['params' => isolationMarket($s->tenantA->id, true), 'data' => ['is_active' => false]],
+        deniedRoles: ['editor', 'reader'],
+    ),
+    'brands.archive' => RouteAccess::tenant(
+        foreign: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantB->id, 'Archive fixture')], 'data' => ['brand_name_confirmation' => 'Archive fixture']],
+        own: fn (Scenario $s) => ['params' => ['brand' => isolationBrandId($s->tenantA->id, 'Archive fixture')], 'data' => ['brand_name_confirmation' => 'Archive fixture']],
         deniedRoles: ['editor', 'reader'],
     ),
     'brands.identity.update' => RouteAccess::tenant(

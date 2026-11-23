@@ -53,6 +53,22 @@ for (const [name, component, role, path] of pages) {
                 await expect(header.getByRole('heading', { level: 1 })).toHaveCSS('font-size', '26px');
                 await expect(header.locator('p').first()).toHaveText(/.+ · .+/);
             }
+            if (name === 'setup-identity') {
+                await page.getByRole('textbox', { name: 'Add alias' }).fill('Northern Roast');
+                const mark = page.locator('main mark').first();
+                await expect(mark).toHaveText('Northern Roast');
+                const token = await mark.evaluate((el) => {
+                    const probe = document.createElement('span');
+                    probe.style.backgroundColor = 'var(--data-seq-2)';
+                    el.append(probe);
+                    const color = getComputedStyle(probe).backgroundColor;
+                    probe.remove();
+                    return color;
+                });
+                await expect(mark).toHaveCSS('background-color', token);
+                await expect(page.getByRole('button', { name: 'Archive brand' })).toBeVisible();
+                await page.getByRole('textbox', { name: 'Add alias' }).blur();
+            }
             if (name === 'brand') {
                 const link = page.getByTestId('health-header').getByRole('link', { name: /1 new action awaits review.*Review actions/ });
                 await expect(link).toBeVisible();

@@ -99,7 +99,7 @@ final class ProposalConfirmer
     /** @param  array<string, mixed>  $data */
     private function createBrand(?Plan $plan, array $data): Brand
     {
-        if ($plan instanceof Plan && $plan->max_brands !== null && Brand::query()->count() >= $plan->max_brands) {
+        if ($plan instanceof Plan && $plan->max_brands !== null && Brand::query()->unarchived()->count() >= $plan->max_brands) {
             throw ValidationException::withMessages(['name' => __('onboarding.errors.brand_limit')]);
         }
 
@@ -144,7 +144,7 @@ final class ProposalConfirmer
 
     private function existingBrand(Analysis $analysis): Brand
     {
-        $brand = Brand::query()->find($analysis->input['brand_id'] ?? null);
+        $brand = Brand::query()->unarchived()->find($analysis->input['brand_id'] ?? null);
         if (! $brand instanceof Brand) {
             throw ValidationException::withMessages(['analysis' => __('onboarding.errors.brand_gone')]);
         }

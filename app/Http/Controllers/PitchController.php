@@ -69,7 +69,7 @@ final class PitchController extends Controller
         abort_unless($actor instanceof User && $partner instanceof Team && $access->advisesPartner($actor, $partner), 403);
         abort_unless($team->kind === 'pitch' || $team->pitch_converted_at !== null, 404);
         abort_unless($actor->switchTeam($team), 403);
-        $brandId = $context->run($team->id, fn () => $rls->run([$team->id], fn () => Brand::query()->orderBy('id')->value('id')));
+        $brandId = $context->run($team->id, fn () => $rls->run([$team->id], fn () => Brand::query()->unarchived()->orderBy('id')->value('id')));
 
         return $brandId === null
             ? redirect()->route('onboarding.wizard')
@@ -130,7 +130,7 @@ final class PitchController extends Controller
     /** @return array{brand: array{id: int, name: string}|null, prompts: int, runs: int, answers: int, last_answer_at: string|null} */
     private function progress(): array
     {
-        $brand = Brand::query()->orderBy('id')->first(['id', 'name']);
+        $brand = Brand::query()->unarchived()->orderBy('id')->first(['id', 'name']);
         $last = Answer::query()->max('collected_at');
 
         return [

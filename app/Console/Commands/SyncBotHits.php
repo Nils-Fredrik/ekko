@@ -69,7 +69,7 @@ final class SyncBotHits extends Command
             return true;
         }
 
-        $brand = Brand::query()->find($integration->brand_id);
+        $brand = Brand::query()->unarchived()->find($integration->brand_id);
         if ($brand === null) {
             return true;
         }
@@ -87,7 +87,7 @@ final class SyncBotHits extends Command
         }
 
         // Take the write locks after the network call. Concurrent edits may invalidate this snapshot.
-        $lockedBrand = Brand::query()->lockForUpdate()->find($brand->id);
+        $lockedBrand = Brand::query()->unarchived()->lockForUpdate()->find($brand->id);
         $lockedIntegration = Integration::query()->where('type', 'clickhouse_logs')->lockForUpdate()->find($id);
         if ($lockedBrand === null || $lockedIntegration === null
             || $lockedIntegration->brand_id !== $brand->id

@@ -47,7 +47,7 @@ class CommandPaletteController extends Controller
      */
     private function brands(string $like): array
     {
-        return Brand::query()
+        return Brand::query()->unarchived()
             ->where('name', 'ilike', $like)
             ->orderBy('name')
             ->limit(8)
@@ -67,6 +67,7 @@ class CommandPaletteController extends Controller
     private function prompts(string $like): array
     {
         return Prompt::query()
+            ->whereRelation('market.brand', 'status', '!=', 'archived')
             ->where('text', 'ilike', $like)
             ->with('market.brand')
             ->orderBy('text')
@@ -96,6 +97,7 @@ class CommandPaletteController extends Controller
     private function competitors(string $like): array
     {
         return Competitor::query()
+            ->whereRelation('brand', 'status', '!=', 'archived')
             ->where('name', 'ilike', $like)
             ->with('brand')
             ->orderBy('name')

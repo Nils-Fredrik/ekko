@@ -168,7 +168,7 @@ class OnboardingController extends Controller
 
         $tenant = $this->tenant();
         $plan = $tenant->plan()->first();
-        if ($plan instanceof Plan && $plan->max_brands !== null && Brand::query()->count() >= $plan->max_brands) {
+        if ($plan instanceof Plan && $plan->max_brands !== null && Brand::query()->unarchived()->count() >= $plan->max_brands) {
             return $this->refuse('brand_limit', 422);
         }
 

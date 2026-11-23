@@ -108,6 +108,9 @@ final class QueuedEngineCollector
                 if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt($at)) {
                     throw new EngineCallFailed('pitch_expired');
                 }
+                if ($run->prompt->market->brand()->sharedLock()->value('status') === 'archived') {
+                    throw new EngineCallFailed('brand_archived');
+                }
                 // A resubmission uses the same provider account as the original task, even after key rotation. Only a
                 // tenant's own key (BYOK) is stored on the run; a null key means the platform account, read from config
                 // at each call, so the platform credentials never land in the runs table (T39-F10).

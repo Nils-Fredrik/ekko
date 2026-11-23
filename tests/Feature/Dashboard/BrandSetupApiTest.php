@@ -63,6 +63,27 @@ it('leaves archived and inactive prompts behind and rejects an existing country 
     app(TenantContext::class)->run($w->tenant->id, fn () => expect(Market::findOrFail($id)->prompts()->count())->toBe(0));
 });
 
+it('requires the current name to archive a brand and removes it from selectors while retaining history', function (string $status) {
+    $brand = $this->brand;
+    $world = $this->world;
+    app(TenantContext::class)->run($world->tenant->id, fn () => $brand->update(['status' => $status]));
+    $answer = $world->answer($world->p1, now()->subDay()->toDateTimeString());
+    $archive = route('brands.archive', $brand);
+    foreach (['', $brand->name.' ', 'Another brand'] as $wrong) {
+        $this->postJson($archive, ['brand_name_confirmation' => $wrong])->assertUnprocessable()->assertJsonValidationErrors('brand_name_confirmation');
+    }
+    $this->patchJson(route('brands.identity.update', $brand), ['status' => 'archived'])->assertUnprocessable();
+    $this->getJson(route('palette.search', ['q' => $brand->name]))->assertJsonPath('brands.0.id', $brand->id);
+    $this->post($archive, ['brand_name_confirmation' => $brand->name])->assertRedirect(route('brands.index'))->assertSessionHasNoErrors();
+    $this->get(route('brands.index'))->assertInertia(fn ($page) => $page->has('brands', 0)
+        ->loadDeferredProps('workspace', fn ($deferred) => $deferred->has('workspace.brands', 0)));
+    $this->getJson(route('palette.search', ['q' => $brand->name]))->assertJsonCount(0, 'brands');
+    $this->patchJson(route('brands.identity.update', $brand), ['status' => 'active'])->assertNotFound();
+    app(TenantContext::class)->run($world->tenant->id, function () use ($brand, $answer) {
+        expect($brand->fresh()->status)->toBe('archived')->and($answer->fresh())->not->toBeNull();
+    });
+})->with(['active', 'paused']);
+
 it('updates identity, domains and aliases without losing other settings or deleting the last alias', function () {
     $w = $this->world;
     $alias = $this->brand->aliases()->create(['alias' => 'Example', 'match_mode' => 'exact_word']);

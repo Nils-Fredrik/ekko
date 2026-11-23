@@ -23,7 +23,7 @@ final class BotLogUploadController extends Controller
         abort_unless($team->id === current_tenant_id(), 404);
         Gate::authorize('viewAny', BotLogUpload::class);
 
-        $brands = Brand::query()
+        $brands = Brand::query()->unarchived()
             ->whereDoesntHave('integrations', fn ($query) => $query->where('type', 'clickhouse_logs'))
             ->with('domains')
             ->orderBy('name')

@@ -663,7 +663,7 @@ Hver handling gir en angre-melding, for eksempel «20 prompts flyttet til Shopif
 - **Sider:** `SetupMarketController`, `SetupIdentityController` og `SetupIntegrationController` tar over de tre rutene. `GET brands.settings` sender til identitet. U27 fjernet det gamle samlede skjemaet og skriveruten.
 - **Plan:** matrisen bruker `measurementPlan.js` og `usePlanEstimate`. Kolonnene er merkevarestandard pluss hvert aktivt marked. Standardkolonnen viser reglene, ikke svar per måned: tallet `engines` på estimatet er summen for alle markeder. Hver markedskolonne viser sine egne svar. Totalen står i lagringslinjen. Estimatet venter 300 ms etter en endring, og lastes på nytt når et marked slås av eller på. «Neste måling» i tabellen kommer fra den lagrede planen på serveren, også for lesere. Ulagrede endringer endrer ikke den datoen. I redigeringspanelet kommer dato og eksempelspørsmål fra den samme regelen, den med tidligst neste måling. Eksempelteksten slås opp blant alle aktive prompts. Arvede celler kan ikke redigeres. Ulagret navigasjon spør om bekreftelse. Lagring av sted og aktiv-bryter beholder utkastet.
 - **Identitet:** alias-testen kalles mens feltet skrives (500 ms) mot `brands.aliases.test`. Svaret logges ikke.
-- **Avvik:** farlig sone kan sette merkevaren på pause (`active` eller `paused`). U23-ruten godtar ikke arkivering, så siden sier at arkivering ikke er tilgjengelig ennå.
+- **Farlig sone:** Eier eller administrator med `brands.manage` kan arkivere ved å skrive gjeldende merkevarenavn. Arkiverte merkevarer forsvinner fra velgerne og får ingen nye målinger. Tidligere rapporter og svar beholdes (ADR 0046).
 
 ### 5.5 Identitet (ingen skisse, samme mønster som skisse 2 og 4)
 

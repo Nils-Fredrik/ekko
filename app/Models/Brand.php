@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\BrandFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -29,6 +30,17 @@ class Brand extends Model
     {
         // Set when the queue of unknown brands is emptied by a decision (docs/ux-arbeidsflate.md 6.3 and 6.5).
         return ['entities_reviewed_at' => 'datetime'];
+    }
+
+    /** @param Builder<Brand> $query */
+    public function scopeUnarchived(Builder $query): void
+    {
+        $query->where('brands.status', '!=', 'archived');
+    }
+
+    public function resolveRouteBinding($value, $field = null): ?self
+    {
+        return $this->newQuery()->unarchived()->where($field ?? $this->getRouteKeyName(), $value)->first();
     }
 
     /** @return HasMany<EntityDecision, $this> */

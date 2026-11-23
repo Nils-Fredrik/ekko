@@ -31,7 +31,7 @@ class ReadController extends Controller
     {
         Gate::authorize('viewAny', Brand::class);
 
-        return BrandResource::collection(Brand::query()->orderBy('id')->paginate(Query::pageSize($request))->withQueryString());
+        return BrandResource::collection(Brand::query()->unarchived()->orderBy('id')->paginate(Query::pageSize($request))->withQueryString());
     }
 
     public function prompts(Request $request, Brand $brand): AnonymousResourceCollection

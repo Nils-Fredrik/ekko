@@ -31,7 +31,7 @@ class ListBrands extends EkkoTool
 
     protected function run(Request $request, McpContext $context, Team $tenant): ToolResult
     {
-        $brands = Brand::query()
+        $brands = Brand::query()->unarchived()
             ->with([
                 'markets' => fn ($query) => $query->orderBy('id')->withCount(['prompts' => fn ($q) => $q->where('is_active', true)]),
                 'markets.marketEngines' => fn ($query) => $query->orderBy('engine_key')->orderBy('prompt_scope'),

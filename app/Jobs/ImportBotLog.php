@@ -32,7 +32,7 @@ final class ImportBotLog extends TenantJob
         }
 
         try {
-            if (! Team::query()->find($this->tenantId)?->isActive()
+            if ($brand->status === 'archived' || ! Team::query()->find($this->tenantId)?->isActive()
                 || ! array_key_exists($upload->domain, BrandLogDomains::for($brand))
                 || $brand->integrations()->where('type', 'clickhouse_logs')->exists()) {
                 throw new InvalidAccessLog('This upload no longer has an eligible brand and domain.');
