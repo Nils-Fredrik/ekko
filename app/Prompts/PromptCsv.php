@@ -188,7 +188,7 @@ final class PromptCsv
 
                         continue;
                     }
-                    $result['changed'][] = ['id' => $existing->id, 'fields' => $fields];
+                    $result['changed'][] = ['id' => $existing->id, 'text' => $existing->text, 'fields' => $fields];
                 }
                 if (PersonalData::in($data['text'])) {
                     $result['warnings'][] = __('app.library.personal_data_row', ['row' => $line]);

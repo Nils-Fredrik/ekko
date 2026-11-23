@@ -812,7 +812,7 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
 | `POST /brands/{brand}/markets/{market}/prompts` | `brands.prompts.store` | `prompts.manage` | `text`, `intent`, `funnel_stage`, `priority?`, `topic_id?`, `is_active?` | 422 ved duplikat eller grense |
 | `DELETE /brands/{brand}/prompts/{prompt}` | `brands.prompts.destroy` | `prompts.manage` | – | 422 `prompt_has_runs` |
 | `POST /brands/{brand}/prompts/bulk` | `brands.prompts.bulk` | `prompts.manage` | `ids[]` (1–500, samme merkevare), `action`, `value?`. For `create`: `market_id` og `prompts[]` (høyst 25) | JSON `{ affected, undo: { action, ids, value } }` |
-| `POST /brands/{brand}/prompts/import/preview` | `brands.prompts.import.preview` | `prompts.manage` | `file` eller `csv` som `import` | JSON `{ created: [...], changed: [{ id, fields: { felt: [før, etter] } }], unchanged: n, errors: [{ line, message }] }`. Skriver ingenting. |
+| `POST /brands/{brand}/prompts/import/preview` | `brands.prompts.import.preview` | `prompts.manage` | `file` eller `csv` som `import` | JSON `{ created: [...], changed: [{ id, text, fields: { felt: [før, etter] } }], unchanged: n, errors: [{ line, message }] }`. Skriver ingenting. |
 | `POST /brands/{brand}/topics/{topic}/suggestions` | `brands.topics.suggestions` | `prompts.manage` | `market_id`, `count` (5 eller 10) | JSON `{ suggestions: [{ text, intent, funnel_stage, priority }] }`. Begrenset til 10 per minutt per bruker. 429 ved kvote. |
 
 **Handlinger i `bulk`:** `move_topic` (verdi er tema-ID eller `null`), `set_priority`, `set_intent`, `set_funnel`, `activate`, `deactivate`, `archive`, `unarchive` og `create`.
