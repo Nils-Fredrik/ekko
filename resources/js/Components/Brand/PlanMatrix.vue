@@ -195,15 +195,14 @@ function rowsFor(marketId) {
     return market.plan_mode === 'own' ? market.rules : standardRows.value;
 }
 
-async function openCell(engineKey, marketId, button) {
-    const market = marketId == null ? null : markets.value.find((item) => item.id === marketId);
-    if (market && market.plan_mode !== 'own') {
-        return;
-    }
+function cellAvailable(engineKey, marketId) {
     const row = rowsFor(marketId).find((item) => item.engine_key === engineKey);
-    if (!row?.selectable) {
-        return;
-    }
+
+    return row?.selectable && (marketId == null || marketById(marketId)?.plan_mode === 'own');
+}
+
+async function openCell(engineKey, marketId, button) {
+    if (!props.canManage || !cellAvailable(engineKey, marketId)) return;
     trigger = button;
     selected.value = { engineKey, marketId };
     await nextTick();
@@ -464,24 +463,19 @@ watch(dirty, (value) => {
                                 type="button"
                                 class="w-full rounded-lg px-2 py-1 text-left leading-tight"
                                 :class="[
-                                    !rowsFor(marketId).find((row) => row.engine_key === engine.engine_key)
-                                        ?.selectable ||
-                                    (marketId != null && marketById(marketId)?.plan_mode !== 'own')
+                                    !cellAvailable(engine.engine_key, marketId)
                                         ? 'bg-shell-surface text-shell-muted'
                                         : 'bg-shell-panel text-shell-fg',
                                     selected?.engineKey === engine.engine_key && selected?.marketId === marketId
                                         ? 'ring-2 ring-primary ring-inset'
                                         : '',
                                 ]"
-                                :disabled="
-                                    !canManage ||
-                                    !rowsFor(marketId).find((row) => row.engine_key === engine.engine_key)
-                                        ?.selectable ||
-                                    (marketId != null && marketById(marketId)?.plan_mode !== 'own')
-                                "
+                                :disabled="!canManage || !cellAvailable(engine.engine_key, marketId)"
                                 :aria-labelledby="`${matrixId}-${engine.engine_key} ${matrixId}-${marketId ?? 'standard'} ${matrixId}-${engine.engine_key}-${marketId ?? 'standard'}`"
                                 :aria-expanded="
-                                    selected?.engineKey === engine.engine_key && selected?.marketId === marketId
+                                    canManage && cellAvailable(engine.engine_key, marketId)
+                                        ? selected?.engineKey === engine.engine_key && selected?.marketId === marketId
+                                        : undefined
                                 "
                                 :data-testid="`cell-${engine.engine_key}-${marketId ?? 'standard'}`"
                                 @click="openCell(engine.engine_key, marketId, $event.currentTarget)"

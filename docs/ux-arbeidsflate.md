@@ -769,7 +769,7 @@ Disse rutene viser sider. Kontrolleren for hver side lages av UI-oppgaven som ei
 | `GET /brands/{brand}/setup/notifications` | `brands.setup.notifications` | U26 |
 | `GET /inbox` | `inbox.index` | U26. Siden er innboksen. `/alerts` sender til `/inbox?type=alerts`. |
 
-`brands.settings` sender videre til `brands.setup.identity` når U24 er merget. U27 fjerner `Brands/Settings.vue` og `BrandSettingsController::update`.
+`brands.settings` videresender gamle bokmerker til `brands.setup.identity`. Skriveruten for det samlede innstillingsskjemaet ble fjernet i U27.
 
 ### 6.2 Temaer og prompts (U19)
 
