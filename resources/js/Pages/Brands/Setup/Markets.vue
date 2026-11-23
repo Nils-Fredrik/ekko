@@ -5,6 +5,7 @@ import DataTable from '@/Components/UI/DataTable.vue';
 import Drawer from '@/Components/UI/Drawer.vue';
 import { inertiaRequest, useAutosave } from '@/Composables/useAutosave';
 import { useOpenRow } from '@/Composables/useOpenRow';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { empty, formatDate, formatNumber } from '@/format';
 import { Link, router, usePage } from '@inertiajs/vue3';
@@ -37,9 +38,6 @@ const form = reactive({
     location_label: '',
     copy_from: '',
 });
-const crumb = computed(() =>
-    [props.tenantName, trans('workspace.shell.setup'), props.brand.name].filter(Boolean).join(' · '),
-);
 const selected = computed(() => props.markets.find((market) => market.id === openId.value) ?? null);
 const names = computed(() => new Map(props.markets.map((market) => [market.id, market.name])));
 const autosave = useAutosave(
@@ -147,22 +145,20 @@ function createMarket() {
 <template>
     <AppLayout :title="$t('workspace.setup.markets_title')">
         <div class="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6">
-            <header>
-                <p class="text-xs text-shell-muted">{{ crumb }}</p>
-                <div class="flex items-center justify-between gap-3">
-                    <h1 class="text-2xl font-medium tracking-tight text-shell-fg">
-                        {{ $t('workspace.setup.markets_title') }}
-                    </h1>
-                    <button
-                        v-if="canManage"
-                        type="button"
-                        class="rounded-full bg-primary-deep px-3 py-1.5 text-sm text-white"
-                        @click="creating = !creating"
-                    >
-                        {{ $t('workspace.setup.new_market') }}
-                    </button>
-                </div>
-            </header>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.setup')"
+                :title="$t('workspace.setup.markets_title')"
+            >
+                <button
+                    v-if="canManage"
+                    type="button"
+                    class="rounded-full bg-primary-deep px-3 py-1.5 text-sm text-white"
+                    @click="creating = !creating"
+                >
+                    {{ $t('workspace.setup.new_market') }}
+                </button>
+            </WorkspaceHeader>
 
             <section
                 v-if="creating && canManage"

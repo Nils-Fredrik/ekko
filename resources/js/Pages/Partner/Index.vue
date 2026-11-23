@@ -6,6 +6,7 @@ import { compareText, formatNumber } from '@/format';
 import SparklineChart from '@/Components/Charts/SparklineChart.vue';
 import { formatChange, formatN, formatValue, isMissing } from '@/Components/Charts/support/format.js';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
@@ -127,7 +128,7 @@ function spokenChange(change) {
 <template>
     <AppLayout :title="$t('app.partner.title')">
         <template #header>
-            <h2 class="text-xl font-medium tracking-tight text-shell-fg">{{ $t('app.partner.title') }}</h2>
+            <WorkspaceHeader :group="$t('workspace.shell.analysis')" :title="$t('app.partner.title')" />
         </template>
         <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
             <p class="text-sm text-shell-muted">{{ $t('app.partner.intro', { days: period.days }) }}</p>

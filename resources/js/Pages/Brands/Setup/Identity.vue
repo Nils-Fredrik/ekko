@@ -2,6 +2,7 @@
 // Brand identity (docs/ux-arbeidsflate.md 5.5, U24). The match test runs while the alias is typed.
 import SaveStatus from '@/Components/UI/SaveStatus.vue';
 import { useAutosave } from '@/Composables/useAutosave';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatNumber } from '@/format';
 import { router, usePage } from '@inertiajs/vue3';
@@ -32,9 +33,6 @@ const includeSubdomains = ref(false);
 const confirmation = ref('');
 const confirmError = ref('');
 const modes = ['exact_word', 'case_insensitive', 'regex'];
-const crumb = computed(() =>
-    [props.tenantName, trans('workspace.shell.setup'), props.brand.name].filter(Boolean).join(' · '),
-);
 const errors = computed(() => page.props.errors ?? {});
 let timer = 0;
 
@@ -110,12 +108,11 @@ function resume() {
 <template>
     <AppLayout :title="$t('workspace.setup.identity_title')">
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
-            <header>
-                <p class="text-xs text-shell-muted">{{ crumb }}</p>
-                <h1 class="text-2xl font-medium tracking-tight text-shell-fg">
-                    {{ $t('workspace.setup.identity_title') }}
-                </h1>
-            </header>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.setup')"
+                :title="$t('workspace.setup.identity_title')"
+            />
 
             <section class="space-y-3 rounded-xl border border-line bg-shell-panel p-4 text-sm text-shell-text">
                 <label class="block">

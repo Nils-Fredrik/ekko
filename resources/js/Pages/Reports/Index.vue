@@ -1,6 +1,7 @@
 <script setup>
 import { formatDateTime } from '@/format';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link } from '@inertiajs/vue3';
 
@@ -12,9 +13,7 @@ defineProps({
 <template>
     <AppLayout :title="$t('app.nav.reports')">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">
-                {{ $t('app.nav.reports') }}
-            </h2>
+            <WorkspaceHeader :group="$t('workspace.shell.work')" :title="$t('app.nav.reports')" />
         </template>
 
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6">

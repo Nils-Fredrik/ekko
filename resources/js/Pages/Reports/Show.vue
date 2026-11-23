@@ -1,5 +1,6 @@
 <script setup>
 import ReportSection from '@/Components/Actions/ReportSection.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import axios from 'axios';
 import { ref } from 'vue';
@@ -55,9 +56,9 @@ async function revokeLink(id) {
 </script>
 
 <template>
-    <AppLayout :title="brand">
+    <AppLayout :title="$t('app.nav.reports')">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand }}</h2>
+            <WorkspaceHeader :brand="brand" :group="$t('workspace.shell.work')" :title="$t('app.nav.reports')" />
         </template>
         <div class="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-8">
             <div class="flex items-center justify-between gap-3">

@@ -1,5 +1,7 @@
 import { router } from '@inertiajs/vue3';
 
+export const periodLengths = [7, 28, 90];
+
 // Fetch graphs with the filters, but let model-backed insight arrive separately (ADR 0038).
 export const analysisProps = [
     'analysisFilters',

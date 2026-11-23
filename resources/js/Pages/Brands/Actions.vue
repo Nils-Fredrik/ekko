@@ -1,5 +1,6 @@
 <script setup>
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
@@ -57,9 +58,13 @@ function save() {
 </script>
 
 <template>
-    <AppLayout :title="brand.name">
+    <AppLayout :title="$t('workspace.shell.actions')">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.work')"
+                :title="$t('workspace.shell.actions')"
+            />
         </template>
         <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
             <div class="flex flex-wrap items-end gap-3">

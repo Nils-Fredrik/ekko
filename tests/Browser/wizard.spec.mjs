@@ -72,7 +72,8 @@ test('the wizard confirms a proposal and opens the brand after the first run', a
     await expect(startRun).toBeEnabled();
     await startRun.click();
     await expect(page).toHaveURL(/\/brands\/\d+$/);
-    await expect(page.getByRole('heading', { name: 'Browser Wizard AS' })).toBeVisible();
+    await expect(page.getByTestId('workspace-header')).toContainText('Browser Wizard AS · Analysis');
+    await expect(page.getByRole('heading', { level: 1, name: 'Overview', exact: true })).toBeVisible();
     const saved = JSON.parse(
         execFileSync('php', ['tests/Browser/verify-wizard.php'], {
             env: { ...process.env, ...databaseEnv, EKKO_BROWSER_TEST: '1' },

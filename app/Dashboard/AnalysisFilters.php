@@ -8,6 +8,7 @@ use App\Models\Brand;
 use App\Models\MarketEngine;
 use App\Models\Prompt;
 use App\Models\SavedView;
+use App\Workspace\Workspace;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -35,7 +36,7 @@ final class AnalysisFilters
         $engines = MarketEngine::query()->whereIn('market_id', $brand->markets->pluck('id'))->distinct()->orderBy('engine_key')->pluck('engine_key')->all();
         $labels = DashboardLabels::engines($engines);
         $options = [
-            'market' => $brand->markets->map(fn ($m): array => ['value' => $m->id, 'label' => $m->location_label ?: strtoupper($m->country)])->all(),
+            'market' => $brand->markets->map(fn ($m): array => ['value' => $m->id, 'label' => Workspace::marketLabel($m)])->all(),
             'engine' => array_map(fn (string $key): array => ['value' => $key, 'label' => $labels[$key] ?? $key], $engines),
             'topic' => $brand->topics->map(fn ($t): array => ['value' => $t->id, 'label' => $t->name])->all(),
             'intent' => array_map(fn (string $i): array => ['value' => $i, 'label' => DashboardLabels::intent($i)], Prompt::INTENTS),

@@ -24,6 +24,7 @@ import DataTable from '@/Components/UI/DataTable.vue';
 import Drawer from '@/Components/UI/Drawer.vue';
 import { useOpenRow } from '@/Composables/useOpenRow';
 import { useUndoToast } from '@/Composables/useUndoToast';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatCount, formatDateTime, formatNumber, formatPercent, formatPoints, formatRelative } from '@/format';
 import { Bars2Icon } from '@heroicons/vue/20/solid';
@@ -530,9 +531,14 @@ function createCompetitor(name) {
         {
             preserveScroll: true,
             preserveState: true,
+            onBeforeUpdate(response) {
+                // Finish the create panel before rendering the new row, which can be opened immediately.
+                if (response.component === page.component && !Object.keys(response.props.errors ?? {}).length) {
+                    response.url = creatingNew.value ? urlWithParams(page.url, { open: null }) : page.url;
+                }
+            },
             onSuccess: () => {
                 newName.value = '';
-                closeRow();
             },
             onError: (errors) => {
                 createError.value = errors.name ?? trans('workspace.competitors.failed');
@@ -746,20 +752,16 @@ const pickerSuggestion = computed(() => {
 
     return row?.suggestion?.decision === 'alias' ? row.suggestion : null;
 });
-
-const eyebrow = computed(() => trans('workspace.competitors.eyebrow', { brand: props.brand.name }));
 </script>
 
 <template>
-    <AppLayout :title="brand.name">
+    <AppLayout :title="$t('workspace.shell.setup_competitors')">
         <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:px-6">
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <p class="text-sm text-shell-muted">{{ eyebrow }}</p>
-                    <h2 class="text-[22px] leading-tight font-medium text-shell-fg">
-                        {{ $t('workspace.shell.setup_competitors') }}
-                    </h2>
-                </div>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.setup')"
+                :title="$t('workspace.shell.setup_competitors')"
+            >
                 <button
                     v-if="canManage"
                     type="button"
@@ -769,7 +771,7 @@ const eyebrow = computed(() => trans('workspace.competitors.eyebrow', { brand: p
                 >
                     {{ $t('workspace.palette.add_competitor') }}
                 </button>
-            </div>
+            </WorkspaceHeader>
 
             <div
                 role="tablist"

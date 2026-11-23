@@ -386,7 +386,7 @@ Handlingene vises etter `workspace.can`. «Lag rapport nå» krever `reports.man
 
 ## 5. Skjermer
 
-Alle skjermer har dette hodet: brødsmule i 12 px `text-shell-muted` («Fjordbyrå · Oppsett · Norge»), tittel i 26 px `font-medium tracking-tight` og knapper til høyre, slik skissene viser.
+Arbeidsflaten bruker `WorkspaceHeader` med «Merkevare · Gruppe» i 12 px og sidetittelen i 26 px. På globale sider vises tenantens navn når ingen merkevare er valgt. Handlingene ligger til høyre. Merkevareoversikten har «Lag rapport nå» for brukere med `reports.manage`, med samme mål som handlingen i kommandopaletten. Filterlinjen viser marked på sidene som støtter det, periode, sammenligning og «+ Filter», med lagrede visninger til høyre.
 
 ### 5.1 Merkevareoversikt med helsehode og oppstartsliste (skisse 1)
 

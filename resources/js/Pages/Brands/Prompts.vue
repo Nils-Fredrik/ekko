@@ -9,6 +9,7 @@ import { periodBuckets } from '@/Components/Charts/support/data.js';
 import { heatmapRows } from '@/Components/Charts/support/heatmapRows.js';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
@@ -156,9 +157,13 @@ function openCell(event) {
 </script>
 
 <template>
-    <AppLayout :title="brand.name">
+    <AppLayout :title="$t('workspace.shell.prompts')">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.analysis')"
+                :title="$t('workspace.shell.prompts')"
+            />
         </template>
 
         <div class="py-8">

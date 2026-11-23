@@ -20,4 +20,8 @@ test('the health header stays above the key figures, and the checklist can be hi
     await page.getByTestId('hide-checklist').click();
     await expect(page.getByRole('heading', { name: 'Get started' })).toHaveCount(0);
     await expect(kpis).toBeVisible();
+
+    const report = page.getByTestId('workspace-header').getByRole('link', { name: 'Create report now' });
+    await report.click();
+    await expect(page).toHaveURL(new RegExp(`/brands/${process.env.FILTER_BRAND_ID}/setup/notifications$`));
 });

@@ -26,7 +26,11 @@ test('login renders the tenant overview and brand metrics', async ({ page }) => 
     await expect(brand).toContainText('Browser fixture brand');
     await brand.click();
     await expect(page).toHaveURL(new RegExp(`/brands/${process.env.SMOKE_BRAND_ID}$`));
-    await expect(page.getByRole('heading', { name: 'Browser fixture brand' })).toBeVisible();
+    const header = page.getByTestId('workspace-header');
+    await expect(header).toContainText('Browser fixture brand · Analysis');
+    await expect(header.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
+    // The smoke user is a reader.
+    await expect(header.getByRole('link', { name: 'Create report now' })).toHaveCount(0);
     expect(errors).toEqual([]);
 });
 

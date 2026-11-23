@@ -10,6 +10,7 @@ import RankChart from '@/Components/Charts/RankChart.vue';
 import { periodBuckets } from '@/Components/Charts/support/data.js';
 import { formatChange, formatValue, isLowSample } from '@/Components/Charts/support/format.js';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatNumber } from '@/format';
 import { Link, router } from '@inertiajs/vue3';
@@ -194,9 +195,13 @@ function remove(competitor) {
 </script>
 
 <template>
-    <AppLayout :title="brand.name">
+    <AppLayout :title="$t('workspace.shell.competitors')">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.analysis')"
+                :title="$t('workspace.shell.competitors')"
+            />
         </template>
 
         <div class="py-8">

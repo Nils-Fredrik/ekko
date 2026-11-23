@@ -1,4 +1,5 @@
 <script setup>
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 
@@ -28,7 +29,7 @@ function toggle(index, done) {
 <template>
     <AppLayout :title="action.title">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
+            <WorkspaceHeader :brand="brand.name" :group="$t('workspace.shell.work')" :title="action.title" />
         </template>
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-8">
             <Link :href="route('brands.actions.index', brand.id)" class="text-sm text-primary no-underline">
@@ -37,7 +38,6 @@ function toggle(index, done) {
             <article class="space-y-4 rounded-2xl border border-line bg-shell-panel p-5 text-shell-text">
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <h3 class="text-lg font-medium">{{ action.title }}</h3>
                         <p class="mt-1 text-xs text-shell-muted">
                             {{ $t(`action_items.types.${action.type}`) }}
                             · {{ $t(`action_items.impact_levels.${action.impact}`) }}

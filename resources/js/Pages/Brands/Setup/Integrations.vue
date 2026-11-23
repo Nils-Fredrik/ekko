@@ -1,6 +1,7 @@
 <script setup>
 // One card per integration (docs/ux-arbeidsflate.md 5.8, U24). Secrets stay empty and are not returned.
 import InputError from '@/Components/InputError.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { formatDate, formatDateTime } from '@/format';
 import { router, usePage } from '@inertiajs/vue3';
@@ -17,9 +18,6 @@ const props = defineProps({
 });
 
 const page = usePage();
-const crumb = computed(() =>
-    [props.tenantName, trans('workspace.shell.setup'), props.brand.name].filter(Boolean).join(' · '),
-);
 const errors = computed(() => page.props.errors ?? {});
 const forms = reactive({
     clickhouse_logs: {
@@ -76,12 +74,11 @@ function save(type) {
 <template>
     <AppLayout :title="$t('workspace.setup.integrations_title')">
         <div class="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6">
-            <header>
-                <p class="text-xs text-shell-muted">{{ crumb }}</p>
-                <h1 class="text-2xl font-medium tracking-tight text-shell-fg">
-                    {{ $t('workspace.setup.integrations_title') }}
-                </h1>
-            </header>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.setup')"
+                :title="$t('workspace.setup.integrations_title')"
+            />
 
             <p v-if="integrations.length === 0" class="text-sm text-shell-muted">
                 {{ $t('app.empty.integrations_body') }}

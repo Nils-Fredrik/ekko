@@ -1,4 +1,5 @@
 <script setup>
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
 import { Link, usePage } from '@inertiajs/vue3';
@@ -13,7 +14,7 @@ defineProps({
 <template>
     <AppLayout :title="$t('app.nav.brands')">
         <template #header>
-            <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ $t('app.nav.brands') }}</h2>
+            <WorkspaceHeader :group="$t('workspace.shell.setup')" :title="$t('app.nav.brands')" />
         </template>
 
         <div class="py-8">

@@ -16,6 +16,7 @@ import InsightLine from '@/Components/Dashboard/InsightLine.vue';
 import KpiCard from '@/Components/Dashboard/KpiCard.vue';
 import MetricValue from '@/Components/Dashboard/MetricValue.vue';
 import EmptyState from '@/Components/UI/EmptyState.vue';
+import WorkspaceHeader from '@/Components/Shell/WorkspaceHeader.vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, router } from '@inertiajs/vue3';
 import { trans } from 'laravel-vue-i18n';
@@ -23,6 +24,7 @@ import { computed } from 'vue';
 
 const props = defineProps({
     health: { type: Object, default: null },
+    canManageReports: { type: Boolean, required: true },
     canCreateMarket: { type: Boolean, default: false },
     hasPitchReport: { type: Boolean, default: false },
     brand: { type: Object, required: true },
@@ -309,28 +311,37 @@ function openMarker(marker) {
 </script>
 
 <template>
-    <AppLayout :title="brand.name">
+    <AppLayout :title="$t('workspace.shell.overview')">
         <template #header>
-            <div class="flex items-center justify-between gap-4">
-                <h2 class="text-xl leading-tight font-medium tracking-tight text-shell-fg">{{ brand.name }}</h2>
-                <Link :href="route('brands.setup.markets', brand.id)" class="text-sm text-shell-fg no-underline">
-                    {{ $t('app.nav.settings') }}
-                </Link>
-            </div>
+            <WorkspaceHeader
+                :brand="brand.name"
+                :group="$t('workspace.shell.analysis')"
+                :title="$t('workspace.shell.overview')"
+            >
+                <div class="flex flex-wrap items-center gap-3">
+                    <Link v-if="hasPitchReport" :href="route('pitches.report', brand.id)" class="text-sm text-primary">
+                        {{ $t('pitch.report') }}
+                    </Link>
+                    <Link
+                        v-if="canCreateMarket && (!health || health.markets.length > 0)"
+                        :href="route('brands.markets.create', brand.id)"
+                        class="text-sm text-shell-text"
+                    >
+                        {{ $t('onboarding.ui.add_market') }}
+                    </Link>
+                    <Link
+                        v-if="canManageReports"
+                        :href="route('brands.setup.notifications', brand.id)"
+                        class="rounded-full bg-primary-deep px-4 py-2 text-sm font-medium text-white"
+                    >
+                        {{ $t('workspace.palette.create_report') }}
+                    </Link>
+                </div>
+            </WorkspaceHeader>
         </template>
 
         <div class="py-4">
             <div class="mx-auto flex max-w-7xl flex-col gap-4 px-4 sm:px-6 lg:px-8">
-                <Link v-if="hasPitchReport" :href="route('pitches.report', brand.id)" class="text-sm text-primary">
-                    {{ $t('pitch.report') }}
-                </Link>
-                <Link
-                    v-if="canCreateMarket && (!health || health.markets.length > 0)"
-                    :href="route('brands.markets.create', brand.id)"
-                    class="text-sm text-shell-text"
-                >
-                    {{ $t('onboarding.ui.add_market') }}
-                </Link>
                 <PeriodFilters :brand-id="brand.id" route-name="brands.show" :show-data-note="false" />
                 <HealthHeader
                     v-if="health"

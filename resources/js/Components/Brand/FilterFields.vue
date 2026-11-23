@@ -1,4 +1,6 @@
 <script setup>
+import { periodLengths } from './filters.js';
+
 const props = defineProps({
     modelValue: { type: Object, required: true },
     options: { type: Object, required: true },
@@ -14,7 +16,7 @@ const fieldClass = 'rounded-lg border border-line bg-shell-surface px-3 py-2 tex
         <label class="grid gap-1 text-sm">
             {{ $t('app.dashboard.period') }}
             <select :value="modelValue.mode" :class="fieldClass" @change="set('mode', $event.target.value)">
-                <option v-for="days in [7, 28, 90]" :key="days" :value="days">
+                <option v-for="days in periodLengths" :key="days" :value="days">
                     {{ $t('app.dashboard.period_days', { days }) }}
                 </option>
                 <option value="custom">{{ $t('filters.custom') }}</option>

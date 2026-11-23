@@ -85,7 +85,7 @@ test('filtering to one day refreshes the funnel and shows the recorded robot hit
     await page.goto(`/brands/${brand}/crawlers`);
     const cards = page.getByTestId('crawler-kpis').getByTestId('kpi-card');
     await expect(cards.first().getByText('47', { exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Add or change filters' }).click();
+    await page.getByRole('button', { name: '+ Filter' }).click();
     await page.getByRole('combobox', { name: 'Period', exact: true }).selectOption('custom');
     await page.getByLabel('From', { exact: true }).fill(day);
     await page.getByLabel('To', { exact: true }).fill(day);

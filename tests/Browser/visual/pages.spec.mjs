@@ -48,6 +48,22 @@ for (const [name, component, role, path] of pages) {
                 ).toBe(component);
             await settleCharts(page, { inertia: !!component, shared: name === 'shared-report' });
             if (component) await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+            if (component && (component.startsWith('Brands/') || component.startsWith('Reports/') || ['Home', 'Partner/Index', 'Inbox/Index'].includes(component))) {
+                const header = page.getByTestId('workspace-header');
+                await expect(header.getByRole('heading', { level: 1 })).toHaveCSS('font-size', '26px');
+                await expect(header.locator('p').first()).toHaveText(/.+ · .+/);
+            }
+            if (name === 'brand' && info.project.name.startsWith('desktop-')) {
+                const bar = page.getByTestId('analysis-filters');
+                const market = await bar.getByRole('combobox', { name: /Switch market/ }).boundingBox();
+                const period = await bar.getByRole('combobox', { name: 'Change period' }).boundingBox();
+                const filter = await bar.getByRole('button', { name: '+ Filter', exact: true }).boundingBox();
+                const views = await bar.locator('summary').boundingBox();
+                expect(market.x).toBeLessThan(period.x);
+                expect(period.x).toBeLessThan(filter.x);
+                expect(filter.x + filter.width).toBeLessThan(views.x);
+                expect(Math.abs(filter.y - views.y)).toBeLessThan(12);
+            }
             if (appLayoutPages.has(component)) {
                 const mobile = info.project.name.startsWith('mobile-');
                 await expect(page.getByTestId(mobile ? 'open-sidebar' : 'sidebar')).toBeVisible();
