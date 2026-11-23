@@ -64,6 +64,9 @@ test('monthly CSV reconciles exact usage, groups partner clients and excludes BY
         ->and($rows[2]['invoice_total_usd'])->toBe('3.30');
     $statement = app(BillingStatement::class);
     expect($statement->accounts($statement->rows($admin, '2026-10'))[0]['invoice_total_usd'])->toBe('15.25');
+    $this->actingAs($admin)->get('/admin/billing?month=2026-10')->assertInertia(fn (Assert $page) => $page
+        ->where('rows.0.platform_cost_usd', 10.60000006)->where('rows.0.calls', 7)
+        ->where('rows.0.invoice_total_usd', 13.25)->where('accounts.0.invoice_total_usd', 15.25));
     expect(app(TenantContext::class)->id())->toBeNull();
 });
 
