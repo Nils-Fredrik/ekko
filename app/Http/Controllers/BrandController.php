@@ -16,6 +16,7 @@ use App\Models\Brand;
 use App\Models\Competitor;
 use App\Models\MarketEngine;
 use App\Models\Prompt;
+use App\Models\ReportSchedule;
 use App\Models\Team;
 use App\Onboarding\Analysis;
 use App\Tenancy\TenantContext;
@@ -74,6 +75,7 @@ class BrandController extends Controller
 
         return Inertia::render('Brands/Show', [
             'health' => fn () => app(BrandHealth::class)->for($brand),
+            'canManageReports' => fn () => Gate::allows('create', ReportSchedule::class),
             'canCreateMarket' => fn () => Gate::allows('createMarketAnalysis', Analysis::class),
             'hasPitchReport' => fn () => Team::query()->whereKey(current_tenant_id())->whereNotNull('pitch_expires_at')->exists(),
             'brand' => [

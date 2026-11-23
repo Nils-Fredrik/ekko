@@ -24,6 +24,7 @@ import { computed } from 'vue';
 
 const props = defineProps({
     health: { type: Object, default: null },
+    canManageReports: { type: Boolean, required: true },
     canCreateMarket: { type: Boolean, default: false },
     hasPitchReport: { type: Boolean, default: false },
     brand: { type: Object, required: true },
@@ -329,7 +330,7 @@ function openMarker(marker) {
                         {{ $t('onboarding.ui.add_market') }}
                     </Link>
                     <Link
-                        v-if="$page.props.workspace?.can?.manage_reports"
+                        v-if="canManageReports"
                         :href="route('brands.setup.notifications', brand.id)"
                         class="rounded-full bg-primary-deep px-4 py-2 text-sm font-medium text-white"
                     >
