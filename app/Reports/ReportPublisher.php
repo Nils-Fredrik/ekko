@@ -8,6 +8,7 @@ use App\Metrics\Metric;
 use App\Metrics\MetricsFilter;
 use App\Metrics\MetricsService;
 use App\Metrics\MetricsSummary;
+use App\Models\Brand;
 use App\Models\Competitor;
 use App\Models\Prompt;
 use App\Models\Report;
@@ -32,7 +33,7 @@ final class ReportPublisher
     {
         $timezone = $this->timezone($tenant);
         $due = [];
-        foreach (ReportSchedule::query()->orderBy('id')->get() as $schedule) {
+        foreach (ReportSchedule::query()->whereRelation('brand', 'status', '!=', 'archived')->orderBy('id')->get() as $schedule) {
             $windows = ReportWindow::recent($schedule->cadence, $timezone, $now);
             $open = [];
             foreach ($windows as $index => [$from, $to]) {
@@ -113,8 +114,12 @@ final class ReportPublisher
     }
 
     /** Marks the period as started so a later run retries it when the PDF is still missing. */
-    public function claim(DueReport $due): Report
+    public function claim(DueReport $due): ?Report
     {
+        if (Brand::query()->unarchived()->sharedLock()->find($due->brandId) === null) {
+            return null;
+        }
+
         $existing = $this->find($due);
         if ($existing instanceof Report) {
             return $existing;
@@ -165,7 +170,7 @@ final class ReportPublisher
     {
         $timezone = $this->timezone($tenant);
         $reports = [];
-        foreach (ReportSchedule::query()->orderBy('id')->get() as $schedule) {
+        foreach (ReportSchedule::query()->whereRelation('brand', 'status', '!=', 'archived')->orderBy('id')->get() as $schedule) {
             $windows = ReportWindow::recent($schedule->cadence, $timezone, $now);
             $oldest = $windows[array_key_last($windows)][0];
             $pending = Report::query()

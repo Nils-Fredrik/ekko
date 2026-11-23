@@ -90,8 +90,8 @@ final class CollectEngineRun extends TenantJob
                 $collector->collect($run->id);
             }
         } catch (EngineCallFailed $failure) {
-            if ($failure->getMessage() === 'pitch_expired') {
-                if (! $this->stop('pitch_expired', preserveReservation: true)) {
+            if (in_array($failure->getMessage(), ['pitch_expired', 'brand_archived'], true)) {
+                if (! $this->stop($failure->getMessage(), preserveReservation: true)) {
                     $this->release(30);
                 }
 

@@ -2,6 +2,8 @@
 
 // Batch submission and result handling per tenant (docs/spec.md 8.2, ADR 0011).
 
+use App\Brands\IdentityLibrary;
+use App\Detection\DetectionCatalog;
 use App\Detection\DeterministicDetector;
 use App\Extraction\ExtractionClient;
 use App\Jobs\PollExtractionBatch;
@@ -203,7 +205,27 @@ it('sends the market language, the catalog and the deterministic result with eac
         ->and($user)->toContain('"surface_name":"Fjordkaffe","list_position":2');
 });
 
-it('writes the combined result of a batch: enriched mentions, unknown companies, citations, usage and run status', function () {
+it('limits archived aliases and domains to runs that started before archiving in a mixed batch', function () {
+    $a = extractionTenant();
+    $earlier = collectedResponse($a, 'Fjordkaffe');
+    $this->travel(1)->minutes();
+    $otherMarket = asTenant($a['tenant'], function () use ($a) {
+        $old = Brand::query()->findOrFail($a['brand']);
+        app(IdentityLibrary::class)->archive($old, $old->name);
+
+        return Market::factory()->for(Brand::factory())->create();
+    });
+    $this->travel(1)->minutes();
+    $later = collectedResponse([...$a, 'market' => $otherMarket], 'Fjordkaffe');
+    asTenant($a['tenant'], function () use ($earlier, $later) {
+        $catalogs = DetectionCatalog::forResponses([$later, $earlier]);
+        $detector = app(DeterministicDetector::class);
+        expect($detector->detect($earlier, $catalogs[$earlier->id])['mentions'])->toBe(1)
+            ->and($detector->detect($later, $catalogs[$later->id])['mentions'])->toBe(0);
+    });
+});
+
+it('writes the combined result of a batch: enriched mentions, unknown companies, citations, usage and run status', function (bool $archiveDuringExtraction) {
     $a = extractionTenant();
     $text = "Topplisten:\n1. Nordlys Rosteri\n2. Fjordkaffe\nKaffebønna AS er nytt, se https://www.dagbladet.no/test?utm_source=x og https://fjordkaffe.no/kjop.";
     $listed = collectedResponse($a, $text);
@@ -231,6 +253,12 @@ it('writes the combined result of a batch: enriched mentions, unknown companies,
 
     dispatch_sync(new SubmitExtractionBatch($a['tenant']->id));
     $job = ExtractionJob::query()->withoutGlobalScopes()->sole();
+    if ($archiveDuringExtraction) {
+        asTenant($a['tenant'], function () use ($a) {
+            $brand = Brand::query()->findOrFail($a['brand']);
+            app(IdentityLibrary::class)->archive($brand, $brand->name);
+        });
+    }
     dispatch_sync(new PollExtractionBatch($a['tenant']->id, $job->id));
 
     expect($client->batches[0])->not->toContain("r{$empty->id}")
@@ -293,7 +321,7 @@ it('writes the combined result of a batch: enriched mentions, unknown companies,
         // batch 50 in / 5 out discounted, then retry 60 in / 20 out at full price
         expect($byRun[$badThenGood->run_id]->pluck('cost_usd')->all())->toBe(['0.00000375', '0.00001600']);
     });
-});
+})->with(['active brand' => false, 'archived while the batch is in flight' => true]);
 
 it('is safe to run again and does not log usage twice', function () {
     $a = extractionTenant();

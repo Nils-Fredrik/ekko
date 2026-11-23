@@ -39,6 +39,18 @@ use Tests\Support\Metrics\MetricsWorld;
 
 require_once __DIR__.'/../../Support/MeasurementPlan/helpers.php';
 
+test('archiving a brand hides alerts scoped by rule, payload or market while keeping tenant alerts', function () {
+    $w = MetricsWorld::create();
+    $rule = AlertRule::factory()->for($w->brand)->create(['type' => 'visibility_drop']);
+    $global = AlertRule::factory()->create(['brand_id' => null, 'type' => 'quota']);
+    foreach ([[$rule, []], [$global, ['brand_id' => $w->brand->id]], [$global, ['market_id' => $w->market->id]], [$global, ['threshold_percent' => 80]]] as [$source, $payload]) {
+        Alert::factory()->for($source)->create(['triggered_at' => now(), 'payload' => $payload]);
+    }
+    $w->brand->update(['status' => 'archived']);
+    $items = app(InboxQuery::class)->items($w->tenant, type: 'alerts');
+    expect($items)->toHaveCount(1)->and($items[0]->url)->toBe(route('usage.index'));
+});
+
 test('the five inbox sources group and count visible rows, then clear as their sources are handled', function () {
     $w = MetricsWorld::create();
     $owner = $w->tenant->owner;

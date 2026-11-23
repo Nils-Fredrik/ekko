@@ -22,6 +22,17 @@ final class IdentityLibrary
         DB::transaction(fn () => $this->saveIdentity($this->lock($brand), $data));
     }
 
+    public function archive(Brand $brand, string $confirmation): void
+    {
+        DB::transaction(function () use ($brand, $confirmation): void {
+            $locked = $this->lock($brand);
+            if ($confirmation !== $locked->name) {
+                throw ValidationException::withMessages(['brand_name_confirmation' => __('workspace.setup.confirm_mismatch')]);
+            }
+            $locked->forceFill(['status' => 'archived', 'archived_at' => now()])->save();
+        });
+    }
+
     /** @param array<string, mixed> $data */
     private function saveIdentity(Brand $brand, array $data): void
     {
@@ -89,6 +100,6 @@ final class IdentityLibrary
 
     private function lock(Brand $brand): Brand
     {
-        return Brand::query()->lockForUpdate()->findOrFail($brand->id);
+        return Brand::query()->unarchived()->lockForUpdate()->findOrFail($brand->id);
     }
 }

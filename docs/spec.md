@@ -247,7 +247,7 @@ Alle tenant-eide tabeller har `tenant_id bigint not null` med fremmednøkkel til
 
 | Tabell | Viktige kolonner |
 |---|---|
-| `brands` | `tenant_id`, `name`, `slug`, `primary_domain`, `status` |
+| `brands` | `tenant_id`, `name`, `slug`, `primary_domain`, `status` (active, paused, archived), `archived_at` (se ADR 0046) |
 | `brand_aliases` | `brand_id`, `alias`, `match_mode` (exact_word, case_insensitive, regex) |
 | `brand_domains` | `brand_id`, `domain`, `include_subdomains` |
 | `competitors` | `tenant_id`, `brand_id`, `name`, `is_active`, `deleted_at` (logisk sletting) |
@@ -953,7 +953,7 @@ I innboksen kan en bruker med `prompts.manage` opprette et rettetiltak fra førs
 | `Pages/Brands/Setup/Prompts.vue` | Prompts og temaer med filterbrikker, detaljpanel med faner, masseendring, forslag og CSV. Importforhåndsvisningen viser prompttekst, feltnavn og verdier før og etter endringen. |
 | `Pages/Brands/Setup/Competitors.vue` | Behandle nye merkenavn, rediger konkurrenter, test alias mot nylige svar, rediger domener og se andre og ignorerte aktører |
 | `Pages/Brands/Setup/Markets.vue` | Markedstabell med lokaliserte navn og detaljpanel via `?open=`. Måleplan med arvede eller egne motorregler og estimat før lagring (7.6) |
-| `Pages/Brands/Setup/Identity.vue` | Merkevarens navn, status, domener og alias med forhåndsvisning av treff |
+| `Pages/Brands/Setup/Identity.vue` | Merkevarens navn, status, domener og alias med utheving av treff. Arkivering med navnebekreftelse krever `brands.manage` |
 | `Pages/Brands/Setup/Integrations.vue` | Konfigurasjon og status for GA4 og ClickHouse, med lenke til opplasting av logger |
 | `Pages/Brands/Setup/Notifications.vue` | Varselregler, kanaler, rapportplaner, mottakere, testutsending og rapportdeling for én merkevare |
 | `Pages/Onboarding/Wizard.vue` | Veiviseren fra kapittel 13 |

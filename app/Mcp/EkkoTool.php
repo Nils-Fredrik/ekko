@@ -156,10 +156,10 @@ abstract class EkkoTool extends Tool
                 throw new ToolFailure(__('mcp.errors.unknown_brand'));
             }
 
-            return Brand::query()->find((int) $id) ?? throw new ToolFailure(__('mcp.errors.unknown_brand'));
+            return Brand::query()->unarchived()->find((int) $id) ?? throw new ToolFailure(__('mcp.errors.unknown_brand'));
         }
 
-        $brands = Brand::query()->orderBy('id')->limit(2)->get();
+        $brands = Brand::query()->unarchived()->orderBy('id')->limit(2)->get();
         if ($brands->count() !== 1) {
             throw new ToolFailure(__($brands->isEmpty() ? 'mcp.errors.no_brand' : 'mcp.errors.choose_brand'));
         }

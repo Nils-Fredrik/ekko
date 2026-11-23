@@ -47,7 +47,7 @@ class HomeController extends Controller
             ]);
         }
 
-        $brandModels = Brand::query()->with('markets')->orderBy('name')->get();
+        $brandModels = Brand::query()->unarchived()->with('markets')->orderBy('name')->get();
         $brands = $brandModels->map(function (Brand $brand) use ($metrics, $period) {
             $current = $metrics->visibility($period->filter($brand->id));
             $previous = $metrics->visibility($period->filter($brand->id, previous: true));

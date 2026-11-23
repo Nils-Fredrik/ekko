@@ -131,6 +131,9 @@ final readonly class EngineCollector
 
         $prompt = $run->prompt()->firstOrFail();
         $market = $prompt->market()->firstOrFail();
+        if ($market->brand()->sharedLock()->value('status') === 'archived') {
+            throw new EngineCallFailed('brand_archived');
+        }
         $adapter = $this->registry->resolve($run->engine_key);
 
         if ($adapter instanceof QueuedEngineAdapter || ! $adapter->supports($market)) {

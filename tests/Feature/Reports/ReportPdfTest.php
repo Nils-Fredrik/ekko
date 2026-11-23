@@ -18,6 +18,7 @@ use App\Reports\ReportPublisher;
 use App\Reports\ReportWindow;
 use App\Tenancy\Rls\TenantRls;
 use App\Tenancy\TenantContext;
+use Carbon\CarbonImmutable;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\UploadedFile;
@@ -49,6 +50,27 @@ test('a queued scheduled report does not start after pitch expiry', function () 
     Http::assertNothingSent();
     Mail::assertNothingOutgoing();
     expect(Report::query()->count())->toBe(0);
+});
+
+test('archiving a brand stops pending report claims, monthly insights and unsent deliveries', function () {
+    $world = MetricsWorld::create('UTC');
+    $schedule = ReportSchedule::factory()->for($world->brand)->create(['cadence' => 'monthly']);
+    $publisher = app(ReportPublisher::class);
+    $at = CarbonImmutable::now('UTC');
+    $due = $publisher->due($world->tenant, $at);
+    expect($due)->toHaveCount(1);
+    $world->brand->update(['status' => 'archived']);
+    expect($publisher->claim($due[0]))->toBeNull();
+    $stored = Report::factory()->for($schedule, 'reportSchedule')->create([
+        'period_start' => $due[0]->from, 'period_end' => $due[0]->to, 'pdf_uri' => 'reports/stored.pdf',
+    ]);
+    expect($publisher->due($world->tenant, $at))->toBeEmpty()->and($publisher->unsent($world->tenant, $at))->toBeEmpty();
+    Http::preventStrayRequests();
+    Mail::fake();
+    dispatch_sync(new GenerateTenantReports($world->tenant->id));
+    Http::assertNothingSent();
+    Mail::assertNothingOutgoing();
+    expect(Report::query()->sole()->id)->toBe($stored->id);
 });
 
 test('a monthly report pdf is stored and mailed once, with the insight allocation consumed once', function () {

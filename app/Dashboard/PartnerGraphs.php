@@ -62,7 +62,7 @@ final class PartnerGraphs
         $days = [];
         $current = [];
         $previous = [];
-        foreach (Brand::query()->orderBy('id')->get() as $brand) {
+        foreach (Brand::query()->unarchived()->orderBy('id')->get() as $brand) {
             $filter = $period->filter($brand->id);
             $series = $this->cache->remember('partner.visibility.series', $filter, $period->timezone, fn (): array => array_map(
                 fn (array $row): array => ['date' => $row['period'], ...$row['summary']->visibility->toArray()],

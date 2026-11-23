@@ -47,16 +47,20 @@ function addAlias() {
     );
 }
 
-function pause() {
+function confirmAction(action) {
     if (confirmation.value !== props.brand.name) {
         confirmError.value = trans('workspace.setup.confirm_mismatch');
         return;
     }
     confirmError.value = '';
+    if (action === 'archive') {
+        router.post(route('brands.archive', props.brand.id), { brand_name_confirmation: confirmation.value });
+        return;
+    }
     router.patch(
         route('brands.identity.update', props.brand.id),
         { status: 'paused' },
-        { preserveScroll: true, only: ['brand'] },
+        { preserveScroll: true, only: ['brand'], onSuccess: () => (confirmation.value = '') },
     );
 }
 
@@ -241,23 +245,43 @@ function resume() {
             <section v-if="canManage" class="space-y-3 rounded-xl border border-line p-4 text-sm text-shell-text">
                 <h2 class="font-medium">{{ $t('workspace.setup.danger') }}</h2>
                 <p class="text-xs text-shell-muted">{{ $t('workspace.setup.pause_help') }}</p>
-                <p class="text-xs text-shell-muted">{{ $t('workspace.setup.archive_later') }}</p>
-                <template v-if="brand.status !== 'paused'">
-                    <label class="block text-xs">
-                        {{ $t('workspace.setup.confirm_name') }}
-                        <input
-                            v-model="confirmation"
-                            class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2"
-                        />
-                    </label>
-                    <p v-if="confirmError" class="text-xs text-warning">{{ confirmError }}</p>
-                    <button type="button" class="rounded-lg border border-line px-3 py-1.5" @click="pause">
+                <p class="text-xs text-shell-muted">{{ $t('workspace.setup.archive_help') }}</p>
+                <label class="block text-xs">
+                    {{ $t('workspace.setup.confirm_name') }}
+                    <input
+                        v-model="confirmation"
+                        class="mt-1 w-full rounded-lg border border-line bg-shell-surface px-3 py-2"
+                        @input="confirmError = ''"
+                    />
+                </label>
+                <p v-if="confirmError || errors.brand_name_confirmation" role="alert" class="text-xs text-warning">
+                    {{ confirmError || errors.brand_name_confirmation }}
+                </p>
+                <div class="flex flex-wrap gap-2">
+                    <button
+                        v-if="brand.status === 'paused'"
+                        type="button"
+                        class="rounded-lg border border-line px-3 py-1.5"
+                        @click="resume"
+                    >
+                        {{ $t('workspace.setup.resume') }}
+                    </button>
+                    <button
+                        v-else
+                        type="button"
+                        class="rounded-lg border border-line px-3 py-1.5"
+                        @click="confirmAction('pause')"
+                    >
                         {{ $t('workspace.setup.pause') }}
                     </button>
-                </template>
-                <button v-else type="button" class="rounded-lg border border-line px-3 py-1.5" @click="resume">
-                    {{ $t('workspace.setup.resume') }}
-                </button>
+                    <button
+                        type="button"
+                        class="rounded-lg border border-line px-3 py-1.5 text-warning"
+                        @click="confirmAction('archive')"
+                    >
+                        {{ $t('workspace.setup.archive') }}
+                    </button>
+                </div>
             </section>
         </div>
     </AppLayout>

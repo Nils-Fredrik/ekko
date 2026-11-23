@@ -170,7 +170,7 @@ final class OnboardingRunner
      */
     private function marketContext(int $tenantId, int $brandId, string $targetLanguage): ?array
     {
-        $brand = Brand::query()->find($brandId);
+        $brand = Brand::query()->unarchived()->find($brandId);
         if ($brand === null) {
             return null;
         }

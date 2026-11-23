@@ -27,13 +27,17 @@ final readonly class InboxAlerts
         $promptMarkets = Prompt::whereIn('id', $alerts->pluck('payload.prompt_id')->filter())->pluck('market_id', 'id');
         $integrationBrands = Integration::whereIn('id', $alerts->pluck('payload.integration_id')->filter())->pluck('brand_id', 'id');
         $brands = Brand::whereIn('id', $integrationBrands->merge($alerts->pluck('payload.brand_id'))->filter())->get()->keyBy('id');
-        $markets = Market::whereIn('id', $alerts->pluck('payload.market_id')->merge($promptMarkets->values())->filter())->get()->keyBy('id');
+        $markets = Market::with('brand')->whereIn('id', $alerts->pluck('payload.market_id')->merge($promptMarkets->values())->filter())->get()->keyBy('id');
 
         $groups = [];
         foreach ($alerts as $alert) {
             $payload = $alert->payload;
             $owner = $alert->alertRule->brand ?? $brands->get($payload['brand_id'] ?? $integrationBrands->get($payload['integration_id'] ?? 0));
             $scope = $markets->get($payload['market_id'] ?? $promptMarkets->get($payload['prompt_id'] ?? 0));
+            $owner ??= $scope?->brand;
+            if ($owner?->status === 'archived') {
+                continue;
+            }
             if (($brand && $owner && $owner->id !== $brand->id) || ($market && $scope && $scope->id !== $market->id)) {
                 continue;
             }

@@ -84,19 +84,6 @@ final class QueuedEngineCollector
 
                     return;
                 }
-                $tenant = Team::query()->findOrFail($tenantId);
-                if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt(CarbonImmutable::now('UTC'))) {
-                    // No paid resubmission after expiry; give the original task the normal two-attempt window.
-                    if ($run->provider_submitted_at?->addHours(12)->isFuture()) {
-                        $this->wait($runId);
-
-                        return;
-                    }
-                    throw new EngineCallFailed('provider_task_timeout');
-                }
-                if ($run->provider_submissions >= 2) {
-                    throw new EngineCallFailed('provider_task_timeout');
-                }
             }
             $reservation = $this->rls->run([$tenantId], function () use ($tenantId, $runId, $adapter): ?ReservedEngineRun {
                 $tenant = Team::query()->lock('for no key update')->findOrFail($tenantId);
@@ -105,8 +92,22 @@ final class QueuedEngineCollector
                     throw new EngineCallFailed('engine_disabled');
                 }
                 $at = CarbonImmutable::now('UTC');
-                if ($tenant->kind === 'pitch' && ! $tenant->mayCollectAt($at)) {
-                    throw new EngineCallFailed('pitch_expired');
+                $expiredPitch = $tenant->kind === 'pitch' && ! $tenant->mayCollectAt($at);
+                $archived = $run->prompt->market->brand()->sharedLock()->value('status') === 'archived';
+                if ($expiredPitch || $archived) {
+                    if ($run->provider_task_id === null) {
+                        throw new EngineCallFailed($archived ? 'brand_archived' : 'pitch_expired');
+                    }
+                    // Poll an accepted task for its full window without paying for a second submission.
+                    if ($run->provider_submitted_at?->addHours(12)->isFuture()) {
+                        $this->wait($runId);
+
+                        return null;
+                    }
+                    throw new EngineCallFailed('provider_task_timeout');
+                }
+                if ($run->provider_submissions >= 2) {
+                    throw new EngineCallFailed('provider_task_timeout');
                 }
                 // A resubmission uses the same provider account as the original task, even after key rotation. Only a
                 // tenant's own key (BYOK) is stored on the run; a null key means the platform account, read from config

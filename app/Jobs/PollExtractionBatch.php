@@ -108,23 +108,23 @@ class PollExtractionBatch extends TenantJob
             // Without ORDER BY PostgreSQL returns the rows in no fixed order, and the retries would follow it.
             ->orderBy('id')->get()->keyBy('id');
 
-        $catalog = DetectionCatalog::load();
+        $catalogs = DetectionCatalog::forResponses($responses);
         $deterministic = [];
         $sources = [];
         foreach ($responses as $id => $response) {
-            $detector->detect($response, $catalog);
+            $detector->detect($response, $catalogs[$id]);
             $deterministic[$id] = $writer->deterministicMentions($response);
             $sources[$id] = $response->annotationUrls();
         }
 
-        $requestFor = function (string $customId) use ($responses, $deterministic, $sources, $catalog, $prompts): ?ExtractionRequest {
+        $requestFor = function (string $customId) use ($responses, $deterministic, $sources, $catalogs, $prompts): ?ExtractionRequest {
             $response = $responses[(int) substr($customId, 1)] ?? null;
 
             return $response === null ? null : $prompts->build(
                 $customId,
                 (string) $response->answer_text,
                 $response->run->prompt->market->language ?? $response->answer_language ?? 'und',
-                $catalog->aliases,
+                $catalogs[$response->id]->aliases,
                 $deterministic[$response->id],
                 $sources[$response->id],
             );
@@ -139,6 +139,7 @@ class PollExtractionBatch extends TenantJob
 
         foreach ($attempts as $customId => $attempt) {
             $response = $responses[(int) substr($customId, 1)];
+            $catalog = $catalogs[$response->id];
             $assembled = $assembler->assemble((string) $response->answer_text, $deterministic[$response->id], $attempt->result, $catalog->aliases);
 
             $writer->write($response, $assembled, $catalog);

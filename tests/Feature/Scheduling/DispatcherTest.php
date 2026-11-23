@@ -94,6 +94,25 @@ test('daily dispatch queues one template action refresh per pitch without adding
     expect($actions())->toHaveCount(2);
 });
 
+test('an archived brand has no new runs and a previously queued run stops before provider billing', function () {
+    $now = CarbonImmutable::now('UTC');
+    $tenant = dispatchTenant(dispatchEngine(), 1);
+    expect(app(Dispatcher::class)->dispatch($now))->toBe(1);
+    $runId = app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], function () {
+        $run = Run::query()->sole();
+        $run->prompt->market->brand->update(['status' => 'archived']);
+
+        return $run->id;
+    }));
+    Http::preventStrayRequests();
+    app()->instance(RawResponseStore::class, Mockery::mock(RawResponseStore::class));
+    app(TenantContext::class)->run($tenant->id, fn () => app()->call([new CollectEngineRun($tenant->id, $runId), 'handle']));
+    expect(app(Dispatcher::class)->dispatch($now->addDay()))->toBe(0);
+    app(TenantContext::class)->run($tenant->id, fn () => app(TenantRls::class)->run([$tenant->id], fn () => expect(Run::query()->sole()->error_code)->toBe('brand_archived')
+        ->and(UsageEvent::query()->count())->toBe(0)));
+    Http::assertNothingSent();
+});
+
 test('a queued pitch run cannot start provider work after the pitch expires', function () {
     $now = CarbonImmutable::now('UTC');
     $this->travelTo($now);

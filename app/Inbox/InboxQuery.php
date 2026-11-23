@@ -34,7 +34,7 @@ final readonly class InboxQuery
         };
         $rows = ($type === null || $type === 'alert') ? $this->alerts->items($team, $brand, $market, $handled) : [];
         if ($type !== 'alert') {
-            $brands = $brand ? [$brand] : Brand::query()->orderBy('id')->get();
+            $brands = $brand ? [$brand] : Brand::query()->unarchived()->orderBy('id')->get();
             foreach ($brands as $owner) {
                 foreach ($type === null ? ['entity', 'action', 'claim', 'integration'] : [$type] as $kind) {
                     array_push($rows, ...match ($kind) {

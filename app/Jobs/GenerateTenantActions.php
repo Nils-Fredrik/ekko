@@ -60,7 +60,7 @@ class GenerateTenantActions extends TenantJob
         $toWord = [];
         foreach ($brandIds as $brandId) {
             $result = $rls->run([$this->tenantId], function () use ($generator, $brandId, $now) {
-                $brand = Brand::query()->find($brandId);
+                $brand = Brand::query()->where('status', 'active')->find($brandId);
 
                 return $brand === null ? null : $generator->generate($brand, $now, $this->force);
             });

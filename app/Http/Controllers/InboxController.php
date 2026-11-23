@@ -47,7 +47,7 @@ class InboxController extends Controller
                 'type' => $tab,
                 'handled' => $request->query('handled') === '1',
             ],
-            'brands' => Brand::query()->orderBy('name')->get(['id', 'name']),
+            'brands' => Brand::query()->unarchived()->orderBy('name')->get(['id', 'name']),
             'can' => [
                 'alerts' => Gate::allows('create', AlertRule::class),
                 'entities' => Gate::allows('create', EntityDecision::class),
@@ -113,7 +113,7 @@ class InboxController extends Controller
     {
         $id = filter_var($request->query('brand'), FILTER_VALIDATE_INT);
 
-        return $id === false ? null : Brand::query()->find($id);
+        return $id === false ? null : Brand::query()->unarchived()->find($id);
     }
 
     private function market(Request $request, ?Brand $brand): ?Market

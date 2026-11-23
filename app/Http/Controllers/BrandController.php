@@ -39,7 +39,7 @@ class BrandController extends Controller
             return Inertia::render('Brands/Index', ['brands' => []]);
         }
 
-        $brands = Brand::query()->with('markets')->orderBy('name')->get()->map(fn (Brand $brand) => [
+        $brands = Brand::query()->unarchived()->with('markets')->orderBy('name')->get()->map(fn (Brand $brand) => [
             'id' => $brand->id,
             'name' => $brand->name,
             'status' => DashboardLabels::status($brand->status),
