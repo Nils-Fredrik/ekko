@@ -5,3 +5,5 @@
 `POST /brands/{brand}/archive` krever `brands.manage`. Serveren låser raden og krever at det innskrevne navnet er identisk med det gjeldende navnet. Vanlige identitetsendringer kan ikke gjenåpne en arkivert merkevare.
 
 Planleggeren velger aktive merkevarer. Innsamlerne kontrollerer også merkevarens status ved reservasjon, før en bestilling eller ny betalt innsending. En måling som allerede er bestilt, får fullføre og bokføres på vanlig måte.
+
+Planlagte rapporter og nye månedsinnsikter stopper. Allerede lagrede rapporter er fortsatt tilgjengelige i rapportarkivet. Innsamlede svar beholdes i databasen. Merkevarens egne arbeidsflater stenges. Innboksen skjuler varsler som peker til en arkivert merkevare. En allerede betalt køoppgave kan hentes ut i det ordinære tolvtimersvinduet.

@@ -81,7 +81,9 @@ class GenerateTenantReports extends TenantJob
             }
             try {
                 $this->hold($lock);
-                $rls->run([$this->tenantId], fn () => $publisher->claim($item));
+                if ($rls->run([$this->tenantId], fn () => $publisher->claim($item)) === null) {
+                    continue;
+                }
                 $text = $this->insight($rls, $insights, $item, $claimedBrands);
             } catch (Throwable $e) {
                 report($e);
@@ -170,7 +172,7 @@ class GenerateTenantReports extends TenantJob
 
         /** @var array{name: string, admission: InsightAdmission}|null $loaded */
         $loaded = $rls->run([$this->tenantId], function () use ($insights, $item) {
-            $brand = Brand::query()->find($item->brandId);
+            $brand = Brand::query()->unarchived()->sharedLock()->find($item->brandId);
             if (! $brand instanceof Brand) {
                 return null;
             }
@@ -183,7 +185,7 @@ class GenerateTenantReports extends TenantJob
                 return null;
             }
             $pending = $rls->run([$this->tenantId], function () use ($insights, $item): bool {
-                $brand = Brand::query()->find($item->brandId);
+                $brand = Brand::query()->unarchived()->find($item->brandId);
 
                 return $brand instanceof Brand && $insights->pending($brand);
             });
@@ -259,6 +261,9 @@ class GenerateTenantReports extends TenantJob
         foreach ($recipients as $recipient) {
             if (in_array($recipient, $sent, true)) {
                 continue;
+            }
+            if (! $rls->run([$this->tenantId], fn (): bool => Brand::query()->unarchived()->whereKey($schedule->brand_id)->exists())) {
+                return;
             }
             Mail::to($recipient)->locale($schedule->locale)->send(new ReportMail(
                 $brand instanceof Brand ? $brand->name : '',

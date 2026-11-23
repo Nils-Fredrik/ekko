@@ -105,14 +105,19 @@ test('a paid provider task submitted before pitch expiry can be fetched afterwar
     Http::assertSentCount(3);
 });
 
-test('an expired pitch does not resubmit a timed out provider task', function () {
+test('a closed admission window keeps polling the paid task without resubmitting', function (string $reason) {
     [$tenant, $run] = queuedFixture();
-    $tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addMinute()])->save();
+    if ($reason === 'pitch') {
+        $tenant->forceFill(['kind' => 'pitch', 'pitch_expires_at' => now()->addMinute()])->save();
+    }
     Http::preventStrayRequests()->fake([
         '*/task_post' => Http::response(EngineFixtures::load('dataforseo', 'created')),
         '*/tasks_ready' => Http::response(['status_code' => 20000, 'tasks' => []]),
     ]);
     collectQueued($tenant, $run);
+    if ($reason === 'archive') {
+        inQueuedTenant($tenant, fn () => $run->prompt->market->brand->update(['status' => 'archived']));
+    }
     $this->travel(6)->hours();
     app(TenantContext::class)->run($tenant->id, fn () => app()->call([new CollectEngineRun($tenant->id, $run->id), 'handle']));
     inQueuedTenant($tenant, fn () => expect($run->fresh()->status)->toBe('submitted')->and(UsageEvent::query()->count())->toBe(1));
@@ -120,7 +125,7 @@ test('an expired pitch does not resubmit a timed out provider task', function ()
     $this->travel(6)->hours();
     expect(fn () => collectQueued($tenant, $run))->toThrow(EngineCallFailed::class, 'provider_task_timeout');
     Http::assertSentCount(3);
-});
+})->with(['pitch', 'archive']);
 
 test('a pending provider task is resubmitted at six hours only once and both submissions are billed', function () {
     $this->travelTo(now()->startOfDay());
